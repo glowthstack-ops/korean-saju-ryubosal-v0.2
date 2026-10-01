@@ -17,9 +17,10 @@ import time
 from collections import Counter
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from typing import Any
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from saju_manse_analysis.luck.luck_calendar import luck_month_label, shift_month_label
 
 from saju_engines import (
@@ -51,6 +52,7 @@ from saju_engines.context_reducer import (
     first_sentence,
     serialize_with_guard,
 )
+from saju_engines.contrast_rewrite import rewrite_false_contrast
 from saju_engines.conversation import (
     ConversationEngine,
     is_affirm_continue,
@@ -677,6 +679,24 @@ _RETRO_TENSE_DIRECTIVE = (
 )
 
 
+class ChatPostprocessContext(BaseModel):
+    """답변 후처리에 필요한 생성 시점 맥락(2026-10-01) — 비동기·비로그인 경로가 동기 경로와 같은
+    감사(커리어 출력 감사·관계 주장 패치·월 커버리지 보정)를 거치도록 prep(dry-run) 응답에 실어
+    보낸다.
+
+    클라이언트 응답에는 절대 직렬화되지 않는다(`exclude=True`) — 프로세스 내부 전달 전용.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    payload: LlmInput
+    career_prep: Any = None  # CareerChatPreparation | None(커리어 beta 비자격이면 None)
+    prompt_text: str = ""
+    call_type: str = "chat_single"
+    system: str | None = None
+    owner_id: str | None = None
+
+
 class ChatResponse(BaseModel):
     """대화형 응답 — answer가 본문, 나머지는 추적/디버그 메타."""
 
@@ -697,6 +717,9 @@ class ChatResponse(BaseModel):
     # (라우터가 이걸로 connection-독립 백그라운드 태스크를 띄운다.)
     system_prompt: str | None = None
     call_type: str | None = None
+    # 후처리 맥락(내부 전용·비직렬화) — 라우터가 백그라운드/동기 생성 뒤 finalize_answer_full 에
+    # 넘긴다.
+    postprocess: ChatPostprocessContext | None = Field(default=None, exclude=True)
 
 
 def _get_scorer() -> EventEngineV2:
@@ -1494,6 +1517,54 @@ _GLOSS_NEST_CH = re.compile(r"([" + _GANJI_CH + r"]{2})\(([가-힣]{2})\(\1\)\)"
 # 중복 괄호: '己卯(기묘)(기묘)' / '기묘(己卯)(己卯)'.
 _GLOSS_DUP_KO = re.compile(r"([" + _GANJI_CH + r"]{2})\(([가-힣]{2})\)\(\2\)")
 _GLOSS_DUP_CH = re.compile(r"([가-힣]{2})\(([" + _GANJI_CH + r"]{2})\)\(\2\)")
+
+
+def finalize_answer_full(
+    answer: str, ctx: ChatPostprocessContext | None, thread_id: str | None = None
+) -> str:
+    """답변 후처리 전체 — 생성 경로(동기·비동기·비로그인)가 모두 거친다(2026-10-01 경로 통일).
+
+    ①간지 병기 보정 ②P4-1 커리어 출력 감사(위반 시 커리어 지시문을 뺀 프롬프트로 1회만 재생성)
+    ③P0 관계 주장 패치(엔진 판정 역전 문장을 canonical claim 으로 교체, 재호출 없음) ④P0 월 커버리지
+    보정(플래그 OFF 면 byte 불변) ⑤텍스트 후처리(정책 문구 제거·겉/속 거짓 역접 재작성·간지 병기).
+    ctx 가 None(구형 prep·테스트)이면 ⑤만 적용한다.
+    """
+    if not answer:
+        return answer
+    if ctx is not None:
+        answer = _normalize_ganji_gloss(answer)
+        answer = _audit_career_transition_answer(
+            answer, ctx.career_prep, ctx.prompt_text, ctx.call_type, ctx.system,
+            ctx.owner_id, thread_id,
+        )
+        answer = _audit_relation_answer(answer, ctx.payload.period_fortune, thread_id)
+        answer = _audit_month_coverage_answer(answer, ctx.payload, thread_id)
+    return finalize_answer_text(answer, thread_id)
+
+
+def finalize_answer_text(answer: str, thread_id: str | None = None) -> str:
+    """답변 **텍스트 전용** 후처리 — 생성 경로(동기·비동기·비로그인)가 모두 거친다(2026-10-01).
+
+    ①내부 정책 문구 노출 제거(P0.5) ②겉/속 거짓 역접 재작성("겉으로는 A지만 내면에는 B" → "A고, B";
+    실답 재발 2026-10-01 11:13 — 지시로 막지 못하는 모델 습관은 결정론으로 고친다) ③간지 병기 보정.
+    payload 가 필요한 감사(관계 주장·월 커버리지)는 동기 경로에만 있다 — 비동기 경로 이관은 후속.
+    """
+    if not answer:
+        return answer
+    _echoes = detect_policy_echo(answer)
+    if _echoes:
+        answer, _removed = strip_policy_echo(answer, _echoes)
+        _logger.warning(
+            "policy_echo_stripped count=%d matched=%s thread=%s",
+            _removed, [e.matched for e in _echoes], thread_id,
+        )
+    answer, _changes = rewrite_false_contrast(answer)
+    if _changes:
+        _logger.warning(
+            "false_contrast_rewritten count=%d before=%s thread=%s",
+            len(_changes), [c[0][:60] for c in _changes], thread_id,
+        )
+    return _normalize_ganji_gloss(answer)
 
 
 def _normalize_ganji_gloss(text: str) -> str:
@@ -5899,6 +5970,10 @@ def chat(
             repeated=repeated,
             system_prompt=system,
             call_type=call_type,
+            postprocess=ChatPostprocessContext(
+                payload=payload, career_prep=_career_prep, prompt_text=prompt_text,
+                call_type=call_type, system=system, owner_id=owner_id,
+            ),
         )
 
     if _risk_flow_result is not None:
@@ -5955,26 +6030,16 @@ def chat(
                 status="too_broad", answer=TOKEN_BUDGET_ANSWER, intents=parsed.intents,
                 thread_id=thread_id, turn_no=state.turn_no if state else None,
             )
-        answer = _normalize_ganji_gloss(answer)  # 간지 병기 보정.
-        # P4-1 출력 감사 — 실패하면 커리어 지시문을 뺀 프롬프트로 **1회만** 재생성해
-        # 기존 직업운 경로로 완전 복귀한다(감사 전 원문 전달 금지, 3회 호출 금지).
-        answer = _audit_career_transition_answer(
-            answer, _career_prep, prompt_text, call_type, system, owner_id, thread_id
+        # 후처리 전체(커리어 출력 감사 → 관계 주장 패치 → 월 커버리지 → 텍스트 후처리) —
+        # 비동기·비로그인 경로(router)와 같은 함수를 쓴다(2026-10-01 경로 통일).
+        answer = finalize_answer_full(
+            answer,
+            ChatPostprocessContext(
+                payload=payload, career_prep=_career_prep, prompt_text=prompt_text,
+                call_type=call_type, system=system, owner_id=owner_id,
+            ),
+            thread_id,
         )
-        # P0 관계 의미 패치(2026-07-27) — 엔진 판정을 뒤집은 서술은 전달 금지.
-        # 재호출 없이 해당 문장만 canonical claim으로 교체한다.
-        answer = _audit_relation_answer(answer, payload.period_fortune, thread_id)
-        # P0 월 커버리지 감사(2026-09-18) — 기반 최고 달 누락·비후보 달 결정 권고를
-        # 재호출 없이 엔진 확정 문장 삽입으로 보정한다(플래그 OFF면 byte 불변).
-        answer = _audit_month_coverage_answer(answer, payload, thread_id)
-        # P0.5 — 내부 서술 정책이 답변에 그대로 노출되면 해당 문장만 제거한다.
-        _echoes = detect_policy_echo(answer)
-        if _echoes:
-            answer, _removed = strip_policy_echo(answer, _echoes)
-            _logger.warning(
-                "policy_echo_stripped count=%d matched=%s thread=%s",
-                _removed, [e.matched for e in _echoes], thread_id,
-            )
     # P1-b 유보 어미 밀도 계측(관측 전용 — 재생성 기본화 금지 확정(2026-07-27) 준수):
     # '수 있' 문장 비율이 계약 ②항(최대 두 문장)을 크게 넘으면 로그로 남겨,
     # 계약 문구 강화의 효과를 실측한다(감사 기준선: 2026-08-21 문장의 11.4%).

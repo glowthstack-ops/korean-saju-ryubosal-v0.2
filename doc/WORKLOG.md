@@ -11232,3 +11232,27 @@ DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subjec
   `TenGodDomainInteractionFile` 등록.
 - 회귀: `test_domain_interaction.py` 6건(순환 관계 7쌍·겁재×재물 쟁재+용신 톤·기신 톤·도메인 없음 무소음·2절·payload).
 - 게이트: lint `All checks passed` · production mypy gate clean · maintained scripts mypy gate clean · 전체 스위트 `VALID_SUITE_PASS`. 백엔드 재기동 반영.
+
+## 2026-10-01 — 겉/속 거짓 역접 재발: 결정론 재작성 + 생성 경로 후처리 통일 (데굴님 지적)
+
+- **재발**: 사전 1.0.1·지시문 교정 뒤에도 11:13 실답에 "己亥 일주는 겉으로는 다정하고 부드럽지만 내면에는 … 갖춘 구조입니다".
+  원인 ①모델 서술 습관 ②지시문에 넣은 **부정 예문**("…지만 내면에는 …처럼 잇지 말고")이 문형을 상기시킴 ③**로그인 베타(백그라운드)
+  ·비로그인 동기 경로는 라우터가 LLM을 직접 호출해 chat_service 후처리(정책 문구 제거·간지 병기)를 아예 거치지 않았음**.
+- **수정**: `saju_engines/contrast_rewrite.py` — 한 문장 안에 겉 표지+역접 연결어+속 표지가 있으면 연결어만 대등 '-고'로
+  교체(어간 불변, ㅂ 불규칙 복원 '부드러운데→부드럽고', 속 절에 부정어가 있으면 진짜 역접으로 보고 보존). `chat_service.
+  finalize_answer_text`(정책 문구 제거→재작성→간지 병기)를 동기·비동기·비로그인 3경로가 공유, 리포트 섹션(`_tighten` 뒤)에도
+  적용. 지시문의 부정 예문 삭제(긍정 병렬형만 제시). 로그 `false_contrast_rewritten`.
+- **남은 격차**: payload 가 필요한 감사(관계 주장 패치·월 커버리지)는 여전히 동기 경로에만 있다 — 비동기 경로 이관은 별도 작업.
+- 회귀: `test_contrast_rewrite.py` 11건(실답 5형·보존 4형·다문장·finalize).
+- 게이트: lint `All checks passed` · production mypy gate clean · maintained scripts mypy gate clean · 전체 스위트 `VALID_SUITE_PASS`. 백엔드 재기동 반영.
+
+## 2026-10-01 — 답변 후처리 경로 통일: payload 필요 감사를 비동기·비로그인 경로로 이관 (데굴님 지시)
+
+- **격차**: 커리어 출력 감사(P4-1)·관계 주장 패치(P0)·월 커버리지 보정(P0)은 payload 가 필요해 동기 경로(chat_service)에만
+  있었고, 로그인 베타(백그라운드)·비로그인 경로는 라우터가 LLM을 직접 호출해 어느 것도 거치지 않았다.
+- **수정**: `ChatPostprocessContext`(payload·career_prep·prompt·call_type·system·owner, `arbitrary_types_allowed`)를 prep(dry-run)
+  `ChatResponse.postprocess`(`Field(exclude=True)` — 클라이언트 비직렬화)에 실어, 라우터 `_run_chat_answer`·비로그인 동기 경로가
+  `finalize_answer_full(answer, postprocess, thread_id)`(간지 병기 → 커리어 감사 → 관계 패치 → 월 커버리지 → 텍스트 후처리)를
+  호출한다. 동기 경로도 같은 함수로 교체(동작 동일 — gloss 정규화 멱등 확인). ctx 가 None(구형/테스트)이면 텍스트 후처리만.
+- 회귀: `test_answer_postprocess_paths.py` 4건(prep 맥락 비직렬화·ctx None 동치·실 payload 전체 감사 통과·라우터 소스 가드).
+- 게이트: lint `All checks passed` · production mypy gate clean · maintained scripts mypy gate clean · 전체 스위트 `VALID_SUITE_PASS`. 백엔드 재기동 반영.

@@ -37,6 +37,7 @@ from saju_engines.context_reducer import (
     overview_cluster_key,
     serialize_chart_prefix,
 )
+from saju_engines.contrast_rewrite import rewrite_false_contrast
 from saju_engines.daewoon_background import (
     DaewoonHwaBackground,
     background_evidence_block,
@@ -428,9 +429,9 @@ _SCORE_TABLE_GUIDE = (
 )
 _SECTION_GUIDES: dict[str, str] = {
     "F-01": "사주 원국의 전체 그림을 소개할 것 — 4주 구성과 각 주의 십성·운성을 쉬운 비유로.",
-    "F-02": "일간 글자의 물상과 일주 서사를 중심으로 타고난 기질을 풀어낼 것. "
-    "역접(~지만/~보여도)은 장점↔약점처럼 앞뒤가 반대일 때만 쓰고, 둘 다 장점이면 "
-    "'…한 외면과 …한 내면을 함께 갖춘'처럼 병렬로 쓸 것.",
+    "F-02": "일간 글자의 물상과 일주 서사를 중심으로 타고난 기질을 풀어낼 것. 외면과 내면이 "
+    "모두 장점이면 '…한 외면과 …한 내면을 함께 갖춘'처럼 병렬 한 문장으로 쓸 것(역접은 장점↔약점"
+    "일 때만).",
     "F-03": "원국 십성 구성([명식 해석 자료]의 십성 발췌)을 엮어 사회적 성향을 서술할 것.",
     "F-04": "강약·격국·용신 판정과 그 근거를 설명할 것 — 용신 오행을 명시적으로 표기할 것.",
     "F-05": "신살·공망·특수 구조를 양면(빛/그림자)으로 설명할 것 — 신살은 보조 자료임을 전제. "
@@ -4078,6 +4079,13 @@ def generate_report(
                         reduction_level,
                     )
                 text = _tighten(text)  # 지면 낭비 정규화(공백수정)
+                # 겉/속 거짓 역접 재작성(2026-10-01) — 채팅과 같은 결정론 후처리(재호출 없음).
+                text, _fc = rewrite_false_contrast(text)
+                if _fc:
+                    _logger.warning(
+                        "false_contrast_rewritten surface=report section=%s count=%d",
+                        plan.section_id, len(_fc),
+                    )
                 # 섹션 claim 감사 — 생성 직후, **이 섹션 범위**에서만. 전체 문서
                 # 오프셋 변환이 필요 없고 W-05 정책이 W-03 문장에 적용될 여지도 없다.
                 # 위반 → 결정적 patch → 재감사 → 남으면 이 섹션만 안전 문구로 대체.
