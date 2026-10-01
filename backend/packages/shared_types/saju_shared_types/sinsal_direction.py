@@ -465,3 +465,27 @@ class YongsinDirectionNote(BaseModel):
     # 질문한 방향('남쪽은 어때?')의 오행·역할 — 8방위는 1개, 16방위 중간(북북동 등)은 인접 2개.
     asked_direction_ko: str | None = None
     asked_entries: list[YongsinDirectionEntry] = Field(default_factory=list)
+
+
+class YongsinColorEntry(BaseModel):
+    """용희기구한 역할 1개의 오행 보완 색 줄 — `calendar/color_rules.json` 정색 사전 기준."""
+
+    role: str  # 용신/희신/한신/기신/구신
+    element: str  # 오행(한자)
+    colors: list[str] = Field(default_factory=list)  # 정색·계열 한글('붉은색','주황' …)
+    tone: str  # 보완 색·우선 / 보완 색·보조 / 무난 / 보완 효과 없음
+
+
+class YongsinColorNote(BaseModel):
+    """오행 보완 색 첨언 블록(2026-10-01 데굴님 승인) — 오행 보완 방향과 같은 모델의 색 판.
+
+    사용자가 색을 물은 턴에만 실린다. 엔진이 역할별 색 후보를 모두 제시해 LLM이 '목이 화를 생하니
+    녹색도 좋다'처럼 상생 연쇄로 후보를 늘리는 것을 막는다. 사용자가 지목한 색은 사전에서 오행을
+    찾아 역할·톤을 함께 적고, 사전에 없는 색은 '오행 배정 보류'로 표기한다(임의 배정 금지).
+    서술 전용(점수·판정 불변).
+    """
+
+    entries: list[YongsinColorEntry] = Field(default_factory=list)
+    source: Literal["engine", "confirmed"] = "engine"
+    asked_entries: list[YongsinColorEntry] = Field(default_factory=list)  # 지목 색의 오행·역할
+    unmapped_colors: list[str] = Field(default_factory=list)  # 사전에 없는 지목 색

@@ -11156,3 +11156,53 @@ DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subjec
   `tests/fixtures/golden_style_ilju_example.md` 해당 문장 교정 + 체크포인트 6 추가.
 - 게이트: lint `All checks passed` · production mypy gate clean · maintained scripts mypy gate clean · 전체 스위트 `VALID_SUITE_PASS`
   (start_head=end_head=c4d479e, 지문 동일, exit 0). 백엔드 재기동으로 사전 1.0.1 반영.
+
+## 2026-10-01 — 대화 정정 계층: 시스템 발언 원장·이의 감지 일반화·오행 보완 색·정정 답 계약 (실로그 web-mup4m82l, 데굴님 승인)
+
+- **결함(실로그 커튼 색, 아들 丙子)**: ①색 질문에 엔진은 `용신 火·기신 木`을 줬으나 색 후보표가 없어 LLM이 상생 연쇄로 기신 색
+  (연두·초록)을 추천, 희신 金 색은 제시하지 않음(용신 일변도) ②"붉은색은 좀 그래" 배제 조건·"인성과다" 사용자 해석 미저장
+  ③"녹색을 추가해도 돼?"가 NEW 로 끊김 ④"니가 … 추천해줬잖아"가 파서 리터럴 `했잖아`를 비켜 이의가 아니라 **직전 되물음의 답**
+  (offer-answer)으로 링크 → LLM에 "이번 발화는 네 질문에 대한 답"이라 지시, 2턴 추천 원문은 payload 에 없음 → 자기 발언 부인
+  + 배제한 붉은색 재추천 + 월운 서술. 재현 스크립트로 전 턴 payload 대조해 확정(원문 누락 + 오분류, 모델 왜곡 아님).
+- **L1 기록 계층**: `assistant_commitments.py` — 답변의 추천·비권장·판정 문장 rules-first 추출, 캡 24, 반대 극성 충돌 시
+  superseded 이력 보존(색 범주 정규화 `COLOR:木`으로 녹색↔초록 동일 대상 인식), 어휘 중첩 검색 → `[이전 발언 원문]`
+  (`LlmInput.prior_statements`). user_facts 범용 슬롯 `excluded_option`(거른 선택지 — 재제시 금지 주석)·`user_claim`(사용자
+  명리 해석 — 엔진 판정과 대조 주석). `ConversationState.assistant_commitments`·`last_challenge_context`.
+- **L2 링크·라우팅**: `challenge_detect.py`(2인칭+인용 표지 / 시점 참조+발화 동사 / 기존 리터럴, 1인칭·과거 사실 절 제외) — 파서
+  Q12와 링크 CHALLENGE 공유, 링크 **최우선**(offer-slot 앞). 선택지 확인 후속(원장 대상어 언급 → CONSTRAINT_ADD). 요청·의문형
+  발화에는 되물음 답 지시(`_OFFER_ANSWER_DIRECTIVE`) 미부착(수락어 예외).
+- **L3 추천 정책**: `yongsin_color.py` + `calendar/color_rules.json`(정색 5+계열, 보라·파랑 보류 큐) — 색 질문 턴(`intent.color_question`,
+  라우팅 불변)에 `[오행 보완 색]` 역할별 후보·톤(기신·구신 '보완 효과 없음·넓은 면적 삼가') + 지목 색 역할 + 미등재 보류.
+  `YONGSIN_COLOR_INSTRUCTION` ①상생 연쇄 금지 ③효과 인과 단정 금지 ④배제 색 재제시 금지 ⑥**용신 일변도 금지 — 희신 색 병기,
+  용신 색 배제 시 희신 색이 1차 대안**(데굴님 지적). 방향 첨언 지시문에도 ⑥ 동일 추가.
+- **L4 정정 답 계약 + shadow 감사**: `_CHALLENGE_DIRECTIVE`(인정→모순 분류 a~d→유지·철회 범위→조건 반영, 새 월별 흐름 금지),
+  `commitment_audit.py`(no_acknowledgment / excluded_reoffered(표면형·양보 절 제외) / effect_assertion) — 동기·비동기 경로 공통
+  `_record_answer_commitments`, 로그만(교체 정책은 로그 축적 후 별도 승인).
+- 회귀: test_challenge_detect(23)·test_assistant_commitments(7)·test_yongsin_color(10)·test_commitment_audit(5)·
+  test_conversation_challenge_flow(5, 실로그 4턴 + 오기억)·test_user_facts +2. 기존 대화·파서·리듀서·골든 191건 통과.
+- 문서: docs/03(상태·링크 0/0b·Q12), docs/05(color_rules), docs/08(F5·D-3 5번), docs/19(⑥), DICTIONARY_REVIEW_QUEUE.
+- 게이트: lint `All checks passed` · production mypy gate clean · maintained scripts mypy gate clean · 전체 스위트
+  `VALID_SUITE_PASS`(start_head=end_head=e8904e5, 지문 동일, exit 0). 백엔드 재기동 반영.
+
+## 2026-10-01 — 용신 선정 근거 추적·희신 기능·축 충돌·부작용 감사·전왕 조건 (YONGSIN_OPERATIONAL_ROLE_SPEC §14, 데굴님 승인)
+
+- **배경**: 참고 글(억부법 — 신강약은 후보 방향만, 최종은 불균형 원인 → 생극 경로 → 조후·격국 → 역할, 부작용 동시 평가,
+  종격·전왕 별도 조건, 희신=기능, 변경 근거 기록)과 현행 엔진 대조. 골격은 일치, 간극 5곳(A 후보 부작용·B 억부/조후 충돌
+  분리 보고·C 희신 기능·D 선정 근거 추적·E 전왕 성립 조건).
+- **구현(설명 계층, 기본 ON)**: `YongsinDecisionTrace`(problem/chosen_path/rejected/heesin_function/axis_conflict/collateral) →
+  `AggregatedYongsinResult.decision_trace`; `YongsinCandidateModel.heesin_function`(어휘 8종 `HEESIN_FUNCTION_KO`, 모델 표
+  `MODEL_HEESIN_FUNCTION`); `_collateral_effects`(feeds_excess/controls_needed → operational note·trace); 축 충돌(기후 축
+  non-neutral 만 경고); `special_cases` 전왕 detail `real:/pseudo:`; LLM 프리픽스 `[작동 역할]`에 "희신 X: 기능 / 판정 경로:
+  [문제] → 모델 / 축 충돌 / 부작용 주석" + `_OPERATIONAL_INSTRUCTION`(희신 기능대로·용신 일변도 금지·판정 경로 앵커);
+  FE CalibrationPanel "선정 경로(엔진 근거)" 접힘.
+- **판정 변경 가능 계층(플래그 기본 OFF, config)**: `CLIMATE_DEMOTE_REQUIRE_SEVERE`(B 강등 게이트) ·
+  `DOMINANT_REQUIRE_NO_CONTROLLER`(E 가전왕 경쟁) · `COLLATERAL_SCORE_ENABLED`+`COLLATERAL_PENALTY`(A2 계수).
+- **719명식 전/후 비교**(감수 골든 3·표준·아들·데굴님·코호트 8·shadow 9·그리드 672 = 1950~2005 매월 15일 정오 서울 남성):
+  OFF = final/useful/unfavorable/operational/status/모델 집합 **변경 0** · B ON = final 24건(**감수 골든 1959-11-15 뒤집힘 →
+  전환 불가, 재설계 필요**) · E ON = 12건(예 1951-03-15 전왕→군겁쟁재형) · A2 ON = 9건(예 1967-07-15 財損印→화인통관).
+  ON 목록은 감수 대기 — 전환은 항목별 데굴님 확정 후.
+- 회귀: `test_yongsin_decision_trace.py` 10건(골든 추적·플래그 기본 OFF·어휘 폐쇄·B/E/A2 대표 사례·프리픽스 직렬화);
+  `test_yongsin_operational_summary` 프리픽스 예산 230→300(+2줄 ≈30 token, 캐시 prefix). 기존 yongsin·provenance·calibration 통과.
+- 도구: 스냅샷/diff 스크립트는 스크래치패드(`yongsin_snapshot.py`·`yongsin_diff.py`) — 재실행 가치 확인 시 scripts 승격.
+- 게이트: lint `All checks passed` · production mypy gate clean · maintained scripts mypy gate clean · 전체 스위트 `VALID_SUITE_PASS`
+  (start_head=end_head=e8904e5, 지문 동일, exit 0) · frontend tsc·production build 통과. 백엔드 재기동 반영.

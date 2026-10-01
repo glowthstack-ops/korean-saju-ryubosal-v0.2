@@ -139,3 +139,30 @@ def test_fixed_schedule_clause_not_duplicated_as_plan() -> None:
     facts = extract_user_facts("9월 30일에 이사가 결정되었어", 1)
     keys = [f.key for f in facts]
     assert keys.count("fixed_schedule") == 1 and "planned_task" not in keys
+
+
+# ── 범용 슬롯 추가(2026-10-01, 실로그 커튼 색) — 배제 조건·사용자 명리 해석 ─────────
+
+def test_extract_excluded_option_and_user_claim() -> None:
+    ex = extract_user_facts("커텐으로 할건데 붉은색은 좀 그래. 다른색을 추천해줘.", turn=2)
+    assert [f.key for f in ex] == ["excluded_option"]
+    assert "붉은색은 좀 그래" in ex[0].quote
+    cl = extract_user_facts(
+        "지금 인성과다라서 공부할때 잡생각이 많은데 녹색을 추가해도 돼?", turn=3,
+    )
+    assert any(f.key == "user_claim" for f in cl)
+    # 도메인 무관 — 직종·방향 배제도 같은 슬롯.
+    assert any(
+        f.key == "excluded_option" for f in extract_user_facts("정밀기술자격은 하기 싫어", 1)
+    )
+    assert any(
+        f.key == "excluded_option" for f in extract_user_facts("북쪽은 안돼? 방은 서향이야.", 1)
+    )
+
+
+def test_block_labels_exclusion_and_claim_handling() -> None:
+    facts = extract_user_facts("붉은색은 좀 그래", 2)
+    facts += extract_user_facts("나 신약이라서 그런가?", 3)
+    block = user_facts_block(facts) or ""
+    assert "(배제 조건)" in block and "대안으로 다시 제시하지 말 것" in block
+    assert "(사용자 명리 해석)" in block and "엔진 판정" in block

@@ -104,6 +104,32 @@ export function YongsinPanel({
           ))}
         </ul>
       )}
+      {y.decision_trace && (
+        <details className="mt-1 text-[11px] text-gray-600">
+          <summary className="cursor-pointer">선정 경로(엔진 근거)</summary>
+          <ul className="mt-1 space-y-0.5">
+            <li>문제: {y.decision_trace.problem}</li>
+            <li>채택: {y.decision_trace.chosen_path}</li>
+            {y.decision_trace.heesin_function_ko && (
+              <li>희신 기능: {y.decision_trace.heesin_function_ko}</li>
+            )}
+            {y.decision_trace.axis_conflict && (
+              <li>
+                축 충돌: 억부 {y.decision_trace.axis_conflict.eokbu} / 조후 {y.decision_trace.axis_conflict.johu}
+                {" — "}{y.decision_trace.axis_conflict.resolution}
+              </li>
+            )}
+            {y.decision_trace.rejected.length > 0 && (
+              <li>
+                기각·강등: {y.decision_trace.rejected.map((r) => `${r.element}(${r.reason})`).join(" · ")}
+              </li>
+            )}
+            {y.decision_trace.collateral.map((c, i) => (
+              <li key={i}>부작용: {c}</li>
+            ))}
+          </ul>
+        </details>
+      )}
       {calibration?.selected_model && (
         <details className="mt-1 text-[11px] text-gray-500">
           <summary className="cursor-pointer">판정 근거(자세히)</summary>

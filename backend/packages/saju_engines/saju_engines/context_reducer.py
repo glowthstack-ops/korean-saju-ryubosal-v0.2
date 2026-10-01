@@ -73,6 +73,7 @@ from . import marriage_timing_profile as _mtp
 from . import period_v2_config
 from . import sinsal_modifier_config as _sinsal_cfg
 from .amhap_luck import detect_luck_amhap
+from .assistant_commitments import PRIOR_STATEMENTS_HEADER
 from .candidate_semantics import ganji_result_nuance, review_month_from_signals
 from .chart_interpretation import (
     build_chart_interpretation,
@@ -120,6 +121,11 @@ from .sinsal_modifier import derive_natal_sinsal_modifiers, select_llm_sinsal_mo
 from .sinsal_numeric_scoring import apply_sinsal_channel_shadow, channel_note_ko
 from .structural_context import TONE_LAYER_DIRECTIVE
 from .structure_patterns import detect_structure_patterns, select_llm_patterns
+from .yongsin_color import (
+    YONGSIN_COLOR_INSTRUCTION,
+    build_yongsin_color_note,
+    format_yongsin_color_lines,
+)
 from .yongsin_direction import (
     YONGSIN_DIRECTION_INSTRUCTION,
     build_yongsin_direction_note,
@@ -363,7 +369,11 @@ _OPERATIONAL_INSTRUCTION = (
     "희신으로 해석하지 말고(생용신이나 과다·병 동반), '조후보조신'은 주용신은 아니나 실제 "
     "보조약으로 설명하며, 용신 작동성(operability)이 낮으면 '용신은 맞으나 작동성이 약하다'로 "
     "설명한다. 운에서 들어오는 오행도 정적 희신/기신만으로 단정하지 말고 원국 [작동 역할]을 "
-    "함께 본다(점수·판정은 엔진값 그대로)."
+    "함께 본다(점수·판정은 엔진값 그대로). 희신은 '용신 후보 2등'이 아니라 [작동 역할]의 희신 "
+    "기능(生용신·制기신·방신·유통 등)대로 쓰고, 보완책(색·방향·행동)은 용신만 반복하지 말고 희신을 "
+    "그 기능과 함께 제시할 것. 용신·희신 설명은 '판정 경로' 문장을 근거로 쓰고 매 답마다 새 명리 "
+    "논리로 순서를 바꾸지 말 것. '축 충돌'이 있으면 억부·조후가 요구하는 오행이 다름을 밝히고 어느 "
+    "축을 우선했는지 함께 말할 것. '부작용 주석'은 그 오행을 권할 때 함께 알릴 것."
 )
 # 길흉 반전 — 구신·기신도 조건부로 돕는다(사용자 확정 2026-06-12).
 _REVERSAL_INSTRUCTION = (
@@ -1910,6 +1920,7 @@ def build_llm_input(
     period_fortune: PeriodFortune | None = None,
     default_period: tuple[str, str] | None = None,
     prior_claims: list[str] | None = None,
+    prior_statements: list[str] | None = None,
     current_month_label: str | None = None,
     current_month_detail: str | None = None,
     structural_context: list[str] | None = None,
@@ -1946,6 +1957,8 @@ def build_llm_input(
     favorability: 용희기구한 {오행: 역할} — 사용자 확정 용신 override(있을 때만). None 이면
         `favorability_map(result)`(엔진 도출)로 폴백. 오행 보완 방향 첨언(수동 방향 질문)에만 쓴다.
     favorability_confirmed: favorability 가 사용자 확정 용신 기준인지(첨언 출처 표기용).
+    prior_statements: 이전 발언 원문 줄(시스템 발언 원장에서 이번 발화와 겹치는 문장, 2026-10-01).
+        이의·선택지 확인 턴에만 채워지며 비면 블록을 내지 않는다.
     """
     graph_scope = [k for k in [intent.event_key, *intent.event_keys] if k is not None]
     # 다중 도메인 질문(예: '이직, 이사')은 secondary 도메인의 대표 이벤트도 후보 범위에 포함한다
@@ -2190,6 +2203,16 @@ def build_llm_input(
     )
 
     _folk_lines = _folk_taboo_lines(intent, user_question, today)
+    # 오행 보완 색 첨언(2026-10-01 데굴님 승인) — 색 질문 턴에만. 엔진이 역할별 색 후보·톤을 모두
+    # 제시해 LLM의 상생 연쇄 확장(기신 木 색을 '화를 생하니 좋다'로 추천)을 막는다. 라우팅 불변.
+    _yongsin_color = (
+        build_yongsin_color_note(
+            favorability if favorability is not None else favorability_map(result),
+            intent.colors_asked, confirmed=favorability_confirmed,
+        )
+        if intent.color_question
+        else None
+    )
     # 오행 보완 방향 첨언(2026-09-22 데굴님 승인) — 사용자가 직접 방향을 물은 턴(수동 블록)에만.
     # 12신살 활용 방향과 별개 층(docs/18 §1-5 분리 병기), 합산 금지. 능동·택일·이사 경로 미노출.
     _yongsin_direction = (
@@ -2240,8 +2263,10 @@ def build_llm_input(
         samjae_context=_samjae_lines,
         folk_taboo_context=_folk_lines,
         yongsin_direction=_yongsin_direction,
+        yongsin_color=_yongsin_color,
         is_followup_turn=is_followup_turn,
         prior_claims=prior_claims or [],
+        prior_statements=prior_statements or [],
         monthly_overview=monthly_overview or [],
         period_fortune=period_fortune,
         date_selection=date_selection,
@@ -2464,6 +2489,15 @@ def _append_operational_summary(lines: list[str], s: YongsinOperationalSummary |
         why = "·".join(s.operability_factors_ko)
         yong += f" (작동성 {s.operability_level} {s.operability}{': ' + why if why else ''})"
     lines.append(yong)
+    # 선정 근거(2026-10-01 D·C·B) — 턴마다 같은 문장. LLM이 명리 논리를 새로 짓지 않도록 고정 앵커.
+    if s.heesin_element and s.heesin_function_ko:
+        lines.append(f"희신 {s.heesin_element}: {s.heesin_function_ko}")
+    if s.decision_problem and s.decision_path:
+        lines.append(f"판정 경로: [{s.decision_problem}] → {s.decision_path}")
+    if s.axis_conflict_ko:
+        lines.append(f"축 충돌: {s.axis_conflict_ko}")
+    if s.collateral:
+        lines.append("부작용 주석: " + " / ".join(s.collateral))
     if s.main_support:
         lines.append("조후보조: " + " · ".join(s.main_support))
     if s.conditional:
@@ -2712,6 +2746,11 @@ def serialize_llm_input(payload: LlmInput) -> str:
         )
         for cl in payload.prior_claims:
             lines.append(f"- {cl}")
+    if payload.prior_statements:
+        # 이전 발언 원문(2026-10-01) — 이의·선택지 확인 턴. 헤더는 assistant_commitments 모듈 소유.
+        lines.append("")
+        lines.append(PRIOR_STATEMENTS_HEADER)
+        lines.extend(payload.prior_statements)
     # 총운 모드(2026-07-14 6차 — 데굴님 확정: 재생성 대신 무비용 입력 구조로 유도) —
     # 이벤트 후보·제외 강신호 블록을 월별 요약·유력 달 종합 '뒤'(최종 지시문 인접)로
     # 미룬다. 마지막 데이터 블록이 서술을 지배하는 경향을 역이용해, 월별 표(직업 신호
@@ -3106,6 +3145,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
     lines += format_sinsal_direction_lines(payload.sinsal_direction)
     # 오행 보완 방향 첨언 — 12신살 블록 바로 뒤(별개 층, 수동 방향 질문 전용).
     lines += format_yongsin_direction_lines(payload.yongsin_direction)
+    # 오행 보완 색 첨언 — 색 질문 턴 전용(같은 층 모델, 2026-10-01).
+    lines += format_yongsin_color_lines(payload.yongsin_color)
     lines += payload.samjae_context
     lines += payload.folk_taboo_context
     if payload.evidence:  # 근거 경로 — 후보·증거 있을 때만(구조 질문 등 빈 헤더 방지).
@@ -3159,6 +3200,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
             lines.append(ASKED_DIRECTION_DIRECTIVE)
     if payload.yongsin_direction is not None:
         lines.append(YONGSIN_DIRECTION_INSTRUCTION)
+    if payload.yongsin_color is not None:
+        lines.append(YONGSIN_COLOR_INSTRUCTION)
     if payload.samjae_context:
         lines.append(SAMJAE_INSTRUCTION)
     if payload.folk_taboo_context:

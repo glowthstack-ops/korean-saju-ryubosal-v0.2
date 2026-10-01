@@ -398,6 +398,17 @@ def build_yongsin_operational_summary(
         warnings.append("관살혼잡·합·조후 맥락 — 작용 단순치 않음")
 
     factors = list(yong_role.operability_factors) if yong_role else []
+    # 선정 근거 추적(2026-10-01) — 결정론 문자열만 그대로 전달(구형 결과면 None).
+    trace = ya.decision_trace
+    conflict_ko = None
+    if trace is not None and trace.axis_conflict and trace.axis_conflict.get("significant"):
+        c = trace.axis_conflict
+        conflict_ko = f"억부 {c.get('eokbu')} / 조후 {c.get('johu')} — {c.get('resolution')}"
+    # 프리픽스 토큰 절약 — 희신 기능은 괄호 앞 핵심어만, 부작용 주석은 첫 1건만.
+    heesin_fn_short = (
+        trace.heesin_function_ko.split("(", 1)[0] if trace is not None and trace.heesin_function_ko
+        else None
+    )
     return YongsinOperationalSummary(
         primary_yongsin=primary,
         operability=operability,
@@ -407,6 +418,14 @@ def build_yongsin_operational_summary(
         main_support=main_support,
         conditional=conditional,
         warnings=_trim_warnings(warnings),
+        heesin_element=ya.final.get("heesin") or None,
+        heesin_function_ko=heesin_fn_short,
+        decision_problem=trace.problem if trace is not None else None,
+        decision_path=(
+            trace.chosen_path.split(" — ", 1)[0] if trace is not None else None  # 모델 라벨만
+        ),
+        axis_conflict_ko=conflict_ko,
+        collateral=list(trace.collateral[:1]) if trace is not None else [],
     )
 
 

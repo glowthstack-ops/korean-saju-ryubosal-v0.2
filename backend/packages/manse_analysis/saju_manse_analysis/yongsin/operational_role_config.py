@@ -366,3 +366,62 @@ SCORING_OPERATIONAL_REDUNDANCY_MARKERS: list[str] = [
 SCORING_OPERATIONAL_GUARD_TOKEN_EST: int = 25      # phrase 토큰 추정 실패 시 폴백 상한
 # reserved_tokens 미전달 시 system+trailing 보수 예약.
 SCORING_OPERATIONAL_HEADROOM_RESERVE: int = 1500
+
+
+# ── 희신 기능 어휘(2026-10-01 데굴님 승인 C) ──────────────────────────────────────────────
+# 희신은 '용신 후보 2등'이 아니라 기능이 있어야 한다(生용신만으로 확정 금지 — 더 큰 불균형을 만들
+# 수 있다). key 는 모델·추적·LLM 요약이 공유하는 stable key, 값은 노출 문구.
+HEESIN_FUNCTION_KO: dict[str, str] = {
+    "generate_yongsin": "生용신(용신을 생해 보강)",
+    "protect_yongsin": "護용신(용신을 극하는 기신 제어)",
+    "control_gisin": "制기신(과다·병 오행 제어)",
+    "support_day_master": "방신(일간 방조)",
+    "complete_flow": "유통(용신 설기 흐름 완성)",
+    "restrain_day_master": "일간 억제·조후 보조",
+    "climate_helper": "조후 보조",
+    "bridge_support": "통관 보조",
+}
+# 모델 유형 → 희신 기능. food_rescue:* 는 접두 매칭(호출부). 미등록 모델은 정적 폴백(生용신).
+MODEL_HEESIN_FUNCTION: dict[str, str] = {
+    "support_day_master": "generate_yongsin",      # 용=비겁, 희=인성(인성이 비겁을 생)
+    "resource_as_yongsin": "generate_yongsin",     # 용=인성, 희=관살(관인상생)
+    "output_as_yongsin": "generate_yongsin",       # 용=식상, 희=비겁(비겁이 식상을 생)
+    "eokbu_normal": "complete_flow",               # 용=식상, 희=재성(식상생재 유통)
+    "wealth_breaks_resource": "restrain_day_master",  # 용=재성, 희=관성(일간 억제·조후)
+    "resource_pattern_officer": "control_gisin",   # 용=관성, 희=재성(과다 인성 제어)
+    "officer_controls_peer": "bridge_support",     # 용=관성, 희=식상(비겁→식상→재 통관)
+    "resource_curbs_output": "support_day_master", # 용=인성, 희=비겁(방신)
+    "food_rescue": "control_gisin",                # 용=비겁(통관), 희=재성(制印)
+    "johu": "generate_yongsin",
+    "dominant_one_element": "complete_flow",
+    "pattern_sangsin": "generate_yongsin",
+    "disease_remedy": "generate_yongsin",
+    "bridge_tonggwan": "bridge_support",
+}
+# 같은 model_type 에 라벨이 둘인 경우 — 살인상생형(살중용인)은 희=비겁 방신.
+MODEL_LABEL_HEESIN_FUNCTION: dict[str, str] = {
+    "살인상생형(살중용인)": "support_day_master",
+}
+
+# ── 후보 부작용 감사(2026-10-01 데굴님 승인 A1 — 주석 전용, A2 계수는 플래그) ────────────────
+# 한 오행은 여러 방향으로 작용한다(金은 木을 극하면서 水를 생). 후보가 생하는 오행이 과다·병이면
+# feeds_excess, 후보가 극하는 오행이 용신·조후 필요신이면 controls_needed.
+COLLATERAL_REASON: dict[str, str] = {
+    "feeds_excess": "{el}({role})은 과다 {target}을 생함 — 부작용(과다 심화)",
+    "controls_needed": "{el}({role})은 {target}({target_role})을 극함 — 부작용(필요 기운 손상)",
+}
+#: A2 — 부작용 후보의 모델 신뢰도 계수. 기본 OFF(주석만). 672 그리드 재스캔 보고 후 데굴님 확정.
+COLLATERAL_SCORE_ENABLED: bool = False
+COLLATERAL_PENALTY: float = 0.85
+
+# ── 축 충돌·강등 게이트(2026-10-01 데굴님 승인 B) ────────────────────────────────────────
+#: 조후 역행 강등(_climate_harmful → 용·희 부적격)을 기후 축 severe(|값|≥40)일 때만 적용.
+#: 기본 OFF = 기존 동작(월령+분포 임계만). 그리드 비교 후 전환 여부 확정.
+CLIMATE_DEMOTE_REQUIRE_SEVERE: bool = False
+
+# ── 전왕 성립 조건(2026-10-01 데굴님 승인 E) ───────────────────────────────────────────────
+#: 전왕(일행득기)은 압도 오행을 극하는 오행이 투간·통근 없이 부재할 때만 진(眞)전왕. 극 오행이
+#: 남아 있으면 가(假)전왕으로 억부와 경쟁(종격 real/pseudo 와 같은 패턴). 기본 OFF.
+DOMINANT_REQUIRE_NO_CONTROLLER: bool = False
+#: 극 오행 '잔존' 판정 임계(월령 보정 분포 %). 이 미만이면 부재로 본다(투간 여부는 호출부 보강).
+DOMINANT_CONTROLLER_PRESENT_PCT: float = 8.0

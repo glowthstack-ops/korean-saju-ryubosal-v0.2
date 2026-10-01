@@ -38,6 +38,8 @@ from saju_shared_types.intent import (
     TimeScope,
 )
 
+from .assistant_commitments import mentions_commitment
+from .challenge_detect import is_challenge
 from .companion_alias import (
     RELATION_SYNONYMS,
     AliasEntry,
@@ -747,6 +749,13 @@ class ConversationEngine:
             return LinkResult(is_follow_up=False, link_kind=LinkKind.NEW)
         parent_id = state.last_intent.intent_id
 
+        # 최우선 — 이의·인용 반문("니가 초록을 추천해줬잖아", "아까는 9월이 좋다고 했잖아")은 어떤
+        # 되물음의 답도, 단답 슬롯도 아니다. offer-slot/offer-answer 보다 앞에 두지 않으면 직전 답
+        # 말미 되물음에 대한 '답'으로 링크돼 LLM이 자기 발언을 부인하는 답을 낸다(2026-10-01
+        # 실로그).
+        if is_challenge(text):
+            return self._follow(parent_id, LinkKind.CHALLENGE, state)
+
         # 0순위 — 직전 턴이 방향 질문이고 이번 발화가 특정 방향을 지목('남쪽은 어때?')하면 같은
         # 목적의 방향 판정 후속이다(docs/19 §6-7). 새 목적·도메인 어휘가 있으면 아래 일반 규칙으로.
         if (
@@ -809,6 +818,21 @@ class ConversationEngine:
         # 정정/이의(B9·A10) — challenge.
         if _CORRECTION_RE.search(text):
             return self._follow(parent_id, LinkKind.CHALLENGE, state)
+
+        # 선택지 확인 후속(2026-10-01) — 발화가 시스템이 앞서 추천·비권장한 대상어(초록·북쪽·9월
+        # …)를
+        # 언급하면 새 질문이 아니라 그 선택지에 대한 확인이다("녹색을 추가해도 돼?"가 NEW로 끊겨
+        # 직전
+        # 추천과 연결되지 않던 결함). 새 도메인·새 풀이 요청이 붙으면 제외.
+        _opt_doms = _detect_domains(text)
+        if (
+            state.assistant_commitments
+            and (not _opt_doms or state.last_intent.domain in _opt_doms)  # 같은 분야 어휘는 허용
+            and not _FRESH_OVERVIEW_RE.search(text)
+            and not _READING_REQUEST_RE.search(text)
+            and mentions_commitment(state.assistant_commitments, text)
+        ):
+            return self._follow(parent_id, LinkKind.CONSTRAINT_ADD, state)
 
         # 단순 수락 — 직전 답변이 제안·질문으로 끝났고('…정해드릴까요?') '그래/응/부탁해'로 수락한
         # 경우. 직전 의도를 그대로 이어 같은 주제·창을 계속 다룬다(수락이 새 질문으로 끊겨 broad

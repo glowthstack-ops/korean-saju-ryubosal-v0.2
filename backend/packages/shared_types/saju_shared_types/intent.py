@@ -306,6 +306,10 @@ class IntentJson(BaseModel):
     # 사용자가 특정 방향을 지목해 물음('남쪽은 어때?', '동쪽으로 두면?') — 8방위 코드(N/NE/E/…).
     # 직전 방향 질문의 목적(숙면 등)을 이어받아 **그 방향을 같은 목적으로 판정**한다(docs/19 §6-7).
     direction_asked: str | None = None
+    # 오행 생활화 — 색 질문 표지('색깔/색상/커튼 색' 등, 2026-10-01). 라우팅은 바꾸지 않고(분석
+    # 흐름 유지) [오행 보완 색] 블록만 더한다. colors_asked = 사용자가 지목한 색 어휘(사전 키).
+    color_question: bool = False
+    colors_asked: list[str] = Field(default_factory=list)
 
     constraints: Constraints = Field(default_factory=Constraints)
     output: OutputStyle = Field(default_factory=OutputStyle)

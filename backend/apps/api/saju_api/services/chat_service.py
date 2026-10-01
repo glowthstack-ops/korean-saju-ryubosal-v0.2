@@ -30,8 +30,16 @@ from saju_engines import (
     load_event_graph,
     period_v2_config,
 )
+from saju_engines.assistant_commitments import (
+    extract_commitments,
+    match_commitments,
+    mentions_commitment,
+    merge_commitments,
+    prior_statement_lines,
+)
 from saju_engines.career_field import build_career_field_facts, render_career_field_lines
 from saju_engines.chart_interpretation import build_luck_grounding
+from saju_engines.commitment_audit import audit_answer
 from saju_engines.companion_alias import AliasEntry, merge_attached_partner
 from saju_engines.companion_similarity import augment_relation_type, augment_subject_mode
 from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
@@ -159,7 +167,12 @@ from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.career_transition import CareerQueryResolution, CareerTransitionKind
 from saju_shared_types.constants import BRANCH_KO, STEM_KO
-from saju_shared_types.conversation import ConversationState, ResultSummaryRef, TimeExclusion
+from saju_shared_types.conversation import (
+    ConversationState,
+    LinkKind,
+    ResultSummaryRef,
+    TimeExclusion,
+)
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.event_taxonomy_v2 import DATE_PURPOSES, EVENT_TYPE
 from saju_shared_types.events import EventKey
@@ -2066,6 +2079,20 @@ _OFFER_CONTINUE_DIRECTIVE = (
 )
 
 
+# 요청·질문형 발화 — 직전 되물음에 대한 '답'일 수 없는 형태(명령형 요청·의문형). 슬롯
+# 답변('2026년')·
+# 서술형 답변('역시 외모지')은 걸리지 않는다.
+_REQUEST_OR_QUESTION_RE = re.compile(
+    r"[?？]\s*$|추천해|알려\s*줘|알려줘|봐\s*줘|봐줘|풀어\s*줘|어때|돼\s*[?？]?\s*$|될까|되나"
+    r"|뭐야|뭐가|무엇|어떤\s|언제|어디|왜\s|괜찮|좋을까|좋아\s*[?？]?\s*$|맞아\s*[?？]?\s*$"
+)
+
+
+def _is_request_or_question(question: str) -> bool:
+    """발화가 명령형 요청이나 의문형이면 True — 되물음 답(offer-answer) 지시를 붙이지 않는다."""
+    return bool(_REQUEST_OR_QUESTION_RE.search(question.strip()))
+
+
 def _extract_offer(answer: str) -> str:
     """직전 답변 끝의 제안·되물음 문장을 뽑는다(없으면 '').
 
@@ -2122,9 +2149,48 @@ def update_thread_offer(
         if state is None:
             return
         state.last_offer = _extract_offer(answer)
+        # 시스템 발언 원장 갱신 + shadow 감사 — 비동기 경로도 동기 경로와 같은 계약(2026-10-01).
+        _record_answer_commitments(state, answer, thread_id)
         store.save(state)
     except Exception:  # noqa: BLE001 — offer 갱신 실패가 답변 영속을 막으면 안 된다
         _logger.exception("last_offer 갱신 실패 — offer-slot 링킹만 비활성 thread=%s", thread_id)
+
+
+def _record_answer_commitments(
+    state: ConversationState, answer: str, thread_id: str | None
+) -> None:
+    """답변 확정 후: 추천·판정 문장을 시스템 발언 원장에 병합하고 정정·조건 준수를 shadow 감사한다.
+
+    감사는 로그만 남긴다(재생성·교체 없음 — 2026-10-01 데굴님 결정, 로그 축적 후 교체 정책 별도
+    승인). 원장 병합은 번복 이력(superseded)을 보존한다. 실패해도 답변 영속을 막지 않는다.
+    """
+    if not answer:
+        return
+    try:
+        ctx = state.last_challenge_context or {}
+        audit = audit_answer(
+            answer,
+            is_challenge=bool(ctx.get("challenge")),
+            matched_quotes=list(ctx.get("matched") or []),
+            excluded_quotes=list(ctx.get("excluded") or []),
+        )
+        if audit.passed:
+            _logger.info(
+                "commitment_audit result=pass challenge=%s matched=%d thread=%s",
+                bool(ctx.get("challenge")), len(ctx.get("matched") or []), thread_id,
+            )
+        else:
+            _logger.warning(
+                "commitment_audit result=violation kinds=%s details=%s thread=%s turn=%s",
+                audit.violations, audit.details, thread_id, state.turn_no,
+            )
+        topic = state.active_topic.value if state.active_topic is not None else None
+        state.assistant_commitments = merge_commitments(
+            state.assistant_commitments,
+            extract_commitments(answer, state.turn_no, topic),
+        )
+    except Exception:  # noqa: BLE001 — 원장·감사 실패는 답변 영속과 무관
+        _logger.exception("assistant_commitments 갱신 실패 thread=%s", thread_id)
 
 
 # 상황 제약 — 질문 맥락으로 형제 사건을 결정적으로 좁힌다. 묻힌 일반 안내로는 thinking LOW
@@ -3717,6 +3783,27 @@ _RECHECK_DIRECTIVE = (
     "시기'의 차이(트리거≠실행), 가능성 단계(관심·인연 의식 → 관계 진전)를 구분해 설명하라. "
     "단정·예언은 금지."
 )
+# 정정 답 계약(2026-10-01 데굴님 승인) — 이의 턴("네가 추천했잖아")은 새 추천 요청이 아니라 이전
+# 답변과 현재 답변의 모순을 해소하라는 요청이다. 실로그(커튼 색): 일반 상담 답으로 생성하자 현재
+# 결론을 그럴듯하게 설명하며 이전 발언까지 부인했고, 월운 서술을 길게 덧붙였다.
+_CHALLENGE_DIRECTIVE = (
+    "[정정 답 계약 — 사용자가 네 이전 발언을 인용해 이의를 제기했다] 이 순서로 답하라. "
+    "①이전 발언 확인: [이전 발언 원문]에 해당 발언이 있으면 '맞아요, 제가 앞서 …라고 "
+    "말씀드렸습니다'로 "
+    "먼저 인정한다(부인·'그런 뜻이었다'로 바꿔 말하기 금지). 원문에 없으면 '그 말씀은 드리지 "
+    "않았다'고 "
+    "부드럽게 밝힌다. ②모순의 성격을 하나로 분류해 말한다 — (a) 같은 정보로 결론을 뒤집었다(이전 "
+    "발언이 엔진 자료와 어긋났다) → 오류를 인정하고 그 추천·판정을 철회한다 / (b) 이번에 새 조건이 "
+    "더해져 결론이 달라졌다 → 새 조건과 달라진 이유를 설명한다 / (c) 대상·시점·용도가 달라 둘 다 "
+    "성립한다 → 각각 어느 조건에서 유효한지 / (d) 근거가 부족해 판단 불가 → 모순은 인정하되 새 "
+    "결론을 "
+    "단정하지 않고 필요한 정보를 묻는다. ③유지·철회 범위를 명시한다 — 추천이 잘못됐다면 '설명 "
+    "보완'이 "
+    "아니라 '추천 수정'으로 처리한다. ④[사용자 제공 정보]의 배제 조건·사용자 해석을 반영한 후속 "
+    "답을 "
+    "짧게 덧붙인다(배제한 선택지를 대안으로 다시 내밀지 말 것). 이 턴에서는 새 월별 흐름·연도 "
+    "나열·성격 서사를 생성하지 말고 모순 해소에 집중할 것."
+)
 # claim recheck 상속 대상이 되는 '분석' query_type(정책·구조 라우트 제외).
 _RECHECK_ANALYSIS_QTYPES = frozenset(
     {
@@ -3867,6 +3954,7 @@ def chat(
     state: ConversationState | None = None
     repeated = False
     is_followup_turn = False
+    _is_challenge_turn = False  # 이의·인용 반문 턴(CHALLENGE 링크) — 정정 답 계약·원장 주입 근거.
     prior_intent = None  # 직전 턴 intent — 활성 스레드 맥락 기반 broad 제안용.
     if thread_id is not None:
         store = store or ConversationStore()
@@ -3894,6 +3982,7 @@ def chat(
             current_month_label=luck_month,
         )
         is_followup_turn = _link.is_follow_up
+        _is_challenge_turn = _link.link_kind is LinkKind.CHALLENGE
         # P0 — 턴별 시점 해소 추적(extracted/resolved/excluded/inherited·dialogue_act).
         _logger.debug(
             "turn_trace thread=%s turn=%s trace=%s", thread_id, state.turn_no, parsed.trace
@@ -4791,6 +4880,27 @@ def chat(
                 except ValueError:
                     pass
             prior_claims.append(f"{label}" + (f" — {ref.detail}" if ref.detail else ""))
+    # 시스템 발언 원장 검색(2026-10-01) — 이의 턴이거나 발화가 앞서 추천·비권장한 대상어를 언급하면
+    # 겹치는 이전 발언 원문을 주입한다("네가 추천했잖아"에 자기 발언을 확인할 유일한 근거).
+    # 동시에 답변 후 shadow 감사가 읽을 맥락(이의 여부·매치 원문·배제 조건)을 상태에 적어 둔다.
+    _prior_statements: list[str] = []
+    if state is not None and state.assistant_commitments:
+        _wants_statements = _is_challenge_turn or is_recheck or (
+            is_followup and mentions_commitment(state.assistant_commitments, question)
+        )
+        _matched = (
+            match_commitments(state.assistant_commitments, question) if _wants_statements else []
+        )
+        _prior_statements = prior_statement_lines(_matched)
+    if state is not None:
+        state.last_challenge_context = {
+            "challenge": bool(_is_challenge_turn or is_recheck),
+            "matched": [ln for ln in _prior_statements],
+            "excluded": [
+                f.quote for f in state.user_facts
+                if f.key == "excluded_option" and f.status == "confirmed"
+            ],
+        }
     # 구조 해석 블록 — 단일 대상일 때만(궁합 비교는 대상 혼동 방지로 생략).
     structural = (
         _structural_context(result, intent, today, question) if not plan.per_subject else None
@@ -4995,6 +5105,7 @@ def chat(
         is_followup_turn=is_followup,
         default_period=default_period,
         prior_claims=prior_claims,
+        prior_statements=_prior_statements,
         current_month_label=luck_month,
         current_month_detail=_current_luck_month_detail(
             chart_birth,
@@ -5182,6 +5293,9 @@ def chat(
     # 직전 풀이 재검토(B) — 이의/반문 후속이면 엔진 근거로 재검토하도록 지시(출생정보 재요청 금지).
     if is_recheck:
         trailing.append(_RECHECK_DIRECTIVE)
+    # 정정 답 계약(2026-10-01) — 이의 링크 턴은 모순 해소 순서(인정→분류→범위→조건 반영)로 답한다.
+    if _is_challenge_turn or is_recheck:
+        trailing.append(_CHALLENGE_DIRECTIVE)
     # P2 — 시점 제약 구조화 전달: 확정 시점 + 배제 기간 + 서술 금지(2026-07-14).
     if _active_exclusions:
         trailing.append(_time_exclusion_directive_text(intent, _active_exclusions))
@@ -5269,7 +5383,14 @@ def chat(
     # 방향 질문은 직전 되물음의 답이 아니다 — 되물음 답변/이어보기 지시문을 붙이지 않는다
     # (docs/19 §7 P0-b: '직전 주제를 그대로 이어 풀어라'가 수면 방향 질문을 공부 흐름으로 끌고 감).
     _is_direction_q = bool(intent.direction_question or intent.direction_purpose)
-    if prior_answer and not _is_direction_q and (
+    # 이의 턴과 요청·질문형 발화('다른 색을 추천해줘', '녹색을 추가해도 돼?')는 직전 되물음의 '답'이
+    # 아니다(2026-10-01 실로그: 이 지시가 붙어 LLM이 사용자의 이의·요청을 자기 질문의 답으로 소비).
+    _not_offer_answer = _is_challenge_turn or is_recheck or (
+        _is_request_or_question(question)
+        and not is_affirm_continue(question)  # '그래 봐줘'는 수락 — 이어보기 지시 유지
+        and not AFFIRMATION_RE.fullmatch(question.strip())
+    )
+    if prior_answer and not _is_direction_q and not _not_offer_answer and (
         is_affirm_continue(question) or is_followup_turn
     ):
         _offer = _extract_offer(prior_answer)
@@ -5877,6 +5998,8 @@ def chat(
         # 이번 답변 끝의 제안(offer)을 저장 — 다음 턴의 슬롯 답변('2026년')을 제안 수락으로 연결한다
         # (비offer면 '' → 자동 만료). offer-slot 링킹·월별 승격의 근거(2026-07-01).
         state.last_offer = _extract_offer(answer)
+        # 시스템 발언 원장 갱신 + 정정·조건 준수 shadow 감사(2026-10-01) — 동기 경로.
+        _record_answer_commitments(state, answer, thread_id)
     _save_thread(store, state)
     return ChatResponse(
         status="answered",

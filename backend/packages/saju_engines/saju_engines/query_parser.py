@@ -39,7 +39,9 @@ from saju_shared_types.intent import (
     TimeScope,
 )
 
+from .challenge_detect import is_challenge
 from .time_parser import parse_time_with_constraints
+from .yongsin_color import detect_asked_colors, is_color_question
 
 # ── 어휘 사전 (실로그 기반 — docs/08 D) ──────────────────────────
 
@@ -827,7 +829,9 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
     ):
         return QueryType.OUT_OF_SCOPE
     # Q12 — 이의/정정 (B9/B10/A10): 직전 답변 참조 신호가 있어야 한다("vs ... 맞아?"는 Q7).
-    if re.search(r"아니야\s*\?|틀렸|헷갈려|다시\s*체크|라던데\s*맞아|했잖아", text):
+    # 감지 규칙은 challenge_detect(2인칭+인용 표지·시점 참조+발화 동사·기존 리터럴)와 공유한다 —
+    # 리터럴 `했잖아`만 보던 시절 "니가 … 추천해줬잖아"가 새던 결함(2026-10-01 실로그).
+    if is_challenge(text):
         return QueryType.FEEDBACK_CORRECTION
     # Q12b — 명식 기둥 주장('시주가 경인인데?'): 엔진 계산값과 대조하는 정정 발화(2026-09-11).
     if parse_pillar_claim(text) is not None:
@@ -1289,6 +1293,11 @@ def parse_message(
             if _last.query_type not in _DIRECTION_KEEP_QUERY_TYPES:
                 _last.direction_question = True
                 _last.query_type = QueryType.REMEDY
+        # 오행 생활화 — 색 질문 표지(2026-10-01). 라우팅·도메인은 바꾸지 않고(학업 색 질문은 학업
+        # 분석 흐름 유지) [오행 보완 색] 블록만 더하도록 표시한다. 지목 색은 사전 키로 보존.
+        if is_color_question(piece):
+            _last.color_question = True
+            _last.colors_asked = detect_asked_colors(piece)
         # 육친 운 — 원국 육친 축 질문. 관계어가 대상으로 잡혔어도 미해소면 본인 명식으로 본다
         # (등록 동반자 해소는 스레드 엔진이 subjects를 덮어쓴다).
         if detect_kin_axis(piece) is not None:

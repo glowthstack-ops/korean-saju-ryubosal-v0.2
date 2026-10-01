@@ -60,8 +60,18 @@ interface ConversationState {
   lastIntent: IntentJson | null;
   lastResults: ResultSummaryRef[];     // 직전 답변에서 제시한 이벤트/시기/명리 판정 요약
   repeatCount: number;                 // 동일 질문 반복 감지 (F7) — 2회 이상이면 다른 각도 제시
+  assistantCommitments: AssistantCommitment[]; // 시스템 발언 원장(2026-10-01) — 답변의 추천·비권장·판정 문장 원문
+                                       // {quote, sourceTurn, polarity, status: active|superseded, supersededByTurn}
+  lastChallengeContext: Record<string, unknown>; // 이번 턴 정정 감사 맥락 {challenge, matched[], excluded[]}
 }
 ```
+
+**시스템 발언 원장(assistantCommitments, 2026-10-01 데굴님 승인)** — 사용자 제공 사실 원장(user_facts)과 대칭.
+"시스템이 무엇을 말했는가"의 증거이며 옳다는 증거는 아니다. 답변 확정 시(동기·비동기 경로 공통) 추천·비권장·판정
+수행 표지 문장을 rules-first 로 추출해 축적(캡 24)하고, 같은 대상어(색 범주 정규화 포함)에 반대 극성 발언이 오면 이전 건을
+**삭제하지 않고 superseded 로 남긴다**(요약 메모리에 '초록은 나쁨'만 남으면 "네가 추천했잖아"에 답할 수 없다). 이의 턴·선택지
+확인 턴에서 사용자 발화와 어휘가 겹치는 문장을 `[이전 발언 원문]`(턴·극성·상태 라벨)으로 주입한다. 구현
+`saju_engines/assistant_commitments.py`, 감사 `commitment_audit.py`(shadow 로그 — 재생성·교체 없음, 실로그 web-mup4m82l 계기).
 
 ### A2. Entity Tracking Engine
 
@@ -104,6 +114,13 @@ interface LinkResult {
 ```
 
 판별 규칙(우선순위):
+0. **이의·인용 반문은 최우선 challenge**(2026-10-01) — 2인칭 지칭+인용·수행 표지("니가 … 추천해줬잖아", "네가 좋다고 했잖아")
+   또는 시점 참조+발화 동사("아까는 9월이 좋다고 말했잖아") → `challenge`(Q12). offer-slot/offer-answer(되물음 답) 판정보다
+   **앞**에 둔다 — 실로그에서 이의가 직전 되물음의 '답'으로 링크돼 LLM이 자기 발언을 부인했다. 1인칭 주어·과거 사실 절
+   ("내가 아까 말한", "3년 전에 이사했잖아")은 제외. 규칙 SSOT `saju_engines/challenge_detect.py`(파서 Q12와 공유).
+   요청·의문형 후속("다른 색을 추천해줘", "녹색을 추가해도 돼?")에도 되물음 답 지시를 붙이지 않는다.
+0b. **선택지 확인 후속** — 발화가 원장(assistantCommitments)에서 추천·비권장한 대상어를 언급하고 새 도메인·새 풀이 요청이
+   없으면 `constraint_add` 로 잇는다("녹색을 추가해도 돼?"가 NEW 로 끊기던 결함).
 1. 명시적 참조어/판정 인용 존재 → follow-up 확정, Entity Tracking으로 해석
 2. 단답(10자 이하 — 실측 11%)이고 시점·도메인·대상 중 1개 슬롯만 존재 → 해당 슬롯만 교체, 나머지 전부 상속. "내일운세 → 모레는? → 글피는?" 체인 포함 (B2/B3)
 3. 도메인/시간 슬롯이 비어 있고 직전 intent와 의미 연결("그럼 준비는 언제부터?") → 슬롯 상속
@@ -318,6 +335,11 @@ Q11 terminology_education:
 
 Q12 feedback_correction:
   claim 엔티티 조회 → 엔진 재검산 → 일치: 근거 재설명 / 불일치: 정정 + 오류 인정
+  (2026-10-01) 시스템 발언 원장 검색 → [이전 발언 원문] 주입 → **정정 답 계약**(`_CHALLENGE_DIRECTIVE`):
+    ①이전 발언 확인(원문 있으면 인정, 없으면 '드리지 않았다') ②모순 분류 — (a)같은 정보로 번복→철회 (b)새 조건으로
+    변경→이유 (c)조건 달라 양립 (d)판단 불가→확인 ③유지·철회 범위(설명 보완 아닌 추천 수정) ④배제 조건·사용자 해석
+    반영 후속. 새 월별 흐름·성격 서사 생성 금지. 답변 후 shadow 감사(no_acknowledgment / excluded_reoffered /
+    effect_assertion) 로그만.
   사실 피드백("실제로는 11월이었어") → cases.jsonl 적재 + Confidence Calibration 갱신
   내부 개선책(CoT/RAG/프롬프트 수정안)은 사용자에게 노출하지 않음
 

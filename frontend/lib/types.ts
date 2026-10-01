@@ -334,6 +334,15 @@ export interface YongsinAnalysis {
   final: Record<string, string | number | null>;
   requires_validation: boolean;
   warnings: string[];
+  decision_trace?: {
+    problem: string;
+    chosen_path: string;
+    heesin_function?: string | null;
+    heesin_function_ko?: string | null;
+    rejected: Array<{ element: string; model: string; score: number; reason: string }>;
+    axis_conflict?: { eokbu: string; johu: string; resolution: string } | null;
+    collateral: string[];
+  } | null;
 }
 
 export interface LuckPolarity {

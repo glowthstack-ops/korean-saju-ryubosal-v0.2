@@ -17,7 +17,7 @@ from .intent import IntentJson
 from .luck_hierarchy import LuckHierarchy
 from .relation_semantics import RelationSemantics
 from .sinsal import LlmSinsalModifier
-from .sinsal_direction import SinsalDirectionBlock, YongsinDirectionNote
+from .sinsal_direction import SinsalDirectionBlock, YongsinColorNote, YongsinDirectionNote
 from .structure_patterns import DetectedPattern
 
 
@@ -88,6 +88,13 @@ class YongsinOperationalSummary(BaseModel):
     main_support: list[str] = Field(default_factory=list)  # 조후보조신 등 보조약
     conditional: list[str] = Field(default_factory=list)  # 조건부 라벨(mapper=conditional)
     warnings: list[str] = Field(default_factory=list)  # 핵심 경고(≤3, deterministic 우선순위)
+    # 선정 근거 추적(2026-10-01 D·C·B) — 같은 명식이면 턴마다 같은 문장(고정 prefix 적격).
+    heesin_element: str | None = None  # 희신 오행(한자)
+    heesin_function_ko: str | None = None  # 희신 기능("制기신(과다·병 오행 제어)" 등)
+    decision_problem: str | None = None  # 명국의 핵심 문제
+    decision_path: str | None = None  # 채택 경로(모델 라벨 — 핵심 사유)
+    axis_conflict_ko: str | None = None  # "억부 水 / 조후 火 — 억부 우선"
+    collateral: list[str] = Field(default_factory=list)  # 용·희신 부작용 주석(A1)
 
 
 class ChartInterpretation(BaseModel):
@@ -502,6 +509,9 @@ class LlmInput(BaseModel):
     # 이전 턴에서 시스템이 이미 제시한 엔진 결과(한글화) — 턴 간 모순 방지(2026-06-12:
     # 같은 기간을 1턴 '재취업 성공'↔2턴 '공백기'로 뒤집던 결함).
     prior_claims: list[str] = Field(default_factory=list)
+    # 이전 발언 원문(2026-10-01) — 이의·선택지 확인 턴에서 사용자 발화와 겹치는 시스템 답변 문장
+    # (턴·극성·상태 라벨 포함). "네가 추천했잖아"에 자기 발언을 확인·정정할 근거. 비면 무헤더.
+    prior_statements: list[str] = Field(default_factory=list)
     monthly_overview: list[MonthOverviewRow] = Field(default_factory=list)
     period_fortune: PeriodFortune | None = None  # 기간 총운(E9) — 일/월/연 경로
     date_selection: DateSelectionBlock | None = None
@@ -528,6 +538,9 @@ class LlmInput(BaseModel):
     # 오행 보완 방향 첨언(용희기구한 × 정오행 방위, 2026-09-22) — 수동 방향 질문에만. 12신살
     # 활용 방향과 별개 층(합산 금지), 서술 전용. 능동·택일·이사 경로에는 싣지 않는다.
     yongsin_direction: YongsinDirectionNote | None = None
+    # 오행 보완 색 첨언(용희기구한 × 오행 정색, 2026-10-01) — 색 질문 턴에만. 방향 첨언과 같은 모델:
+    # 엔진이 허용·보류 후보를 주고 LLM은 상생 연쇄로 후보를 늘리지 않는다. 서술 전용.
+    yongsin_color: YongsinColorNote | None = None
     evidence: list[LlmEvidence] = Field(default_factory=list)
     past_validation: PastValidationSummary | None = None
     style_rules: LlmStyleRules = Field(default_factory=LlmStyleRules)
