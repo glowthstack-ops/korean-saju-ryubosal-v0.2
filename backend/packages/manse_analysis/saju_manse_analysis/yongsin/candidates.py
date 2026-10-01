@@ -1633,6 +1633,26 @@ def _pattern_model(geokguk: GeokgukResult, g: dict[str, Element]) -> YongsinCand
     )
 
 
+# 파격 유형별 **완비 역할맵**(2026-10-01 데굴님 승인, 문헌 근거 한정) — 子平真詮 論食神取運:
+# "食神帶印，而透財以解，運喜財旺，食傷亦吉，印與官煞皆忌矣" → 偏印倒食의 약신은 財, 食傷 吉,
+# 印·官煞 忌, 比劫은 언급 없음(중립=한신). 論食神 "更有印來奪食，透財以解". 比劫 통관(화인통관)을
+# 1차 치료로 삼는 근거는 고전에 없어(滴天髓 通關장에 日主·比劫 통관 언급 없음) 밴드 독립화는 하지
+# 않는다 — 신강 전용 food_rescue 모델(2026-07-13 감수)은 그대로 둔다.
+_DAMAGE_ROLE_MAP: dict[str, dict[str, str]] = {
+    "pyeonin_dosik": {
+        "yongsin": "wealth", "heesin": "output", "gisin": "resource", "gusin": "officer",
+        "hansin": "peer",
+    },
+}
+_FINAL_MAP_ONLY_LABEL = "병약용신형(약신·문헌맵)"
+_DAMAGE_ROLE_REASON: dict[str, tuple[str, ...]] = {
+    "pyeonin_dosik": (
+        "印奪食은 透財以解(子平真詮 論食神) — 재성이 편인을 제어해 식신을 보호",
+        "取運: 財旺·食傷 吉, 印·官煞 忌, 比劫 중립(한신)",
+    ),
+}
+
+
 def _disease_models(
     geokguk: GeokgukResult, g: dict[str, Element]
 ) -> list[YongsinCandidateModel]:
@@ -1647,6 +1667,26 @@ def _disease_models(
         if grp is None or grp in seen:
             continue
         seen.add(grp)
+        # 완비맵은 子平真詮 論食神(食神格)의 명문이므로 **식신격에만** 적용한다 — 건록격 등 다른
+        # 격의
+        # 편인도식(1980-02-15 골든: 比劫 土가 克財라 기신)은 기존 정적 생극 폴백을 유지한다.
+        role_map = (
+            _DAMAGE_ROLE_MAP.get(dmg) if geokguk.main_structure == "식신격" else None
+        )
+        if role_map is not None:
+            # 문헌 완비맵(2026-10-01) — 부분맵이면 final 이 정적 생극 폴백(克용신=기신)으로 채워져
+            # 偏印倒食 치료(財)에서 比劫이 기신으로 반전되는 결함이 있었다(중화권 2015-03-01
+            # 반사실).
+            out.append(YongsinCandidateModel(
+                model_type=f"disease_remedy:{dmg}", label="병약용신형(약신·문헌맵)",
+                yongsin=_e(g[role_map["yongsin"]]), heesin=_e(g[role_map["heesin"]]),
+                gisin=_e(g[role_map["gisin"]]), gusin=_e(g[role_map["gusin"]]),
+                hansin=_e(g[role_map["hansin"]]),
+                confidence=0.5,
+                reasons=[f"파격({dmg}) 제거 약신", *_DAMAGE_ROLE_REASON.get(dmg, ())],
+                is_auxiliary=True,
+            ))
+            continue
         out.append(YongsinCandidateModel(
             model_type=f"disease_remedy:{dmg}", label="병약용신형(약신)",
             yongsin=_e(g[grp]),
@@ -2060,6 +2100,10 @@ def build_yongsin(
     for m in models:
         w = _w(m.model_type)
         _put(useful, m.yongsin, m.confidence * w, m.model_type, "yongsin")
+        if m.label == _FINAL_MAP_ONLY_LABEL:
+            # 문헌 완비맵 보조 모델(14-3): 희·기·구는 final 역할표 전용 — 후보 집계에 섞으면 다른
+            # 모델의 용신 후보 역할이 heesin 으로 덮여 선택이 흔들린다(그리드 2004-12-15 실측).
+            continue
         _put(useful, m.heesin, m.confidence * w * 0.85, m.model_type, "heesin")
         _put(unfavorable, m.gisin, m.confidence * w, m.model_type, "gisin")
         _put(unfavorable, m.gusin, m.confidence * w * 0.9, m.model_type, "gusin")

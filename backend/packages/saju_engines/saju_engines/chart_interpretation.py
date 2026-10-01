@@ -87,6 +87,91 @@ def _stage_by_name() -> dict[str, dict]:
 
 
 @lru_cache(maxsize=1)
+def _domain_interaction_dict() -> dict:
+    return _load("ten_god_domain_interaction.json")
+
+
+# 십성 → 십성군 / 군 순환(生 방향). 두 칸 앞이 克 대상:
+# 비겁克재성·식상克관살·재성克인성·관살克비겁·인성克식상.
+_TEN_GOD_GROUP: dict[str, str] = {
+    "비견": "peer", "겁재": "peer", "식신": "output", "상관": "output",
+    "편재": "wealth", "정재": "wealth", "편관": "officer", "정관": "officer",
+    "편인": "resource", "정인": "resource",
+}
+_GROUP_CYCLE: tuple[str, ...] = ("peer", "output", "wealth", "officer", "resource")
+
+
+def _group_relation(incoming: str, base: str) -> str:
+    """유입 십성군이 기준 십성군에 대해 갖는 생극 관계.
+
+    same / generates / generated_by / controls / controlled_by 중 하나.
+    """
+    i = _GROUP_CYCLE.index(incoming)
+    b = _GROUP_CYCLE.index(base)
+    d = (b - i) % 5
+    return ("same", "generates", "controls", "controlled_by", "generated_by")[d]
+
+
+def domain_interaction_note(
+    day_master: str,
+    ganji: str,
+    domain: str | None,
+    fav_map: dict[str, str],
+) -> str:
+    """운 유입 십성 × 질문 도메인 기준 십성의 생극 '교차 작용' 1줄(2026-10-01 데굴님 승인).
+
+    길흉은 용기신이 정한다는 원칙(2026-06-16)은 그대로 두고, 십성의 **작용 방향**(겁재가
+    재성을 극하는
+    쟁재 등)이 길흉 서술에 묻히지 않게 별도 줄로 준다. 톤(용·희/기·구/한)은 작용의 결과 방향만
+    바꾼다.
+    천간 십성을 1차로, 지지 십성이 다른 군이면 두 번째 절을 덧붙인다(최대 2절). 도메인이 사전에
+    없거나
+    GENERAL 이면 빈 문자열(무소음). 점수·판정 불변(서술 전용).
+    """
+    if not day_master or len(ganji) < 2 or not domain:
+        return ""
+    d = _domain_interaction_dict()
+    bases = d["domain_base_groups"].get(domain)
+    if not bases:
+        return ""
+    try:
+        dm = Stem(day_master)
+        stem_tg = str(ten_god(dm, Stem(ganji[0])))
+        branch_tg = str(ten_god(dm, Stem(main_hidden_stem(Branch(ganji[1])).value)))
+    except ValueError:
+        return ""
+    group_ko = d["group_ko"]
+    domain_ko = d["domain_ko"].get(domain, domain)
+    clauses: list[str] = []
+    seen_groups: set[str] = set()
+    for tg in (stem_tg, branch_tg):
+        grp = _TEN_GOD_GROUP.get(tg)
+        if grp is None or grp in seen_groups:
+            continue
+        seen_groups.add(grp)
+        for base in bases:
+            rel = _group_relation(grp, base)
+            label = d["control_labels"].get(f"{grp}>{base}", "") if rel == "controls" else ""
+            text = d["relation_phrases"][rel].format(
+                incoming=f"{tg}({group_ko[grp]})", base=group_ko[base], domain=domain_ko,
+                label=label,
+            )
+            clauses.append(text)
+        if len(clauses) >= 2:
+            break
+    if not clauses:
+        return ""
+    stem_el = str(STEM_ELEMENT[Stem(ganji[0])])
+    role = fav_map.get(stem_el)
+    tone_key = (
+        "favorable" if role in ("용신", "희신")
+        else "unfavorable" if role in ("기신", "구신")
+        else "neutral"
+    )
+    return " / ".join(clauses[:2]) + f" — {d['tone'][tone_key]}"
+
+
+@lru_cache(maxsize=1)
 def _relation_text_by_id() -> dict[str, dict]:
     return {item["id"]: item for item in _load("relations_text.json")["items"]}
 
@@ -198,6 +283,10 @@ def build_luck_grounding(
     day_master = result.pillars.day_master if result.pillars else ""
     ganji = getattr(luck_pillar, "ganji", "")
     note = incoming_ten_god_note(day_master, ganji, fav, natal_operational_role_map(result))
+    # 교차 작용(2026-10-01) — 질문 도메인이 있으면 유입 십성 × 기준 십성 생극 1줄을 덧붙인다.
+    _inter = domain_interaction_note(day_master, ganji, domain_key, fav)
+    if _inter:
+        note = f"{note} · 교차 작용: {_inter}"
     stage_name = getattr(luck_pillar, "twelve_unseong", "")
     stage = _stage_by_name().get(stage_name)
     # 운 기둥은 '운 유입' 문장(incoming)을 쓴다 — 2026-09-10 이전에는 원국용 natal 을 잘못

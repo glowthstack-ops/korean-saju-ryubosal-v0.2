@@ -166,3 +166,34 @@ def test_collateral_penalty_flag_changes_only_scores_when_on(monkeypatch) -> Non
     monkeypatch.setattr(cand, "COLLATERAL_SCORE_ENABLED", True)
     on = _ac(calculate(_GRID_1967_07).pillars).yongsin
     assert on.final["selected_model"].startswith("food_rescue")
+
+
+# ── 偏印倒食 문헌 완비맵(식신격 한정, SPEC §14-3) ─────────────────────────────────────────
+
+def test_siksin_pattern_pyeonin_dosik_uses_literature_map_in_neutral_band() -> None:
+    """2015-03-01(식신격)을 중화신강으로 가정하면 용=金(財) 희=土(食傷) 기=木(印) 구=水(官殺)
+    한=火(比劫)."""
+    from saju_manse_analysis.structure.geokguk import detect_geokguk
+    from saju_manse_analysis.yongsin import build_yongsin
+
+    from saju_shared_types.enums import Stem as _Stem
+
+    r = calculate(BirthInput(
+        birth_date=date(2015, 3, 1), birth_time="03:34", birth_place_name="서울 도봉구",
+        gender="male",
+        latitude=37.6691, longitude=127.0324, timezone="Asia/Seoul",
+    ))
+    force = r.force_analysis
+    st = force.strength.model_copy(update={"band": "중화신강", "score": 55.5, "borderline": False})
+    f2 = force.model_copy(update={"strength": st})
+    p = r.pillars
+    gk = detect_geokguk(p, _Stem(p.day.stem), r.structure_analysis, p.gongmang_branches, f2)
+    assert gk.main_structure == "식신격"
+    y = build_yongsin(p, f2, r.structure_analysis, gk)
+    f = y.final
+    assert f["selected_model"] == "disease_remedy:pyeonin_dosik"
+    roles = (f["yongsin"], f["heesin"], f["gisin"], f["gusin"], f["hansin"])
+    assert roles == ("金", "土", "木", "水", "火")
+    # 실제 밴드(태신강)는 2026-07-13 감수 판정 火/金 그대로.
+    assert r.yongsin_analysis.final["yongsin"] == "火"
+    assert r.yongsin_analysis.final["heesin"] == "金"

@@ -1,0 +1,56 @@
+{
+  "version": "1.0.0",
+  "note": "운 유입 십성 × 질문 도메인 기준 십성의 생극 관계 → '교차 작용' 1줄(2026-10-01 데굴님 승인). 배경: 기간 운풀이가 용희기신(길흉)에 묻혀 십성의 방향성 작용(겁재→재성 쟁재 등)이 사라지던 결함. 길흉=용기신 원칙은 유지하고, 십성 생극 작용은 '작용 방향'으로 병기한다. 관계 5종은 십성군 순환(비겁→식상→재성→관살→인성→비겁 生 / 두 칸 앞 克)에서 기계적으로 도출하며, 문구는 통설 어휘(비겁탈재·상관견관·재극인·관살극신·인극식). 전 항목 reviewed:false — 점수·판정 미사용(서술 전용). 문구는 조사 불일치를 피해 화살표(→) 표기로 쓴다.",
+  "domain_base_groups": {
+    "wealth": [
+      "wealth"
+    ],
+    "career": [
+      "officer"
+    ],
+    "education": [
+      "resource"
+    ],
+    "relationship": [
+      "wealth",
+      "officer"
+    ],
+    "health": [
+      "peer"
+    ]
+  },
+  "group_ko": {
+    "peer": "비겁",
+    "output": "식상",
+    "wealth": "재성",
+    "officer": "관살",
+    "resource": "인성"
+  },
+  "domain_ko": {
+    "wealth": "재물",
+    "career": "직업·조직",
+    "education": "학업·문서",
+    "relationship": "인연",
+    "health": "신체·기력"
+  },
+  "relation_phrases": {
+    "same": "{incoming} = {base} 동류 — {domain} 영역이 두터워지되 과하면 포화·경쟁",
+    "generates": "{incoming} → {base} 생(生) — {domain} 영역을 북돋는 유입",
+    "generated_by": "{base} → {incoming} 생(설기) — {domain} 영역의 힘이 유입 쪽으로 빠져나감",
+    "controls": "{incoming} → {base} 극(克, {label}) — {domain} 영역을 흔드는 작용",
+    "controlled_by": "{base} → {incoming} 극(克) — {domain} 영역이 유입을 제압하느라 힘을 소모"
+  },
+  "control_labels": {
+    "peer>wealth": "비겁탈재·쟁재",
+    "output>officer": "상관견관·식신제살",
+    "wealth>resource": "재극인(財損印)",
+    "officer>peer": "관살극신",
+    "resource>output": "인극식(梟神奪食)"
+  },
+  "tone": {
+    "favorable": "유입이 용·희신이라 긍정 방향(경쟁·협업을 통한 확장 등)으로 풀리기 쉬우나 작용 자체는 남는다",
+    "unfavorable": "유입이 기·구신이라 이 작용의 부담이 커진다",
+    "neutral": "유입이 한신이라 작용은 약하게 나타난다"
+  },
+  "reviewed": false
+}

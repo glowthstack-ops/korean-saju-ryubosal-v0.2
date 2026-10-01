@@ -19,6 +19,7 @@ src/dictionaries/
   relations.json            # 합충형파해/공망/병존/복음/간여지동
   interpretations/          # ★ 해석 사전 계층 (v2.2.1 신설) — "글자의 의미"를 LLM에 공급하는 원천
     ilju.json               # 60갑자 일주 — 물상/일주 동물/캐릭터 서사/빛·그림자 성향/배우자궁 함의
+    ten_god_domain_interaction.json # 운 유입 십성 × 질문 도메인 기준 십성 생극 → '교차 작용' 1줄(2026-10-01, 서술 전용, 길흉=용기신 원칙 유지)
     ten_gods_text.json      # 십성 10종 — 의미/과다·부재·혼잡/용신·기신 발현 차이/일상 비유
     relations_text.json     # 합충형파해·원진·암합·병존·간여지동·복음·공망 작용 해석 (궁위별/원국 vs 운)
     twelve_stages_text.json # 십이운성 12종 — 에너지 단계 의미/일상 비유

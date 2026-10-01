@@ -199,6 +199,9 @@ class LlmEventCandidate(BaseModel):
     signals_ko: list[str] = Field(default_factory=list)
     # v2.2.1 — 운 유입 글자의 일간 기준 십성 해석(해석 사전 발췌, 엔진 계산).
     incoming_note: str = ""
+    # 교차 작용(2026-10-01) — 유입 십성 × 질문 도메인 기준 십성의 생극 관계 1줄(길흉과 별개의 작용
+    # 방향).
+    domain_interaction: str = ""
     # 표현 결(12운성 유입, 2026-09-10 daily §23 이식) — 흐름·결과 서술의 결. 문체 전용·점수 무관.
     stage_note: str = ""
     # 운 암합(보조 자료) — 점수 미반영, 물밑·비공식 뉘앙스 참고용(2026-06-12 자료).

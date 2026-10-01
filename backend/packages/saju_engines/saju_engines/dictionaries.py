@@ -398,6 +398,24 @@ class RemedyElementActions(_AliasModel):
     reviewed: bool
 
 
+class TenGodDomainInteractionFile(_AliasModel):
+    """운 십성 × 도메인 교차 작용 사전(interpretations/ten_god_domain_interaction.json, 2026-10-01).
+
+    관계 5종(same/generates/generated_by/controls/controlled_by) 문구와 도메인 기준 십성군이 전부
+    있어야 한다 — 비면 서술 줄이 조용히 사라진다.
+    """
+
+    version: str
+    note: str
+    domain_base_groups: dict[str, list[str]]
+    group_ko: dict[str, str]
+    domain_ko: dict[str, str]
+    relation_phrases: dict[str, str]
+    control_labels: dict[str, str]
+    tone: dict[str, str]
+    reviewed: bool = False
+
+
 class RemedyActionMapFile(_AliasModel):
     """개운 행동 사전 — 오행 보완 행동 전용(remedy.json D-3 상황 6분기와 별개 축).
 
@@ -2302,6 +2320,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/relocation_ten_gods.json": RelocationTenGodsFile,
     "interpretations/activity_keyword_map.json": ActivityKeywordMapFile,
     "interpretations/remedy_action_map.json": RemedyActionMapFile,
+    "interpretations/ten_god_domain_interaction.json": TenGodDomainInteractionFile,
     "interpretations/deficiency_pair_questions.json": DeficiencyPairQuestionsFile,
     "calendar/date_selection_ten_gods.json": DateSelectionTenGodsFile,
     "terminology.json": TerminologyFile,

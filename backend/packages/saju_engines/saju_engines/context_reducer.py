@@ -77,6 +77,7 @@ from .assistant_commitments import PRIOR_STATEMENTS_HEADER
 from .candidate_semantics import ganji_result_nuance, review_month_from_signals
 from .chart_interpretation import (
     build_chart_interpretation,
+    domain_interaction_note,
     incoming_stage_note,
     incoming_ten_god_note,
 )
@@ -273,7 +274,9 @@ _MEANING_INSTRUCTION = (
     "[명식 해석 자료]와 후보별 '해석' 줄을 적극 엮어, '이 글자가 일간에게 무엇이고 "
     "지금 들어온 글자와 어떤 관계를 맺어 이런 신호가 되는가'의 이야기로 풍부하게 서술할 "
     "것 — 점수와 간지를 낭독만 하지 말 것. 단, 간지·점수·합충 성립 판정의 재계산·변경은 "
-    "여전히 금지."
+    "여전히 금지. 후보의 '교차 작용' 줄은 길흉과 별개인 **십성의 작용 방향**(예: 겁재가 재성을 "
+    "극하는 쟁재)이다 — 유입이 용신이라도 그 작용을 생략하지 말고 '긍정 방향으로 풀리되 분배·"
+    "지출 증가는 동반' 식으로 길흉(용기신)과 작용(십성)을 함께 서술할 것."
 )
 # 일주 요약 계약(2026-09-22 데굴님 결정, 채팅 전체) — 일주를 성향 근거로 인용할 때 사전 narrative
 # (물상 서사)를 재서술하지 않고 traits('밝은 면/그림자') 구절 1개를 쉬운 말 한 문장으로 요약한다.
@@ -1406,6 +1409,7 @@ def _to_llm_candidate(
     result: ManseV2Result | None = None,
     sinsal_modifiers: list[LlmSinsalModifier] | None = None,
     sinsal_channel_note: str = "",
+    domain: str | None = None,
 ) -> LlmEventCandidate:
     period_ganji = ganji.get(c.period, "")
     # 관계 단계(Step 2) — MT reason_codes(evidence_path)에서 도출. 비-MT 후보는 빈값(무영향).
@@ -1426,6 +1430,13 @@ def _to_llm_candidate(
         note = incoming_ten_god_note(day_master, period_ganji, fav_map or {})
         # 표현 결(12운성 유입) — 흐름·결과 서술의 결. 문체 전용(daily §23 이식, 2026-09-10).
         stage_note = incoming_stage_note(day_master, period_ganji)
+    # 교차 작용(2026-10-01 데굴님 승인) — 유입 십성 × 질문 도메인 기준 십성의 생극 1줄.
+    # 길흉(용기신)에
+    # 십성의 방향성 작용(겁재→재성 쟁재 등)이 묻히던 결함 보정. 도메인 없으면 빈 문자열(무소음).
+    interaction = (
+        domain_interaction_note(day_master, period_ganji, domain, fav_map or {})
+        if day_master and period_ganji else ""
+    )
     # 운 암합(보조) — 점수 미반영, 물밑·비공식 뉘앙스 참고(2026-06-12 자료).
     amhap_notes: list[str] = []
     if result is not None and result.pillars is not None and len(period_ganji) == 2:
@@ -1475,6 +1486,7 @@ def _to_llm_candidate(
         direction=_direction_for(c),
         signals_ko=signals_ko,
         incoming_note=note,
+        domain_interaction=interaction,
         stage_note=stage_note,
         amhap_notes=amhap_notes,
         caution_note=caution,
@@ -2107,6 +2119,7 @@ def build_llm_input(
     # natal 신살은 도메인 레벨(후보 무관 동일) → 상위 N개 후보에만 부착해 토큰 중복을 막는다.
     _max_cand = _sinsal_cfg.SINSAL_PAYLOAD_MAX_CANDIDATES
 
+    _domain_key = intent.domain.value if intent.domain is not Domain.GENERAL else None
     llm_candidates = [
         _to_llm_candidate(
             c,
@@ -2117,6 +2130,7 @@ def build_llm_input(
             result,
             sinsal_mods if i < _max_cand else None,
             _channel_notes.get(i, "") if i < _max_cand else "",
+            domain=_domain_key,
         )
         for i, c in enumerate(selected)
     ]
@@ -2694,6 +2708,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
             block.append(f"  {c.recurrence_note}")
         if with_notes and c.incoming_note:
             block.append(f"  해석: {c.incoming_note}")
+        if with_notes and c.domain_interaction:
+            block.append(f"  교차 작용: {c.domain_interaction}")
         if with_notes and c.stage_note:
             # 표현 결(12운성 유입) — 흐름·결과 서술의 결(문체 전용, 점수·판정 무관).
             block.append(f"  결(12운성): {c.stage_note}")

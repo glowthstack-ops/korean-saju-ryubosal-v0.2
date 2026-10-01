@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from datetime import date, time
 
+import pytest
+
 from saju_api.services import chat_service
 from saju_engines.assistant_commitments import extract_commitments, merge_commitments
 from saju_engines.conversation import ConversationEngine
@@ -140,3 +142,18 @@ def test_user_misremembers_yields_no_prior_statements() -> None:
 
     _, _, st4 = _engine_trace()[3]
     assert match_commitments(st4.assistant_commitments, "니가 노란색 커튼을 추천했잖아") == []
+
+
+# ── 재물 동의어(2026-10-01 실로그: '내 10월 금전 운세는 어때?' → general 월 총운) ──────────
+
+@pytest.mark.parametrize(
+    "q",
+    ["내 10월 금전 운세는 어때?", "10월 금전운 어때?", "올해 재정 상태는?", "내년 자금 흐름 어때?"],
+)
+def test_money_synonyms_route_to_wealth_domain(q: str) -> None:
+    from saju_engines.query_parser import parse_message
+    from saju_shared_types.intent import Domain
+
+    i = parse_message(q, _T).intents[0]
+    assert i.domain is Domain.WEALTH
+    assert i.query_type is not QueryType.FORTUNE_OVERVIEW

@@ -11206,3 +11206,29 @@ DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subjec
 - 도구: 스냅샷/diff 스크립트는 스크래치패드(`yongsin_snapshot.py`·`yongsin_diff.py`) — 재실행 가치 확인 시 scripts 승격.
 - 게이트: lint `All checks passed` · production mypy gate clean · maintained scripts mypy gate clean · 전체 스위트 `VALID_SUITE_PASS`
   (start_head=end_head=e8904e5, 지문 동일, exit 0) · frontend tsc·production build 통과. 백엔드 재기동 반영.
+
+## 2026-10-01 — 偏印倒食 병약 모델 문헌 완비맵(식신격 한정) + 재물 동의어 (SPEC §14-3, 데굴님 지시)
+
+- **질문**: 중화권에서 화인통관 후보가 없어 2015-03-01을 중화신강으로 가정하면 火가 기신으로 반전 — 印食 병 치료 후보의 밴드
+  독립화가 문헌상 합리적인가.
+- **문헌**: 子平真詮 論食神 "更有印來奪食，透財以解" · 論食神取運 "食神帶印，透財以解，運喜財旺，食傷亦吉，印與官煞皆忌" ·
+  論印 "印淺身輕，用層層傷食，則寒貧" · 滴天髓 通關장에 日主·比劫 통관 언급 없음 → **比劫 통관 밴드 독립화 미적용**(근거 불확실).
+  반전의 실체는 `disease_remedy:pyeonin_dosik` 부분맵의 정적 폴백(克용신=기신) → 取運 명문대로 완비맵(용=財·희=食傷·기=印·
+  구=官殺·한=比劫) 적용, **식신격 한정**, 집계 미참여. 반사실: 중화신강·중화 → 金/土/木/水/火(한신). 719명식 diff final 1건.
+- **대화 오류**: '내 10월 금전 운세는 어때?'가 general 월 총운으로 답함 — 재물 어휘에 금전·재정·자금·현금·돈벌이·재운 추가,
+  회귀 4건(`test_conversation_challenge_flow.py`).
+- 게이트: lint `All checks passed` · production mypy gate clean · maintained scripts mypy gate clean · 전체 스위트 `VALID_SUITE_PASS`. 백엔드 재기동 반영.
+
+## 2026-10-01 — 기간 운풀이 십성 교차 작용 줄 (데굴님 지적·승인)
+
+- **지적**: 날짜·기간 운풀이가 용희기신 오행 길흉에 치우쳐 십성 작용이 묻힘. payload 점검: 월 행은 운 품질 등급(길흉 1차),
+  후보 '해석' 줄은 사전 incoming + 용신이면 asYongsin/기신이면 asGisin — 戊戌(겁재·용신)×재물 질문에서 겁재→재성 쟁재
+  작용은 '겁재+기신' 조건의 근거 힌트에만 남아 "결단과 추진"으로만 전달됐다.
+- **구현(서술 전용·점수 불변)**: `interpretations/ten_god_domain_interaction.json`(reviewed:false — 도메인 기준 십성군 5·관계
+  5종 문구·克 통설 라벨·톤 3) + `chart_interpretation.domain_interaction_note`(십성군 순환으로 same/generates/generated_by/
+  controls/controlled_by 도출, 천간 1차 + 지지 다른 군이면 2절, 톤은 용기신 역할로 결과 방향만) → 후보별 `LlmEventCandidate.
+  domain_interaction` "교차 작용:" 줄(도메인 GENERAL 이면 무소음) + 단일 기간 grounding(`build_luck_grounding` domain_key)에
+  병기. `_MEANING_INSTRUCTION`에 "길흉(용기신)과 작용(십성)을 함께 서술, 용신이라도 작용 생략 금지" 추가. 스키마
+  `TenGodDomainInteractionFile` 등록.
+- 회귀: `test_domain_interaction.py` 6건(순환 관계 7쌍·겁재×재물 쟁재+용신 톤·기신 톤·도메인 없음 무소음·2절·payload).
+- 게이트: lint `All checks passed` · production mypy gate clean · maintained scripts mypy gate clean · 전체 스위트 `VALID_SUITE_PASS`. 백엔드 재기동 반영.
