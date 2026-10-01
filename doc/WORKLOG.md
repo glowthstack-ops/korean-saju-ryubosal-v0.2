@@ -11136,3 +11136,23 @@ DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subjec
 - **부수 관찰 해소**: 1턴 답의 '9월 29일' 추천은 결함 아님 — 질문 시각이 9/28(월)이라 창(9/28~10/4) 안의 미래 날짜.
   택일 블록은 시작일을 today 이하로 내리지 않는다(`_date_selection_block`).
 - 회귀: `test_conversation_date_fixes.py` 2건(승계·가드).
+
+## 2026-10-01 — 일주 해설 거짓 역접 전수 교정 + 문장 형태 규칙 (docs/05 규칙 3, 데굴님 지시)
+
+- **결함(실답)**: "己亥 일주는 겉으로는 다정하고 유연해 보이지만 내면에는 실속을 차려가는 영리함을 품고 있는 구조입니다" —
+  앞뒤가 모두 장점인데 역접 '~지만'으로 이어 문장이 성립하지 않는다(역접은 긍정↔부정일 때만). 원인은 두 층:
+  ①채팅 `[일주 요약 규칙]`(`context_reducer._ILJU_SUMMARY_INSTRUCTION`)에 문장 형태 규칙 부재 ②함께 주입되는 사전
+  `ilju.json` narrative 자체가 "겉으로 보기에는 … 같은데, 그 내면에는 …" 구조라 LLM이 그 틀을 따라감.
+- **사전 교정(`interpretations/ilju.json` 1.0.0→1.0.1, 24건)**: 60갑자 전수 스캔(역접·양보 연결 28건) 중 거짓 역접만 교정 —
+  겉/속 대조형 11건(甲子·乙丑·丙子·戊子 imagery+narrative·乙卯·乙未·乙酉 narrative+traits·辛卯·己丑 imagery·己亥·壬辰·丁巳),
+  동물 서사 '순하지만/보이지만' 3건(辛未·癸未·己未), '~면서도' 장점 병치 5건(甲戌·丁丑·壬午·丁亥·丁未). 모두 "A한 외면과
+  B한 내면을 함께 갖춘/지닌" 병렬로 재작성. 진짜 역접·양보 12건(戊辰 "큰 산이지만 벽이 되면", 甲辰, 癸丑 "화려함과는 거리가
+  있어도", 丁丑 imagery "작지만 꺾이지 않고", 己酉 "소박하지만 풍성한" 등)은 유지. 손 포맷(인라인 객체) 보존 — 문자열 치환으로만 적용.
+- **LLM 지시문**: `_ILJU_SUMMARY_INSTRUCTION`에 문장 형태 규칙 추가(역접은 장점↔약점일 때만, 같은 극이면 병렬), 리포트
+  F-02(일주 서사) 가이드에 같은 규칙 1문장.
+- **재발 방지 lint**: `test_interpretations_dict.py::test_no_false_contrast_between_surface_and_inner`(겉·외양 표지+역접 어미+속·내면
+  표지 / '보이지만·보여도·같은데·같지만' 겉보기 역접) + lint 자체 검증 1건. 사전 기존 문장 중 오탐 0.
+- **문서·픽스처**: docs/05 己亥 예시 narrative·해석 사전 규칙 3에 역접 기준 추가, docs/19 §5 일주 요약 항목에 문장 형태 1줄,
+  `tests/fixtures/golden_style_ilju_example.md` 해당 문장 교정 + 체크포인트 6 추가.
+- 게이트: lint `All checks passed` · production mypy gate clean · maintained scripts mypy gate clean · 전체 스위트 `VALID_SUITE_PASS`
+  (start_head=end_head=c4d479e, 지문 동일, exit 0). 백엔드 재기동으로 사전 1.0.1 반영.
