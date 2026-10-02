@@ -11256,3 +11256,46 @@ DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subjec
   호출한다. 동기 경로도 같은 함수로 교체(동작 동일 — gloss 정규화 멱등 확인). ctx 가 None(구형/테스트)이면 텍스트 후처리만.
 - 회귀: `test_answer_postprocess_paths.py` 4건(prep 맥락 비직렬화·ctx None 동치·실 payload 전체 감사 통과·라우터 소스 가드).
 - 게이트: lint `All checks passed` · production mypy gate clean · maintained scripts mypy gate clean · 전체 스위트 `VALID_SUITE_PASS`. 백엔드 재기동 반영.
+
+## 2026-10-02 — 관계 주장 감사 공유 글자 오탐: 직접 호칭 배타 귀속 (데굴님 지적·승인)
+
+- **사고**: "오늘 운세는 어때?"(일진 己酉) 실답이 안전 템플릿("표현을 다듬지 않고 엔진 판정 그대로")으로 통째 교체. LLM은 정상
+  응답(llm_usage 19,087/829)했으나 `relation_claim_audit`가 위반 4건(`TRANSFORMATION_ASSERTED_WHEN_NOT`·`STRENGTHEN_…`·
+  `BINDING_ASSERTED_WHEN_NONE`×2, 라벨 巳酉반합·申酉방합·辰酉合)을 잡고 ambiguous=1 → `AMBIGUOUS_RELATION_FALLBACK`.
+- **원인**: `_referenced` 경로 ②(합 어휘 + 구성 글자 1개 + 나머지 글자가 ±2문장 창)가 **공유 글자**에 취약. 酉가 辰酉合·巳酉반합·
+  申酉방합 3관계에 동시 참여해 "辰酉合은 … 합거입니다"(맞는 문장)가 창 안의 巳·申 때문에 반합·방합에 귀속(BINDING 오탐), 반합의
+  "金 작용 보조 강화"(맞는 문장)가 辰酉合(化 불성)에 귀속(TRANSFORMATION 오탐). 한자 라벨('辰酉合')은 직접 호칭 별칭에 없었다.
+  재현: **엔진 canonical 문장 5개를 그대로 이어 붙인 본문이 위반 2건** — 지시를 완벽히 따른 답변도 폴백됐다.
+- **수정**(`saju_engines/relation_claim_audit.py`, 판정 로직 불변): 직접 호칭 별칭에 한자 라벨·접미 보존 한글('사유반합') 추가,
+  문장이 어떤 관계든 이름으로 부르면 그 관계에만 귀속하고 창 추정은 쓰지 않는다(`_named_relations` 선계산). 호칭 없는 문장은
+  경로 ② 유지("유금이 진토와 합하여 金 강해진다" 역전은 계속 검출).
+- 회귀: `test_relation_claim_audit.py` +6건(canonical 전체 무위반·공유 글자 자연 답변 무위반·한글 접미 통칭·진짜 역전 3형 검출).
+- 게이트: lint `All checks passed` · production mypy gate clean · maintained scripts mypy gate clean · 전체 스위트 `VALID_SUITE_PASS`. 백엔드 재기동 반영.
+
+## 2026-10-02 — 복수 명시 일자·일 범위 질문: 파서 C5d + 날짜별 동일 깊이 주입 (데굴님 지적·승인)
+
+- **사고**: 로또 택일 답 뒤 "10월 7일과 9일은 어때?"가 단일 2026-10-07 로만 파싱·주입(dry-run 확인: 질문 기간·일운 블록·특정일
+  지시문 전부 7일) → LLM 이 7일만 풀고 "9일 세부 정보는 제공되지 않았다"로 넘김. 원인 3겹 ①`time_parser` C5b 는 `N월 D일` 첫 매치
+  하나 ②`_explicit_dates` 는 월이 둘 다 붙은 형태만(월 생략 둘째 날 미포착) ③`_SINGLE_DAY_FOCUS_DIRECTIVE` 가 '그 날 하나' 강제.
+  "10월 7일부터 9일까지"도 일 범위 규칙 부재로 단일 7일 — 같은 작업에 포함(데굴님 지시).
+- **스키마**: `TimeRange.dates: list[str]`(명시 복수 일자, ISO 오름차순 최대 4 — start/end=min~max 스팬, 사이 날은 대상 아님; 연속
+  범위는 start~end 만) — docs/03 B2 timeRange 에 `dates?: string[]`(C5d) 명시. `LlmInput.extra_period_fortunes: list[PeriodFortune]`
+  (둘째 날 이후 일 총운, 같은 블록 형식으로 순서대로 렌더).
+- **파서 C5d**(`time_parser.parse_multi_day`, C5b 앞): 목록형 "N월 D1일과/이랑/,/· D2일"(월 생략 연속은 직전 달 승계), "N월 D1일 …
+  M월 D2일", "D1일이랑 D2일"(C5c 달 규칙), 슬래시 "10/7과 10/9" → `dates`. 범위형 "N월 D1일부터 D2일까지"·"D1일~D2일"·"에서 … 사이"
+  → start~end. 연도 생략 이월·과거시제·시간대(HOUR) 규칙은 C5b 와 동일. 2개 미만이면 None(기존 규칙 그대로).
+- **chat_service**: `_tr_day_targets`(dates > 짧은 범위 ≤4일 전부 > 단일 하루; 긴 범위는 일별 흐름 블록 담당) 우선, 창이 날 단위가
+  아닐 때만 `_explicit_dates`(월 생략 연속 보강). `_period_fortune_type` 은 dates 면 daily — 첫 날 `period_fortune` + 이후
+  `extra_period_fortunes`(관계·슬롯 같은 깊이, 전체 블록 `_MULTI_DAY_FULL_BLOCK_MAX`=3 — 28k 입력 가드). 일별 흐름 블록은 지목한 날만
+  ("[해당 날짜들(…) 일운]"). `_MULTI_DAY_FOCUS_DIRECTIVE`(dates 또는 2~4일 범위): 날짜별 동일 깊이 + 비교 결론, '정보 없음' 회피 금지,
+  기준 시점 대비 관계 병기. `context_reducer` 렌더러는 `[period_fortune, *extra]` 순회, 계층·신살 지시문은 어느 날이든 있으면 추가.
+  `conversation._retro_anchor_bare_date` 는 dates 도 함께 되돌림.
+- **관계 감사 합집합**(`_union_relation_semantics`): 날짜별 의미를 합치되 **판정이 갈리는 라벨은 감사에서 제외** — 실측 10-09 는 절기월이
+  戊戌(寒露 10-08)로 바뀌어 `丁壬合`이 7일(월운 丁酉 쟁합→합반·합거)과 9일(木 합화)로 다르다. 첫 값 유지 방식이면 9일의 맞는 서술이
+  위반 처리돼 안전 템플릿으로 떨어진다. 프롬프트의 날짜별 canonical 문장은 그대로.
+- 회귀: `test_time_parser_multi_day.py` 15건(목록 6형·범위 4형·3일·월 교차·명시 연도·이웃 규칙 불변·시간대), `test_multi_day_question.py`
+  9건(본문 추출 승계·대상 우선순위·지시문 게이트·period_type·retro dates·dry-run 두 날 블록+지시문·3일 범위·단일 날짜 경로 불변·
+  감사 합집합/충돌 제외 — 플래그 OFF 기준선에서 엔진 판정 직접 파생).
+- 게이트: lint `All checks passed` · production mypy gate clean · maintained scripts mypy gate clean · 전체 스위트 `VALID_SUITE_PASS`.
+  백엔드 재기동 반영. 비고: 1차 스위트는 새 테스트가 .env.beta 플래그에 의존해 `TESTS_FAILED`(payload 관계 의미 비어 있음) — 테스트를
+  플래그 독립으로 재작성 후 재실행 통과.

@@ -188,6 +188,7 @@ from saju_shared_types.intent import (
     QueryType,
     SubjectKind,
     SubjectRef,
+    TimeRange,
     TimeScope,
 )
 from saju_shared_types.llm_input import (
@@ -205,6 +206,7 @@ from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.precompute import CompositeLevel
 from saju_shared_types.profile import PersonaConfig
+from saju_shared_types.relation_semantics import RelationSemantics
 from saju_shared_types.topic_context import PeriodSpec
 
 from . import (
@@ -384,22 +386,78 @@ def _date_solar_month_note(birth: BirthInput, target: date, timezone: str) -> st
 
 # 'YYYY년 N월 N일' / 'N월 N일' 추출(연도 생략 시 기준 연도). 특정 날짜 운세 질문의 일운 grounding용.
 _DATE_RE = re.compile(r"(?:(\d{4})\s*년\s*)?(\d{1,2})\s*월\s*(\d{1,2})\s*일")
+# 월 생략 연속 날짜 — "10월 7일과 9일", "10월 7일, 9일, 11일"의 둘째 날 이후(직전 명시 달을 잇는다).
+# 기간·빈도 꼬리("3일 동안"·"3일마다")는 제외(2026-10-02).
+_DATE_CONT_RE = re.compile(
+    r"\s*(?:과|와|이랑|랑|하고|및|그리고|,|·)\s*(?!\d{1,2}\s*월)(\d{1,2})\s*일"
+    r"(?!\s*(?:동안|간|씩|마다|내|후|전|째|이내|안에))"
+)
 
 
 def _explicit_dates(question: str, default_year: int) -> list[date]:
-    """질문 본문의 명시 날짜('8월 31일' 등)를 추출(연도 생략 시 default_year). 중복·무효 제거."""
+    """질문 본문의 명시 날짜('8월 31일' 등)를 추출(연도 생략 시 default_year). 중복·무효 제거.
+
+    'N월 D일' 뒤에 월 없이 이어지는 날('10월 7일과 9일')은 직전 달을 이어 받는다(2026-10-02 실답:
+    둘째 날이 통째로 빠져 "9일 정보는 제공되지 않았다"로 답한 결함).
+    """
     out: list[date] = []
     seen: set[date] = set()
-    for m in _DATE_RE.finditer(question):
-        year = int(m.group(1)) if m.group(1) else default_year
+
+    def _add(year: int, month: int, day: int) -> None:
         try:
-            dt = date(year, int(m.group(2)), int(m.group(3)))
+            dt = date(year, month, day)
         except ValueError:
-            continue
+            return
         if dt not in seen:
             seen.add(dt)
             out.append(dt)
+
+    for m in _DATE_RE.finditer(question):
+        year = int(m.group(1)) if m.group(1) else default_year
+        month = int(m.group(2))
+        _add(year, month, int(m.group(3)))
+        pos = m.end()
+        while True:
+            ct = _DATE_CONT_RE.match(question, pos)
+            if not ct:
+                break
+            _add(year, month, int(ct.group(1)))
+            pos = ct.end()
     return out
+
+
+def _tr_day_targets(tr: TimeRange | None) -> list[date] | None:
+    """time_range 가 말하는 '질문한 날(들)' — None 이면 창이 날 단위를 말하지 않는다(본문 추출로).
+
+    ① 명시 복수 일자(C5d ``dates``) → 그 날들. ② 일 범위(start<end, DAY)는 폭이 짧을 때(최대
+    ``_RANGE_DAY_NOTE_MAX``일)만 사이 날 포함 전부, 길면 빈 리스트(일별 흐름 블록이 담당 — 첫 날만
+    주입하면 비대칭). ③ 단일 하루(offset 창·기간 창 제외)는 그 날.
+    """
+    if tr is None or not tr.start or len(tr.start) != 10 or tr.granularity is not Granularity.DAY:
+        return None
+    if tr.end_offset_days:
+        return None
+    try:
+        if tr.dates:
+            return [date.fromisoformat(d) for d in tr.dates][:4]
+        start = date.fromisoformat(tr.start)
+        end = date.fromisoformat(tr.end) if tr.end and len(tr.end) == 10 else start
+    except ValueError:
+        return None
+    if end == start:
+        return [start]
+    if end < start:
+        return None
+    span = (end - start).days + 1
+    if span > _RANGE_DAY_NOTE_MAX:
+        return []
+    return [start + timedelta(days=i) for i in range(span)]
+
+
+#: 일 범위 질문에서 날짜별 일운 주석을 전부 주입하는 최대 폭(일). 그 이상은 일별 흐름 블록만.
+_RANGE_DAY_NOTE_MAX = 4
+#: 복수 명시 일자 중 관계·슬롯까지 실은 전체 일 총운 블록을 만드는 최대 개수(입력 토큰 가드).
+_MULTI_DAY_FULL_BLOCK_MAX = 3
 
 
 _ANCHOR_WINDOW_BEFORE_DAYS = 7
@@ -804,9 +862,11 @@ def _period_fortune_type(intent: IntentJson, question: str) -> str | None:
     tr = intent.time_range
     if tr is None or not tr.start:
         return None
-    if (tr.end or tr.start) != tr.start:  # 단일 기간만(범위는 기존 경로)
-        return None
     g = tr.granularity.value
+    if g == "day" and tr.dates:  # 복수 명시 일자(C5d) — 날짜별 일 총운 블록(2026-10-02)
+        return "daily"
+    if (tr.end or tr.start) != tr.start:  # 단일 기간만(연속 범위는 기존 경로)
+        return None
     if g == "day" and len(tr.start) == 10:
         return "daily"
     if g == "month" and len(tr.start) == 7:
@@ -1537,7 +1597,9 @@ def finalize_answer_full(
             answer, ctx.career_prep, ctx.prompt_text, ctx.call_type, ctx.system,
             ctx.owner_id, thread_id,
         )
-        answer = _audit_relation_answer(answer, ctx.payload.period_fortune, thread_id)
+        answer = _audit_relation_answer(
+            answer, ctx.payload.period_fortune, thread_id, ctx.payload.extra_period_fortunes,
+        )
         answer = _audit_month_coverage_answer(answer, ctx.payload, thread_id)
     return finalize_answer_text(answer, thread_id)
 
@@ -2439,6 +2501,20 @@ _SINGLE_DAY_FOCUS_DIRECTIVE = (
     "말 것 — 질문 창 밖의 다른 해 흐름(내년 용신운 등)은 위로·전망용으로도 언급 금지. "
     "제공된 데이터에 없는 간지 상호작용(합·충·형 성립 여부)을 임의로 계산해 "
     "서술하는 것은 금지 — 근거 블록에 있는 신호만 쓰라.{solar_month_note}"
+)
+# 복수 명시 일자·짧은 일 범위(2026-10-02 데굴님 승인) — 날짜별 동일 깊이 + 비교 결론 강제.
+# 실답 결함: "10월 7일과 9일은 어때?"에 7일만 풀고 "9일 세부 정보는 제공되지 않았다"로 넘김.
+# 서술 전용 — 날짜별 [해당 일 운세]·[해당 날짜들 일운] 블록(엔진 계산값)이 함께 주입된다.
+_MULTI_DAY_FOCUS_DIRECTIVE = (
+    "[중요·복수 날짜 질문 — 다른 표기보다 우선 적용]\n"
+    "사용자가 여러 날({dates})을 각각 물었다. 각 날을 지칭할 때 이 관계를 그대로 쓰고, 오늘이 "
+    "아닌 날을 '오늘'이라고 부르지 마라. 답은 날짜별로 나눈다: 날짜마다 위 날짜별 일운 블록"
+    "([해당 일 운세]·[해당 날짜들 일운]·[해당 기간 일별 흐름]·[질문한 날짜의 일운])의 그 날 "
+    "간지·길흉·십성을 1차 근거로 그 날의 흐름과 행동 지침을 같은 깊이로 "
+    "풀고, 마지막에 어느 날이 어떤 목적에 더 나은지 비교 결론을 한 단락으로 낸다. 한 날만 풀고 "
+    "다른 날을 '정보가 없다'·'제공되지 않았다'로 넘기는 것은 금지 — 모든 날의 자료가 위에 있다. "
+    "묻지 않은 사이 날·월·연 흐름은 배경 한두 줄로만 제한하고, 제공된 데이터에 없는 간지 상호작용"
+    "(합·충·형 성립 여부)을 임의로 계산해 서술하는 것은 금지 — 근거 블록에 있는 신호만 쓰라."
 )
 # 기간×과업 점검(2026-07-22 테스터 요청 형식 — "8~9월 인테리어·대출 진행 중 문제점 체크").
 # 과업 명사 + 점검 질문 + 명시 창이면 과업별 소제목 구조를 강제한다(서술 전용).
@@ -3671,6 +3747,28 @@ def _is_single_day(intent: IntentJson) -> bool:
     )
 
 
+def _multi_day_focus_dates(intent: IntentJson) -> list[date]:
+    """복수 날짜 집중 지시문 대상 날들 — 명시 복수 일자(C5d) 또는 짧은 일 범위(≤4일, 2일 이상).
+
+    긴 범위(주간 등)는 기존 일별 흐름 블록·주간 서술이 담당하므로 비운다.
+    """
+    tr = intent.time_range
+    if tr is None or tr.granularity is not Granularity.DAY or not tr.start or tr.end_offset_days:
+        return []
+    try:
+        if tr.dates:
+            return [date.fromisoformat(d) for d in tr.dates]
+        if not tr.end or len(tr.start) != 10 or len(tr.end) != 10:
+            return []
+        start, end = date.fromisoformat(tr.start), date.fromisoformat(tr.end)
+    except ValueError:
+        return []
+    span = (end - start).days + 1
+    if span < 2 or span > _RANGE_DAY_NOTE_MAX:
+        return []
+    return [start + timedelta(days=i) for i in range(span)]
+
+
 def _weekly_overview_lines(
     birth: BirthInput,
     intent: IntentJson,
@@ -3713,18 +3811,29 @@ def _weekly_overview_lines(
         )
     except Exception:  # noqa: BLE001 — 일별 산출 실패가 일반 풀이를 막지 않도록
         return []
+    if tr.dates:
+        # 복수 명시 일자(C5d) — 사용자가 지목한 날만(사이 날은 질문 대상이 아니다).
+        _asked = set(tr.dates)
+        days = [c for c in days if c.period_key in _asked]
     if not days:
         return []
-    header = (
-        f"[해당 일({start.isoformat()}) 일운 — 간지·길흉(용신/희신/한신/기신/구신)·십성. "
-        "이 날을 중심으로 서술할 것]"
-        if start == end
-        else (
-            f"[해당 기간({start.isoformat()}~{end.isoformat()}) 일별 흐름 — 일운 간지·길흉"
-            "(용신/희신/한신/기신/구신)·십성. 날짜별로 하루씩 짚어 서술하고 월 단위로 "
-            "뭉뚱그리지 말 것]"
+    if tr.dates:
+        header = (
+            f"[해당 날짜들({'·'.join(c.period_key for c in days)}) 일운 — 간지·길흉"
+            "(용신/희신/한신/기신/구신)·십성. 사용자가 지목한 날들이다 — 날짜별로 각각 짚고 "
+            "마지막에 서로 비교할 것. 사이 날은 묻지 않았다]"
         )
-    )
+    else:
+        header = (
+            f"[해당 일({start.isoformat()}) 일운 — 간지·길흉(용신/희신/한신/기신/구신)·십성. "
+            "이 날을 중심으로 서술할 것]"
+            if start == end
+            else (
+                f"[해당 기간({start.isoformat()}~{end.isoformat()}) 일별 흐름 — 일운 간지·길흉"
+                "(용신/희신/한신/기신/구신)·십성. 날짜별로 하루씩 짚어 서술하고 월 단위로 "
+                "뭉뚱그리지 말 것]"
+            )
+        )
     lines = [header]
     for c in days:
         d = date.fromisoformat(c.period_key)
@@ -4409,6 +4518,25 @@ def chat(
     period_fortune = (
         _build_period_fortune(birth, intent, today, period_type) if period_type else None
     )
+    # 복수 명시 일자(C5d) — 첫 날은 period_fortune, 둘째 날 이후는 같은 빌더로 날짜별 조립
+    # (관계·슬롯까지 같은 깊이 — 한 날만 깊고 다른 날은 '정보 없음'으로 넘기는 비대칭 차단).
+    # 입력 토큰 가드(28k)로 전체 블록은 _MULTI_DAY_FULL_BLOCK_MAX 개까지, 나머지는 일운 주석만.
+    extra_period_fortunes: list[PeriodFortune] = []
+    if period_type == "daily" and intent.time_range is not None and intent.time_range.dates:
+        _multi_dates = intent.time_range.dates[:_MULTI_DAY_FULL_BLOCK_MAX]
+        _first_tr = intent.time_range.model_copy(
+            update={"start": _multi_dates[0], "end": _multi_dates[0], "dates": []}
+        )
+        period_fortune = _build_period_fortune(
+            birth, intent.model_copy(update={"time_range": _first_tr}), today, "daily"
+        )
+        for _d in _multi_dates[1:]:
+            _d_tr = intent.time_range.model_copy(update={"start": _d, "end": _d, "dates": []})
+            _pf = _build_period_fortune(
+                birth, intent.model_copy(update={"time_range": _d_tr}), today, "daily"
+            )
+            if _pf is not None:
+                extra_period_fortunes.append(_pf)
 
     # P5·P6(2026-06-12): 미래지향 질문의 유효 창은 '오늘이 속한 달'에서 시작한다.
     # ① 시점 미지정('이직 제안 들어올까?') → 현재 달 ~ +2년. ② '올해'처럼 연 단위 창이
@@ -5172,6 +5300,7 @@ def chat(
         today=today,
         monthly_overview=overview,
         period_fortune=period_fortune,
+        extra_period_fortunes=extra_period_fortunes,
         date_selection=date_block,
         is_followup_turn=is_followup,
         default_period=default_period,
@@ -5506,25 +5635,16 @@ def chat(
         and intent.time_range.start[:4].isdigit()
         else today.year
     )
-    _date_targets = _explicit_dates(question, _ref_year)
     _tr = intent.time_range
-    if (
-        not _date_targets
-        and _tr is not None
-        and _tr.start
-        and len(_tr.start) == 10
-        # 진짜 '그 날 하루' 창일 때만(2026-07-17 데굴님 지적: '12개월
-        # 안에' 상대 창이 start가 오늘 날짜라는 이유로 단일 날짜로
-        # 오판돼 일운 중심 블록이 주입되던 결함) — offset 창·기간 창·
-        # 월 granularity는 제외한다.
-        and not _tr.end_offset_days
-        and (_tr.end is None or _tr.end == _tr.start)
-        and _tr.granularity is Granularity.DAY
-    ):
-        try:
-            _date_targets = [date.fromisoformat(_tr.start)]
-        except ValueError:
-            _date_targets = []
+    # 시점 창이 날 단위(복수 명시 일자·짧은 일 범위·단일 하루)를 말하면 그것이 질문한 날(들)이다
+    # (2026-10-02 — "10월 7일과 9일"에서 본문 추출이 7일만 잡아 9일이 빠지던 결함). 창이 날 단위가
+    # 아닐 때만 본문의 명시 날짜를 쓴다(예전 경로 유지).
+    # 긴 일 범위는 빈 리스트(일별 흐름 블록 담당).
+    # 단일 하루 판정은 예전 가드 그대로다(2026-07-17: offset 창·기간 창·월 granularity 제외).
+    _tr_targets = _tr_day_targets(_tr)
+    _date_targets = (
+        _tr_targets if _tr_targets is not None else _explicit_dates(question, _ref_year)
+    )
     if _date_targets:
         _df_note = _date_day_fortune_note(birth, _date_targets, _tz)
         if _df_note:
@@ -5673,6 +5793,16 @@ def chat(
                 date=_d0_iso,
                 relative=_relative_day_label(date.fromisoformat(_d0_iso), today),
                 solar_month_note=_sm_note,
+            )
+        )
+    elif not _task_check and _multi_day_focus_dates(intent):
+        # 복수 명시 일자·짧은 일 범위 — 날짜별 동일 깊이 + 비교 결론(2026-10-02).
+        trailing.append(
+            _MULTI_DAY_FOCUS_DIRECTIVE.format(
+                dates=", ".join(
+                    f"{d.isoformat()} = 기준 시점 대비 {_relative_day_label(d, today)}"
+                    for d in _multi_day_focus_dates(intent)
+                )
             )
         )
     # 구설 질문 — 소재(원인)와 갈등 당사자 구분 강제(2026-08-11). 원인 절이 추출된
@@ -6383,7 +6513,48 @@ def _audit_month_coverage_answer(answer: str, payload: LlmInput, thread_id: str 
     return patch_month_coverage(answer, notes)
 
 
-def _audit_relation_answer(answer, period_fortune, thread_id):
+def _union_relation_semantics(
+    period_fortune: PeriodFortune,
+    extra_period_fortunes: list[PeriodFortune],
+    thread_id: str | None,
+) -> list[RelationSemantics]:
+    """복수 명시 일자(C5d)의 날짜별 관계 의미를 감사용 한 목록으로 합친다.
+
+    같은 라벨이 날짜마다 **다른 판정**을 가질 수 있다 — 실측(2026-10-02 명식): 10-07 은 월운 丁酉가
+    원국 丁과 함께 壬을 쟁합해 `丁壬合=합반·합거`, 10-09 는 절기월이 戊戌로 바뀌어 `丁壬合=木 합화`.
+    문장이 어느 날을 말하는지 감사기가 확정할 수 없으므로 판정이 갈리는 라벨은 **감사 대상에서
+    뺀다**(첫 값 유지 시 9일 서술이 7일 판정으로 위반 처리되는 오탐). 프롬프트에는 날짜별 블록에 각
+    canonical 문장이 그대로 실리므로 LLM 입력은 영향 없다. 판정이 같은 라벨은 하나만 둔다.
+
+    Args:
+        period_fortune: 첫 날의 일 총운.
+        extra_period_fortunes: 둘째 날 이후의 일 총운.
+        thread_id: 로깅용.
+
+    Returns:
+        라벨 기준 중복 제거·충돌 제외된 RelationSemantics 목록.
+    """
+    by_label: dict[str, RelationSemantics] = {}
+    conflicting: set[str] = set()
+    for pf in (period_fortune, *extra_period_fortunes):
+        for sem in pf.relation_semantics:
+            prev = by_label.get(sem.relation_label)
+            if prev is None:
+                by_label[sem.relation_label] = sem
+                continue
+            if (prev.binding_state, prev.transformation_state, prev.transform_element) != (
+                sem.binding_state, sem.transformation_state, sem.transform_element
+            ):
+                conflicting.add(sem.relation_label)
+    if conflicting:
+        _logger.warning(
+            "relation_claim_audit multi_day conflicting_labels=%s — 날짜별 판정이 달라 감사에서 "
+            "제외 thread=%s", sorted(conflicting), thread_id,
+        )
+    return [sem for label, sem in by_label.items() if label not in conflicting]
+
+
+def _audit_relation_answer(answer, period_fortune, thread_id, extra_period_fortunes=None):
     """P0 관계 의미 패치 — 엔진 판정 역전 서술을 결정론적으로 교정한다.
 
     **LLM 재호출은 하지 않는다**(2026-07-27 데굴님 확정 — 재생성 철회). 이 문제는
@@ -6402,7 +6573,9 @@ def _audit_relation_answer(answer, period_fortune, thread_id):
     """
     if not period_v2_config.RELATION_SEMANTIC_PATCH_ENABLED or period_fortune is None:
         return answer
-    semantics = period_fortune.relation_semantics
+    semantics = _union_relation_semantics(
+        period_fortune, extra_period_fortunes or [], thread_id
+    )
     if not semantics:
         return answer
     violations = audit_relation_claims(answer, semantics)

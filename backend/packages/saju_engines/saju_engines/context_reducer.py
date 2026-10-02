@@ -1930,6 +1930,7 @@ def build_llm_input(
     is_followup_turn: bool = False,
     period_fortune: PeriodFortune | None = None,
     default_period: tuple[str, str] | None = None,
+    extra_period_fortunes: list[PeriodFortune] | None = None,
     prior_claims: list[str] | None = None,
     prior_statements: list[str] | None = None,
     current_month_label: str | None = None,
@@ -2282,6 +2283,7 @@ def build_llm_input(
         prior_statements=prior_statements or [],
         monthly_overview=monthly_overview or [],
         period_fortune=period_fortune,
+        extra_period_fortunes=list(extra_period_fortunes or []),
         date_selection=date_selection,
         evidence=evidence,
         style_rules=LlmStyleRules(
@@ -2293,8 +2295,11 @@ def build_llm_input(
                 # 계층형 grounding이 실렸을 때만 공통 계층 규칙을 덧붙인다
                 # (일·월·연·M15 공용 SSOT — 대상 표현만 블록에서 치환된다).
                 + (_PERIOD_HIERARCHY_INSTRUCTION
-                   if period_fortune.hierarchy_lines else "")
-                + (_LUCK_SINSAL_INSTRUCTION if period_fortune.sinsal_lines else "")
+                   if period_fortune.hierarchy_lines
+                   or any(x.hierarchy_lines for x in (extra_period_fortunes or [])) else "")
+                + (_LUCK_SINSAL_INSTRUCTION
+                   if period_fortune.sinsal_lines
+                   or any(x.sinsal_lines for x in (extra_period_fortunes or [])) else "")
                 if period_fortune is not None
                 else _BASE_INSTRUCTION
             ) + (_TONE_LAYER_INSTRUCTION if any(c.stage_note for c in llm_candidates) else ""),
@@ -3079,8 +3084,13 @@ def serialize_llm_input(payload: LlmInput) -> str:
     # 최종 지시문 인접)에 삽입한다. 월별 표가 비어도 반드시 방출된다.
     if payload.overview_mode and _cand_out is not lines and _cand_out:
         lines += _cand_out
-    if payload.period_fortune is not None:
-        pf = payload.period_fortune
+    # 복수 명시 일자(C5d, 2026-10-02) — 첫 날(period_fortune) 뒤에 둘째 날 이후를 같은 형식으로
+    # 순서대로 렌더한다(날짜별 동일 깊이).
+    _pfs = (
+        [payload.period_fortune, *payload.extra_period_fortunes]
+        if payload.period_fortune is not None else []
+    )
+    for pf in _pfs:
         header, pillar_label = _PERIOD_FORTUNE_HEADER.get(pf.fortune_type, ("기간 총운", "운"))
         lines.append("")
         lines.append(

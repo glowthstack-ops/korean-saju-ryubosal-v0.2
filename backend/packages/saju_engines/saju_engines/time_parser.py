@@ -116,6 +116,194 @@ _PAST_TENSE_RE = re.compile(
 )
 
 
+# ── C5d 복수 명시 일자 · 일 범위(2026-10-02 데굴님 승인) ─────────────────────────────
+# 실답 결함: 택일 답 뒤 "10월 7일과 9일은 어때?"가 C5b 첫 매치(10-07) 하나로만 파싱되어 9일이
+# 입력에서 통째로 사라지고, LLM 이 "9일 세부 정보는 제공되지 않았다"고 답했다. 다중 월
+# ("8월과 10월")은 min~max 스팬 선례가 있는데 다중 일은 없었다.
+#   ① 목록형: "10월 7일과 9일", "10월 7일, 9일", "7일이랑 9일", "8월 31일 … 9월 30일", "10/7과 10/9"
+#      → TimeRange(start=min, end=max, dates=[…])  — 사이 날은 대상이 아니다.
+#   ② 범위형: "10월 7일부터 9일까지", "7일~9일", "10월 7일에서 9일 사이"
+#      → TimeRange(start=d1, end=d2) — dates 는 비움(연속 창).
+# 월 생략 날의 달은 직전 명시 달을 잇고, 전부 생략이면 C5c 와 같은 규칙(이번 달/다음 달 접두,
+# 아니면 가장 가까운 유효 미래 달)로 푼다. 연도 생략은 C5b 와 같다(지난 날짜면 내년, 과거시제면
+# 그대로). 2개 미만이면 None 을 돌려 C5b/C5c 가 그대로 처리한다.
+_MD_FULL_RE = re.compile(r"(?:(20\d{2})\s*년\s*)?(?<!\d)(\d{1,2})\s*월\s*(\d{1,2})\s*일")
+_DAY_LIST_SEP = r"(?:과|와|이랑|랑|하고|및|그리고|,|·)"
+_DAY_RANGE_SEP = r"(?:부터|에서|~|∼|-|—)"
+_BARE_DAY_CONT_RE = re.compile(
+    r"\s*" + _DAY_LIST_SEP + r"\s*(?:(\d{1,2})\s*월\s*)?(?<!\d)(\d{1,2})\s*일"
+    r"(?!\s*(?:동안|간|씩|마다|내|후|전|째|이내|안에))"
+)
+_DAY_RANGE_TAIL_RE = re.compile(
+    r"\s*" + _DAY_RANGE_SEP + r"\s*(?:(\d{1,2})\s*월\s*)?(?<!\d)(\d{1,2})\s*일\s*(?:까지|사이)?"
+)
+_BARE_DAY_HEAD_RE = re.compile(
+    r"(?:(이번\s*달|이달|다음\s*달|오는)\s*)?(?<!\d)(\d{1,2})\s*일(?=\s*(?:" + _DAY_LIST_SEP
+    + r"|" + _DAY_RANGE_SEP + r")\s*(?:\d{1,2}\s*월\s*)?\d{1,2}\s*일)"
+)
+_MULTI_DAY_MAX = 4
+
+
+def _nearest_month_day(dy: int, today: date, prefix: str, past_ok: bool) -> date | None:
+    """월 생략 날(C5c 규칙) — 접두(이번 달/다음 달) 고정, 아니면 가장 가까운 유효 미래 달."""
+    if prefix in ("이번달", "이달"):
+        offsets = [0]
+    elif prefix == "다음달":
+        offsets = [1]
+    else:
+        offsets = [0, 1, 2]
+    for off in offsets:
+        yy = today.year + (today.month - 1 + off) // 12
+        mm = (today.month - 1 + off) % 12 + 1
+        try:
+            cand = date(yy, mm, dy)
+        except ValueError:
+            continue
+        if past_ok or prefix in ("이번달", "이달") or cand >= today:
+            return cand
+    return None
+
+
+def _roll_future(d: date, today: date, year_explicit: bool, text: str) -> date:
+    """연도 미지정 지난 날짜는 내년으로(C5b 규칙) — 명시 연도·'내년'·과거시제면 그대로."""
+    if year_explicit or "내년" in text or d >= today or _PAST_TENSE_RE.search(text):
+        return d
+    try:
+        return date(d.year + 1, d.month, d.day)
+    except ValueError:
+        return d
+
+
+def parse_multi_day(
+    text: str, today: date, hour_level: bool = False, urgency: str | None = None
+) -> tuple[TimeRange, TimeScope] | None:
+    """C5d — 복수 명시 일자(목록) 또는 일 범위를 파싱한다. 해당 없음·날짜 2개 미만이면 None.
+
+    Args:
+        text: 사용자 발화 원문.
+        today: 기준일.
+        hour_level: C17 시간대 요청 동반 여부(granularity HOUR).
+        urgency: C16 즉시성.
+
+    Returns:
+        (TimeRange, TimeScope) 또는 None. 목록형은 ``dates`` 에 날짜 전부(최대 4), 범위형은
+        start~end 만.
+    """
+    base_year = today.year + (1 if "내년" in text else 0)
+    gran = Granularity.HOUR if hour_level else Granularity.DAY
+
+    def _mk(d_list: list[date], is_range: bool) -> tuple[TimeRange, TimeScope]:
+        ds = sorted(set(d_list))
+        return TimeRange(
+            type="absolute", granularity=gran,
+            start=ds[0].isoformat(), end=ds[-1].isoformat(),
+            dates=[] if is_range else [d.isoformat() for d in ds[:_MULTI_DAY_MAX]],
+            urgency=urgency,
+        ), TimeScope.SHORT_TERM
+
+    # ① 'N월 D일' 명시 매치 전부 + 각 매치 뒤의 월 생략 연속('과 9일', ', 11일') / 범위 꼬리.
+    fulls = list(_MD_FULL_RE.finditer(text))
+    if fulls:
+        found: list[date] = []
+        year_explicit = any(m.group(1) for m in fulls)
+        range_pair: tuple[date, date] | None = None
+        for m in fulls:
+            yr = int(m.group(1)) if m.group(1) else base_year
+            mo = int(m.group(2))
+            try:
+                head = date(yr, mo, int(m.group(3)))
+            except ValueError:
+                continue
+            found.append(head)
+            pos = m.end()
+            rt = _DAY_RANGE_TAIL_RE.match(text, pos)
+            if rt and range_pair is None and len(fulls) == 1:
+                mo2 = int(rt.group(1)) if rt.group(1) else mo
+                tail: date | None
+                try:
+                    tail = date(yr, mo2, int(rt.group(2)))
+                except ValueError:
+                    tail = None
+                if tail is not None and tail > head:
+                    range_pair = (head, tail)
+                    break
+            cur_mo = mo
+            while True:
+                ct = _BARE_DAY_CONT_RE.match(text, pos)
+                if not ct:
+                    break
+                if ct.group(1):  # 'N월 D일'이 이어지면 다음 full 매치가 처리한다
+                    break
+                try:
+                    found.append(date(yr, cur_mo, int(ct.group(2))))
+                except ValueError:
+                    pass
+                pos = ct.end()
+        if range_pair is not None:
+            a, b = range_pair
+            a2 = _roll_future(a, today, year_explicit, text)
+            delta = (b - a).days
+            return _mk([a2, a2 + timedelta(days=delta)], is_range=True)
+        uniq = sorted(set(found))
+        if len(uniq) >= 2:
+            # 가장 이른 날이 지났고 연도 미지정이면 전부 한 해 뒤로(한 질문의 날짜는 같은 해 의도).
+            shifted = _roll_future(uniq[0], today, year_explicit, text)
+            if shifted != uniq[0]:
+                uniq = [_roll_future(d, today, year_explicit, text) for d in uniq]
+            return _mk(uniq, is_range=False)
+        return None
+
+    # ② 슬래시 날짜 복수("10/7과 10/9").
+    slashes = [m for m in _SLASH_DATE_RE.finditer(text)]
+    if len(slashes) >= 2:
+        found = []
+        year_explicit = any(m.group(1) for m in slashes)
+        for m in slashes:
+            yr = int(m.group(1)) if m.group(1) else base_year
+            try:
+                found.append(date(yr, int(m.group(2)), int(m.group(3))))
+            except ValueError:
+                continue
+        uniq = sorted(set(found))
+        if len(uniq) >= 2:
+            if _roll_future(uniq[0], today, year_explicit, text) != uniq[0]:
+                uniq = [_roll_future(d, today, year_explicit, text) for d in uniq]
+            return _mk(uniq, is_range=False)
+        return None
+
+    # ③ 월 전부 생략 — "7일이랑 9일은", "7일부터 9일까지"(C5c 달 규칙).
+    hm = _BARE_DAY_HEAD_RE.search(text)
+    if not hm:
+        return None
+    prefix = (hm.group(1) or "").replace(" ", "")
+    past_ok = bool(_PAST_TENSE_RE.search(text))
+    bare_head = _nearest_month_day(int(hm.group(2)), today, prefix, past_ok)
+    if bare_head is None:
+        return None
+    pos = hm.end()
+    rt = _DAY_RANGE_TAIL_RE.match(text, pos)
+    if rt and not rt.group(1):
+        try:
+            bare_tail = date(bare_head.year, bare_head.month, int(rt.group(2)))
+        except ValueError:
+            return None
+        if bare_tail > bare_head:
+            return _mk([bare_head, bare_tail], is_range=True)
+        return None
+    found = [bare_head]
+    while True:
+        ct = _BARE_DAY_CONT_RE.match(text, pos)
+        if not ct or ct.group(1):
+            break
+        try:
+            found.append(date(bare_head.year, bare_head.month, int(ct.group(2))))
+        except ValueError:
+            pass
+        pos = ct.end()
+    uniq = sorted(set(found))
+    return _mk(uniq, is_range=False) if len(uniq) >= 2 else None
+
+
 def parse_time(
     text: str,
     today: date,
@@ -415,6 +603,12 @@ def parse_time(
                 type="absolute", granularity=Granularity.MONTH,
                 start=f"{year}-{m1}", end=f"{year}-{m2}", urgency=urgency,
             ), TimeScope.MID_TERM
+
+    # C5d 복수 명시 일자·일 범위 — "10월 7일과 9일", "7일부터 9일까지"(2026-10-02). C5b 보다 먼저
+    # 본다(C5b 는 첫 매치 하나로 반환). 2개 미만이면 None → 기존 규칙 그대로.
+    multi = parse_multi_day(text, today, hour_level=hour_level, urgency=urgency)
+    if multi is not None:
+        return multi
 
     # C5b 특정 일자(+이후/부터) — "7월 4일 이후(로)", "8월 1일부터", "2026년 7월 4일 이후".
     # 택일(E10)의 시작 앵커. '이후/부터'면 개방형(end=None — 호출 측이 탐색 윈도우 결정),

@@ -517,6 +517,9 @@ class LlmInput(BaseModel):
     prior_statements: list[str] = Field(default_factory=list)
     monthly_overview: list[MonthOverviewRow] = Field(default_factory=list)
     period_fortune: PeriodFortune | None = None  # 기간 총운(E9) — 일/월/연 경로
+    # 복수 명시 일자(C5d, 2026-10-02) — 둘째 날 이후의 일 총운(같은 블록 형식으로 순서대로 렌더).
+    # 첫 날은 period_fortune. 관계 감사는 전체 relation_semantics 합집합을 쓴다.
+    extra_period_fortunes: list[PeriodFortune] = Field(default_factory=list)
     date_selection: DateSelectionBlock | None = None
     # 구조 해석 블록(질문 도메인에 맞는 원국 횡재 그릇·결혼/자산·건강 취약·부귀·시대 기운 등).
     # 이미 누출 안전 한글로 직렬화된 줄들(영문 변수·점수 비노출). 도메인 관련 시에만 채운다.

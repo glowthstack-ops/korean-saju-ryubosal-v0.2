@@ -232,6 +232,10 @@ class TimeRange(BaseModel):
     age: AgeRange | None = None
     anchor_dates: list[AnchorDate] = Field(default_factory=list)
     ranges: list[LabeledRange] = Field(default_factory=list)
+    # 명시 복수 일자(C5d, 2026-10-02) — "10월 7일과 9일"처럼 사용자가 낱낱이 지목한 날(ISO,
+    # 오름차순, 최대 4). 이때 start/end 는 min~max 스팬이며 사이 날은 질문 대상이 아니다(비어 있으면
+    # 미사용). 연속 범위("7일부터 9일까지")는 start~end 만 쓰고 이 목록은 비워 둔다.
+    dates: list[str] = Field(default_factory=list)
     life_stage: str | None = None  # '초년'|'청년'|'중년'|'말년'|'평생'
     urgency: str | None = None  # 'asap'
     granularity_override: bool = False

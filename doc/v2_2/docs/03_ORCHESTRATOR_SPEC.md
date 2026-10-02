@@ -206,6 +206,8 @@ interface IntentJson {
     age?: { from?: number; to?: number };          // "20살 전까지" (C12)
     anchorDates?: { label: string; date: string }[]; // "투표일 6/3, 개표 6/4" (C11)
     ranges?: { label: string; start: string; end: string }[]; // "26-27 / 28-30 / 31-33년" (C10)
+    dates?: string[];                  // "10월 7일과 9일" — 낱낱이 지목한 날(ISO, 최대 4). start/end 는 min~max 스팬이며
+                                       // 사이 날은 대상이 아니다. 연속 범위("7일부터 9일까지")는 start/end 만 쓰고 비운다 (C5d, 2026-10-02)
     lifeStage?: '초년' | '청년' | '중년' | '말년' | '평생';   // (C13)
     granularity: 'daewoon' | 'year' | 'month' | 'day' | 'hour';
     urgency?: 'asap' | null;           // "빠를수록 좋아" (C16)

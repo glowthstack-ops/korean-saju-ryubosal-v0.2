@@ -207,7 +207,10 @@ def _retro_anchor_bare_date(tr: TimeRange | None, today: date) -> TimeRange | No
     probe = new_start if len(new_start) >= 10 else f"{new_start}-01"
     if probe > today.isoformat():
         return tr
-    return tr.model_copy(update={"start": new_start, "end": new_end})
+    # 복수 명시 일자(C5d)도 함께 되돌린다 — start/end 만 옮기면 dates 가 미래에 남는다.
+    return tr.model_copy(update={
+        "start": new_start, "end": new_end, "dates": [_back(d) for d in tr.dates],
+    })
 
 
 # 동의어로 시작 + (선택)이어보기/풀이 동사로 끝나고 새 도메인이 없을 때만 직전 의도를 승계한다.
