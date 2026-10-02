@@ -88,10 +88,16 @@ def _options(gender: str | None) -> list[str]:
 
 
 def _anchor(period: dict) -> str:
-    """그 해를 간지(세운)·나이로 못박는다(모호한 '전후' 대신 특정 세운 1년을 명시)."""
+    """그 해를 연도·나이로 못박는다 — 간지·세운 표기는 작은 글씨(period_range)로 내린다(CAL-P3)."""
+    age = _age_label(period)
+    return f"{period['year']}년" + (f"({age})" if age else "")
+
+
+def _range_label(period: dict) -> str:
+    """작은 글씨용 범위 라벨 — '辛丑년 · 입춘 기준 2021-02-03 ~ 2022-02-03'."""
     ganji = period.get("ganji")
-    inner = [str(v) for v in (f"{ganji}세운" if ganji else None, _age_label(period)) if v]
-    return f"{period['year']}년" + (f"({'·'.join(inner)})" if inner else "")
+    rng = period.get("range_label", "") or ""
+    return f"{ganji}년 · {rng}" if ganji and rng else (f"{ganji}년" if ganji else rng)
 
 
 def _age_label(period: dict) -> str | None:
@@ -130,7 +136,7 @@ def _make(qid: str, qtype: str, period: dict, text: str, domains: list[str],
         year=period["year"],
         month=month,
         period_label=f"{period['year']}년" + (f" {month}월" if month else ""),
-        period_range=period.get("range_label", ""),
+        period_range=_range_label(period),
         target_models=targets,
         expected_effect_by_model=exp,
         ask_domains=domains,
@@ -140,7 +146,7 @@ def _make(qid: str, qtype: str, period: dict, text: str, domains: list[str],
 
 
 def _make_event(qid: str, period: dict, intro: str,
-                events: list[CalibrationEventItem]) -> CalibrationQuestion:
+                events: list[CalibrationEventItem], hint: str = "") -> CalibrationQuestion:
     """이벤트형 질문 — 그 해의 검출 이벤트를 나열하고 이벤트별 긍/부정을 받는다."""
     targets, exp = _targets(period)
     return CalibrationQuestion(
@@ -149,14 +155,69 @@ def _make_event(qid: str, period: dict, intro: str,
         period_type="year",
         year=period["year"],
         period_label=f"{period['year']}년",
-        period_range=period.get("range_label", ""),
+        period_range=_range_label(period),
         target_models=targets,
         expected_effect_by_model=exp,
         ask_domains=sorted({e.category for e in events}),
         question_text=intro,
+        hint=hint,
         events=events,
         domain_expectations=build_domain_expectations(events),
     )
+
+
+# ── CAL-P3(2026-09-21 데굴님 승인) — 판별력 기준 연도 선택 + 사건 다양화 ─────────────
+_DISCRIM_SCAN = 24  # 사건 판별력을 계산하는 상위 후보 해 수(연도별 스코어링 비용 상한)
+_DISCRIM_W = 3.0  # 판별 사건 1건당 가산(연 단위 score 와 같은 척도)
+_EVENTS_SHOWN = 4  # 문항당 노출 사건 수
+_EVENT_CATEGORY_CAP = 2  # 문항 안 같은 카테고리 상한
+_ADULT_AGE = 19  # 미성년 해는 후순위(결혼·사업·이직 사건을 12세에게 묻던 결함) — 대안 없을 때만
+_MINOR_PENALTY = 100.0
+
+
+def _primary_types(yongsin: AggregatedYongsinResult) -> set[str]:
+    """판별 대상 모델 — primary + 용신 산출이 최종 채택한 보조 모델(scorer 와 같은 기준)."""
+    selected = yongsin.final.get("selected_model") if isinstance(yongsin.final, dict) else None
+    return {
+        m.model_type for m in yongsin.candidate_models
+        if not m.is_auxiliary or m.model_type == selected
+    }
+
+
+def event_discrimination(events: list[CalibrationEventItem], primary: set[str]) -> int:
+    """그 해 사건 중 primary 모델 간 기대 극성이 갈리는 사건 수(0이면 어떤 답도 모델을 못 가른다).
+    """
+    n = 0
+    for e in events:
+        vals = {v for mt, v in e.expected_by_model.items() if mt in primary} - {"neutral"}
+        if len(vals) > 1:
+            n += 1
+    return n
+
+
+def _select_events(
+    events: list[CalibrationEventItem], used: dict[str, int]
+) -> list[CalibrationEventItem]:
+    """문항당 4건 — 앞 문항에 덜 나온 사건 우선, 같은 카테고리 최대 2건(직업 편중·반복 완화)."""
+    ranked = sorted(enumerate(events), key=lambda t: (used.get(t[1].event_key, 0), t[0]))
+    out: list[CalibrationEventItem] = []
+    per_cat: dict[str, int] = {}
+    for _i, e in ranked:
+        if per_cat.get(e.category, 0) >= _EVENT_CATEGORY_CAP:
+            continue
+        out.append(e)
+        per_cat[e.category] = per_cat.get(e.category, 0) + 1
+        if len(out) >= _EVENTS_SHOWN:
+            break
+    if len(out) < min(_EVENTS_SHOWN, len(events)):  # 카테고리 상한으로 모자라면 채운다
+        for _i, e in ranked:
+            if e not in out:
+                out.append(e)
+                if len(out) >= _EVENTS_SHOWN:
+                    break
+    for e in out:
+        used[e.event_key] = used.get(e.event_key, 0) + 1
+    return out
 
 
 # 교운기 체감 회상 단서(대운 교체기 신호와 동일 관점 — saju_engines 의존 없이 질문 문구로만
@@ -181,9 +242,12 @@ def _make_transition_probe(period: dict, qid: str = "q_transition") -> Calibrati
         period_label=f"{period['year']}년",
         period_range=period.get("range_label", ""),
         question_text=(
-            f"{_anchor(period)} 무렵은 10년 대운이 바뀌는 교운기 전후예요. 그 시기에 "
-            "직장·소속, 거주지, 주변 사람, 생활 리듬이 바뀌는 흐름이 있었나요?"
-            f"{_TRANSITION_RECALL_HINT} 변화가 있었다면 어떤 영역이었는지 골라 주세요."
+            f"{_anchor(period)} 무렵은 10년 대운이 바뀌는 교운기예요. 직장·소속, 거주지, "
+            "주변 사람, 생활 리듬 중 달라진 게 있었나요? 있었다면 골라 주세요."
+        ),
+        hint=(
+            "큰 사건이 아니어도 괜찮아요 — 사람·관계·생활 리듬이 바뀌거나 새 방향을 찾던 느낌도 "
+            "포함해요."
         ),
         ask_domains=list(DOMAIN_LABELS),
         options=[*DOMAIN_LABELS.values(), "특별한 일 없음", "기억나지 않음"],
@@ -331,69 +395,109 @@ def generate_questions(
         )
 
     used_years: set[int] = set()
-
-    def pick(predicate) -> dict | None:
-        for p in periods:
-            if p["year"] not in used_years and predicate(p):
-                used_years.add(p["year"])
-                return p
-        return None
+    primary = _primary_types(yongsin)
 
     def events_for(period: dict) -> list[CalibrationEventItem]:
         return event_provider(period["year"]) if event_provider else []
 
+    # CAL-P3 — 사건 단위 판별력(primary 모델 간 기대가 갈리는 사건 수)으로 후보 해를 다시 정렬.
+    # 연 단위 disagree 만으로는 'mixed vs positive' 같은 약한 차이까지 갈림으로 세어 실제로는
+    # 어떤 답도 모델을 못 가르는 해(2015~2017 유형)가 뽑히던 결함. 제공자가 없으면(단위 테스트·
+    # 합성 기간) 기존 순서를 그대로 쓴다.
+    discrim: dict[int, int] = {}
+    if event_provider is not None:
+        for p in periods[:_DISCRIM_SCAN]:
+            discrim[p["year"]] = event_discrimination(events_for(p), primary)
+    ranked = sorted(
+        periods,
+        key=lambda p: (
+            discrim.get(p["year"], 0) * _DISCRIM_W + p["score"]
+            - (_MINOR_PENALTY if (p.get("age") or _ADULT_AGE) < _ADULT_AGE else 0.0),
+            p["year"],
+        ),
+        reverse=True,
+    )
+
+    def pick(predicate, need_discrim: bool = False) -> dict | None:
+        """조건을 만족하는 첫 해 — 판별 사건이 있는 해 우선, 이미 쓴 해의 ±1년은 후순위
+        (연속 연도 몰림·기억 혼동 완화). 대안이 없으면 완화해 고른다."""
+        for strict_disc, strict_adj in ((True, True), (True, False), (False, True), (False, False)):
+            if strict_disc and not need_discrim:
+                continue
+            for p in ranked:
+                y = p["year"]
+                if y in used_years or not predicate(p):
+                    continue
+                if strict_disc and discrim.get(y, 0) == 0:
+                    continue
+                if strict_adj and any(abs(y - u) == 1 for u in used_years):
+                    continue
+                used_years.add(y)
+                return p
+        return None
+
     questions: list[CalibrationQuestion] = []
     opts = _options(gender)
+    used_events: dict[str, int] = {}
 
     # 질문 = 대표 영역(intent) 제시 + 긍정/부정 흐름 택일(항목 11, 2026-06-12 사용자 확정).
     # 흐름은 overall_rating(very_positive~very_negative)으로 받아 score_feedback이
     # 모델 예측(positive/negative)과 대조한다 — 사용자가 중요시하는 영역 기준으로 답하게.
     # 이벤트형 우선 — 그 해의 검출 이벤트를 나열하고 이벤트별 긍/부정을 받는다(사용자 확정).
     # 이벤트가 없으면(검출 0건) 기존 텍스트형 질문으로 폴백한다.
-    def add(qid: str, qtype: str, period: dict | None, text: str, domains: list[str]) -> None:
+    # CAL-P3 문구: 왜 이 해를 묻는지(hint)를 사용자 말로 앞세우고 간지·세운은 작은 글씨로.
+    def add(qid: str, qtype: str, period: dict | None, text: str, domains: list[str],
+            hint: str = "") -> None:
         if period is None:
             return
-        events = events_for(period)
+        events = _select_events(events_for(period), used_events)
         if events:
             questions.append(_make_event(
                 qid, period,
-                f"{_anchor(period)} 무렵 아래 일들이 있었다면, 각각 본인에게 어떤 영향이었는지"
-                f" 골라 주세요.{_dynamics_hint(period)}",
-                events,
+                f"{_anchor(period)}에 아래 일이 있었다면 결과가 어땠는지 골라 주세요."
+                f"{_dynamics_hint(period)}",
+                events, hint=hint,
             ))
         else:
-            questions.append(_make(qid, qtype, period, text, domains, opts))
+            q = _make(qid, qtype, period, text, domains, opts)
+            q.hint = hint
+            questions.append(q)
 
     d1 = ["career", "study", "relationship"]
-    p1 = pick(lambda p: "positive" in p["expected_by_model"].values())
+    p1 = pick(lambda p: "positive" in p["expected_by_model"].values(), need_discrim=True)
     add("q1", "useful", p1,
         f"{_anchor(p1)}는 좋은 기운이 들어올 것으로 본 해예요. 그 무렵 "
         f"{_domains_ko(d1)} 중 본인이 가장 중요하게 여긴 영역의 흐름은 순조로웠나요, "
-        f"힘들었나요?{_dynamics_hint(p1)}" if p1 else "", d1)
+        f"힘들었나요?{_dynamics_hint(p1)}" if p1 else "", d1,
+        hint="후보 해석 중 하나가 '좋은 기운이 드는 해'로 본 해예요. 답이 후보를 가르는 데 쓰여요.")
 
     d2 = ["money", "family_health", "legal_public"]
-    p2 = pick(lambda p: "negative" in p["expected_by_model"].values())
+    p2 = pick(lambda p: "negative" in p["expected_by_model"].values(), need_discrim=True)
     add("q2", "unfavorable", p2,
         f"{_anchor(p2)}는 다소 까다로운 기운이 예상된 해예요. 그 무렵 "
         f"{_domains_ko(d2)} 면에서 어려움이 있었나요, 오히려 순조로웠나요?"
-        f"{_dynamics_hint(p2)}" if p2 else "", d2)
+        f"{_dynamics_hint(p2)}" if p2 else "", d2,
+        hint="후보 해석 중 하나가 '부담이 드는 해'로 본 해예요. 실제와 맞는지 확인해요.")
 
     d3 = ["career", "money", "relationship", "family_health"]
-    p3 = pick(lambda p: p["disagree"])
+    p3 = pick(lambda p: p["disagree"], need_discrim=True)
     add("q3", "contrast", p3,
         f"{_anchor(p3)}는 해석이 갈리는 해예요. {_domains_ko(d3)} 중 가장 마음 쓰인 "
         f"영역에서 그해 흐름이 긍정적이었나요, 부정적이었나요?{_dynamics_hint(p3)}"
-        if p3 else "", d3)
+        if p3 else "", d3,
+        hint="후보 해석끼리 예측이 갈리는 해예요. 이 답이 확정에 가장 크게 반영돼요.")
 
-    p4 = pick(lambda _p: True)
+    p4 = pick(lambda _p: True, need_discrim=True)
     add("q4", "event_domain", p4,
         f"{_anchor(p4)} 무렵, 가장 크게 변한 영역은 어디였나요?" if p4 else "",
-        list(DOMAIN_LABELS))
+        list(DOMAIN_LABELS),
+        hint="앞 문항과 다른 시기를 하나 더 확인해요.")
 
-    p5 = pick(lambda _p: True)
+    p5 = pick(lambda _p: True, need_discrim=True)
     add("q5", "period_detail", p5,
         f"{_anchor(p5)} 중 특히 변화가 컸던 시기가 있었나요?" if p5 else "",
-        ["career", "relationship", "relocation"])
+        ["career", "relationship", "relocation"],
+        hint="앞 문항과 다른 시기를 하나 더 확인해요.")
 
     # ── CAL-P0/P1 probe 조립 — 생성 순서: 기본 q1~q5 → transition → pair → trait
     # fallback → cap → 표시 재배치(P1-b 확정). 기본 질문은 위에서 이미 생성돼 보호됨
@@ -467,5 +571,8 @@ def generate_questions(
             {"year": p["year"], "age": p["age"], "ganji": p["ganji"], "score": p["score"]}
             for p in periods[:8]
         ],
-        note="과거 사건 피드백으로 용신 후보를 검증합니다(기억나지 않음은 점수 제외).",
+        note=(
+            "과거에 실제로 어땠는지 답하면 용신 후보를 확정합니다. 기억나지 않으면 '잘 모르겠다'를 "
+            "고르세요(점수 제외)."
+        ),
     )

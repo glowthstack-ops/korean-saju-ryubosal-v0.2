@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from saju_api.services.chat_service import _is_lifestyle_windfall
+from saju_api.services.chat_service import _is_investment_flow, _is_lifestyle_windfall
 from saju_engines.query_parser import parse_message
 from saju_shared_types.intent import QueryType
 
@@ -37,3 +37,75 @@ def test_lifestyle_windfall_detection() -> None:
     # 횡재 키워드 없는 일반 재물 질문은 생활형 횡재 디렉티브 대상이 아니다.
     plain = parse_message("올해 돈 들어올까", date(2026, 6, 20)).intents[0]
     assert not _is_lifestyle_windfall(plain, "올해 돈 들어올까")
+
+
+# ── 투자·자산 운용 질문은 횡재가 아니다(2026-09-01 실로그) ─────────────────────────
+
+
+def _intent(q: str, today: date = date(2026, 9, 1)):
+    return parse_message(q, today).intents[0]
+
+
+def test_investment_questions_are_not_lifestyle_windfall() -> None:
+    """'주식' 한 단어로 횡재 판정돼 장기 투자 질문이 '오늘 복권' 답으로 흐르던 결함."""
+    for q in (
+        "주식의 장기 투자가 실제 내 이익으로 돌아올까?",
+        "주식 장기 투자 수익이 날까?",
+        "주식 원금 회복될까",
+        "주식 자산 배당 수익률 괜찮을까",
+        # 코인·펀드·청약·비트코인 — 재물 어휘 등재(2026-09-01)로 general 낙하 없이 판정된다.
+        "코인 자산 원금 회복될까",
+        "펀드 수익률 괜찮을까",
+        "비트코인 장기 투자 괜찮을까",
+        "청약 당첨되면 자금 어떻게 투자할까",
+    ):
+        intent = _intent(q)
+        assert not _is_lifestyle_windfall(intent, q), q
+        assert _is_investment_flow(intent, q), q
+    # 상품 어휘 없는 투자 질문은 횡재도 아니고(복권 프레임 금지) 투자 지시문 대상도 아니다
+    # (약한 키가 없으면 일반 재물 풀이 — 설계상 의도).
+    q = "장기 투자 수익이 날까?"
+    intent = _intent(q)
+    assert not _is_lifestyle_windfall(intent, q)
+    assert not _is_investment_flow(intent, q)
+
+
+def test_flow_timing_questions_remain_lifestyle_windfall() -> None:
+    """투자 표지 없는 흐름·시기 질문과 강한 횡재 키는 기존대로 생활형 횡재."""
+    for q in (
+        "주식운 어때", "로또 언제 사면 좋아", "연금복권 살만한 시기", "주식 소액으로 해볼까",
+        "소액으로 코인 해볼까", "비트코인 지금 사도 될까",
+    ):
+        intent = _intent(q)
+        assert _is_lifestyle_windfall(intent, q), q
+        assert not _is_investment_flow(intent, q), q
+
+
+def test_strong_windfall_key_wins_over_investment_marker() -> None:
+    """강한 횡재 키가 있으면 투자 표지가 있어도 횡재(예: '로또 당첨금 투자')."""
+    q = "로또 당첨금 투자하면 수익 날까"
+    intent = _intent(q)
+    assert _is_lifestyle_windfall(intent, q)
+    assert not _is_investment_flow(intent, q)
+
+
+def test_investment_flow_requires_wealth_context() -> None:
+    """재물 맥락이 아니면 투자 지시문도 붙지 않는다."""
+    q = "회사에서 장기 프로젝트 맡게 될까"
+    intent = _intent(q)
+    assert not _is_investment_flow(intent, q)
+    assert not _is_lifestyle_windfall(intent, q)
+
+
+def test_stock_pick_still_refused() -> None:
+    """종목 픽 요청의 OUT_OF_SCOPE 거부는 그대로."""
+    assert _qt("어떤 주식 살까 장기 투자로") is QueryType.OUT_OF_SCOPE
+
+
+def test_investment_products_route_to_wealth_domain() -> None:
+    """코인·펀드·청약·비트코인이 재물 도메인으로 라우팅된다(2026-09-01 어휘 등재)."""
+    from saju_shared_types.intent import Domain
+
+    for q in ("코인 자산 원금 회복될까", "펀드 수익률 괜찮을까", "비트코인 지금 사도 될까",
+              "청약 당첨될까"):
+        assert _intent(q).domain is Domain.WEALTH, q

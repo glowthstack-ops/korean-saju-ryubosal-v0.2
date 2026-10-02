@@ -443,3 +443,52 @@ def test_followup_explicit_domain_not_overridden() -> None:
         state, "그럼 그 시기 재물운은 어때?", date(2026, 7, 23), birth_year=1980,
     )
     assert p2.intents[0].domain is Domain.WEALTH
+
+
+def test_best_pick_followup_inherits_date_recommendation_window() -> None:
+    """택일 창 안의 최상급 선택 후속('그럼 가장 좋은 날은 언제야?')은 직전 택일 창·사건을 잇는다.
+
+    실로그 결함(2026-09-30): '이번 한 주 내에 로또사기 좋은 날' 뒤 '그럼 가장 좋은 날은 언제야?'가
+    '언제' 시점-탐색 가드에 걸려 timing_search·open_when(10년 창)으로 열리고 사건(windfall)도
+    잃어, 재물 도메인 상위 후보인 계약·문서 2027~2028 답으로 이탈했다. 직전 답이 제시한 후보
+    중 하나를 고르는 질문이라 유계 창·사건·유형을 그대로 이어야 한다.
+    """
+    eng = ConversationEngine()
+    state = ConversationState(thread_id="t-best")
+    p1, state, _, _ = eng.process_turn(
+        state, "이번 한 주 내에 로또사기 좋은 날을 추천해줘", date(2026, 9, 30),
+        birth_year=1979, current_month_label="2026-09",
+    )
+    i1 = p1.intents[0]
+    assert i1.query_type is QueryType.DATE_RECOMMENDATION
+    assert i1.time_range is not None and i1.time_range.start == "2026-09-30"
+    p2, _s, _, link = eng.process_turn(
+        state, "그럼 가장 좋은 날은 언제야?", date(2026, 9, 30),
+        birth_year=1979, current_month_label="2026-09",
+    )
+    i2 = p2.intents[0]
+    assert link.is_follow_up
+    assert i2.query_type is QueryType.DATE_RECOMMENDATION
+    assert i2.domain is i1.domain and i2.event_key == i1.event_key
+    assert i2.time_range is not None
+    assert (i2.time_range.start, i2.time_range.end) == (i1.time_range.start, i1.time_range.end)
+    assert i2.time_scope is i1.time_scope
+    assert p2.trace.get("inherited_time") == (i1.time_range.start, i1.time_range.end)
+
+
+def test_best_pick_followup_requires_superlative_and_same_event() -> None:
+    """새 사건(이사)을 든 최상급 후속은 직전 택일 창을 잇지 않는다(기존 시점-탐색 가드 유지)."""
+    eng = ConversationEngine()
+    state = ConversationState(thread_id="t-best-guard")
+    _, state, _, _ = eng.process_turn(
+        state, "이번 한 주 내에 로또사기 좋은 날을 추천해줘", date(2026, 9, 30),
+        birth_year=1979, current_month_label="2026-09",
+    )
+    # 새 사건(이사) — 창 미승계(스스로 탐색).
+    p2, _s, _, _ = eng.process_turn(
+        state, "그럼 이사는 가장 좋은 날이 언제야?", date(2026, 9, 30),
+        birth_year=1979, current_month_label="2026-09",
+    )
+    tr2 = p2.intents[0].time_range
+    assert tr2 is None or tr2.start is None
+    assert p2.trace.get("inherited_time") is None

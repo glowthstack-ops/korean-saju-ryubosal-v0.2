@@ -161,34 +161,79 @@ def _mentions_element(sentence: str, element: str) -> bool:
     return bool(ko and re.search(rf"{ko}\s*(?:\(|기운|기)", sentence))
 
 
+# 라벨 접미(한자/한글 혼용) → 한글 통칭 접미. relation_label은 '辰酉合'·'巳酉반합'·
+# '申酉방합'·'寅午戌삼합' 형태라 구성 글자 뒤의 접미를 그대로 떼어 쓴다.
+_LABEL_SUFFIX_KO: dict[str, str] = {"合": "합", "반합": "반합", "방합": "방합", "삼합": "삼합"}
+
+
 def _relation_name_aliases(sem: RelationSemantics) -> tuple[str, ...]:
-    """관계의 한글 통칭 — '인해합'·'해인합'처럼 답변이 관계를 직접 부르는 표기."""
+    """관계를 **직접 부르는** 표기 전부 — 한자 라벨과 한글 통칭.
+
+    한자 라벨('辰酉合'·'巳酉반합')은 엔진 canonical claim 과 LLM 입력이 쓰는 표기라
+    답변에 그대로 등장한다. 한글은 '진유합'·'유진합'(2자 관계는 양순) 과 라벨 접미를 살린
+    '사유반합'·'신유방합' 형태를 인정한다.
+    """
+    names: list[str] = [sem.relation_label]
     ko = [
         STEM_KO.get(Stem(c)) if c in {s.value for s in Stem} else BRANCH_KO.get(Branch(c))
         for c in sem.members
     ]
     if any(k is None for k in ko):
-        return ()
+        return tuple(names)
     joined = "".join(k for k in ko if k)
+    suffix = sem.relation_label[len("".join(sem.members)):]
+    suffix_ko = _LABEL_SUFFIX_KO.get(suffix, "합")
     if len(sem.members) == 2:
         a, b = (k for k in ko if k)
-        return (f"{a}{b}합", f"{b}{a}합")
-    return (f"{joined}합",)
+        names += [f"{a}{b}합", f"{b}{a}합", f"{a}{b}{suffix_ko}", f"{b}{a}{suffix_ko}"]
+    else:
+        names += [f"{joined}합", f"{joined}{suffix_ko}"]
+    return tuple(dict.fromkeys(names))
 
 
-def _referenced(sentences: list[_Sentence], i: int, sem: RelationSemantics) -> bool:
+def _named_relations(text: str, semantics: list[RelationSemantics]) -> set[str]:
+    """문장이 이름으로 직접 부르는 관계 라벨 집합(없으면 빈 집합)."""
+    return {
+        sem.relation_label
+        for sem in semantics
+        if any(alias in text for alias in _relation_name_aliases(sem))
+    }
+
+
+def _referenced(
+    sentences: list[_Sentence],
+    i: int,
+    sem: RelationSemantics,
+    named: set[str] | None = None,
+) -> bool:
     """문장 i가 그 관계를 가리키는가.
 
     두 경로를 인정한다.
-      ① 문장이 관계를 통칭으로 부른다('인해합이 …').
+      ① 문장이 관계를 직접 부른다('辰酉合은 …'·'인해합이 …').
       ② 문장에 관계 어휘와 구성 글자가 **최소 1개** 있고, 나머지 구성 글자가 ±2 문장
          창 안에 있다. 실제 서술은 '인목(寅木)이 들어와 …'로 운 글자를 먼저 소개한 뒤
          두세 문장 뒤에서 '일지의 해수(亥水)와는 합을 하여 …'로 이어지기 때문이다.
     구성 글자 매칭은 한자 또는 '음+오행' 2음절만 인정한다(1음절 오탐 차단).
+
+    **직접 호칭 배타 규칙(2026-10-02)**: 문장이 어떤 관계든 이름으로 부르면(`named`),
+    그 문장은 호칭된 관계에만 귀속하고 경로 ②는 쓰지 않는다. 한 글자가 여러 관계에
+    참여하는 날(일진 己酉 → 辰酉合·巳酉반합·申酉방합)에 "辰酉合은 … 합거입니다"라는
+    엔진 canonical 문장이 창 안의 巳·申 때문에 반합·방합에도 귀속되어 위반으로 잡혔고,
+    지시를 그대로 따른 답변이 안전 템플릿으로 통째 교체됐다(실답 2026-10-02 사고).
+
+    Args:
+        sentences: 분리된 문장 목록.
+        i: 판정할 문장 인덱스.
+        sem: 귀속 여부를 볼 관계.
+        named: 문장 i 가 직접 부르는 관계 라벨 집합(None 이면 이 관계만 검사).
     """
     text = sentences[i].text
-    if any(alias in text for alias in _relation_name_aliases(sem)):
-        return True
+    if named is None:
+        named = {sem.relation_label} if any(
+            alias in text for alias in _relation_name_aliases(sem)
+        ) else set()
+    if named:
+        return sem.relation_label in named
     if not _RELATION_WORD.search(text):
         return False
     if not any(_mentions_char(text, c) for c in sem.members):
@@ -212,12 +257,14 @@ def audit_relation_claims(
         위반 목록(없으면 빈 리스트).
     """
     sentences = split_sentences(answer)
+    # 문장별 직접 호칭 관계 — 호칭이 있는 문장은 그 관계에만 귀속한다(공유 글자 오탐 차단).
+    named = [_named_relations(s.text, semantics) for s in sentences]
     out: list[RelationClaimViolation] = []
     for sem in semantics:
         if sem.formation_state is FormationState.NOT_FORMED and not sem.transform_element:
             continue
         for i, s in enumerate(sentences):
-            if not _referenced(sentences, i, sem):
+            if not _referenced(sentences, i, sem, named[i]):
                 continue
             out += _audit_sentence(sem, s)
     return out

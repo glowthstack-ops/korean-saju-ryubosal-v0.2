@@ -10,6 +10,7 @@ import type {
   ReportJobStatus,
   ReportJobSummary,
   RealityCalibrationQuestionSet,
+  RealityCalibrationSubmitResult,
   RealityCalibrationYearAnswer,
   ReportSpec,
   SubjectSummary,
@@ -159,8 +160,8 @@ export function getRealityCalibration(
 export function submitRealityCalibration(
   subjectId: string,
   answers: RealityCalibrationYearAnswer[],
-): Promise<{ stored: number }> {
-  return postJSON<{ stored: number }>(
+): Promise<RealityCalibrationSubmitResult> {
+  return postJSON<RealityCalibrationSubmitResult>(
     `/api/v2/reality-calibration/${subjectId}/submit`,
     { subject_id: subjectId, answers },
   );

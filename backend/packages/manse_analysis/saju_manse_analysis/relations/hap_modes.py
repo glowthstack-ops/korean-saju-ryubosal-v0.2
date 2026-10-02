@@ -80,6 +80,7 @@ class StemHapResolution:
     block_reason: str | None = None  # '간격극' | None
     weakened: bool = False           # 隔位(비인접) 약화
     contend: bool = False            # 쟁합·투합
+    contested_stem: str | None = None  # 쟁합 대상 글자(제3자가 함께 합하려는 쪽)
     chart_transform: bool = False    # 일간 화기격(化氣格) 후보 — 일간이 化神으로 化
     strength: float = 1.0            # 합력(약화 반영, 0~1) — CALIBRATE
     affected: list[AffectedGod] = field(default_factory=list)
@@ -188,13 +189,17 @@ def resolve_stem_hap(
             and abs(_ORDER.index(pa) - _ORDER.index(pb)) >= 2
         )
         # 쟁합·투합: 이 쌍(i,j) 밖의 제3 천간이 sa·sb 중 하나와 또 합하는가(위치 기준).
-        contend = any(
-            k not in (i, j) and (
-                frozenset({sa, sk}) in STEM_COMBINATIONS
-                or frozenset({sb, sk}) in STEM_COMBINATIONS
-            )
-            for k, (_, sk) in enumerate(all_pos)
-        )
+        contested: Stem | None = None
+        for k, (_, sk) in enumerate(all_pos):
+            if k in (i, j):
+                continue
+            if frozenset({sa, sk}) in STEM_COMBINATIONS:
+                contested = sa
+                break
+            if frozenset({sb, sk}) in STEM_COMBINATIONS:
+                contested = sb
+                break
+        contend = contested is not None
         strength = 1.0
         if weakened:
             strength *= w["geokwi_strength"]
@@ -272,6 +277,7 @@ def resolve_stem_hap(
             block_reason=block_reason,
             weakened=weakened,
             contend=contend,
+            contested_stem=contested.value if contested is not None else None,
             chart_transform=chart_transform,
             strength=round(strength, 4),
             affected=affected,

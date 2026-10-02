@@ -27,6 +27,7 @@ from saju_manse_analysis.yongsin.operational_role_config import (
     is_unfavorable_role,
 )
 
+from saju_manse_core.pillars.twelve_unseong import twelve_unseong
 from saju_shared_types.constants import (
     BRANCH_ELEMENT,
     STEM_ELEMENT,
@@ -86,6 +87,91 @@ def _stage_by_name() -> dict[str, dict]:
 
 
 @lru_cache(maxsize=1)
+def _domain_interaction_dict() -> dict:
+    return _load("ten_god_domain_interaction.json")
+
+
+# 십성 → 십성군 / 군 순환(生 방향). 두 칸 앞이 克 대상:
+# 비겁克재성·식상克관살·재성克인성·관살克비겁·인성克식상.
+_TEN_GOD_GROUP: dict[str, str] = {
+    "비견": "peer", "겁재": "peer", "식신": "output", "상관": "output",
+    "편재": "wealth", "정재": "wealth", "편관": "officer", "정관": "officer",
+    "편인": "resource", "정인": "resource",
+}
+_GROUP_CYCLE: tuple[str, ...] = ("peer", "output", "wealth", "officer", "resource")
+
+
+def _group_relation(incoming: str, base: str) -> str:
+    """유입 십성군이 기준 십성군에 대해 갖는 생극 관계.
+
+    same / generates / generated_by / controls / controlled_by 중 하나.
+    """
+    i = _GROUP_CYCLE.index(incoming)
+    b = _GROUP_CYCLE.index(base)
+    d = (b - i) % 5
+    return ("same", "generates", "controls", "controlled_by", "generated_by")[d]
+
+
+def domain_interaction_note(
+    day_master: str,
+    ganji: str,
+    domain: str | None,
+    fav_map: dict[str, str],
+) -> str:
+    """운 유입 십성 × 질문 도메인 기준 십성의 생극 '교차 작용' 1줄(2026-10-01 데굴님 승인).
+
+    길흉은 용기신이 정한다는 원칙(2026-06-16)은 그대로 두고, 십성의 **작용 방향**(겁재가
+    재성을 극하는
+    쟁재 등)이 길흉 서술에 묻히지 않게 별도 줄로 준다. 톤(용·희/기·구/한)은 작용의 결과 방향만
+    바꾼다.
+    천간 십성을 1차로, 지지 십성이 다른 군이면 두 번째 절을 덧붙인다(최대 2절). 도메인이 사전에
+    없거나
+    GENERAL 이면 빈 문자열(무소음). 점수·판정 불변(서술 전용).
+    """
+    if not day_master or len(ganji) < 2 or not domain:
+        return ""
+    d = _domain_interaction_dict()
+    bases = d["domain_base_groups"].get(domain)
+    if not bases:
+        return ""
+    try:
+        dm = Stem(day_master)
+        stem_tg = str(ten_god(dm, Stem(ganji[0])))
+        branch_tg = str(ten_god(dm, Stem(main_hidden_stem(Branch(ganji[1])).value)))
+    except ValueError:
+        return ""
+    group_ko = d["group_ko"]
+    domain_ko = d["domain_ko"].get(domain, domain)
+    clauses: list[str] = []
+    seen_groups: set[str] = set()
+    for tg in (stem_tg, branch_tg):
+        grp = _TEN_GOD_GROUP.get(tg)
+        if grp is None or grp in seen_groups:
+            continue
+        seen_groups.add(grp)
+        for base in bases:
+            rel = _group_relation(grp, base)
+            label = d["control_labels"].get(f"{grp}>{base}", "") if rel == "controls" else ""
+            text = d["relation_phrases"][rel].format(
+                incoming=f"{tg}({group_ko[grp]})", base=group_ko[base], domain=domain_ko,
+                label=label,
+            )
+            clauses.append(text)
+        if len(clauses) >= 2:
+            break
+    if not clauses:
+        return ""
+    stem_el = str(STEM_ELEMENT[Stem(ganji[0])])
+    role = fav_map.get(stem_el)
+    tone_key = (
+        "favorable" if role in ("용신", "희신")
+        else "unfavorable" if role in ("기신", "구신")
+        else "neutral"
+    )
+    return " / ".join(clauses[:2]) + f" — {d['tone'][tone_key]}"
+
+
+@lru_cache(maxsize=1)
 def _relation_text_by_id() -> dict[str, dict]:
     return {item["id"]: item for item in _load("relations_text.json")["items"]}
 
@@ -93,6 +179,18 @@ def _relation_text_by_id() -> dict[str, dict]:
 @lru_cache(maxsize=1)
 def _sinsal_text_by_name() -> dict[str, dict]:
     return {item["name"]: item for item in _load("sinsal_text.json")["items"]}
+
+
+@lru_cache(maxsize=1)
+def canonical_sinsal_names() -> frozenset[str]:
+    """사전에 실재하는 신살 표기 전체 — 출력 계층의 훼손 탐지 기준(SSOT).
+
+    LLM 이 엔진이 준 신살명의 글자를 바꿔 쓰는 사례가 있어(2026-08-06 실측: 대화 이력
+    570건 중 '격격살' 1건 — 격각살의 훼손), 출력 정리 단계가 "사전에 있는 이름인가"를
+    물을 수 있어야 한다. 이름의 출처를 그 이름이 정의된 이 모듈에 두어, 표기 목록이
+    두 곳으로 갈라지지 않게 한다.
+    """
+    return frozenset(_sinsal_text_by_name())
 
 
 @lru_cache(maxsize=1)
@@ -185,9 +283,15 @@ def build_luck_grounding(
     day_master = result.pillars.day_master if result.pillars else ""
     ganji = getattr(luck_pillar, "ganji", "")
     note = incoming_ten_god_note(day_master, ganji, fav, natal_operational_role_map(result))
+    # 교차 작용(2026-10-01) — 질문 도메인이 있으면 유입 십성 × 기준 십성 생극 1줄을 덧붙인다.
+    _inter = domain_interaction_note(day_master, ganji, domain_key, fav)
+    if _inter:
+        note = f"{note} · 교차 작용: {_inter}"
     stage_name = getattr(luck_pillar, "twelve_unseong", "")
     stage = _stage_by_name().get(stage_name)
-    stage_txt = _first_sentence(stage["natal"], 110) if stage else ""
+    # 운 기둥은 '운 유입' 문장(incoming)을 쓴다 — 2026-09-10 이전에는 원국용 natal 을 잘못
+    # 붙였고 incoming 은 한 번도 읽히지 않았다(사문 감사). 일주 해설(natal)은 그대로.
+    stage_txt = _first_sentence(stage.get("incoming") or stage["natal"], 110) if stage else ""
     pillar_line = (
         f"{note} · 십이운성 {stage_name}"
         + (f"({stage_txt})" if stage_txt else "")
@@ -383,6 +487,17 @@ def build_yongsin_operational_summary(
         warnings.append("관살혼잡·합·조후 맥락 — 작용 단순치 않음")
 
     factors = list(yong_role.operability_factors) if yong_role else []
+    # 선정 근거 추적(2026-10-01) — 결정론 문자열만 그대로 전달(구형 결과면 None).
+    trace = ya.decision_trace
+    conflict_ko = None
+    if trace is not None and trace.axis_conflict and trace.axis_conflict.get("significant"):
+        c = trace.axis_conflict
+        conflict_ko = f"억부 {c.get('eokbu')} / 조후 {c.get('johu')} — {c.get('resolution')}"
+    # 프리픽스 토큰 절약 — 희신 기능은 괄호 앞 핵심어만, 부작용 주석은 첫 1건만.
+    heesin_fn_short = (
+        trace.heesin_function_ko.split("(", 1)[0] if trace is not None and trace.heesin_function_ko
+        else None
+    )
     return YongsinOperationalSummary(
         primary_yongsin=primary,
         operability=operability,
@@ -392,6 +507,14 @@ def build_yongsin_operational_summary(
         main_support=main_support,
         conditional=conditional,
         warnings=_trim_warnings(warnings),
+        heesin_element=ya.final.get("heesin") or None,
+        heesin_function_ko=heesin_fn_short,
+        decision_problem=trace.problem if trace is not None else None,
+        decision_path=(
+            trace.chosen_path.split(" — ", 1)[0] if trace is not None else None  # 모델 라벨만
+        ),
+        axis_conflict_ko=conflict_ko,
+        collateral=list(trace.collateral[:1]) if trace is not None else [],
     )
 
 
@@ -523,7 +646,7 @@ def _build_excerpts(
 _MAX_SINSAL_EXCERPTS = 5
 # 궁성론(2026-06-12 사용자 확정) — 같은 신살도 자리에 따라 시기·대상·작용이 갈린다.
 _SINSAL_PALACE_LABEL = {
-    "year": "년주(조상·고향·초년)",
+    "year": "연주(조상·고향·초년)",
     "month": "월주(부모·직장·사회·청년 — 작용력 최대)",
     "day": "일주(나·배우자·장년)",
     "hour": "시주(자녀·내면·말년)",
@@ -582,7 +705,7 @@ def _sinsal_excerpts(result: ManseV2Result) -> list[InterpretationExcerpt]:
                 pos_texts.append(bypos["personal"])
         bypos_note = (" 위치별: " + " / ".join(pos_texts)) if pos_texts else ""
         # 실위치 앵커 — '위치별: 년·월에 있으면 …' 일반론을 실제 위치로 오인해 신살을
-        # 다른 주로 옮겨 말하던 오독 차단(2026-07-21 데굴님 실로그: 년주 천을귀인을
+        # 다른 주로 옮겨 말하던 오독 차단(2026-07-21 데굴님 실로그: 연주 천을귀인을
         # '월주에 있는 천을귀인'으로 서술). 일반론 문구가 붙는 경우에만 덧붙인다.
         if bypos_note and pos:
             labels = "·".join(_SINSAL_PALACE_LABEL[p].split("(")[0] for p in pos)
@@ -683,6 +806,35 @@ def _operational_guard_suffix(elements: list[str], operational_map: dict[str, st
             seen.add(el)
             lines.append(f"※ 운 {el}: {LUCK_OPERATIONAL_GUARD[role]}")
     return " ".join(lines)
+
+
+def incoming_stage_note(day_master: str, ganji: str) -> str:
+    """운 유입 간지의 일간 기준 12운성 해석 1줄 — **표현 결 전용**(점수·판정 무관).
+
+    daily 결 층(docs/17 §23)의 이식(2026-09-10): 채팅·리포트에는 운의 성질이 문체로
+    이어지는 통로가 점수 밴드 어조뿐이었다. `twelve_stages_text.json[incoming]`(운에서
+    X를 만나면 — …)의 첫 문장을 후보/기간 옆에 붙여 LLM 이 흐름·결과 서술의 결을 고르게
+    한다. 십성 유입 노트(`incoming_ten_god_note`)가 행동 권유의 결이라면 이것은 흐름의
+    결이다.
+
+    Args:
+        day_master: 일간(한자 1자).
+        ganji: 운 간지(한자 2자).
+
+    Returns:
+        ``"운에서 장생을 만나면 — 새로운 시작·배움·인연의 에너지가 켜진다."`` 꼴.
+        계산 불가·사전 미비면 빈 문자열.
+    """
+    if not day_master or len(ganji) != 2:
+        return ""
+    try:
+        stage_name = twelve_unseong(Stem(day_master), Branch(ganji[1]))
+    except ValueError:
+        return ""
+    item = _stage_by_name().get(stage_name)
+    if not item or not item.get("incoming"):
+        return ""
+    return _first_sentence(item["incoming"], 90)
 
 
 def incoming_ten_god_note(

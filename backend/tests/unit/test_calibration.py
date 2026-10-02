@@ -309,3 +309,107 @@ def test_period_selection_keeps_multiple_disease_models_distinct() -> None:
     keys = set(periods[0]["expected_by_model"])
     assert "disease_remedy:shangguan_attacks_officer" in keys
     assert "disease_remedy:pyeonin_dosik" in keys
+
+
+# ── CAL-P3(2026-09-21 데굴님 승인) — 판별력 기준 연도·사건 다양화·문구·사용자용 결과 설명 ──
+
+
+def test_base_questions_discriminate_primary_models_and_avoid_minors() -> None:
+    """실측 결함: 2015~2017 연속 3문항이 primary 모델 간 기대가 전부 같아(판별 사건 0) 답이 결과를
+    못 움직였고, 12·15세 해에 결혼·사업 사건을 묻기도 했다. 판별 사건>0·성인기·비연속으로 뽑는다."""
+    from saju_manse_calibration.question_generator import _primary_types, event_discrimination
+
+    r = calculate(BirthInput(reference_date="2026-09-21", **_BASE))
+    assert r.calibration is not None and r.yongsin_analysis is not None
+    base = [q for q in r.calibration.questions if q.question_type == "event_list"]
+    assert len(base) == 5
+    primary = _primary_types(r.yongsin_analysis)
+    for q in base:
+        assert event_discrimination(q.events, primary) > 0, q.year
+        assert q.year - 1980 >= 19, q.year
+        # 문항당 같은 카테고리 최대 2건.
+        cats = [e.category for e in q.events]
+        assert all(cats.count(c) <= 2 for c in cats), q.year
+        # 문구: 연도(만 나이) 앵커, 간지·세운은 작은 글씨(period_range)로, 이유(hint) 동반.
+        assert q.question_text.startswith(f"{q.year}년(만 {q.year - 1980}세)")
+        assert "세운" not in q.question_text and q.period_range.endswith(q.period_range[-10:])
+        assert "년 · 입춘 기준" in q.period_range and q.hint
+    years = sorted(q.year for q in base)
+    assert all(b - a > 1 for a, b in zip(years, years[1:], strict=False)), years
+    # 같은 사건이 5문항 전부에 반복되지 않는다(다양화).
+    labels = [e.label for q in base for e in q.events]
+    assert max(labels.count(x) for x in set(labels)) <= 3
+
+
+def test_event_answers_now_separate_primary_models() -> None:
+    """모든 사건을 '좋았다'로 답해도 두 primary 모델의 raw 점수가 달라진다(동점 결함 해소)."""
+    b = BirthInput(reference_date="2026-09-21", **_BASE)
+    r = calculate(b)
+    assert r.calibration is not None and r.yongsin_analysis is not None
+    answers = [
+        FeedbackAnswer(
+            question_id=q.id, event_ratings={e.event_key: "positive" for e in q.events},
+        )
+        for q in r.calibration.questions if q.question_type == "event_list"
+    ]
+    res = calibrate_feedback(b, answers)
+    primary = [m.model_type for m in r.yongsin_analysis.candidate_models if not m.is_auxiliary]
+    assert len({round(res.model_scores[m], 3) for m in primary}) == len(primary)
+    assert res.user_summary and "답하신" in res.user_summary[0]
+
+
+def test_user_summary_by_status() -> None:
+    from saju_manse_calibration.question_generator import _make_event  # noqa: F401 — import guard
+
+    y = AggregatedYongsinResult(
+        status="candidate",
+        candidate_models=[
+            YongsinCandidateModel(
+                model_type="eokbu_normal", label="억부형",
+                yongsin="水", heesin="木", gisin="土", gusin="金", confidence=0.7,
+            ),
+            YongsinCandidateModel(
+                model_type="eokbu_alt", label="대안형",
+                yongsin="火", heesin="土", gisin="水", gusin="木", confidence=0.6,
+            ),
+        ],
+        final={"selected_model": "eokbu_normal", "yongsin": "水", "heesin": "木"},
+    )
+    events = [
+        CalibrationEventItem(
+            event_key=f"e{i}", category=["career", "move", "affection", "money"][i],
+            label=f"이벤트{i}",
+            expected_by_model={"eokbu_normal": "positive", "eokbu_alt": "negative"},
+        )
+        for i in range(4)
+    ]
+    qs = [
+        CalibrationQuestion(
+            id=f"q{i}", question_type="event_list", period_type="year", year=2010 + i,
+            period_label=str(2010 + i), question_text="…", events=events,
+        )
+        for i in range(2)
+    ]
+    # 확정 — 근거 문장 + 역할 의미, 다음 행동 없음.
+    all_pos = {f"e{i}": "positive" for i in range(4)}
+    res = score_calibration(
+        qs, [FeedbackAnswer(question_id="q0", event_ratings=all_pos),
+             FeedbackAnswer(question_id="q1", event_ratings=all_pos)], y,
+    )
+    assert res.status == "calibrated"
+    assert res.user_summary[0].startswith("답하신 8개 중 8개가 '水 기운이 도움이 된다'")
+    assert "용신 水=나를 안정시키고" in res.user_summary[1] and len(res.user_summary) == 2
+    # 무응답 — 다음 행동 안내.
+    res2 = score_calibration(qs, [FeedbackAnswer(question_id="q0", overall_rating="unknown")], y)
+    assert res2.status == "uncertain"
+    assert "유효한 답이 없어" in res2.user_summary[0]
+    assert "판별 문항 2개 중 0개" in res2.user_summary[1]
+    # 일부 응답 → 유력/불확실이면 남은 문항 안내.
+    res3 = score_calibration(
+        qs, [FeedbackAnswer(question_id="q0", event_ratings={"e0": "positive", "e1": "positive"})],
+        y,
+    )
+    assert res3.status in ("probable", "uncertain")
+    assert any("판별 문항 2개 중 1개만" in ln for ln in res3.user_summary)
+    # 내부 진단문(explanation)은 그대로 남는다(사용자용과 분리).
+    assert res.explanation and "최적 primary 모델" in res.explanation[0]

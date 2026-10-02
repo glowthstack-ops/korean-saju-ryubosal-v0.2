@@ -105,15 +105,15 @@ REACTIVATION_RELATION_PREFIXES: tuple[str, ...] = (
     "삼합완성", "반합성립", "방합완성", "자형", "삼형",
 )
 
-# ── payload pruning(가드) — 후보당 노출 상한·도메인 비정렬/년주 배경 캡 ──
+# ── payload pruning(가드) — 후보당 노출 상한·도메인 비정렬/연주 배경 캡 ──
 SINSAL_PAYLOAD_MAX_PER_EVENT = 3
 # natal 신살은 도메인 레벨(모든 후보 동일) → 토큰 절약 위해 상위 N개 후보에만 부착.
 SINSAL_PAYLOAD_MAX_CANDIDATES = 2
 SINSAL_PAYLOAD_MAX_DOMAIN_UNMATCHED = 1  # domain_match=False 최대 노출
-SINSAL_PAYLOAD_MAX_YEAR_BACKGROUND = 1  # 년주 background 길성/흉살 최대 노출
+SINSAL_PAYLOAD_MAX_YEAR_BACKGROUND = 1  # 연주 background 길성/흉살 최대 노출
 # 위치 → 직렬화용 짧은 궁성 라벨(payload 텍스트).
 PALACE_SHORT_LABEL: dict[str, str] = {
-    "year": "년주", "month": "월주(사회궁)", "day": "일주", "hour": "시주",
+    "year": "연주", "month": "월주(사회궁)", "day": "일주", "hour": "시주",
 }
 
 # ── §9 강도 밴드(internal_weight → LLM 한글 강도어) ──
@@ -141,17 +141,17 @@ EFFECT_TAGS: dict[str, list[str]] = {
     "도화": ["매력·인기·노출"],
     "홍염": ["매력·끼"],
     "화개살": ["고독·전문성 심화"],
-    "백호": ["급성 변수·주의(충형 동반 시 강화)"],
-    "양인": ["경쟁·긴장·결단"],
-    "괴강": ["강단·권위·극단성"],
-    "겁살": ["손실·경쟁 변수 주의"],
-    "재살": ["관재·압박 주의"],
+    "백호": ["급격한 변화의 상징(사고·수술 예측 근거 아님 — 충·형 동반 시만 주의)"],
+    "양인": ["경쟁·긴장·결단(강한 추진력으로도 작동)"],
+    "괴강": ["강단·권위·극단성(집중력·전문성으로도 작동)"],
+    "겁살": ["손실·제약의 상징(십성 겁재와 다른 개념)"],
+    "재살": ["외부 압박·제약의 상징"],
     "천살": ["통제 어려운 외부 변수"],
-    "귀문관살": ["예민·집착·심리 긴장"],
-    "원진": ["미묘한 불화·정서 어긋남"],
-    "고신살": ["고독·지연"],
-    "과숙살": ["고독·이별"],
-    "망신살": ["체면·구설 주의"],
+    "귀문관살": ["예민·집착·심리 얽힘의 상징(정신질환 근거 아님)"],
+    "원진": ["미묘한 서운함·정서 어긋남(불화·이별 확정 아님)"],
+    "고신살": ["고립감·관계의 거리(독신·이혼·사별 확정 아님)"],
+    "과숙살": ["고립감·관계의 거리(독신·이혼·사별 확정 아님)"],
+    "망신살": ["노출·체면·구설의 상징(주목받는 일 전부가 망신은 아님)"],
 }
 # 명명 없는 신살의 polarity 기본 효과 프레이밍.
 POLARITY_DEFAULT_EFFECT: dict[str, str] = {
@@ -180,16 +180,18 @@ SINSAL_CHANNEL_AUSPICIOUS: dict[str, dict[str, float]] = {
 }
 SINSAL_CHANNEL_AUSPICIOUS_DEFAULT: dict[str, float] = {"mitigation": 0.10, "favorability": 0.05}
 SINSAL_CHANNEL_INAUSPICIOUS: dict[str, dict[str, float]] = {
-    "백호": {"risk": 0.15, "favorability": -0.05},
-    "양인": {"risk": 0.12, "favorability": -0.04},
-    "괴강": {"risk": 0.12, "favorability": -0.04},
-    "겁살": {"risk": 0.12, "favorability": -0.04},
-    "재살": {"risk": 0.12, "favorability": -0.04},
-    "귀문관살": {"risk": 0.12, "favorability": -0.04},
-    "원진": {"risk": 0.10, "favorability": -0.04},
-    "망신살": {"risk": 0.08, "favorability": -0.03},
+    # 2026-09-18 데굴님 지시(전문가 참고 기준 — 신살은 보조 상징, 사고·질병 예측 근거 아님):
+    # 흉살 계수를 약 절반으로 낮춘다. shadow 채널이라 운영 점수에는 아직 미반영.
+    "백호": {"risk": 0.08, "favorability": -0.03},
+    "양인": {"risk": 0.07, "favorability": -0.02},
+    "괴강": {"risk": 0.07, "favorability": -0.02},
+    "겁살": {"risk": 0.07, "favorability": -0.02},
+    "재살": {"risk": 0.07, "favorability": -0.02},
+    "귀문관살": {"risk": 0.07, "favorability": -0.02},
+    "원진": {"risk": 0.06, "favorability": -0.02},
+    "망신살": {"risk": 0.05, "favorability": -0.02},
 }
-SINSAL_CHANNEL_INAUSPICIOUS_DEFAULT: dict[str, float] = {"risk": 0.10, "favorability": -0.04}
+SINSAL_CHANNEL_INAUSPICIOUS_DEFAULT: dict[str, float] = {"risk": 0.06, "favorability": -0.02}
 # 중립(방향성) 신살 → 질감 태그(숫자 0). 역마·도화·화개·홍염 등.
 SINSAL_CHANNEL_TEXTURE: dict[str, str] = {
     "역마살": "이동·변동성", "지살": "이동·시작",
@@ -197,7 +199,7 @@ SINSAL_CHANNEL_TEXTURE: dict[str, str] = {
     "화개살": "고립·전문성·마무리",
 }
 # 채널 클램프(0~1 분수, 보조 보장 — 길성이 길흉을 뒤집지 못하게, §2-3).
-SINSAL_CHANNEL_CAPS: dict[str, float] = {"favorability": 0.12, "risk": 0.20, "mitigation": 0.20}
+SINSAL_CHANNEL_CAPS: dict[str, float] = {"favorability": 0.08, "risk": 0.12, "mitigation": 0.20}
 # shadow WARN 임계 — max(|fav|, risk, mit) 이 값 이상이면 리뷰 대상.
 SINSAL_CHANNEL_WARN = 0.10
 

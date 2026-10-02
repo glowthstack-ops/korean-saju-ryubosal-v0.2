@@ -1,0 +1,338 @@
+{
+  "version": "1.0.0",
+  "domain": "contract_legal",
+  "reviewed": false,
+  "purpose": "기회·호전 사전(P1, 2026-09-18 데굴님 승인) — 위험 사전(risks/)의 긍정 대칭 층. 경량 엔진(opportunity_engine)이 LuckPillar 관계·역할·공망·합 완화·구조 배경으로 판정하며 점수·순위는 바꾸지 않는다(서술·favorability 참고). 성사·당첨·확정 표현 금지. family는 event_process_types 긍정 유형 id.",
+  "items": [
+    {
+      "opportunityId": "LEG_CONTRACT_CONCLUDED",
+      "domain": "contract_legal",
+      "kind": "achievement",
+      "family": "completion",
+      "baseValue": 0.3,
+      "triggerRules": [
+        {
+          "id": "LEG_CON_T1",
+          "relation": "YUKHAP",
+          "tenGodGroup": "resource"
+        },
+        {
+          "id": "LEG_CON_T2",
+          "tenGodGroup": "resource",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "tenGodGroup2": "officer"
+        },
+        {
+          "id": "LEG_CON_T3",
+          "voidState": "fill",
+          "tenGodGroup": "resource"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "LEG_CON_A1",
+          "relation": "STEM_HAP",
+          "strength": 0.2
+        }
+      ],
+      "dampenerRules": [
+        {
+          "id": "LEG_CON_D1",
+          "voidState": "active",
+          "strength": 0.4
+        },
+        {
+          "id": "LEG_CON_D2",
+          "relation": "HAE",
+          "relationTargetTenGodGroup": "resource",
+          "strength": 0.3
+        },
+        {
+          "id": "LEG_CON_D3",
+          "hapMitigation": "bound",
+          "strength": 0.4
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "signed",
+          "ko": "계약 체결·갱신"
+        },
+        {
+          "id": "terms_improved",
+          "ko": "유리한 조건으로 변경"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "인성(문서)+합 — 도장을 쥐는 흐름. 체결 확정 금지. 육합이 합거(묶임)면 성사가 아니라 얽힘이라 감쇠.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "LEG_APPROVAL_GRANTED",
+      "domain": "contract_legal",
+      "kind": "achievement",
+      "family": "selection_pass",
+      "baseValue": 0.3,
+      "triggerRules": [
+        {
+          "id": "LEG_APR_T1",
+          "tenGod": "정관",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "tenGodGroup2": "resource"
+        },
+        {
+          "id": "LEG_APR_T2",
+          "voidState": "release",
+          "tenGodGroup": "officer"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "LEG_APR_A1",
+          "relation": "YUKHAP",
+          "strength": 0.2
+        }
+      ],
+      "dampenerRules": [
+        {
+          "id": "LEG_APR_D1",
+          "voidState": "active",
+          "strength": 0.4
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "permit",
+          "ko": "허가·인가·신청 승인"
+        },
+        {
+          "id": "registration",
+          "ko": "자격 취득·권리 등록"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "정관(제도)+인성(서류) 길신 또는 관성 공망 해소 — 승인 계열.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "LEG_DISPUTE_SETTLED",
+      "domain": "contract_legal",
+      "kind": "relief",
+      "family": "settlement",
+      "baseValue": 0.3,
+      "triggerRules": [
+        {
+          "id": "LEG_STL_T1",
+          "relation": "YUKHAP",
+          "relationTargetTenGodGroup": "officer"
+        },
+        {
+          "id": "LEG_STL_T2",
+          "hapMitigation": "mitigated",
+          "tenGodGroup": "officer"
+        },
+        {
+          "id": "LEG_STL_T3",
+          "structure": "tonggwan_present",
+          "tenGodGroup": "resource"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "LEG_STL_A1",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "strength": 0.2
+        }
+      ],
+      "dampenerRules": [
+        {
+          "id": "LEG_STL_D1",
+          "relation": "HYEONG",
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "settled",
+          "ko": "합의·조정 성립"
+        },
+        {
+          "id": "closed",
+          "ko": "분쟁 종결·처분 취소"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "관살 자리 합·합거 완화·통관 — 대립이 중재되는 시점.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "LEG_RIGHTS_RECOGNIZED",
+      "domain": "contract_legal",
+      "kind": "achievement",
+      "family": "recognition",
+      "baseValue": 0.25,
+      "triggerRules": [
+        {
+          "id": "LEG_RGT_T1",
+          "tenGodGroup": "resource",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "rooted": true
+        },
+        {
+          "id": "LEG_RGT_T2",
+          "tenGod": "정관",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "relation": "STEM_HAP"
+        }
+      ],
+      "amplifierRules": [],
+      "dampenerRules": [
+        {
+          "id": "LEG_RGT_D1",
+          "voidState": "active",
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "rights",
+          "ko": "권리·지분 인정·등록"
+        },
+        {
+          "id": "correction",
+          "ko": "서류 오류 정정·명예 회복"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "인성 길신 통근 — 문서로 확정되는 인정.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "LEG_OBLIGATION_ENDED",
+      "domain": "contract_legal",
+      "kind": "relief",
+      "family": "relief",
+      "baseValue": 0.25,
+      "triggerRules": [
+        {
+          "id": "LEG_OBL_T1",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "officer",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ]
+        },
+        {
+          "id": "LEG_OBL_T2",
+          "hapMitigation": "mitigated",
+          "tenGodGroup": "officer"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "LEG_OBL_A1",
+          "twelveStageIn": [
+            "묘",
+            "절"
+          ],
+          "strength": 0.2
+        }
+      ],
+      "dampenerRules": [
+        {
+          "id": "LEG_OBL_D1",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "obligation_end",
+          "ko": "불리한 계약·의무 종료"
+        },
+        {
+          "id": "burden_off",
+          "ko": "보증·책임 해소"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "기신 관살(구속)이 충으로 정리되거나 합거로 완화 — 필요 없는 연결의 정리.",
+      "reviewed": false
+    }
+  ]
+}

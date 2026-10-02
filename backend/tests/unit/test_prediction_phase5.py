@@ -189,3 +189,11 @@ def test_competition_no_hour_mode() -> None:
         [("공인A", chart_no_hour, [])], anchor_date="2026-06-03",
     )
     assert result.candidates[0].data_quality == "no_hour"
+
+
+def test_event_forms_contract_document(engines, chart) -> None:
+    """contract_document 발현 형태(2026-08-10 P4) — 교체(판갈이)형 포함, prob 합 ≤ 1.0."""
+    result = engines.event_forms(EventKey.CONTRACT_DOCUMENT, engines.self_profile(chart))
+    names = [f.name for f in result.forms]
+    assert any("교체·갱신" in n for n in names)
+    assert sum(f.prob for f in result.forms) <= 1.0 + 1e-9

@@ -8,7 +8,10 @@
     "latitude": -33.8688,
     "longitude": 151.2093,
     "timezone": "Australia/Sydney",
-    "gender": "male"
+    "gender": "male",
+    "time_options": {
+      "apply_equation_of_time": true
+    }
   },
   "expected": {
     "year_pillar": "己巳",

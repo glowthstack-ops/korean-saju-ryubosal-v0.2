@@ -171,3 +171,58 @@ def test_prior_answers_round_trip(chart, question) -> None:
     assert [(o.event_key, o.month) for o in occ.occurred] == [(chosen, 8)]  # 월까지 복원
     assert occ.none_of_them is False
     assert prior[y_none.year].occurred == [] and prior[y_none.year].none_of_them is True
+
+
+# ── CAL-R1(2026-09-21 데굴님 승인) — 생애 구간 분산·사건 다양화·이유 부제·제출 요약 ──────
+
+
+def test_years_spread_across_life_bands_and_not_adjacent(question) -> None:
+    """실측 결함: salience 동점을 오래된 해부터 채워 1999~2006 8년 연속(사회초년기 편중)."""
+    years = [y.year for y in question.years]
+    assert len(years) == 10
+    assert all(b - a > 1 for a, b in zip(years, years[1:], strict=False)), years
+    bands = {y.band_ko for y in question.years}
+    assert {"사회초년기", "20대 후반~30대 초", "30대", "40대"} <= bands
+    assert max(years) >= 2023  # 최근 시기 포함(기억 선명)
+    for y in question.years:
+        assert y.age == y.year - 1980 and y.hint
+        if y.daewoon_transition:
+            assert "대운이 바뀐 해" in y.hint
+
+
+def test_events_diversified_per_year(question) -> None:
+    """한 해 안 같은 도메인 최대 2건, 노출 5건, 같은 사건이 전 연도에 반복되지 않는다."""
+    from saju_engines.reality_calibration import _DOMAIN_BY_KEY
+
+    for y in question.years:
+        assert len(y.events) <= 5
+        doms = [_DOMAIN_BY_KEY.get(e.event_key, "other") for e in y.events]
+        # 도메인당 2건 상한 — 상한 때문에 3건도 못 채울 때만 3건까지 보충한다.
+        assert all(doms.count(d) <= 2 for d in doms) or len(y.events) <= 3, (y.year, doms)
+    counts: dict[str, int] = {}
+    for y in question.years:
+        for e in y.events:
+            counts[e.event_key] = counts.get(e.event_key, 0) + 1
+    assert max(counts.values()) <= 6  # 이전: 이직이 10/10, 사회적 갈등 7/10
+
+
+def test_submission_summary_lines(chart, question) -> None:
+    from saju_engines.reality_calibration import submission_summary
+
+    y0, y1 = [y for y in question.years if y.events][:2]
+    sub = RealityCalibrationSubmission(
+        subject_id="s1",
+        answers=[
+            RealityCalibrationYearAnswer(
+                year=y0.year, occurred=[OccurredEvent(event_key=y0.events[0].event_key)],
+            ),
+            RealityCalibrationYearAnswer(year=y1.year, none_of_them=True),
+        ],
+    )
+    rows = rows_from_submission(sub, question, pillars_signature(chart))
+    res = submission_summary(rows, sub, len(rows))
+    assert res.years_answered == 2 and res.confirmed == 1
+    assert res.not_happened == len(rows) - 1 and res.stored == len(rows)
+    assert res.summary[0].startswith("2개 해에 대해 실제 있었던 일 1건")
+    empty = submission_summary([], sub, 0)
+    assert "저장된 답이 없어요" in empty.summary[0]

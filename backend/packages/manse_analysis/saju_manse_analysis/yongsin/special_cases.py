@@ -11,6 +11,8 @@ from saju_shared_types.enums import Element
 from saju_shared_types.structure import StructureAnalysis
 from saju_shared_types.yongsin import SpecialCaseCheck
 
+from .operational_role_config import DOMINANT_CONTROLLER_PRESENT_PCT
+
 
 def detect_special_cases(
     force: ForceAnalysis,
@@ -35,10 +37,24 @@ def detect_special_cases(
     # 전왕/일행득기: 한 오행이 압도적이며 신강 계열.
     strongest_el = max(pct, key=lambda e: pct[e])
     maxpct = pct[strongest_el]
+    dominant_detected = maxpct >= 60.0 and band in ("신강", "태신강", "극신강")
+    # E(2026-10-01): 압도 오행을 극하는 오행이 분포 임계 이상 남아 있으면 기세 집중이 깨져 진전왕이
+    # 아니다 → detail 을 'pseudo:'로 표기(플래그 ON 시 build_yongsin 이 억부와 경쟁시킨다). 플래그
+    # OFF 면 detail 표기만 바뀌고 판정은 기존과 같다.
+    controller = next(e for e in Element if CONTROLS[e] == Element(strongest_el))
+    ctrl_pct = pct.get(controller, 0.0)
+    dominant_kind = (
+        None if not dominant_detected
+        else "pseudo" if ctrl_pct >= DOMINANT_CONTROLLER_PRESENT_PCT
+        else "real"
+    )
     dominant = SpecialCaseCheck(
-        detected=maxpct >= 60.0 and band in ("신강", "태신강", "극신강"),
+        detected=dominant_detected,
         confidence=round(min(max((maxpct - 50) / 50, 0.0), 0.95), 4),
-        detail=f"{strongest_el} {maxpct}%",
+        detail=(
+            f"{dominant_kind}:{strongest_el} {maxpct}%:ctrl={controller} {round(ctrl_pct, 1)}%"
+            if dominant_kind else f"{strongest_el} {maxpct}%"
+        ),
     )
 
     # 종격(從格): 비겁(同氣)이 무근이고 식·재·관 한 세력이 압도할 때 일간이 그 세력에 순응.

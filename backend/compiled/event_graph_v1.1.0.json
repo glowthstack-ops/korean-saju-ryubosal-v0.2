@@ -1,6 +1,6 @@
 {
   "version": "1.1.0",
-  "updated_at": "2026-06-16T01:23:04.896722+00:00",
+  "updated_at": "2026-08-10T05:24:14.220434+00:00",
   "nodes": [
     {
       "id": "element_木",
@@ -2072,12 +2072,18 @@
           {
             "event": "career_change",
             "score": 0.75,
-            "polarity": "negative_or_forced"
+            "polarity": "negative_or_forced",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           },
           {
             "event": "contract_document",
             "score": 0.62,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2097,12 +2103,18 @@
           {
             "event": "career_change",
             "score": 0.7,
-            "polarity": "positive"
+            "polarity": "positive",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           },
           {
             "event": "promotion",
             "score": 0.6,
-            "polarity": "positive"
+            "polarity": "positive",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2122,7 +2134,10 @@
           {
             "event": "career_change",
             "score": 0.65,
-            "polarity": "negative_or_forced"
+            "polarity": "negative_or_forced",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2141,7 +2156,10 @@
           {
             "event": "career_change",
             "score": 0.6,
-            "polarity": "negative_or_forced"
+            "polarity": "negative_or_forced",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2160,7 +2178,10 @@
           {
             "event": "career_change",
             "score": 0.55,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2180,12 +2201,18 @@
           {
             "event": "promotion",
             "score": 0.5,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           },
           {
             "event": "contract_document",
             "score": 0.5,
-            "polarity": "positive"
+            "polarity": "positive",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2203,7 +2230,10 @@
           {
             "event": "career_change",
             "score": 0.55,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2222,17 +2252,26 @@
           {
             "event": "career_change",
             "score": 0.6,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           },
           {
             "event": "contract_document",
             "score": 0.55,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           },
           {
             "event": "education_admission",
             "score": 0.5,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2250,17 +2289,26 @@
           {
             "event": "career_change",
             "score": 0.35,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           },
           {
             "event": "contract_document",
             "score": 0.4,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           },
           {
             "event": "promotion",
             "score": -0.25,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2279,7 +2327,10 @@
           {
             "event": "career_change",
             "score": -0.2,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2306,7 +2357,10 @@
           {
             "event": "career_change",
             "score": -0.12,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2333,7 +2387,10 @@
           {
             "event": "career_change",
             "score": -0.12,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2351,7 +2408,10 @@
           {
             "event": "career_change",
             "score": 0.1,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2369,7 +2429,10 @@
           {
             "event": "career_change",
             "score": 0.06,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2387,7 +2450,10 @@
           {
             "event": "contract_document",
             "score": -0.2,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2405,7 +2471,10 @@
           {
             "event": "contract_document",
             "score": -0.25,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2423,7 +2492,10 @@
           {
             "event": "contract_document",
             "score": -0.15,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2442,12 +2514,18 @@
           {
             "event": "education_admission",
             "score": 0.6,
-            "polarity": "positive"
+            "polarity": "positive",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           },
           {
             "event": "contract_document",
             "score": 0.5,
-            "polarity": "positive"
+            "polarity": "positive",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2466,7 +2544,10 @@
           {
             "event": "education_admission",
             "score": 0.6,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2485,7 +2566,10 @@
           {
             "event": "education_admission",
             "score": 0.5,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2504,7 +2588,10 @@
           {
             "event": "education_admission",
             "score": 0.45,
-            "polarity": "negative_or_forced"
+            "polarity": "negative_or_forced",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2523,7 +2610,10 @@
           {
             "event": "education_completion",
             "score": 0.5,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2541,12 +2631,48 @@
           {
             "event": "education_admission",
             "score": -0.2,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           },
           {
             "event": "education_completion",
             "score": -0.2,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "rule_education_06",
+      "type": "interpretation_rule",
+      "label": "정인+충 — 정체된 문서·계약 기운의 동요: 기존 판을 깨고 갈아타는 교체·갱신·이동 자극. 인성 세력이 받쳐줘야 성사, 약하면 동요·지연 배경(2026-08-10 인성 동요 신호 — Graph 근거 경로용, 점수는 relation_target_ten_god_rules가 담당)",
+      "attrs": {
+        "signal": {
+          "tenGod": "정인",
+          "relation": "branch_clash"
+        },
+        "candidates": [
+          {
+            "event": "contract_document",
+            "score": 0.55,
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
+          },
+          {
+            "event": "relocation",
+            "score": 0.5,
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2565,7 +2691,10 @@
           {
             "event": "health_attention",
             "score": 0.55,
-            "polarity": "negative_or_forced"
+            "polarity": "negative_or_forced",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2583,7 +2712,10 @@
           {
             "event": "health_attention",
             "score": 0.5,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2602,7 +2734,10 @@
           {
             "event": "health_attention",
             "score": 0.5,
-            "polarity": "negative_or_forced"
+            "polarity": "negative_or_forced",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2621,7 +2756,10 @@
           {
             "event": "health_attention",
             "score": 0.45,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2639,7 +2777,10 @@
           {
             "event": "health_attention",
             "score": 0.4,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2657,7 +2798,10 @@
           {
             "event": "health_attention",
             "score": -0.25,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2675,12 +2819,18 @@
           {
             "event": "health_attention",
             "score": -0.2,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           },
           {
             "event": "legal_conflict",
             "score": -0.15,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2688,6 +2838,74 @@
     },
     {
       "id": "rule_relationship_00",
+      "type": "interpretation_rule",
+      "label": "MT1 일간 干合 + partner_star — 인연 '생각'이 동하는 awareness seed. new_relationship/awareness까지만 생성, 단독 action·결혼 승급 금지. 합거·쟁합·기신=불안정 분기. (MARRIAGE_TIMING_ENHANCEMENT §6)",
+      "attrs": {
+        "signal": {
+          "relation": "day_master_stem_combine",
+          "tenGodGroup": "partner_star"
+        },
+        "candidates": [
+          {
+            "event": "new_relationship",
+            "score": 0.3,
+            "polarity": "conditional",
+            "stageHint": "awareness",
+            "partnerStarBonus": 0.1,
+            "topicHint": null
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "relation_day_master_stem_combine",
+      "type": "relation",
+      "label": "일간 干合",
+      "attrs": {}
+    },
+    {
+      "id": "ten_god_group_partner_star",
+      "type": "ten_god_group",
+      "label": "partner_star",
+      "attrs": {}
+    },
+    {
+      "id": "rule_relationship_01",
+      "type": "interpretation_rule",
+      "label": "MT3 graph evidence only. 방합이 일지(배우자궁)를 포함할 때 관계 행동 후보 근거로 기록한다. 라이브 점수는 relation_palace 기존 HAP/DAY 보강을 재사용하며 MT3는 추가 가산하지 않는다(태그만). 단독 commitment/formalization 승급 금지. (MARRIAGE_TIMING_ENHANCEMENT §8)",
+      "attrs": {
+        "signal": {
+          "relation": "directional",
+          "spousePalace": true
+        },
+        "candidates": [
+          {
+            "event": "new_relationship",
+            "score": 0.45,
+            "polarity": "conditional",
+            "stageHint": "relationship",
+            "partnerStarBonus": null,
+            "topicHint": null
+          }
+        ],
+        "reviewed": false
+      }
+    },
+    {
+      "id": "relation_directional",
+      "type": "relation",
+      "label": "방합",
+      "attrs": {}
+    },
+    {
+      "id": "spouse_palace",
+      "type": "palace",
+      "label": "배우자궁(일지)",
+      "attrs": {}
+    },
+    {
+      "id": "rule_relationship_02",
       "type": "interpretation_rule",
       "label": "도화+합 — 인연·매력 활성(동반 신호 매트릭스: 신살 단독 판정 금지)",
       "attrs": {
@@ -2699,14 +2917,17 @@
           {
             "event": "new_relationship",
             "score": 0.65,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
       }
     },
     {
-      "id": "rule_relationship_01",
+      "id": "rule_relationship_03",
       "type": "interpretation_rule",
       "label": "재성 유입+합 — 인연 결합 신호",
       "attrs": {
@@ -2718,14 +2939,17 @@
           {
             "event": "new_relationship",
             "score": 0.6,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
       }
     },
     {
-      "id": "rule_relationship_02",
+      "id": "rule_relationship_04",
       "type": "interpretation_rule",
       "label": "관성 유입+합 — 인연 결합 신호",
       "attrs": {
@@ -2737,14 +2961,17 @@
           {
             "event": "new_relationship",
             "score": 0.6,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
       }
     },
     {
-      "id": "rule_relationship_03",
+      "id": "rule_relationship_05",
       "type": "interpretation_rule",
       "label": "삼합 세력+용신 — 관계 결속·결혼 후보",
       "attrs": {
@@ -2756,19 +2983,25 @@
           {
             "event": "marriage_signal",
             "score": 0.55,
-            "polarity": "positive"
+            "polarity": "positive",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           },
           {
             "event": "new_relationship",
             "score": 0.5,
-            "polarity": "positive"
+            "polarity": "positive",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
       }
     },
     {
-      "id": "rule_relationship_04",
+      "id": "rule_relationship_06",
       "type": "interpretation_rule",
       "label": "충+기신 — 관계 긴장·이별 리스크(단정 금지, 활성창 안내)",
       "attrs": {
@@ -2780,14 +3013,17 @@
           {
             "event": "relationship_change",
             "score": 0.6,
-            "polarity": "negative_or_forced"
+            "polarity": "negative_or_forced",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
       }
     },
     {
-      "id": "rule_relationship_05",
+      "id": "rule_relationship_07",
       "type": "interpretation_rule",
       "label": "해(害)+재성 지지 — 가까운 관계의 서운함 누적 신호",
       "attrs": {
@@ -2799,14 +3035,17 @@
           {
             "event": "relationship_change",
             "score": 0.45,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
       }
     },
     {
-      "id": "rule_relationship_06",
+      "id": "rule_relationship_08",
       "type": "interpretation_rule",
       "label": "감점 — 고신살: 홀로서기 기운이 새 인연 시작을 지연(통설)",
       "attrs": {
@@ -2817,14 +3056,17 @@
           {
             "event": "new_relationship",
             "score": -0.3,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
       }
     },
     {
-      "id": "rule_relationship_07",
+      "id": "rule_relationship_09",
       "type": "interpretation_rule",
       "label": "감점 — 과숙살: 고독 기운이 새 인연 시작을 지연(통설)",
       "attrs": {
@@ -2835,14 +3077,17 @@
           {
             "event": "new_relationship",
             "score": -0.3,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
       }
     },
     {
-      "id": "rule_relationship_08",
+      "id": "rule_relationship_10",
       "type": "interpretation_rule",
       "label": "감점 — 공망 활성: 혼인 결실의 확정력이 공허해짐",
       "attrs": {
@@ -2853,7 +3098,10 @@
           {
             "event": "marriage_signal",
             "score": -0.25,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2872,7 +3120,10 @@
           {
             "event": "relocation",
             "score": 0.75,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2891,7 +3142,10 @@
           {
             "event": "relocation",
             "score": 0.6,
-            "polarity": "negative_or_forced"
+            "polarity": "negative_or_forced",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2910,7 +3164,10 @@
           {
             "event": "relocation",
             "score": 0.5,
-            "polarity": "positive"
+            "polarity": "positive",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2928,7 +3185,10 @@
           {
             "event": "relocation",
             "score": 0.45,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2946,7 +3206,10 @@
           {
             "event": "relocation",
             "score": 0.55,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2965,7 +3228,10 @@
           {
             "event": "relocation",
             "score": 0.55,
-            "polarity": "positive"
+            "polarity": "positive",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -2984,7 +3250,10 @@
           {
             "event": "relocation",
             "score": 0.85,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -3003,7 +3272,10 @@
           {
             "event": "relocation",
             "score": 0.6,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -3023,7 +3295,10 @@
           {
             "event": "relocation",
             "score": 0.55,
-            "polarity": "negative_or_forced"
+            "polarity": "negative_or_forced",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -3042,7 +3317,10 @@
           {
             "event": "relocation",
             "score": -0.25,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -3068,7 +3346,10 @@
           {
             "event": "relocation",
             "score": -0.07,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -3086,7 +3367,10 @@
           {
             "event": "relocation",
             "score": 0.08,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -3104,7 +3388,10 @@
           {
             "event": "relocation",
             "score": -0.1,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -3123,7 +3410,10 @@
           {
             "event": "wealth_change",
             "score": 0.65,
-            "polarity": "positive"
+            "polarity": "positive",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -3142,12 +3432,18 @@
           {
             "event": "wealth_change",
             "score": 0.6,
-            "polarity": "positive"
+            "polarity": "positive",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           },
           {
             "event": "contract_document",
             "score": 0.5,
-            "polarity": "positive"
+            "polarity": "positive",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -3166,7 +3462,10 @@
           {
             "event": "wealth_change",
             "score": 0.65,
-            "polarity": "negative_or_forced"
+            "polarity": "negative_or_forced",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -3185,7 +3484,10 @@
           {
             "event": "wealth_change",
             "score": 0.6,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -3204,12 +3506,18 @@
           {
             "event": "wealth_change",
             "score": 0.6,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           },
           {
             "event": "windfall",
             "score": 0.35,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -3228,12 +3536,18 @@
           {
             "event": "wealth_change",
             "score": 0.6,
-            "polarity": "negative_or_forced"
+            "polarity": "negative_or_forced",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           },
           {
             "event": "windfall",
             "score": 0.4,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -3251,12 +3565,18 @@
           {
             "event": "windfall",
             "score": -0.3,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           },
           {
             "event": "wealth_change",
             "score": -0.2,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -3274,7 +3594,10 @@
           {
             "event": "wealth_change",
             "score": -0.15,
-            "polarity": "neutral"
+            "polarity": "neutral",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -3294,7 +3617,10 @@
           {
             "event": "windfall",
             "score": 0.45,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -3314,7 +3640,10 @@
           {
             "event": "windfall",
             "score": 0.4,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -3333,12 +3662,18 @@
           {
             "event": "wealth_change",
             "score": 0.5,
-            "polarity": "positive"
+            "polarity": "positive",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           },
           {
             "event": "windfall",
             "score": 0.3,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -3357,7 +3692,10 @@
           {
             "event": "windfall",
             "score": 0.3,
-            "polarity": "conditional"
+            "polarity": "conditional",
+            "stageHint": null,
+            "partnerStarBonus": null,
+            "topicHint": null
           }
         ],
         "reviewed": false
@@ -5898,6 +6236,27 @@
       "modes": []
     },
     {
+      "from": "tengod_정인",
+      "to": "rule_education_06",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_education_06",
+      "to": "event_contract_document",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": []
+    },
+    {
+      "from": "rule_education_06",
+      "to": "event_relocation",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": []
+    },
+    {
       "from": "gisin",
       "to": "rule_health_00",
       "type": "supports",
@@ -5975,14 +6334,35 @@
       "modes": []
     },
     {
-      "from": "rule_relationship_00",
-      "to": "event_new_relationship",
-      "type": "triggers",
-      "weight": 0.65,
+      "from": "relation_day_master_stem_combine",
+      "to": "rule_relationship_00",
+      "type": "supports",
+      "weight": null,
       "modes": []
     },
     {
-      "from": "tengod_정재",
+      "from": "ten_god_group_partner_star",
+      "to": "rule_relationship_00",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_relationship_00",
+      "to": "event_new_relationship",
+      "type": "triggers",
+      "weight": 0.3,
+      "modes": []
+    },
+    {
+      "from": "relation_directional",
+      "to": "rule_relationship_01",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "spouse_palace",
       "to": "rule_relationship_01",
       "type": "supports",
       "weight": null,
@@ -5992,25 +6372,18 @@
       "from": "rule_relationship_01",
       "to": "event_new_relationship",
       "type": "triggers",
-      "weight": 0.6,
-      "modes": []
-    },
-    {
-      "from": "tengod_정관",
-      "to": "rule_relationship_02",
-      "type": "supports",
-      "weight": null,
+      "weight": 0.45,
       "modes": []
     },
     {
       "from": "rule_relationship_02",
       "to": "event_new_relationship",
       "type": "triggers",
-      "weight": 0.6,
+      "weight": 0.65,
       "modes": []
     },
     {
-      "from": "yongsin",
+      "from": "tengod_정재",
       "to": "rule_relationship_03",
       "type": "supports",
       "weight": null,
@@ -6018,20 +6391,13 @@
     },
     {
       "from": "rule_relationship_03",
-      "to": "event_marriage_signal",
-      "type": "triggers",
-      "weight": 0.55,
-      "modes": []
-    },
-    {
-      "from": "rule_relationship_03",
       "to": "event_new_relationship",
       "type": "triggers",
-      "weight": 0.5,
+      "weight": 0.6,
       "modes": []
     },
     {
-      "from": "gisin",
+      "from": "tengod_정관",
       "to": "rule_relationship_04",
       "type": "supports",
       "weight": null,
@@ -6039,34 +6405,69 @@
     },
     {
       "from": "rule_relationship_04",
+      "to": "event_new_relationship",
+      "type": "triggers",
+      "weight": 0.6,
+      "modes": []
+    },
+    {
+      "from": "yongsin",
+      "to": "rule_relationship_05",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_relationship_05",
+      "to": "event_marriage_signal",
+      "type": "triggers",
+      "weight": 0.55,
+      "modes": []
+    },
+    {
+      "from": "rule_relationship_05",
+      "to": "event_new_relationship",
+      "type": "triggers",
+      "weight": 0.5,
+      "modes": []
+    },
+    {
+      "from": "gisin",
+      "to": "rule_relationship_06",
+      "type": "supports",
+      "weight": null,
+      "modes": []
+    },
+    {
+      "from": "rule_relationship_06",
       "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.6,
       "modes": []
     },
     {
-      "from": "rule_relationship_05",
+      "from": "rule_relationship_07",
       "to": "event_relationship_change",
       "type": "triggers",
       "weight": 0.45,
       "modes": []
     },
     {
-      "from": "rule_relationship_06",
-      "to": "event_new_relationship",
-      "type": "triggers",
-      "weight": -0.3,
-      "modes": []
-    },
-    {
-      "from": "rule_relationship_07",
-      "to": "event_new_relationship",
-      "type": "triggers",
-      "weight": -0.3,
-      "modes": []
-    },
-    {
       "from": "rule_relationship_08",
+      "to": "event_new_relationship",
+      "type": "triggers",
+      "weight": -0.3,
+      "modes": []
+    },
+    {
+      "from": "rule_relationship_09",
+      "to": "event_new_relationship",
+      "type": "triggers",
+      "weight": -0.3,
+      "modes": []
+    },
+    {
+      "from": "rule_relationship_10",
       "to": "event_marriage_signal",
       "type": "triggers",
       "weight": -0.25,

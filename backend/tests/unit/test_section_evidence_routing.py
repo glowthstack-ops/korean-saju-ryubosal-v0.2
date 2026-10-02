@@ -94,9 +94,13 @@ def test_no_legacy_global_candidate_block_in_policy_sections(
 
 @pytest.mark.parametrize("topic", _THEMES)
 def test_every_section_has_a_policy(topic: str, rendered) -> None:
+    # 연도별 상세 페이지({종합ID}-Y{연도}, 2026-08-13 분할 확장)는 정책 레지스트리 밖 —
+    # 이벤트 후보 evidence 자체를 받지 않는 전용 분기다(그 해 세운+12개월 표만,
+    # build_section_context의 month_page_windows 분기). 명시적 라우팅 결정이므로 면제.
     missing = [
         c.section_id for c in rendered[topic]
-        if R._SECTION_EVIDENCE_POLICY.get(c.section_id) is None
+        if "-Y" not in c.section_id
+        and R._SECTION_EVIDENCE_POLICY.get(c.section_id) is None
     ]
     assert not missing, missing
 

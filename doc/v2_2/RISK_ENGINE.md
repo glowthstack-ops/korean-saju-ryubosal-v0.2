@@ -367,6 +367,37 @@ identity·stage 억제·노출 게이트·결정적 병합만 공유).
   40.9%' 표기 금지) · **독립 사용자 노출 0 · 독립 family 기여 0 · 대표 흡수 0**
   (전 시나리오) — 절차 확인(matched) 시에도 background 수렴만 가능.
 
+### 3-7. family 단위 보조 증폭 층 — `risk_auxiliary_amplifiers.json` (P2 · 2026-09-18 데굴님 결정)
+
+위험 사전 항목은 scope별 감수 해시(reviewHashes)로 잠겨 있어 룰을 고치면 감수가 강등된다.
+전문가 참고 기준의 배경 작용(신살 9종·개두절각·충근·통관 부재·구응 손상·합거 손상)을 위험
+경고에 반영하되 **항목을 편집하지 않기 위해** 별도 사전 `backend/dictionaries/
+risk_auxiliary_amplifiers.json`(15종)을 두고, 이미 생성된 후보에 **AMPLIFIER 근거만** 덧붙인다.
+
+- **원칙(§3-1 유지)**: 신살·구조·합 배경은 독립 트리거가 아니다. 항목마다 `polarityRoleIn`
+  (GI/GI_STRONG/HAN_BAD만)이 필수이고 배경 조건(natalSinsalIn/luckSinsalIn/structureIn/hapIn)
+  중 하나 이상이 필수다 — 극성 단독·배경 단독 증폭은 사전 lint가 거부한다. 조건 종류 사이는
+  AND, 목록 안은 OR. 대상은 `riskFamilyIn`(또는 `riskIdIn`) — 미등록 family/riskId는 lint 실패.
+- **근거**: source `aux:<id>`(cause registry `aux:*` → AMPLIFIER, cause-semantics-v4), role
+  AMPLIFIER, source_group `auxiliary`, layer `period`. occurrence·독립 원인 수·persistence·
+  compound·protection·적격 상태·episode identity에 일절 관여하지 않는다.
+- **수치**: `RiskCandidate.aux_bonus = 0.15 × (1 − Π(1 − strength))`(상한 `_AUX_MAX_BONUS`
+  0.15, `clamp_aux_bonus`로 고정). `risk_priority`/`structural_priority`의 `timed_base ×
+  (1 + aux_bonus)` — 교운기 transition_bonus와 같은 자리의 modifier. 후보 신설·삭제 없음,
+  매칭 없는 후보는 같은 객체(byte 불변).
+- **표현**: 대표 후보의 aux 근거 라벨(`labelKo`, 완곡 — 신살 단정 금지)을 `auxiliarySignals`
+  (P2 tier)로 싣는다. 라벨은 사전 문구 그대로(즉석 작문 없음).
+- **게이트**: `SAJU_RISK_AUX_AMPLIFIER_ENABLED`(기본 OFF, .env.beta ON). OFF면 엔진 shadow
+  후보가 byte 불변. `RISK_ENGINE_MODE` off면 계산 자체가 없다.
+- **감수 표면**: scoring_config_hash·cause_semantics_hash·presentation_policy_hash가 바뀌어
+  manifest를 재생성했다(재감수 신호). reviewHashes 본문(항목 scope 해시)은 불변이라
+  env 버전 범프·재스탬프는 하지 않았다. 사전 15종은 reviewed:false(품질 절차 — 런타임 게이트
+  아님). 계수는 잠정(shadow 실측 후 조정).
+- 구현: `saju_engines/risk_auxiliary.py`(`build_auxiliary_facts`·`apply_auxiliary_amplifiers`),
+  배선 `event_engine_v2._collect_risk_shadow`(generate 직후), 라벨 공급 `risk_exposure_bootstrap.
+  build_risk_payload → build_presentation(aux_labels=…)`. 회귀 `tests/unit/test_risk_auxiliary_
+  amplifiers.py`.
+
 ## 4. 타입 계층 (`shared_types/risk_engine.py`)
 
 - `RiskCandidate` — **원자 후보** (단일 `period_key`). R0 산출물. 점수·등급 없음.

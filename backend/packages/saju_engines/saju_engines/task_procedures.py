@@ -142,12 +142,43 @@ _PROCEDURE_RE = re.compile(
 _FORTUNE_SIGNAL_RE = re.compile(r"운세|운이|길일|언제|몇\s*월|시기|괜찮|좋을까|해도\s*될")
 
 
+# 서비스 기능 탐문(2026-09-11 실로그: '지역오행도 볼 수 있어?'가 too_broad). 생활 과업
+# 지식팩과 별개로, 서비스가 제공하는 기능 자체를 묻는 질문에 고정 즉답을 둔다.
+# 등재 기능은 지역오행 하나 — 다른 기능명은 사용자 승인 후 추가한다.
+_FEATURE_PROBE_RE = re.compile(
+    r"(?P<feature>지역\s*오행)(?:도|은|는|이|을|를)?\s*[^.!?\n]{0,8}?"
+    r"(?:볼|봐\s*줄|봐줄|할|알|될|되)\s*수\s*(?:있|없)|(?P<feature2>지역\s*오행)(?:도|은|는)?\s*(?:돼|되나|되니|가능)"
+)
+_FEATURE_ANSWERS: dict[str, str] = {
+    "지역오행": (
+        "네, 볼 수 있어요. 이사·거주를 생각하는 지역의 오행과 내 용신의 적합을 시군구 단위로 "
+        "참고 라벨로 보여드려요. 다만 지역 오행 사전은 검수 전 초안이라 '이 지역이 맞다/안 맞다'로 "
+        "단정하지는 않고, 이사 시기·방향 신호와 함께 참고용으로 짚어드려요. "
+        "어느 지역(시·군·구)을 보고 싶으신가요?"
+    ),
+}
+
+
+def build_feature_answer(question: str) -> str | None:
+    """서비스 기능 탐문의 즉답(LLM·엔진 미호출). 해당 없으면 None."""
+    m = _FEATURE_PROBE_RE.search(question)
+    if not m:
+        return None
+    feature = (m.group("feature") or m.group("feature2") or "").replace(" ", "")
+    return _FEATURE_ANSWERS.get(feature)
+
+
 def build_capability_answer(question: str) -> str | None:
     """능력 탐문·절차 질문의 즉답(LLM·엔진 미호출). 해당 없으면 None.
 
     아는 범위(절차 단계)와 한계(L3 전문가 영역)를 함께 보여주고, 과업별 시기·주의점
     상담(MIXED_TASK)으로 자연스럽게 이어지게 안내한다(승인 문서 §1 권장 형식).
+    서비스 기능 탐문('지역오행도 볼 수 있어?')은 운세 신호 가드보다 먼저 본다 —
+    기능 이름에 '오행'이 있어도 시기·길흉 질문이 아니다.
     """
+    feature = build_feature_answer(question)
+    if feature is not None:
+        return feature
     if _FORTUNE_SIGNAL_RE.search(question):
         return None  # 시기·길흉 질문은 분석 경로
     is_probe = bool(_PROBE_RE.search(question))

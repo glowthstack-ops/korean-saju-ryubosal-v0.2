@@ -18,10 +18,13 @@ from datetime import date
 from pathlib import Path
 from types import MappingProxyType
 
+from saju_manse_analysis.relations.hap_mitigation import resolve_hap_mitigation
 from saju_manse_analysis.relations.hap_modes import resolve_stem_hap
+from saju_manse_analysis.structure.luck_geok_break import geok_break
+from saju_manse_analysis.structure.luck_structure_flags import resolve_luck_structure_flags
 from saju_manse_analysis.yongsin.operational_role_config import is_unfavorable_role
 
-from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT
+from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT, main_hidden_stem, ten_god
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.event_engine import (
     TEN_GOD_GROUP,
@@ -60,6 +63,7 @@ from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.risk_engine import RiskCandidate, RiskEngineMode
 from saju_shared_types.wealth_capacity import WealthCapacity
 
+from . import period_v2_config
 from .addendum_gate_modifier import AddendumGateModifier, GateContext
 from .career_mobility_modifier import CareerMobilityContext, CareerMobilityModifier
 from .cohort_calibration import CohortStats
@@ -100,6 +104,7 @@ from .marriage_flow_modifier import (
 )
 from .reality_context import RealityContext
 from .relation_palace_engine import RelationActivation, RelationPalaceEngine
+from .risk_auxiliary import apply_auxiliary_amplifiers, build_auxiliary_facts
 from .risk_engine import (
     HealthContext,
     LegalProcessContext,
@@ -141,6 +146,8 @@ _VOID_TYPES = {
     RelationType.VOID_TRIGGER_CLASH,
     RelationType.VOID_RELEASE_COMBINE,
 }
+# 공망 신호의 원국 궁위 한글 표기(오지목 방지용 쌍 라벨).
+_VOID_POS_KO = {"year": "년지", "month": "월지", "day": "일지", "hour": "시지"}
 _POS_PILLAR: dict[str, Pillar4] = {
     "year": Pillar4.YEAR, "month": Pillar4.MONTH,
     "day": Pillar4.DAY, "hour": Pillar4.HOUR,
@@ -215,6 +222,7 @@ class EventEngineV2:
         enable_mt4_subtype: str = "off",
         risk_mode: str | None = None,
         daewoon_hwa_mode: str = "current",
+        enable_resource_clash_renewal: bool = False,
     ) -> None:
         """재설계 6계층 + 만세 신호 추출에 필요한 사전을 로드한다.
 
@@ -235,11 +243,16 @@ class EventEngineV2:
             daewoon_hwa_mode: 대운 합화 배경 처리(기본 'current' — 기존 ±3% 랭킹 반영).
                 'post_selection'이면 점수·reason_codes를 건드리지 않고 시점 배경 맵만
                 채운다(DW-HWA 감사 판정 반영). 기본값이 'current'라 production 불변.
+            enable_resource_clash_renewal: 인성 동요 신호(기본 OFF — feature flag,
+                2026-08-10 승인). 운 충이 원국 인성 글자를 칠 때 문서 교체 계열
+                (contract_document/relocation/career_change) 가산 + 인성군 세력 게이트
+                (relation_target_ten_god_rules, reviewed:false). OFF면 기존 결과 불변.
         """
         self._enable_mt1_awareness = enable_mt1_awareness
         self._enable_mt2_emergence = enable_mt2_emergence
         self._enable_mt3_directional = enable_mt3_directional
         self._mt4_mode = enable_mt4_subtype
+        self._enable_resource_clash_renewal = enable_resource_clash_renewal
         # MT4 shadow 진단 사이드채널(결과 payload·LLM 입력 미포함 — debug-only). score()마다 초기화.
         self.mt4_shadow: list[dict] = []
         # ── 위험 엔진 R0(RISK_ENGINE.md) — 기회 파이프라인과 독립 shadow 사이드채널 ──
@@ -269,6 +282,7 @@ class EventEngineV2:
         self._risk_shadow_health: list[HealthContext] | None = None
         self._risk_shadow_legal: list[LegalProcessContext] | None = None
         self._risk_shadow_selections: list[SelectionContext] | None = None
+        self._dictionaries_dir = dictionaries_dir  # 보조 증폭 사전(P2) 지연 로드 경로
         try:
             self._risk: RiskEngine | None = RiskEngine(dictionaries_dir)
         except FileNotFoundError:
@@ -585,15 +599,42 @@ class EventEngineV2:
         present_gods = {s.ten_god for s in signals}
         layers = {layer for layer, _ in stack}
         hits = self._relation_hits(result, level, target)
-        void_active = any(h.type in _VOID_TYPES for h in hits)
+        # 공망 자극 종류 분리(2026-08-21 확정 의미론) — 충발만 지연, 전실·합은 신호만.
+        # 글자 쌍·궁위를 함께 보존한다 — 쌍이 없으면 LLM이 공망지를 다른 지지로
+        # 오지목한다(실측: 시지 巳 공망을 '일지 亥 공망'으로 작문).
+        void_kinds: set[str] = set()
+        void_pairs: dict[str, str] = {}
+        for h in hits:
+            if h.type is RelationType.VOID_TRIGGER_CLASH:
+                void_kinds.add("clash")
+            elif h.type is RelationType.VOID_FILL:
+                void_kinds.add("fill")
+                nb = h.natal_refs[0] if h.natal_refs else None
+                if nb is not None and nb.branch:
+                    void_pairs.setdefault(
+                        "fill", f"{nb.branch}({_VOID_POS_KO.get(nb.position, nb.position)})"
+                    )
+            elif h.type is RelationType.VOID_RELEASE_COMBINE:
+                void_kinds.add("combine")
+                nb = h.natal_refs[0] if h.natal_refs else None
+                if h.luck_ref.branch and nb is not None and nb.branch:
+                    void_pairs.setdefault(
+                        "combine",
+                        f"{h.luck_ref.branch}-{nb.branch}"
+                        f"({_VOID_POS_KO.get(nb.position, nb.position)})",
+                    )
+        void_active = bool(void_kinds)
         gate_ctx = GateContext(
             present_gods=present_gods, layers=layers, void_active=void_active,
+            void_kinds=void_kinds, void_pairs=void_pairs,
             occupation_status=occupation_status, relationship_status=relationship_status,
         )
         cands = self._gate.apply(cands, gate_ctx)
         # 발동·궁성 — 해당 시점 관계 적중(+ 일지 복음 발동: 운 지지=원국 일지).
         layer = target_layer
-        activations = _activations(hits, layer) + _bokeum_activations(result, target, layer)
+        activations = (
+            _activations(hits, layer, result) + _bokeum_activations(result, target, layer)
+        )
         # P1-6 §12 — 관계 벡터 shadow projection 수집(읽기 전용 — cands·hits·
         # activations를 변형하지 않고 primitive만 복사한다. 탐지 재호출 0).
         rel_shadow_sink = getattr(self._rel_shadow_tls, "sink", None)
@@ -617,10 +658,18 @@ class EventEngineV2:
             if self._mt4_mode != "off" and result.pillars and result.pillars.day
             else ""
         )
+        # 인성 동요 신호(feature flag) — 원국 십성군 세력 %는 약근 게이트 판정용.
+        group_powers = (
+            dict(result.force_analysis.ten_gods.groups)
+            if self._enable_resource_clash_renewal and result.force_analysis is not None
+            else None
+        )
         cands = self._relpalace.apply(
             cands, activations,
             mt4_mode=self._mt4_mode, gender=marriage_flow.gender,
             day_element=day_el, shadow_sink=self.mt4_shadow,
+            renewal_enabled=self._enable_resource_clash_renewal,
+            ten_god_group_powers=group_powers,
         )
         # 용신 품질 — 시점 유입 글자 오행의 용기신 역할. 본 천간이 합화(化)면 化神 오행으로 길흉
         # 판단(生剋制化 우선 — 사건 종류는 불변, 길흉만 化神 기준). 대운 배경 합화는 제외(국소).
@@ -628,6 +677,15 @@ class EventEngineV2:
         hwa_el = _target_hwa_element(target, result, fav_map)
         stem_bound = _target_stem_bound(target, result, fav_map) if hwa_el is None else False
         role = _period_role(target, fav_map, stem_element=hwa_el, stem_bound=stem_bound)
+        # P1 합 완화(2026-09-18): 점수 채널(polarity_role→yongi)은 위 기존 판정 그대로 두고,
+        # 아래 _apply_hap_mitigation이 길흉 채널(favorability)만 완화 역할 기준으로 다시 잰다.
+        # 천간 합거의 '제거→완화' 통일도 길흉 채널에서만 나타난다(잔존 약흉) — 점수·순위 불변.
+        _hap_on = period_v2_config.HAP_MITIGATION_ENABLED
+        # 접힘 전 천간/지지 역할 라벨 보존(P0-1) — NEUTRAL이어도 evidence는 남긴다(INV-E).
+        stem_lbl, branch_lbl = _period_role_labels(
+            target, fav_map, stem_element=hwa_el, stem_bound=stem_bound
+        )
+        role_labels = {"stem_role": stem_lbl, "branch_role": branch_lbl}
         if role is not PolarityRole.NEUTRAL:
             note = (
                 f"HWA_길흉_{hwa_el}" if hwa_el
@@ -636,11 +694,25 @@ class EventEngineV2:
             cands = [  # provenance-audit: not-risk (EventCandidateV2)
                 c.model_copy(update={
                     "polarity_role": role,
+                    **role_labels,
                     **({"reason_codes": [*c.reason_codes, note]} if note else {}),
                 })
                 for c in cands
             ]
             cands = self._yongi.apply(cands)
+        else:
+            cands = [  # provenance-audit: not-risk (EventCandidateV2)
+                c.model_copy(update=role_labels) for c in cands
+            ]
+        # P1 합 완화(2026-09-18) — 합거로 묶인 흉 글자의 유불리를 한 단계 완화하고, 합 결과가
+        # 관이면 관 계열 후보에 관운 강화를 더한다. favorability(fav_adj)만 — 점수·순위 불변.
+        if _hap_on:
+            cands = _apply_hap_mitigation(cands, target, result, fav_map, hwa_el, role)
+            # 4번(2026-09-18 승인) — 運破格·기신 성국 배경 감점(favorability만, 점수·순위 불변).
+            cands = _apply_structure_background(cands, target, result, fav_map)
+        if period_v2_config.STRUCTURE_BACKGROUND_ENABLED:
+            # A2(2026-09-18 승인) — 충근·개두절각·통관 부재·구응 손상·특수격 역행(favorability만).
+            cands = _apply_luck_structure_flags(cands, target, result, fav_map)
         # 시험·합격·취업 결과 길흉 — 십성 구조 합·불 패턴으로 favorability만 보정(점수 불변,
         # 자료 9-3·9-4). 극성 NEUTRAL이어도 적용되도록 yongi 블록 밖에서 호출한다.
         cands = self._exam.apply(cands, present_gods)
@@ -817,7 +889,7 @@ class EventEngineV2:
         # 피자극 대상 provenance — 충·형은 '무엇을 쳤는가'로 도메인이 갈리므로(재성 충≠
         # 배우자궁 충≠사회궁 충) 자극 궁성의 천간/지지 십성·글자를 사실에 보존한다.
         relations: list[RelationFact] = []
-        for a in _activations(hits, layer):
+        for a in _activations(hits, layer, result):
             god, letter = _natal_target(result, a.palace, a.position)
             relations.append(RelationFact(
                 kind=a.kind, palace=a.palace, position=a.position,
@@ -840,7 +912,7 @@ class EventEngineV2:
         _sink = getattr(self._risk_tls, "sink", None)
         if _sink is None:  # score() 밖 직접 호출(테스트 등) — 레거시 경로
             _sink = self.risk_shadow
-        _sink.extend(self._risk.generate(
+        generated = self._risk.generate(
             facts,
             selection_context=self._risk_shadow_selection,
             selection_contexts=self._risk_shadow_selections,
@@ -848,7 +920,18 @@ class EventEngineV2:
             mobility_contexts=self._risk_shadow_mobility,
             health_contexts=self._risk_shadow_health,
             legal_contexts=self._risk_shadow_legal,
-        ))
+        )
+        if period_v2_config.RISK_AUX_AMPLIFIER_ENABLED and generated:
+            # family 단위 보조 증폭 층(P2) — 위험 사전 항목 불변. 흉 극성 동반 신살·구조·합
+            # 배경을 기존 후보에 aux:* AMPLIFIER 근거 + aux_bonus로 덧붙인다(후보 신설 없음).
+            generated = apply_auxiliary_amplifiers(
+                generated,
+                build_auxiliary_facts(
+                    result, target, fav_map, polarity_role=facts.polarity_role.value,
+                ),
+                dictionaries_dir=self._dictionaries_dir,
+            )
+        _sink.extend(generated)
 
     def _wealth_activations(
         self,
@@ -1007,8 +1090,14 @@ _HAP_SUBTYPE: dict[RelationType, str] = {
 }
 
 
-def _activations(hits: list[RelationHit], layer: LuckLayer) -> list[RelationActivation]:
-    """합충형파해 적중 → (관계종류, 자극궁, 층위) 발동 목록(공망류 제외)."""
+def _activations(
+    hits: list[RelationHit], layer: LuckLayer, result: ManseV2Result
+) -> list[RelationActivation]:
+    """합충형파해 적중 → (관계종류, 자극궁, 층위) 발동 목록(공망류 제외).
+
+    피자극 원국 글자의 십성(target_ten_god)을 함께 보존한다 — 충·형은 '무엇을
+    쳤는가'로 의미가 갈리므로(인성 충=문서 동요 등). 기존 필드·순서는 불변.
+    """
     out: list[RelationActivation] = []
     for hit in hits:
         kind = _REL_KIND.get(hit.type)
@@ -1019,6 +1108,7 @@ def _activations(hits: list[RelationHit], layer: LuckLayer) -> list[RelationActi
         for ref in hit.natal_refs:
             palace = _POS_PILLAR.get(ref.position)
             if palace is not None:
+                target_god, _ = _natal_target(result, palace, position)
                 out.append(RelationActivation(
                     RelationKind(kind), palace, layer, position=position,
                     hap_subtype=subtype, element=hit.element,
@@ -1029,6 +1119,7 @@ def _activations(hits: list[RelationHit], layer: LuckLayer) -> list[RelationActi
                     luck_branch=hit.luck_ref.branch or "",
                     natal_stem=ref.stem or "",
                     natal_branch=ref.branch or "",
+                    target_ten_god=target_god.value if target_god else None,
                 ))
     return out
 
@@ -1348,6 +1439,214 @@ def _daewoon_hwa_evidence(
     )
 
 
+_LOCAL_COMPLETE_KINDS = ("삼합완성", "반합성립", "방합완성")  # 국(局) 성립으로 보는 관계 표기
+
+
+def _natal_ten_gods(result: ManseV2Result) -> list[str]:
+    """원국 천간(일간 제외)·지지 본기의 십성 목록(운 파격 구응 판정용)."""
+    p = result.pillars
+    if p is None:
+        return []
+    dm = Stem(p.day_master)
+    out: list[str] = []
+    for pos, pil in (("year", p.year), ("month", p.month), ("day", p.day), ("hour", p.hour)):
+        if pil is None:
+            continue
+        if pos != "day":
+            out.append(str(ten_god(dm, Stem(pil.stem))))
+        out.append(str(ten_god(dm, main_hidden_stem(Branch(pil.branch)))))
+    return out
+
+
+def _apply_structure_background(
+    cands: list[EventCandidateV2],
+    target: LuckPillar,
+    result: ManseV2Result,
+    fav_map: dict[str, str],
+) -> list[EventCandidateV2]:
+    """運破格·기신 성국 배경 감점(2026-09-18 데굴님 승인) — favorability(fav_adj)만 보정한다.
+
+    - 기신 성국: 운 지지가 원국과 삼합완성·반합성립·방합완성을 이루고 그 국의 오행이 기·구신이면
+      GISIN_LOCAL_PENALTY 감점(기존 불균형의 확대). 월 등급 쪽은 luck_cycles._relation_modifier가
+      이미 −0.1을 반영하므로 여기서는 사건 길흉 채널만 다룬다.
+    - 運破格: 운 천간·지지 십성이 원국 격의 상신을 손상하는 파격 십성이고 원국에 구응이 없으면
+      GEOK_BREAK_PENALTY 감점. 구응이 있으면 감점 없이 '경향' 근거 코드만 남긴다(성패·구응 병행).
+    상위 설명(충·용신 손상·파격)의 중복 계산을 피하려고 각 항목은 한 시점에 최대 1회만 적용한다.
+    """
+    delta = 0.0
+    reasons: list[str] = []
+    for rel in target.relations_to_chart:
+        kind, _, el = rel.partition(":")
+        if kind in _LOCAL_COMPLETE_KINDS and is_unfavorable_role(fav_map.get(el, "")):
+            delta -= period_v2_config.GISIN_LOCAL_PENALTY
+            reasons.append(f"局_기신성국_{el}")
+            break
+    geok = result.geokguk.main_structure if result.geokguk is not None else None
+    breaks = geok_break(geok, [target.stem_ten_god, target.branch_ten_god], _natal_ten_gods(result))
+    for b in breaks:
+        if b.rescued:
+            reasons.append(f"格_운파격경향_{b.pattern}")
+            continue
+        delta -= period_v2_config.GEOK_BREAK_PENALTY
+        reasons.append(f"格_운파격_{b.pattern}")
+        break
+    if not reasons:
+        return cands
+    out: list[EventCandidateV2] = []
+    for c in cands:
+        prev = c.contributions.get("fav_adj", 0.0)
+        out.append(c.model_copy(update={  # provenance-audit: not-risk (EventCandidateV2)
+            "reason_codes": [*c.reason_codes, *reasons],
+            **({"contributions": {**c.contributions, "fav_adj": round(prev + delta, 4)}}
+               if delta else {}),
+        }))
+    return out
+
+
+def _apply_luck_structure_flags(
+    cands: list[EventCandidateV2],
+    target: LuckPillar,
+    result: ManseV2Result,
+    fav_map: dict[str, str],
+) -> list[EventCandidateV2]:
+    """A2 구조 배경(2026-09-18 승인) — favorability(fav_adj)만 보정, 점수·순위·사건 종류 불변.
+
+    - 충근: 용·희신 천간의 유일한 뿌리가 충 → −STRUCTURE_ROOT_PENALTY, 기·구신 뿌리 충 →
+      +절반(흉 정리).
+    - 개두·절각(운 기둥): 억제되는 쪽이 용·희신이면 −STRUCTURE_PILLAR_PENALTY, 기·구신이면 +절반.
+      원국 기둥의 개두·절각은 감점 없이 표지만(데굴님 결정 — 실증 근거 부재).
+    - 통관 부재: −STRUCTURE_PILLAR_PENALTY(대립을 중재할 기운 없음).
+    - 구응 손상: 運破格 '경향'을 '파격'으로 격상 — GEOK_BREAK_PENALTY(경향 코드는 그대로 두고 손상
+      코드를 추가 — 상위 설명의 중복 계산 방지를 위해 한 시점 1회).
+    - 특수격 역행: −GEOK_BREAK_PENALTY.
+    """
+    if result.pillars is None:
+        return cands
+    geok = result.geokguk.main_structure if result.geokguk is not None else None
+    special = result.geokguk.special_pattern if result.geokguk is not None else None
+    try:
+        fl = resolve_luck_structure_flags(
+            result.pillars, fav_map, luck_stem=target.stem, luck_branch=target.branch,
+            geok_name=geok, luck_ten_gods=(target.stem_ten_god, target.branch_ten_god),
+            special_pattern=special,
+        )
+    except (KeyError, ValueError):
+        return cands
+    if not fl.any:
+        return cands
+    delta = 0.0
+    reasons: list[str] = []
+    root_p = period_v2_config.STRUCTURE_ROOT_PENALTY
+    pil_p = period_v2_config.STRUCTURE_PILLAR_PENALTY
+    if fl.chunggeun_useful:
+        delta -= root_p
+        reasons.append("根_충근_기반손상")
+    elif fl.chunggeun_unfavorable:
+        delta += root_p / 2
+        reasons.append("根_충근_흉정리")
+    if fl.luck_gaedu or fl.luck_jeolgak:
+        code = "柱_개두" if fl.luck_gaedu else "柱_절각"
+        if fl.suppressed_role in ("용신", "희신"):
+            delta -= pil_p
+            reasons.append(f"{code}_길신억제")
+        elif fl.suppressed_role in ("기신", "구신"):
+            delta += pil_p / 2
+            reasons.append(f"{code}_흉신억제")
+        else:
+            reasons.append(f"{code}_표지")
+    # 원국 기둥 개두·절각은 달과 무관한 상수라 후보 근거에 넣지 않는다(모든 달에 반복되는 잡음).
+    # 표지는 LuckStructureFlags.natal_gaedu_jeolgak에 남겨 원국 서술 쪽에서 쓴다.
+    if fl.tonggwan_absent:
+        delta -= pil_p
+        reasons.append("通_통관부재")
+    if fl.rescue_damaged:
+        delta -= period_v2_config.GEOK_BREAK_PENALTY
+        reasons.append(f"格_운파격_구응손상_{fl.rescue_damaged[0]}")
+    if fl.special_breach:
+        delta -= period_v2_config.GEOK_BREAK_PENALTY
+        reasons.append("特_특수격역행")
+    if not reasons:
+        return cands
+    out: list[EventCandidateV2] = []
+    for c in cands:
+        prev = c.contributions.get("fav_adj", 0.0)
+        out.append(c.model_copy(update={  # provenance-audit: not-risk (EventCandidateV2)
+            "reason_codes": [*c.reason_codes, *reasons],
+            **({"contributions": {**c.contributions, "fav_adj": round(prev + delta, 4)}}
+               if delta else {}),
+        }))
+    return out
+
+
+# 관운 강화 대상 — 관(官) 계열 사건(이직·취업·승진). 합 결과 오행이 관일 때만 보정한다.
+_OFFICER_EVENT_KEYS: frozenset[EventKeyV2] = frozenset({
+    EventKeyV2.CAREER_CHANGE, EventKeyV2.JOB_GAIN, EventKeyV2.PROMOTION,
+})
+
+
+def _apply_hap_mitigation(
+    cands: list[EventCandidateV2],
+    target: LuckPillar,
+    result: ManseV2Result,
+    fav_map: dict[str, str],
+    hwa_el: str | None,
+    base_role: PolarityRole,
+) -> list[EventCandidateV2]:
+    """P1 합 완화·관운 강화(2026-09-18 데굴님 지시, 전문가 취지) — favorability만 보정한다.
+
+    - 완화: 운 흉신 글자가 원국과의 합거로 묶이면 극성을 원값(base_role) 대신 완화 역할로 다시
+      매기고, 그 차이(_ROLE_FAV 기준)를 fav_adj에 더한다. polarity_role·score·순위는 그대로
+      둔다(점수 불변 — 활성/길흉 이중 채널 중 길흉 채널만).
+    - 관운 강화: 합/합화 결과 오행이 관이면 관 계열 후보(_OFFICER_EVENT_KEYS)에 한해, 본 천간이
+      관으로 합화(化)한 경우 그 천간도 완화 대상으로 보고 HAP_OFFICER_BOOST를 더한다
+      ("재성이 관으로 합 → 기신 억제 + 관운 강화"). 다른 사건 계열은 化神 역할(기신)을 그대로 본다.
+    """
+    if result.pillars is None:
+        return cands
+    try:
+        mit = resolve_hap_mitigation(
+            result.pillars, fav_map, luck_stem=target.stem, luck_branch=target.branch,
+        )
+    except (KeyError, ValueError):
+        return cands
+    if not mit.any:
+        return cands
+    general = _period_role(
+        target, fav_map, stem_element=hwa_el,
+        stem_mitigated=mit.stem_mitigated, branch_mitigated=mit.branch_mitigated,
+    )
+    officer_hwa = hwa_el is not None and hwa_el in mit.officer_elements
+    officer = _period_role(
+        target, fav_map, stem_element=hwa_el,
+        stem_mitigated=mit.stem_mitigated or officer_hwa, branch_mitigated=mit.branch_mitigated,
+    )
+    base_fav = _ROLE_FAV.get(base_role, 0.0)
+    out: list[EventCandidateV2] = []
+    for c in cands:
+        career = bool(mit.officer_elements) and c.event_key in _OFFICER_EVENT_KEYS
+        mitigated_delta = _ROLE_FAV.get(officer if career else general, 0.0) - base_fav
+        delta = mitigated_delta
+        reasons: list[str] = []
+        if mitigated_delta != 0.0:  # 완화가 실제로 길흉을 움직인 경우에만 근거 코드를 남긴다
+            reasons.append("制_합거_흉완화")
+        if career:
+            delta += period_v2_config.HAP_OFFICER_BOOST
+            reasons.append("化_관운강화")
+        if mit.stem_harmed or mit.branch_harmed:
+            # 희용신 손상·합반 — 운 글자가 원국 길신을 묶어 지원·조절 기능이 약해진다(완화의 대칭).
+            delta -= period_v2_config.HAP_HARM_PENALTY
+            reasons.append("制_합거_길신손상")
+        if delta == 0.0:
+            out.append(c)
+            continue
+        prev = c.contributions.get("fav_adj", 0.0)
+        out.append(c.model_copy(update={  # provenance-audit: not-risk (EventCandidateV2)
+            "reason_codes": [*c.reason_codes, *reasons],
+            "contributions": {**c.contributions, "fav_adj": round(prev + delta, 4)},
+        }))
+    return out
+
+
 def _target_stem_bound(
     target: LuckPillar, result: ManseV2Result, fav_map: dict[str, str]
 ) -> bool:
@@ -1397,6 +1696,8 @@ def _period_role(
     fav_map: dict[str, str],
     stem_element: str | None = None,
     stem_bound: bool = False,
+    stem_mitigated: bool = False,
+    branch_mitigated: bool = False,
 ) -> PolarityRole:
     """시점 유입 글자(천간 우선, 지지 보조) 오행의 용기신 역할 → 극성.
 
@@ -1404,6 +1705,9 @@ def _period_role(
     한신의 생(生) 관계로 간접 길흉(약)을 판정한다(직접 신호를 덮지 않는 보조 계층).
     stem_element: 본 천간이 합화(化)했을 때의 化神 오행 — 길흉을 化神 기준으로 본다(生剋制化 우선).
     stem_bound: 본 천간이 합거(制)로 묶여 흉이 무력화되면 True — 천간을 길흉 판정에서 건너뛴다.
+    stem_mitigated/branch_mitigated(P1 합 완화, 2026-09-18): 묶인 흉 글자를 직접 역할에서는
+    빼되 없애지는 않는다 — 다른 글자의 직접 역할이 없으면 약한 흉(HAN_BAD)이 잔존한다
+    ("지병 완화, 제거 아님" — 전문가 취지). 길신 글자에는 적용하지 않는다.
     """
     try:
         stem_el = stem_element or str(STEM_ELEMENT[Stem(target.stem)])
@@ -1413,6 +1717,11 @@ def _period_role(
     # 制/합거 무력화 — 묶인 천간은 역할 없음(빈 라벨)으로 처리해 흉을 끌지 않게 한다.
     stem_lbl = "" if stem_bound else fav_map.get(stem_el, "")
     branch_lbl = fav_map.get(branch_el, "")
+    residual = False
+    if stem_mitigated and is_unfavorable_role(stem_lbl):
+        stem_lbl, residual = "", True
+    if branch_mitigated and is_unfavorable_role(branch_lbl):
+        branch_lbl, residual = "", True
     # 0) 천간·지지가 같은 방향으로 겹친 강한 신호 — 모두 용신(강한 용신운)/모두 흉(기·구).
     if stem_lbl == "용신" and branch_lbl == "용신":
         return PolarityRole.YONG_STRONG
@@ -1423,6 +1732,9 @@ def _period_role(
         direct = _FAV_ROLE.get(lbl)
         if direct is not None:
             return direct
+    # 1.5) 완화된 흉 글자만 남음 → 약한 흉 잔존(제거가 아니라 완화).
+    if residual:
+        return PolarityRole.HAN_BAD
     # 2) 직접 역할 없음 → 한신 생(生) 간접 길흉(천간 우선 — 묶인 천간은 제외).
     elems = (branch_el,) if stem_bound else (stem_el, branch_el)
     for el in elems:
@@ -1430,6 +1742,26 @@ def _period_role(
         if indirect is not None:
             return indirect
     return PolarityRole.NEUTRAL
+
+
+def _period_role_labels(
+    target: LuckPillar,
+    fav_map: dict[str, str],
+    stem_element: str | None = None,
+    stem_bound: bool = False,
+) -> tuple[str, str]:
+    """시점 유입 천간/지지 오행의 역할 라벨 두 개를 접지 않고 보존(P0-1, 2026-08-21).
+
+    _period_role이 PolarityRole 1개로 접으면서 버리던 원천 라벨('용신'~'한신'|'')을
+    독립 evidence로 돌려준다. 합화(化)·합거(制) 처리 기준은 _period_role과 동일.
+    ⚠ INV-E: "천간=결과축, 지지=과정축" 같은 단계 의미 부여 금지 — 라벨은 evidence 전용.
+    """
+    try:
+        stem_el = stem_element or str(STEM_ELEMENT[Stem(target.stem)])
+        branch_el = str(BRANCH_ELEMENT[Branch(target.branch)])
+    except (KeyError, ValueError):
+        return "", ""
+    return ("" if stem_bound else fav_map.get(stem_el, ""), fav_map.get(branch_el, ""))
 
 
 def _rank_context(
@@ -1504,13 +1836,32 @@ _EVENT_TYPE_LEGACY: dict[str, EventType] = {
     "progress": EventType.PROGRESS, "instant": EventType.INSTANT, "hybrid": EventType.HYBRID,
 }
 
+# 12운성 event_phase 내부값 → 한글 라벨(P0-5, 2026-08-21). 그동안 영문 원시값
+# (formalization 등)이 동반 신호 문자열로 프롬프트까지 그대로 누출되던 버그 수정.
+# 값 목록 SSOT = dictionaries/event_engine/twelve_stage_modifier.json의 event_phase.
+_EVENT_PHASE_KO: dict[str, str] = {
+    "new_start": "새 국면 시작",
+    "exposure_volatility": "노출·변동",
+    "formalization": "공식화 단계",
+    "stabilization": "안정화 단계",
+    "peak": "정점 단계",
+    "decline_adjustment": "조정·숨고르기",
+    "fatigue_problem": "피로·문제 표면화",
+    "closure_hidden": "마무리·잠복",
+    "storage_concealment": "갈무리·보관",
+    "cut_reset": "단절·재정비",
+    "conception_planning": "구상·기획",
+    "nurturing_preparation": "준비·육성",
+}
+
 
 def to_legacy_candidate(c: EventCandidateV2) -> EventCandidate:
     """EventCandidateV2 → 레거시 EventCandidate(다운스트림 DTO). 신 차원은 동반 신호로 표면화."""
     quality_txt = QUALITY_KO.get(c.quality, "") if c.quality else ""
     conf_txt = CONFIDENCE_KO.get(c.confidence_level, "")
     palace_txt = PALACE_KO.get(c.palace, "") if c.palace else ""
-    head = [b for b in (conf_txt, quality_txt, palace_txt, c.event_phase) if b]
+    phase_txt = _EVENT_PHASE_KO.get(c.event_phase or "", c.event_phase or "")
+    head = [b for b in (conf_txt, quality_txt, palace_txt, phase_txt) if b]
     signals: list[Signal] = []
     if head:  # 사건화 강도·품질·궁성·단계 — LLM 입력 풍부화(첫 동반 신호).
         signals.append(Signal(
@@ -1519,9 +1870,31 @@ def to_legacy_candidate(c: EventCandidateV2) -> EventCandidate:
         ))
     for ko in reason_codes_ko(c.reason_codes):
         signals.append(Signal(type="reason", name=ko, effect=ko, weight=0.0))
-    # 불안정 신호 텍스트 보존(공망 → context_reducer 검토월 판정).
-    if any(r.startswith("VOID_") for r in c.reason_codes):
+    # 불안정 신호 텍스트 보존(공망 충발 → context_reducer 검토월 판정). 서브타입 구분
+    # (2026-08-21 확정 의미론): 지연은 충발(VOID_delay)만, 전실·합은 별도 라벨 —
+    # '해소'가 '지연·공허'로 서술되던 결함(申·巳 육합 사례) 차단.
+    if any(r.startswith("VOID_delay") for r in c.reason_codes):
         signals.append(Signal(type="void", name="void", effect="공망 지연", weight=0.0))
+    _fill = next((r for r in c.reason_codes if r.startswith("VOID_FILL")), None)
+    if _fill is not None:
+        _fb = _fill.partition(":")[2]
+        signals.append(Signal(
+            type="void", name="void_fill",
+            effect=(
+                f"공망 전실(실체화 — 공망지 {_fb} 채움)" if _fb
+                else "공망 전실(실체화)"
+            ),
+            weight=0.0,
+        ))
+    _comb = next((r for r in c.reason_codes if r.startswith("VOID_COMBINE_RELEASE")), None)
+    if _comb is not None:
+        _pair = _comb.partition(":")[2]
+        if _pair and "-" in _pair:
+            _lb, _, _nb = _pair.partition("-")
+            _eff = f"공망 해소·접촉(운 {_lb}이 공망지 {_nb}와 합 — 억제 완화)"
+        else:
+            _eff = "공망 해소·접촉(합 — 억제 완화)"
+        signals.append(Signal(type="void", name="void_combine", effect=_eff, weight=0.0))
     polarity = (
         _QUALITY_TO_POLARITY.get(c.quality, EventPolarity.NEUTRAL)
         if c.quality else EventPolarity.NEUTRAL
@@ -1548,4 +1921,9 @@ def to_legacy_candidate(c: EventCandidateV2) -> EventCandidate:
         life_fit=c.life_fit,
         personal_match=c.personal_match,
         favorability=c.favorability,  # 결과 길흉 채널 — 다운스트림 LLM 입력까지 전달
+        # 활성 채널 복구(P0-1) — favorability와 독립 유지(INV-C: 단일 축 재합성 금지).
+        activation=c.activation,
+        # 천간/지지 역할 라벨 — 독립 evidence 전용(INV-E: 단계 의미 부여 금지).
+        stem_role=c.stem_role,
+        branch_role=c.branch_role,
     )

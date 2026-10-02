@@ -323,6 +323,8 @@ class CalibrationQuestion(BaseModel):
     expected_effect_by_model: dict[str, str] = Field(default_factory=dict)
     ask_domains: list[str] = Field(default_factory=list)
     question_text: str
+    # 사용자용 부제 — '이 해를 묻는 이유'(후보 해석이 갈리는 해 등). CAL-P3(2026-09-21).
+    hint: str = ""
     options: list[str] = Field(default_factory=list)
     # 이벤트형 질문에만 채워진다(연도별 검출 이벤트 + 모델별 기대 극성).
     events: list[CalibrationEventItem] = Field(default_factory=list)
@@ -382,7 +384,10 @@ class CalibrationResult(BaseModel):
     # confidence 가중(실제 선택 기준)
     weighted_model_scores: dict[str, float] = Field(default_factory=dict)
     selected_model: str | None = None
-    explanation: list[str] = Field(default_factory=list)
+    explanation: list[str] = Field(default_factory=list)  # 내부 진단 문장(개발·감수용)
+    # 사용자용 결과 설명(CAL-P3, 2026-09-21) — 템플릿 문장만(즉석 작문 없음): 판정 근거 한 줄 +
+    # 용희기구 역할 의미 + 애매할 때 다음 행동. 프런트는 explanation 대신 이것을 보여준다.
+    user_summary: list[str] = Field(default_factory=list)
     # CAL-P0 — trait_probe 축적(감수 전용)과 LLM 표현 조정 힌트. 용신·점수 판정에 비반영.
     trait_probe_feedback: list[TraitProbeFeedback] = Field(default_factory=list)
     trait_llm_hints: list[str] = Field(default_factory=list)

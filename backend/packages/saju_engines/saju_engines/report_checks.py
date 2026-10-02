@@ -23,11 +23,15 @@ _YEAR_RE = re.compile(r"((?:19|20)\d{2})\s*년")
 # 용신 표기 — 검사 4.
 _YONGSIN_RE = re.compile(r"용신[은는이가의]?\s*([木火土金水])")
 # 금지 표현(검사 5 — 절대 원칙 3·8, prohibited_styles 초안).
+# 육친 사망·사별 단정은 생애 개편(docs/10 3-4, 2026-08-13)으로 추가 — 부모·가족 섹션은
+# '이별·상실 계열 신호' 프레임만 허용한다.
 _PROHIBITED_PATTERNS = [
     r"반드시\s*\S{0,6}(한다|된다|입니다)",
     r"틀림없이", r"무조건\s*\S{0,6}(된다|한다)", r"100\s*%",
     r"당첨된다", r"당첨될", r"합격한다", r"당선된다", r"떨어진다",
     r"이혼하게\s*된다", r"죽는다", r"확실히\s*\S{0,6}(된다|한다)",
+    r"사별(한다|하게\s*된다|할\s*것)", r"사망(한다|하게\s*된다|할\s*것)",
+    r"세상을\s*떠난다", r"돌아가시게\s*된다",
 ]
 
 
@@ -98,6 +102,12 @@ class ReportChecker:
         leaked = [label for label in INTERNAL_JARGON_LABELS if label in text]
         if "근거 경로" in text:
             leaked.append("근거 경로")
+        # 저작 지시 누출(2026-08-14) — 점수표 부록의 내부 라벨·지시문이 verbatim 복사
+        # 지시에 딸려 본문에 노출된 경우(실사용 리포트 실증). soft 기록 — 결정적 제거는
+        # report_service._tighten 안전망이 담당한다.
+        for marker in ("[점수표", "표 밖 새 수치 생성 금지", "[시기 참고 —"):
+            if marker in text:
+                leaked.append(marker)
         if leaked:
             violations.append("내부용어 노출(순화 필요): " + ", ".join(leaked))
 

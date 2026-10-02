@@ -272,6 +272,10 @@ class RiskCandidate(BaseModel):
     # 교운기 시점 보정(감수 36차) — score_shadow가 채우는 파생값(0=보정 없음).
     # 적격성·원인·persistence·episode identity에 일절 관여하지 않는다.
     transition_bonus: float = 0.0
+    # family 단위 보조 증폭(P2, 2026-09-18 데굴님 결정) — 신살·구조·합 배경이 흉 극성과
+    # 동반될 때 event_engine_v2가 채우는 파생값(0=보정 없음, 플래그 OFF=항상 0). aux:*
+    # AMPLIFIER 근거와 짝이며 적격성·원인·persistence·episode identity에 관여하지 않는다.
+    aux_bonus: float = 0.0
     # 사전 absorbedRoleHint 복사(감수 16차) — 흡수 시 kind 기본값 대신 쓸 역할.
     # 관계 도메인 cross-family 흡수 허용 마커를 겸한다(감수 17차 — 미지정 항목은
     # 같은 상대·같은 원인이어도 family 밖 대표에 자동 흡수되지 않는다).

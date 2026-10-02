@@ -45,7 +45,10 @@ def test_dictionary_loads_and_no_dup() -> None:
     dic = load_structure_patterns()
     ids = [p.pattern_id for p in dic.patterns]
     assert len(ids) == len(set(ids)), "중복 pattern_id"
-    assert len(ids) == 91, "P0 35 + F3 25 + F4 7 + 잡기재관격(F5) 1 + 사고수 확장 23(2026-07-23)"
+    assert len(ids) == 154, (
+        "P0 35 + F3 25 + F4 7 + 잡기재관격(F5) 1 + 사고수 확장 23(2026-07-23) "
+        "+ 용어 감사 F6 63(2026-09-17)"
+    )
 
 
 def test_dictionary_fields_valid() -> None:
@@ -136,6 +139,43 @@ def test_select_llm_patterns_domain_priority() -> None:
     # domains={career_change,...}: B(매칭) 우선 — strength 낮아도 앞으로
     ordered = select_llm_patterns(pats, domains={"career_change", "job_gain"})
     assert ordered[0].pattern_id == "B"
+
+
+def test_domain_event_keys_include_contract_document() -> None:
+    """career 도메인 집합에 contract_document 포함 — taxonomy(CONTRACT_DOCUMENT→career)와 정합.
+
+    누락 시 계약·문서 질문에서 관인상생 등의 contract_document domain_hint가
+    절대 매칭되지 않는다(2026-08-10 감사 결함 1).
+    """
+    from saju_engines.context_reducer import _DOMAIN_EVENT_KEYS
+
+    assert "contract_document" in _DOMAIN_EVENT_KEYS["career"]
+
+
+def test_pattern_domain_keys_merges_singular_domain() -> None:
+    """domains(복수)가 비고 domain(단수)만 채워져도 도메인 우선 선별이 동작한다.
+
+    능동 제안 경로에는 있던 단수 병합 방어가 구조 패턴 경로에 없던 결함
+    (2026-08-10 감사 결함 2)의 회귀 가드.
+    """
+    from saju_engines.context_reducer import _DOMAIN_EVENT_KEYS, _pattern_domain_keys
+    from saju_shared_types.intent import Domain, IntentJson, QueryType
+
+    single = IntentJson(
+        intent_id="t1", query_type=QueryType.DOMAIN_ANALYSIS, domain=Domain.CAREER,
+    )
+    assert _pattern_domain_keys(single) == _DOMAIN_EVENT_KEYS["career"]
+
+    both = IntentJson(
+        intent_id="t2", query_type=QueryType.DOMAIN_ANALYSIS,
+        domain=Domain.CAREER, domains=[Domain.WEALTH],
+    )
+    assert _pattern_domain_keys(both) == (
+        _DOMAIN_EVENT_KEYS["career"] | _DOMAIN_EVENT_KEYS["wealth"]
+    )
+
+    empty = IntentJson(intent_id="t3", query_type=QueryType.DOMAIN_ANALYSIS)
+    assert _pattern_domain_keys(empty) == set()
 
 
 def test_prefix_no_longer_carries_patterns(result) -> None:

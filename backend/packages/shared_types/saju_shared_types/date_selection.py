@@ -58,6 +58,9 @@ class DateCandidate(BaseModel):
     is_holiday: bool = False
     is_weekend: bool = False
     son_eomneun_nal: bool = False
+    # 민속 흉방 근거 줄(docs/19 §5-3) — 이사·개업·혼례 목적에서 그날 손방 + 그해 연간 흉방
+    # (추가 정보, 점수·등급 불변). 그 외 목적은 None.
+    folk_direction_note: str | None = None
     hour_fits: list[HourFit] = Field(default_factory=list)  # 시진 요청 시에만
 
 

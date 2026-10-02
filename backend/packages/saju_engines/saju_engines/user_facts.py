@@ -79,6 +79,29 @@ _FACT_RULES: list[tuple[str, re.Pattern[str], bool]] = [
     ),
     # 혼인 상태 정정 — "기혼이라고 했는데 이혼했어" (단수 supersede)
     ("marital_correction", re.compile(r"이혼했|사별했|재혼했"), True),
+    # 배제 조건(2026-10-01 실로그 커튼 색: "붉은색은 좀 그래. 다른색을 추천해줘" 뒤 두 턴 만에 다시
+    # 붉은색을 대안으로 제시) — 사용자가 거른 선택지·선호 밖 조건. 도메인 무관(색·방향·시기·직종).
+    # docs/03 Q7 excludeOptions 의 대화 계층 일반화. (누적)
+    (
+        "excluded_option",
+        re.compile(
+            r"[가-힣A-Za-z0-9·]{1,14}?(?:은|는|이|가)?\s*(?:좀\s*그래|별로|싫|부담스|부담이|내키지"
+            r"|말고\s|빼고\s|제외|안\s*돼|안\s*될\s*것|못\s*하겠|곤란|피하고\s*싶)"
+        ),
+        False,
+    ),
+    # 사용자 명리 주장(2026-10-01) — "인성과다라서", "내 용신이 금인데" 처럼 사용자가 스스로 내린
+    # 명리 해석. 엔진 사실이 아니라 **확인이 필요한 전제**로 저장·표기한다(출처 혼동 차단). (누적)
+    (
+        "user_claim",
+        re.compile(
+            r"(?:인성|식상|재성|관성|비겁|비견|겁재|식신|상관|정재|편재|정관|편관|정인|편인)"
+            r"\s*(?:이|가)?\s*(?:과다|과잉|태과|부족|많|없|약)"
+            r"|(?:용신|기신|희신|구신)\s*(?:이|은)?\s*[가-힣]{1,3}\s*(?:이라|라서|인데|이잖|라고)"
+            r"|신강|신약|(?:목|화|토|금|수)\s*(?:기운이|이)\s*(?:많|강|약|부족|과다)"
+        ),
+        False,
+    ),
 ]
 
 # 관계 슬롯의 제3자 발화 배제 — 친구·가족의 연애 사실을 사용자 원장에 넣지 않는다(C-3).
@@ -196,6 +219,16 @@ _KEY_KO = {
     "stated_purpose": "명시 용도",
     "unchangeable": "변경 불가",
     "folk_condition": "속설 조건",
+    "excluded_option": "배제 조건",
+    "user_claim": "사용자 명리 해석",
+}
+# 라벨 뒤에 붙는 취급 주석 — 배제 조건은 대안 재제시 금지, 사용자 해석은 엔진 판정과 대조.
+_KEY_NOTE = {
+    "excluded_option": "사용자가 거른 선택지 — 대안으로 다시 제시하지 말 것",
+    "user_claim": (
+        "사용자 자신의 해석 — 엔진 판정([원국·명식 구조]·용희기구한)과 대조해 "
+        "다르면 그 차이를 밝힐 것"
+    ),
 }
 
 
@@ -219,6 +252,8 @@ def user_facts_block(facts: list[UserFact], cap: int = 10) -> str | None:
     for f in facts[-cap:]:
         label = _KEY_KO.get(f.key, f.key)
         line = f"- ({label}) “{f.quote}”"
+        if f.key in _KEY_NOTE:
+            line += f" ← {_KEY_NOTE[f.key]}"
         if f.superseded_quote:
             line += f" (이전 진술 “{f.superseded_quote}”에서 정정됨)"
         lines.append(line)

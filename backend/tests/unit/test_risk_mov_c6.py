@@ -119,7 +119,7 @@ _MOV_POSITIVE_CASES: list[tuple[str, dict, MobilityContext]] = [
                        exposure_status=ExposureStatus.CONFIRMED,
                        repair_responsibility=True)),
     # 충 발동 + 통근 의존·이동 단계 확인.
-    # (년주 사용 — 일·월주는 RELOCATION_PRESSURE targeted라 대표 흡수와 겹친다.)
+    # (연주 사용 — 일·월주는 RELOCATION_PRESSURE targeted라 대표 흡수와 겹친다.)
     ("MOV_COMMUTE_BURDEN", dict(
         relations=[RelationFact(RelationKind.CHUNG, Pillar4.YEAR)],
         role=PolarityRole.GI,

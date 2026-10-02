@@ -38,6 +38,12 @@ class YongsinCandidateModel(BaseModel):
     requires_validation: bool = True
     # 조후·고립/건강 등 보조 모델은 단독으로 용신을 확정할 수 없다.
     is_auxiliary: bool = False
+    # 희신 기능(2026-10-01) — 희신은 '용신 후보 2등'이 아니라 역할이 있어야 한다: 生용신·護용신·
+    # 制기신(병 오행 제어)·방신(일간 방조)·유통(용신 설기 흐름)·일간 억제/조후 보조·조후 보조·통관
+    # 보조.
+    # 어휘는 operational_role_config.HEESIN_FUNCTION_KO 가 SSOT. None 이면 호출부가 모델 유형으로
+    # 보강.
+    heesin_function: str | None = None
 
 
 class ElementRole(BaseModel):
@@ -59,6 +65,22 @@ class ElementRole(BaseModel):
     # final.confidence(모델 선택 신뢰도)와 별개의 '실제 작동성' 지표. factors 는 stable key.
     operability: float | None = Field(default=None, ge=0.0, le=1.0)
     operability_factors: list[str] = Field(default_factory=list)
+
+
+class YongsinDecisionTrace(BaseModel):
+    """용신 선정 근거 추적(2026-10-01, 데굴님 승인 D) — "어떤 문제를 어느 생극 경로로 풀었는가".
+
+    설명 전용(점수·final 불변). 결정론 문자열만 담아 턴·세션이 바뀌어도 같은 명식이면 같은 근거가
+    나오게 한다(LLM이 매번 명리 논리를 새로 지어 순서가 흔들리는 것을 막는 고정 앵커).
+    """
+
+    problem: str  # 명국의 핵심 문제 — "신강 + 인성 과다(印旺)" 등
+    chosen_path: str  # 채택 모델 라벨 + 핵심 사유
+    heesin_function: str | None = None  # stable key
+    heesin_function_ko: str | None = None
+    rejected: list[dict] = Field(default_factory=list)  # {element, model, score, reason}
+    axis_conflict: dict | None = None  # {eokbu, johu, resolution}
+    collateral: list[str] = Field(default_factory=list)  # 후보 부작용 주석(A1, 설명 전용)
 
 
 class SpecialCaseCheck(BaseModel):
@@ -87,3 +109,5 @@ class AggregatedYongsinResult(BaseModel):
     flow_circulation: dict | None = None
     requires_validation: bool = True
     warnings: list[str] = Field(default_factory=list)
+    # 선정 근거 추적(2026-10-01) — 설명 전용. 과거 payload 역직렬화 안전(default None).
+    decision_trace: YongsinDecisionTrace | None = None

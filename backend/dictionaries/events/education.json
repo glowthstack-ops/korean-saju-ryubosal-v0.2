@@ -100,6 +100,26 @@
       ],
       "note": "감점 — 공망 활성: 시험·수료 결실의 확정력이 공허해짐",
       "reviewed": false
+    },
+    {
+      "signal": {
+        "tenGod": "정인",
+        "relation": "branch_clash"
+      },
+      "eventCandidates": [
+        {
+          "event": "contract_document",
+          "score": 0.55,
+          "polarity": "conditional"
+        },
+        {
+          "event": "relocation",
+          "score": 0.5,
+          "polarity": "conditional"
+        }
+      ],
+      "note": "정인+충 — 정체된 문서·계약 기운의 동요: 기존 판을 깨고 갈아타는 교체·갱신·이동 자극. 인성 세력이 받쳐줘야 성사, 약하면 동요·지연 배경(2026-08-10 인성 동요 신호 — Graph 근거 경로용, 점수는 relation_target_ten_god_rules가 담당)",
+      "reviewed": false
     }
   ]
 }

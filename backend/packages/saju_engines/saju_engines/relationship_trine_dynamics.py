@@ -65,10 +65,10 @@ def analyze_trine_dynamics(
     """두 명식의 년지(띠) 삼합국 오행 생극으로 관계 역학을 낸다(설명 레이어 — 점수 미개입).
 
     Args:
-        self_chart / partner_chart: 두 명식(년주 필수).
+        self_chart / partner_chart: 두 명식(연주 필수).
 
     Returns:
-        TrineDynamics(self=base·partner=target, self 관점). 년주 부재면 None.
+        TrineDynamics(self=base·partner=target, self 관점). 연주 부재면 None.
     """
     sp, pp = self_chart.pillars, partner_chart.pillars
     if sp is None or pp is None or sp.year is None or pp.year is None:
@@ -95,11 +95,11 @@ def trine_dynamics_lines(
     엔진 확정값만 제시하고 서술 가드를 함께 내보내며 점수에는 개입하지 않는다.
 
     Args:
-        self_chart / partner_chart: 두 명식(년주 필수).
+        self_chart / partner_chart: 두 명식(연주 필수).
         self_label / partner_label: 표시용 라벨.
 
     Returns:
-        LLM 입력 지시문 목록. 년주가 없어 판정 불가면 빈 목록(추측 금지).
+        LLM 입력 지시문 목록. 연주가 없어 판정 불가면 빈 목록(추측 금지).
     """
     dyn = analyze_trine_dynamics(self_chart, partner_chart)
     if dyn is None:

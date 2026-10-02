@@ -820,7 +820,7 @@
       "applicableRelationshipRoles": [
         "family_member"
       ],
-      "note": "감수 16차 재저작 + 17차 월주 제한 — 년주(원가족궁) 직접 충·형은 단독 경로, 월주는 사회궁·직업 환경 의미가 강하므로 가족 육친 대상(인성=부모·비겁군=형제) 피격 provenance가 명시된 발동만 인정(월주 충+일반 기신 → 미생성: 직업 변화가 가족 문제로 오역되는 것 차단). 관성=책임 압박 amplifier, 비겁=형제 분담 완화. '가족이 있다'만으로는 부족: 돌봄·가족 재정·동거/주거·의사결정 중 실제 책임(requiresSharedResponsibility) 확인 전 CONFIRMED 취급 금지 — 미확인은 UNKNOWN 강등(조건부 표현). 배우자 부담은 PARTNER_READJUST, 자녀·부모 돌봄은 본 항목. 표현은 '가족 관련 책임·조율 부담이 커질 수 있는 시기'까지.",
+      "note": "감수 16차 재저작 + 17차 월주 제한 — 연주(원가족궁) 직접 충·형은 단독 경로, 월주는 사회궁·직업 환경 의미가 강하므로 가족 육친 대상(인성=부모·비겁군=형제) 피격 provenance가 명시된 발동만 인정(월주 충+일반 기신 → 미생성: 직업 변화가 가족 문제로 오역되는 것 차단). 관성=책임 압박 amplifier, 비겁=형제 분담 완화. '가족이 있다'만으로는 부족: 돌봄·가족 재정·동거/주거·의사결정 중 실제 책임(requiresSharedResponsibility) 확인 전 CONFIRMED 취급 금지 — 미확인은 UNKNOWN 강등(조건부 표현). 배우자 부담은 PARTNER_READJUST, 자녀·부모 돌봄은 본 항목. 표현은 '가족 관련 책임·조율 부담이 커질 수 있는 시기'까지.",
       "reviewed": true,
       "reviewScopes": [
         "shadow_structure",

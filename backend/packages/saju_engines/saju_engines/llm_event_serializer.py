@@ -28,7 +28,27 @@ _REASON_PREFIX_KO: dict[str, str] = {
     "CAREER_SPECIAL": "특수직군 길화",
     "JOBCHANGE_PRESSURE": "압박성 이직",
     "JOBCHANGE_OPPORTUNITY": "기회성 이직",
+    # P1 합 완화(2026-09-18) — 합거로 묶인 흉신의 완화·합 결과 관에 의한 관운 강화(길흉 채널 전용).
+    "制_합거_흉완화": "합거 흉 완화(묶인 흉신 — 제거 아님)",
+    "化_관운강화": "관운 강화(합 결과 오행이 관)",
+    "制_합거_길신손상": "희용신 합반(원국 길신이 묶여 지원·조절 기능 약화)",
+    "格_운파격경향": "운 파격 경향(격의 상신을 흔드나 원국 구응이 있어 완화)",
+    "格_운파격": "운 파격(격의 상신 손상 — 원국 구응 없음)",
+    "局_기신성국": "기신 성국(불리 오행이 국을 이뤄 기존 불균형 확대)",
+    "根_충근_기반손상": "충근(필요한 천간의 뿌리가 충 — 역할은 남아도 유지 기반 약화)",
+    "根_충근_흉정리": "충근(불리한 기운의 뿌리가 충으로 정리)",
+    "柱_개두_길신억제": "개두(운 천간이 지지의 필요한 작용을 억제)",
+    "柱_절각_길신억제": "절각(운 지지가 천간의 필요한 역할을 받쳐 주지 못함)",
+    "柱_개두_흉신억제": "개두(운 천간이 불필요한 지지 기운을 억제 — 오히려 정리)",
+    "柱_절각_흉신억제": "절각(운 지지가 불리한 천간 작용을 억제 — 오히려 정리)",
+    "柱_원국개두절각_표지": "원국 기둥 개두·절각(표지 — 기운 소통이 매끄럽지 않은 기둥)",
+    "通_통관부재": "통관 부재(대립하는 두 기운을 중재할 오행이 원국 표면에 없음)",
+    "格_운파격_구응손상": "운 파격(구응하던 글자가 운 충·합거로 작동 불가)",
+    "特_특수격역행": "특수격 역행(종·전왕의 흐름을 거스르는 기운 유입 — 성립 조건 파괴 경향)",
     "PROFILE_public_official": "공직 발령·전보",
+    # 인성 동요 신호(2026-08-10, relation_target_ten_god_rules) — 일반 REL_ 보다 앞.
+    "REL_CHUNG_RESOURCE_RENEWAL": "문서 교체 자극(기존 계약·문서를 깨고 갈아타는 흐름)",
+    "REL_CHUNG_RESOURCE_UNROOTED": "문서 동요(받치는 힘 약함 — 성사보다 흔들림·지연 배경)",
     "REL_": "관계 발동",
     "FLOW_GEN": "상생 흐름",
     "FLOW_REVERSE": "역행 흐름",
@@ -36,6 +56,10 @@ _REASON_PREFIX_KO: dict[str, str] = {
     "MIXED_": "혼합 신호",
     "GATE_": "현실 보정",
     "PROFILE_": "프로필 반영",
+    # 공망 서브타입(2026-08-21 확정 의미론 — 三命通會 '合則不能空') — 일반 VOID_ 보다 앞.
+    # 전실=실체화, 합=차단막 약화·억제되던 대상의 활성화(공망의 흉함 발동이 아님).
+    "VOID_FILL": "공망 전실(실체화)",
+    "VOID_COMBINE": "공망 해소·접촉(합 — 억제 완화)",
     "VOID_": "공망 지연",
     "YONGGI_": "용기신 품질",
     "SUPPRESS_": "신호 약화",
@@ -49,6 +73,9 @@ _CONTENT_LABELS = frozenset({
     "상생 흐름", "역행 흐름",
     "합격 기류", "불합격 위험", "퇴직·이탈 리스크", "특수직군 길화",
     "압박성 이직", "기회성 이직", "공직 발령·전보",
+    # 인성 동요 신호 — LLM이 그대로 풀어 써야 할 '내용'(교체 방향/동요 게이트).
+    "문서 교체 자극(기존 계약·문서를 깨고 갈아타는 흐름)",
+    "문서 동요(받치는 힘 약함 — 성사보다 흔들림·지연 배경)",
 })
 INTERNAL_JARGON_LABELS: tuple[str, ...] = tuple(
     ko
@@ -63,10 +90,33 @@ for _rid, _desc, _keys in PROHIBITIONS:
         _PROHIBITION_BY_KEY.setdefault(_k, []).append(_desc)
 
 
+def _void_pair_label(code: str) -> str | None:
+    """공망 서브타입 코드의 글자 쌍 접미를 라벨에 반영(오지목 방지 — 2026-08-21).
+
+    'VOID_COMBINE_RELEASE:申-巳(시지)' → '공망 해소·접촉(운 申이 공망지 巳(시지)와 합)'.
+    쌍이 없으면 None(일반 prefix 라벨 사용).
+    """
+    if code.startswith("VOID_COMBINE_RELEASE:"):
+        pair = code.partition(":")[2]
+        luck_b, _, natal_b = pair.partition("-")
+        if luck_b and natal_b:
+            return f"공망 해소·접촉(운 {luck_b}이 공망지 {natal_b}와 합 — 억제 완화)"
+    if code.startswith("VOID_FILL:"):
+        branch = code.partition(":")[2]
+        if branch:
+            return f"공망 전실(실체화 — 공망지 {branch} 채움)"
+    return None
+
+
 def reason_codes_ko(reason_codes: list[str]) -> list[str]:
     """근거코드 목록 → 사람용 한글 분류(중복 제거, 순서 보존)."""
     out: list[str] = []
     for code in reason_codes:
+        pair_label = _void_pair_label(code)
+        if pair_label is not None:
+            if pair_label not in out:
+                out.append(pair_label)
+            continue
         for prefix, ko in _REASON_PREFIX_KO.items():
             if code.startswith(prefix):
                 if ko not in out:

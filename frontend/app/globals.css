@@ -35,3 +35,21 @@ select[class],
 textarea[class] {
   font-size: 16px;
 }
+
+/* AI 채팅 답변 대기 스켈레톤 — 3줄 그라데이션이 좌→우로 흐르는 shimmer.
+   배경 그라데이션의 position만 움직이므로 리플로우 없음(GPU 합성). */
+@keyframes chat-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+.chat-skeleton-line {
+  height: 0.875rem;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #e5e7eb 25%, #f9fafb 50%, #e5e7eb 75%);
+  background-size: 200% 100%;
+  animation: chat-shimmer 1.6s ease-in-out infinite;
+}
+/* 모션 민감 사용자는 흐름 대신 은은한 고정 표시로 대체 */
+@media (prefers-reduced-motion: reduce) {
+  .chat-skeleton-line { animation: none; opacity: 0.7; }
+}

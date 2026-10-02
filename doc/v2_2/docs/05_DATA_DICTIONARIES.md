@@ -19,6 +19,7 @@ src/dictionaries/
   relations.json            # 합충형파해/공망/병존/복음/간여지동
   interpretations/          # ★ 해석 사전 계층 (v2.2.1 신설) — "글자의 의미"를 LLM에 공급하는 원천
     ilju.json               # 60갑자 일주 — 물상/일주 동물/캐릭터 서사/빛·그림자 성향/배우자궁 함의
+    ten_god_domain_interaction.json # 운 유입 십성 × 질문 도메인 기준 십성 생극 → '교차 작용' 1줄(2026-10-01, 서술 전용, 길흉=용기신 원칙 유지)
     ten_gods_text.json      # 십성 10종 — 의미/과다·부재·혼잡/용신·기신 발현 차이/일상 비유
     relations_text.json     # 합충형파해·원진·암합·병존·간여지동·복음·공망 작용 해석 (궁위별/원국 vs 운)
     twelve_stages_text.json # 십이운성 12종 — 에너지 단계 의미/일상 비유
@@ -41,6 +42,7 @@ src/dictionaries/
   calendar/
     son_eomneun_nal.json    # 손없는 날 규칙 (음력 9·0일)
     direction_rules.json    # 방위 규칙
+    color_rules.json        # 오행 정색·계열(木靑·火赤·土黃·金白·水黑 + 계열, 2026-10-01) — 오행 보완 색 첨언 전용. 보라·파랑은 배정 보류(검수 큐)
     avoid_days.json         # 금기일/회피일
     holidays.json
   purpose_profiles.json     # 택일 목적별 가중치
@@ -62,6 +64,10 @@ compiled/
   event_graph_v1.0.0.json
   event_rules_v1.0.0.json
 ```
+
+### career_fields.json (2026-09-10 신설 — 데굴님 제공 자료)
+
+십성 → 직업 **기능**(생산·표현·거래·관리·통제·탐구·전승) 대응표. 직업명 고정이 아니라 "어떤 기능과 방식으로 일하는가"를 근거로 쓴다. 구성: `principles`(단정 금지 원칙 5) / `ten_gods`(10종: traits·job_groups·distinction·conditions·favorable_roles·caution) / `judgment_factors`(월령·격국·일간 강약·용희신·배합·위치) / `combinations`(식신생재 등 9 — 구조 패턴 id 또는 derived_rule) / `yongsin_modifiers`(용희신 조건 6) / `thresholds`(엔진 문턱 — 자료에 없는 기계 기본값, 감수 대상). 소비: `saju_engines/career_field.py` → 채팅 `[직업 분야 근거]` 블록(점수·판정 아님). reviewed=false.
 
 ## 핵심 스키마
 
@@ -89,7 +95,7 @@ compiled/
   "ganji": "己亥",
   "animal": { "color": "노란", "name": "돼지", "derivation": "천간 己=토(황) + 지지 亥=돼지" },
   "imagery": "평화롭고 비옥한 들판(己) 아래로 맑고 깊은 강물(亥)이 유유히 흐르는 형상",
-  "narrative": "겉으로는 부드럽고 다정한 정원사 같지만, 내면에 바다 같은 지혜와 냉철한 판단력을 숨긴 사람…",
+  "narrative": "부드럽고 다정한 정원사 같은 외면과, 바다 같은 지혜와 냉철한 판단력을 품은 내면을 함께 갖춘 사람…",
   "traits": {
     "light": ["온화·단정해 어디서나 환영받음", "실속을 차분히 챙기는 영리함"],
     "shadow": ["속내를 잘 드러내지 않아 답답하게 보일 수 있음"]
@@ -106,6 +112,7 @@ compiled/
 1. **`basis` 필드 의무** — 모든 서술의 명리적 근거(자평 통설 기준)를 명시한다. 전문가 감수는 이 필드를 기준으로 수행하며, `scripts/export_review_sheet.py`로 감수 시트를 추출한다.
 2. **`computed` 블록은 만세력 엔진과 전수 교차검증** — validate 단계에서 십성·십이운성·지장간·오행색·띠 동물이 엔진 계산과 하나라도 어긋나면 컴파일 실패. (서술의 기술적 오류를 기계적으로 차단)
 3. **`narrative`·`imagery`는 `basis`에서 도출 가능한 범위로만 집필** — 근거 없는 단정(수명·재앙·확정 길흉)은 `templates/prohibited_styles.json`과 동일 기준으로 사전 콘텐츠에서도 금지. 일상 속 비유와 서사를 적극 사용한다(사용자 이해도 우선 — 2026-06-12 사용자 확정).
+   - **역접 연결 기준(2026-10-01 데굴님 지시)**: '~지만/~보여도/~ㄴ데/~면서도'는 앞뒤가 반대 성질(장점↔약점, 긍정↔부정)일 때만 쓴다. "겉으로는 다정하지만 내면에는 영리함"처럼 둘 다 장점이면 역접이 성립하지 않으므로 "다정한 외면과 영리한 내면을 함께 갖춘"처럼 병렬로 쓴다. ilju.json 1.0.1에서 60갑자 전수 교정(24건), `tests/unit/test_interpretations_dict.py::test_no_false_contrast_between_surface_and_inner`가 겉/속 대조 역접 구문을 lint 한다.
 4. **운영 로드는 발췌만** — 전체 사전 투입 금지(절대 원칙 2). Planner의 dictionaryScope가 질문 주제와 관련된 엔트리만 선별하고, 사용자별 고정분(일주·원국 활성 십성/신살/관계)은 캐시되는 프롬프트 prefix에 배치한다(docs/06).
 5. **일간 중심·상황 의존 해석** — 십성·십이운성·관계 해석은 고정 키워드가 아니라 "일간 기준으로 원국 보유 시 / 운에서 들어올 때 / 용신·기신일 때"를 구분해 집필한다. 정교한 구분이 풀이 정확도를 결정한다(2026-06-12 사용자 확정).
 6. **신살·암합 = 보조 자료(auxiliary)** — 풀이의 색채를 더하는 참고일 뿐 결론의 근거가 될 수 없다. `sinsal_text.json`·암합 엔트리는 `role:"auxiliary"`를 의무 표기하고, 신살/암합 단독으로 길흉·이벤트를 판정하는 서술을 금지한다(2026-06-12 사용자 확정).

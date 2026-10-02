@@ -28,6 +28,7 @@ import math
 from collections.abc import Mapping
 
 from saju_shared_types.risk_engine import (
+    EvidenceRole,
     ExposureStatus,
     RiskCandidate,
     RiskEpisode,
@@ -200,7 +201,8 @@ def _rep_capped(rep: RiskCandidate) -> float:
     if rep.score_components is None:
         return 0.0
     return risk_priority(rep.score_components,
-                         transition_bonus=rep.transition_bonus)[1]
+                         transition_bonus=rep.transition_bonus,
+                         aux_bonus=rep.aux_bonus)[1]
 
 
 def presentation_decision(
@@ -342,10 +344,31 @@ def _validate_claim_codes(codes: list[str], where: str) -> list[str]:
     return codes
 
 
+def _aux_signals(rep: RiskCandidate | None,
+                 labels: Mapping[str, str] | None) -> list[str]:
+    """대표 후보의 family 보조 증폭 근거(aux:* AMPLIFIER) → 한글 라벨(P2).
+
+    사전 라벨 부재면 룰 id를 그대로 둔다(누락 은폐 금지). 같은 룰은 1회.
+    """
+    if rep is None:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for e in rep.evidence:
+        if e.role is not EvidenceRole.AMPLIFIER or not e.source.startswith("aux:"):
+            continue
+        if e.code in seen:
+            continue
+        seen.add(e.code)
+        out.append((labels or {}).get(e.code, e.code))
+    return out
+
+
 def build_presentation(
     selected: list[RiskEpisode],
     candidates: list[RiskCandidate],
     claims_by_risk_id: Mapping[str, Mapping[str, object]] | None = None,
+    aux_labels: Mapping[str, str] | None = None,
 ) -> dict:
     """R2 선택 집합 → 표현 payload(§26 + 감수 42차 audit/LLM 분리).
 
@@ -435,6 +458,8 @@ def build_presentation(
             "bodyAreaHint": (
                 str(item.get("bodyArea")) if item.get("bodyArea") else None),
             "exposureCheckItems": _texts(item, "exposureContext"),
+            # family 보조 증폭 근거 라벨(P2, 2026-09-18) — 플래그 OFF·무매칭=[].
+            "auxiliarySignals": _aux_signals(rep, aux_labels),
             "earliestReliefWindow": (
                 ep.recovery_window.earliest_relief_window
                 if ep.recovery_window else None),
@@ -531,7 +556,8 @@ _P1_FIELDS = ("effectiveAllowedClaimCodes", "allowedClaimScope",
               "contextConfidenceBand", "classicalInterpretation")
 _P2_FIELDS = ("effectRoles", "supportingCount", "earliestReliefWindow",
               "stableRecoveryWindow", "recoveryConfidenceBand",
-              "modernApplication", "bodyAreaHint", "exposureCheckItems")
+              "modernApplication", "bodyAreaHint", "exposureCheckItems",
+              "auxiliarySignals")
 
 
 def estimate_tokens(text: str, counter=None) -> int:
@@ -727,6 +753,8 @@ def presentation_policy_hash() -> str:
             "identity": "resolved 또는 explicit(partial·fallback 금지)",
             "fail": "warning으로 하향 + 사유 기록(primary/all)",
         },
+        "auxiliary_signals": "P2 tier — 대표 후보의 aux:* AMPLIFIER 라벨"
+                             "(family 보조 증폭 층, 플래그 OFF=빈 목록)",
         "payload_split": "presentation_records(전 episode·NONE 포함·omission"
                          " reason — 감사)와 llm_risk_episodes(ADVISORY 이상만"
                          " — prompt 주입 후보) 분리: NONE은 LLM 비노출"
