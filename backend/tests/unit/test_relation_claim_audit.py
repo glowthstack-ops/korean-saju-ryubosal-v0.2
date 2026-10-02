@@ -259,3 +259,77 @@ def test_split_sentences_preserves_offsets():
     assert len(sentences) == 3
     for s in sentences:
         assert text[s.start : s.end] == s.text
+
+
+# ── 공유 글자 오탐 회귀(2026-10-02 실답 사고) ────────────────────────────────
+# 일진 己酉 · 대운 壬辰 · 세운 丙午 · 월운 丁酉 — 酉가 辰酉合·巳酉반합·申酉방합 3관계에
+# 동시에 참여한다. "辰酉合은 … 합거입니다"라는 엔진 canonical 문장이 창(±2문장) 안의
+# 巳·申 때문에 반합·방합에도 귀속되어 BINDING_ASSERTED_WHEN_NONE 으로, 반합의 '金 보조
+# 강화' 문장이 辰酉合(化 불성)에 귀속되어 TRANSFORMATION_ASSERTED_WHEN_NOT 으로 잡혔고,
+# 지시를 그대로 따른 답변이 AMBIGUOUS_RELATION_FALLBACK → 안전 템플릿으로 통째 교체됐다.
+_SHARED_STEMS = ["己", "壬", "丙", "丁"]
+_SHARED_BRANCHES = ["酉", "辰", "午", "酉"]
+
+
+@pytest.fixture(scope="module")
+def shared_semantics():
+    """酉 공유 3관계가 동시에 성립하는 2026-10-02 스택의 관계 구조화 의미."""
+    from saju_api.services.manse_service import calculate
+
+    chart = calculate(_BIRTH.model_copy(update={"reference_date": date(2026, 10, 2)}))
+    sems = collect_luck_relation_semantics(chart, _SHARED_STEMS, _SHARED_BRANCHES)
+    assert {s.relation_label for s in sems} >= {"辰酉合", "巳酉반합", "申酉방합"}
+    return sems
+
+
+def test_canonical_claims_verbatim_pass_audit(shared_semantics):
+    """엔진이 '그대로 쓰라'고 준 canonical 문장 전체는 감사에 걸리면 안 된다."""
+    text = "\n\n".join(s.canonical_claim for s in shared_semantics)
+    assert audit_relation_claims(text, shared_semantics) == []
+
+
+def test_explicitly_named_relation_is_not_attributed_to_shared_member_relations(
+    shared_semantics,
+):
+    """관계를 이름으로 부른 문장은 그 관계에만 귀속한다 — 공유 글자 창 추정 금지."""
+    text = (
+        "오늘은 己酉(기유) 일진이 들어옵니다. "
+        "辰酉合은 이번 판정에서 金으로 합화한 것이 아니라 서로 묶이는 합반이며, "
+        "묶인 글자의 작용이 끌려가는 합거입니다. "
+        "巳酉반합은 완전한 金국을 이루지는 않았지만 金(한신) 작용을 보조적으로 강화합니다. "
+        "申酉방합은 완전한 金국을 이루지는 않았지만 金(한신) 작용을 보조적으로 강화합니다. "
+        "그래서 오늘은 결정을 서두르기보다 정리에 집중하면 좋겠어요."
+    )
+    assert audit_relation_claims(text, shared_semantics) == []
+
+
+def test_korean_alias_with_kind_suffix_counts_as_explicit_name(shared_semantics):
+    """'사유반합'처럼 접미를 살린 한글 통칭도 직접 호칭으로 인정한다."""
+    text = "진유합은 합거입니다. 사유반합은 金 작용을 보조적으로 강화합니다."
+    assert audit_relation_claims(text, shared_semantics) == []
+
+
+@pytest.mark.parametrize(
+    ("text", "label", "kind"),
+    [
+        (
+            "辰酉合으로 金이 강해져 식상의 기운이 살아납니다.",
+            "辰酉合", RelationViolationKind.TRANSFORMATION_ASSERTED_WHEN_NOT,
+        ),
+        (
+            "巳酉반합으로 서로 묶여 작용이 둔해집니다.",
+            "巳酉반합", RelationViolationKind.BINDING_ASSERTED_WHEN_NONE,
+        ),
+        (
+            "오늘 유금(酉金)이 들어와 진토(辰土)와 합을 하여 금(金) 기운이 강해집니다.",
+            "辰酉合", RelationViolationKind.TRANSFORMATION_ASSERTED_WHEN_NOT,
+        ),
+    ],
+)
+def test_real_reversals_still_caught_after_explicit_name_rule(
+    shared_semantics, text, label, kind
+):
+    """직접 호칭 역전 2건·호칭 없는 창 경로 역전 1건은 수정 후에도 검출된다."""
+    violations = audit_relation_claims(text, shared_semantics)
+    assert (label, kind) in {(v.relation_label, v.kind) for v in violations}
+    assert {v.relation_label for v in violations} == {label}
