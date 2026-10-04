@@ -304,11 +304,108 @@ def parse_multi_day(
     return _mk(uniq, is_range=False) if len(uniq) >= 2 else None
 
 
+#: 주 틀 식별자 — 일요일~토요일(로또 판매 회차·사용자 지정).
+WEEK_FRAME_SUN_SAT = "sun_sat"
+_SUNDAY = 6  # Python weekday()
+# 로또 — 일요일~토요일 저녁 판매분을 토요일 저녁에 추첨한다. 주 단위 표현은 이 회차 단위로 읽는다.
+# 연금복권 등 다른 복권은 추첨 요일이 달라 대상이 아니다.
+_LOTTO_RE = re.compile(r"로또")
+_WEEKDAY_RANGE_RE = re.compile(
+    r"([월화수목금토일])요일\s*(?:부터|에서|~|-|–)\s*([월화수목금토일])요일(?:\s*까지)?"
+    # 줄임 표기 '일~토'·'월-금' — 기호 구분자만, 앞이 숫자·한글이면 제외('7일~토', '3월~5월').
+    r"|(?<![0-9가-힣])([월화수목금토일])\s*[~\-–]\s*([월화수목금토일])(?=\s|로|까지|요일|$)"
+)
+
+
+def _weekday_range_match(text: str) -> tuple[int, int] | None:
+    """요일 범위 표현의 (시작 요일, 끝 요일) — 정식('일요일부터 토요일')·줄임('일~토') 공용."""
+    m = _WEEKDAY_RANGE_RE.search(text)
+    if m is None:
+        return None
+    first, second = (m.group(1), m.group(2)) if m.group(1) else (m.group(3), m.group(4))
+    return _WEEKDAYS[first], _WEEKDAYS[second]
+
+
+def _week_word(text: str) -> tuple[int, str] | None:
+    """주 지정어 → (일 오프셋, 호칭). '다다음 주'를 '다음 주'보다 먼저 본다(한 주 어긋남 방지)."""
+    if re.search(r"다다음\s*주", text):
+        return 14, "다다음 주"
+    if re.search(r"다음\s*주", text):
+        return 7, "다음 주"
+    if re.search(r"이번\s*주|금주", text):
+        return 0, "이번 주"
+    return None
+
+
+def _week_start(day: date, start_weekday: int) -> date:
+    """``day`` 가 속한 주의 시작일 — ``start_weekday``(월=0 … 일=6) 시작 기준."""
+    return day - timedelta(days=(day.weekday() - start_weekday) % 7)
+
+
+def week_frame_start_weekday(text: str) -> int | None:
+    """발화가 **주 틀 정의**('일요일부터 토요일까지' — 7일을 꽉 채우는 요일 범위)면 시작 요일.
+
+    Returns:
+        시작 요일(월=0 … 일=6). 요일 범위가 없거나 7일 미만 구간이면 None.
+    """
+    pair = _weekday_range_match(text)
+    if pair is None:
+        return None
+    a, b = pair
+    return a if (b - a) % 7 == 6 else None
+
+
+def reframe_week(anchor: date, start_weekday: int) -> tuple[date, date]:
+    """``anchor`` 가 속한 주를 ``start_weekday`` 시작 7일 창으로 다시 잡는다."""
+    start = _week_start(anchor, start_weekday)
+    return start, start + timedelta(days=6)
+
+
+def parse_weekday_range(
+    text: str, today: date, urgency: str | None = None,
+) -> tuple[TimeRange, TimeScope] | None:
+    """요일 범위('일요일부터 토요일까지'·'월요일~수요일')를 일 단위 창으로 파싱한다(C3.4).
+
+    7일을 꽉 채우는 범위는 주 틀 정의다 — 오늘이 속한 그 틀의 주('다음 주' 동반 시 +7일)를
+    돌려주고, 일~토면 ``week_frame`` 을 표시한다. 7일 미만은 이번 주(월요일 기준) 안의 구간이며,
+    주 지정어 없이 이미 끝난 구간이면 다음 주로 넘긴다.
+
+    Returns:
+        (TimeRange, TimeScope) 또는 요일 범위가 없으면 None.
+    """
+    pair = _weekday_range_match(text)
+    if pair is None:
+        return None
+    a, b = pair
+    span = (b - a) % 7
+    word = _week_word(text)
+    has_week_word = word is not None
+    week_offset = word[0] if word else 0
+    if span == 6:
+        start = _week_start(today, a) + timedelta(days=week_offset)
+        return TimeRange(
+            type="relative", granularity=Granularity.DAY,
+            start=start.isoformat(), end=(start + timedelta(days=6)).isoformat(),
+            urgency=urgency,
+            week_frame=WEEK_FRAME_SUN_SAT if a == _SUNDAY else None,
+            week_label=word[1] if word else None,
+        ), TimeScope.SHORT_TERM
+    start = _week_start(today, 0) + timedelta(days=a + week_offset)
+    end = start + timedelta(days=span)
+    if not has_week_word and end < today:
+        start, end = start + timedelta(days=7), end + timedelta(days=7)
+    return TimeRange(
+        type="relative", granularity=Granularity.DAY,
+        start=start.isoformat(), end=end.isoformat(), urgency=urgency,
+    ), TimeScope.SHORT_TERM
+
+
 def parse_time(
     text: str,
     today: date,
     birth_year: int | None = None,
     current_month_label: str | None = None,
+    sunday_week: bool = False,
 ) -> tuple[TimeRange | None, TimeScope]:
     """텍스트에서 시점 표현을 파싱한다 (C1~C18).
 
@@ -319,6 +416,8 @@ def parse_time(
         current_month_label: 오늘이 속한 절기 월운 라벨(YYYY-MM). 주입 시 '이번 달'·
             '다음 달'·미래/과거 롤링 창의 기준 달을 절기 기준으로 잡는다. 미주입 시
             양력 ``today.month`` 폴백(절기 경계 직전 구간에서 한 달 어긋날 수 있음).
+        sunday_week: 주 단위 표현을 일요일~토요일 틀로 잡는다(직전 턴이 로또 회차 틀이었던
+            후속 '다음 주는?' 승계용). 발화에 '로또'가 있으면 이 값과 무관하게 일~토 틀이다.
 
     Returns:
         (TimeRange | None, TimeScope). 무시점(C1)이면 (None, TIMELESS) —
@@ -326,6 +425,8 @@ def parse_time(
     """
     # 절기 기준 '당월' 라벨 — 주입 없으면 양력 폴백(경계 직전 한 달 어긋남 감수).
     this_month = current_month_label or f"{today.year}-{today.month:02d}"
+    # 로또 주 = 판매 회차(일요일~토요일 저녁 판매분을 토요일 저녁 추첨, 2026-10-04 데굴님 지적).
+    sunday_week = sunday_week or bool(_LOTTO_RE.search(text))
     # C16 즉시성 수식 — 다른 패턴과 결합 가능하므로 먼저 추출.
     urgency = "asap" if re.search(r"빠를\s*수록|최대한\s*빨리|빨리\s*좋", text) else None
 
@@ -547,14 +648,42 @@ def parse_time(
                 start=target.isoformat(), end=target.isoformat(), urgency=urgency,
             ), TimeScope.DATE_LEVEL
 
+    # C3.4 요일 범위 — '일요일부터 토요일까지'·'월요일~수요일'. 단일 요일(C3.5)로 읽으면 첫
+    #     요일 하루로 축소된다(2026-10-04 실로그: '한주를 일요일부터 토요일까지로 잡고'가
+    #     오늘 하루로 떨어짐). 7일을 꽉 채우면 주 틀 정의로 본다.
+    wr = parse_weekday_range(text, today, urgency=urgency)
+    if wr is not None:
+        return wr
+
     # C3.5 요일 — '다음주 월요일'·'이번주 금요일'·'월요일'은 단일 일운(주 전체 아님).
-    wd = re.search(r"(?:(이번|다음|금)\s*주\s*)?([월화수목금토일])요일", text)
+    wd = re.search(
+        r"(?:(이번|다다음|다음|금|지난|저번)\s*주\s*|(지난|저번)\s*)?([월화수목금토일])요일", text
+    )
+    if wd and wd.group(2):
+        # '지난 일요일' — 오늘 이전의 가장 가까운 그 요일(2026-10-04: '지난'이 무시돼 다가오는
+        # 요일로 잡히던 결함). 오늘과 같은 요일이면 7일 전.
+        back = (today.weekday() - _WEEKDAYS[wd.group(3)]) % 7 or 7
+        target = today - timedelta(days=back)
+        return TimeRange(
+            type="relative", granularity=Granularity.DAY,
+            start=target.isoformat(), end=target.isoformat(), urgency=urgency,
+        ), TimeScope.DATE_LEVEL
     if wd:
-        week_word, day_ch = wd.group(1), wd.group(2)
-        monday = today - timedelta(days=today.weekday())
-        if week_word == "다음":
-            monday += timedelta(days=7)
-        target = monday + timedelta(days=_WEEKDAYS[day_ch])
+        week_word, day_ch = wd.group(1), wd.group(3)
+        if sunday_week:
+            # 일~토 틀 — 주 시작이 일요일이므로 요일 오프셋도 일요일 기준으로 센다.
+            monday = _week_start(today, _SUNDAY)
+            day_offset = (_WEEKDAYS[day_ch] - _SUNDAY) % 7
+        else:
+            monday = today - timedelta(days=today.weekday())
+            day_offset = _WEEKDAYS[day_ch]
+        monday += timedelta(
+            days={"다음": 7, "다다음": 14, "지난": -7, "저번": -7}.get(week_word or "", 0)
+        )
+        target = monday + timedelta(days=day_offset)
+        # 일~토 틀에서 '이번주 일요일'이 이미 지났으면 다가오는 일요일로(구어 관행 유지).
+        if sunday_week and week_word in (None, "이번", "금") and target < today:
+            target += timedelta(days=7)
         # 주 지정어 없이 지난 요일이면 다가오는 같은 요일로(예: 오늘이 화요일인데 '월요일').
         if week_word is None and target < today:
             target += timedelta(days=7)
@@ -576,14 +705,33 @@ def parse_time(
             urgency=urgency,
         ), TimeScope.SHORT_TERM
 
+    # C4a 주말 — '이번 주말'·'다음 주말'·'이번주 주말'은 그 주의 토·일 이틀(2026-10-04: C4 가
+    #     '이번\s*주'로 잡아 주 전체가 되던 결함). 주 지정어가 있을 때만 — 지정어 없는 '주말만'은
+    #     현실 제약(_detect_constraints)이지 시점이 아니다. 주말은 월~일 주의 토·일로 센다
+    #     (로또도 동일 — 토요일은 이번 회차, 일요일은 다음 회차라는 안내는 지시문이 맡는다).
+    wk_end = re.search(r"(이번|다다음|다음|금)\s*(?:주\s*)?주말", text)
+    if wk_end:
+        end_offset = {"다음": 7, "다다음": 14}.get(wk_end.group(1), 0)
+        saturday = _week_start(today, 0) + timedelta(days=5 + end_offset)
+        return TimeRange(
+            type="relative", granularity=Granularity.DAY,
+            start=saturday.isoformat(), end=(saturday + timedelta(days=1)).isoformat(),
+            urgency=urgency,
+        ), TimeScope.SHORT_TERM
+
     # C4 주 단위.
-    if re.search(r"이번\s*주|다음\s*주|금주", text):
-        offset = 7 if re.search(r"다음\s*주", text) else 0
-        monday = today - timedelta(days=today.weekday()) + timedelta(days=offset)
+    week_word_c4 = _week_word(text)
+    if week_word_c4 is not None:
+        offset, week_label = week_word_c4
+        # 기본은 월~일 캘린더 주. 로또(판매 회차)·일~토 틀 승계면 일요일~토요일.
+        week_base = _week_start(today, _SUNDAY if sunday_week else 0)
+        monday = week_base + timedelta(days=offset)
         return TimeRange(
             type="relative", granularity=Granularity.DAY,
             start=monday.isoformat(), end=(monday + timedelta(days=6)).isoformat(),
             urgency=urgency,
+            week_frame=WEEK_FRAME_SUN_SAT if sunday_week else None,
+            week_label=week_label,
         ), TimeScope.SHORT_TERM
 
     # C7b 계절 — "올 겨울", "이번 봄에", "내년 여름", "지난 가을"(절기 석 달, 반기와 같은 형).
@@ -1131,6 +1279,7 @@ def parse_time_with_constraints(
     today: date,
     birth_year: int | None = None,
     current_month_label: str | None = None,
+    sunday_week: bool = False,
 ) -> tuple[TimeRange | None, TimeScope, list[TimeConstraintItem]]:
     """parse_time + 연 단위 제약 해소 — 배제 연도가 시점으로 뽑히는 것을 교정한다.
 
@@ -1147,7 +1296,7 @@ def parse_time_with_constraints(
     # '7월 22일'이 explicit 시점으로 채택돼 미래 이사 질문이 오늘 일운으로 앵커됨).
     # 진술 절만 제거하므로 "오늘 운세 봐줘"류 순수 '오늘' 요청은 영향 없다.
     text = _TODAY_DATE_STATEMENT_RE.sub(" ", text)
-    tr, scope = parse_time(text, today, birth_year, current_month_label)
+    tr, scope = parse_time(text, today, birth_year, current_month_label, sunday_week)
     tr, scope = _attach_holiday_anchor(text, today, tr, scope)
     items = extract_time_constraints(text, today)
     if not items:

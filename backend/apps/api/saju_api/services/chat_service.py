@@ -92,6 +92,7 @@ from saju_engines.month_coverage_audit import (
     build_coverage_notes,
     patch_month_coverage,
 )
+from saju_engines.output_wealth_term import fix_wealth_generation_term
 from saju_engines.period_role_summary import build_period_role_summary
 from saju_engines.period_safe_template import build_safe_period_answer
 from saju_engines.persona import PersonaEngine
@@ -159,7 +160,7 @@ from saju_engines.task_procedures import (
     procedure_reference_block,
 )
 from saju_engines.time_parser import DAY_WORD_OFFSETS as _TP_DAY_WORDS
-from saju_engines.time_parser import LIFE_STAGE_AGE_RANGES
+from saju_engines.time_parser import LIFE_STAGE_AGE_RANGES, WEEK_FRAME_SUN_SAT
 from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
 from saju_engines.topic_builder import build_lifestyle_context, build_topic_context
 from saju_engines.user_facts import user_facts_block
@@ -1333,6 +1334,7 @@ def _date_selection_block(
     return DateSelectionBlock(
         purpose_ko=event_ko(purpose),
         period=f"{start_iso} ~ {end_iso}",
+        frame_notes=_week_frame_notes(tr, purpose, today),
         rows=rows,
         avoid=result.avoid_dates,
         cautions=cautions,
@@ -1340,6 +1342,44 @@ def _date_selection_block(
         hour_fits=hour_fits,
         relocation_reasons=relocation_reasons,
     )
+
+
+def _week_frame_notes(tr: TimeRange | None, purpose: EventKey, today: date) -> list[str]:
+    """택일 블록의 기간 기준 안내 — 주 호칭 고정과 로또 판매 회차 사실(2026-10-04).
+
+    ①사용자가 '이번 주'·'다음 주'라고 부른 구간을 날짜로 못박아 답이 호칭을 바꿔 부르지 않게
+    한다(실로그: '다음주' 질문에 '이번 주'로 답함). ②횡재 택일의 일~토 주 틀은 로또 판매
+    회차다 — 일요일부터 토요일 저녁 판매 마감 전까지 산 분량을 그 주 토요일 저녁에 추첨하므로,
+    다른 회차의 날(다음 일요일 등)을 같은 주 후보로 섞지 않게 한다. 점수·후보 선정에는 개입하지
+    않는다(창은 파서가 이미 확정).
+
+    Returns:
+        안내 문장 목록(주 단위 창이 아니면 빈 목록).
+    """
+    if tr is None or not (tr.start and tr.end) or len(tr.start) != 10 or len(tr.end) != 10:
+        return []
+    notes: list[str] = []
+    try:
+        w_start, w_end = date.fromisoformat(tr.start), date.fromisoformat(tr.end)
+    except ValueError:
+        return []
+    span = (
+        f"{w_start.isoformat()}({_WEEKDAY_KO[w_start.weekday()]}) ~ "
+        f"{w_end.isoformat()}({_WEEKDAY_KO[w_end.weekday()]})"
+    )
+    if tr.week_label:
+        passed = " 이미 지난 날은 후보에서 뺐다." if w_start < today else ""
+        notes.append(
+            f"사용자가 '{tr.week_label}'라고 부른 기간은 {span}이다. 답에서도 이 기간을 "
+            f"'{tr.week_label}'로 부르고 다른 주 호칭으로 바꾸지 않는다.{passed}"
+        )
+    if tr.week_frame == WEEK_FRAME_SUN_SAT and purpose is EventKey.WINDFALL:
+        notes.append(
+            "로또는 일요일부터 토요일 저녁 판매 마감 전까지 산 분량을 그 주 토요일 저녁에 "
+            f"추첨한다 — {span}이 한 회차다. 이 회차 밖의 날은 같은 주 후보로 섞지 않는다. "
+            "토요일을 추천할 때는 '저녁 판매 마감 전'에 사야 이 회차에 들어간다고 알려 준다."
+        )
+    return notes
 
 
 def _ganji_ko(ganji: str | None) -> str:
@@ -1574,6 +1614,9 @@ _GANJI_CH = "甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥"
 # 중첩 병기: '갑오(甲午(갑오))'(한글 외곽) / '甲午(갑오(甲午))'(한자 외곽).
 _GLOSS_NEST_KO = re.compile(r"([가-힣]{2})\(([" + _GANJI_CH + r"]{2})\(\1\)\)")
 _GLOSS_NEST_CH = re.compile(r"([" + _GANJI_CH + r"]{2})\(([가-힣]{2})\(\1\)\)")
+# 동일 한자 중첩: '乙卯(乙卯(을묘))' — LLM 이 '乙卯(乙卯)'로 쓰면 병기 통일 단계가 안쪽 한자에만
+# 한글을 붙여 생긴다(2026-10-04 실답).
+_GLOSS_NEST_SAME_CH = re.compile(r"([" + _GANJI_CH + r"]{2})\(\1\(([가-힣]{2})\)\)")
 # 중복 괄호: '己卯(기묘)(기묘)' / '기묘(己卯)(己卯)'.
 _GLOSS_DUP_KO = re.compile(r"([" + _GANJI_CH + r"]{2})\(([가-힣]{2})\)\(\2\)")
 _GLOSS_DUP_CH = re.compile(r"([가-힣]{2})\(([" + _GANJI_CH + r"]{2})\)\(\2\)")
@@ -1608,7 +1651,8 @@ def finalize_answer_text(answer: str, thread_id: str | None = None) -> str:
     """답변 **텍스트 전용** 후처리 — 생성 경로(동기·비동기·비로그인)가 모두 거친다(2026-10-01).
 
     ①내부 정책 문구 노출 제거(P0.5) ②겉/속 거짓 역접 재작성("겉으로는 A지만 내면에는 B" → "A고, B";
-    실답 재발 2026-10-01 11:13 — 지시로 막지 못하는 모델 습관은 결정론으로 고친다) ③간지 병기 보정.
+    실답 재발 2026-10-01 11:13 — 지시로 막지 못하는 모델 습관은 결정론으로 고친다) ③식신생재·
+    상관생재 용어를 문단의 십성 언급에 맞춤(2026-10-04) ④간지 병기 보정.
     payload 가 필요한 감사(관계 주장·월 커버리지)는 동기 경로에만 있다 — 비동기 경로 이관은 후속.
     """
     if not answer:
@@ -1626,6 +1670,12 @@ def finalize_answer_text(answer: str, thread_id: str | None = None) -> str:
             "false_contrast_rewritten count=%d before=%s thread=%s",
             len(_changes), [c[0][:60] for c in _changes], thread_id,
         )
+    # 식신생재·상관생재 용어를 문단에 적힌 십성에 맞춘다(2026-10-04 실답: 식신+정재를 '상관생재').
+    answer, _term_changes = fix_wealth_generation_term(answer)
+    if _term_changes:
+        _logger.warning(
+            "wealth_generation_term_fixed changes=%s thread=%s", _term_changes, thread_id,
+        )
     return _normalize_ganji_gloss(answer)
 
 
@@ -1642,6 +1692,7 @@ def _normalize_ganji_gloss(text: str) -> str:
         prev = out
         out = _GLOSS_NEST_KO.sub(r"\1(\2)", out)
         out = _GLOSS_NEST_CH.sub(r"\1(\2)", out)
+        out = _GLOSS_NEST_SAME_CH.sub(r"\1(\2)", out)
         out = _GLOSS_DUP_KO.sub(r"\1(\2)", out)
         out = _GLOSS_DUP_CH.sub(r"\1(\2)", out)
     return out
@@ -2690,6 +2741,39 @@ def _wealth_context(intent: IntentJson) -> bool:
 def _has_investment_marker(question: str) -> bool:
     """질문에 투자·자산 운용 표지가 있는가."""
     return any(m in question for m in _INVESTMENT_MARKERS)
+
+
+def _lotto_round_directive(
+    intent: IntentJson, question: str, today: date, date_block: DateSelectionBlock | None,
+) -> str | None:
+    """로또 질문에 판매 회차(일~토) 사실을 싣는다 — 주 단위 택일이 아닌 질문용(2026-10-04).
+
+    주 단위 택일은 택일 블록 '기간 기준' 줄이 이미 회차를 알려 주므로 중복하지 않는다. 그 밖의
+    로또 질문('내일 사도 돼?'·'이번 주말'·'일주일 안에')은 질문 기간이 두 회차에 걸칠 수 있어,
+    오늘이 속한 회차 구간을 엔진이 계산해 준다(LLM이 요일·회차를 셈하지 않게). 판정·점수에는
+    개입하지 않는다. 연금복권 등 다른 복권은 추첨 요일이 달라 대상이 아니다.
+
+    Returns:
+        지시문 문자열, 로또 질문이 아니거나 택일 블록이 이미 회차를 실었으면 None.
+    """
+    tr = intent.time_range
+    framed = tr is not None and tr.week_frame == WEEK_FRAME_SUN_SAT
+    is_lotto = "로또" in question or (framed and intent.event_key is EventKey.WINDFALL)
+    if not is_lotto:
+        return None
+    if date_block is not None and any("회차" in n for n in date_block.frame_notes):
+        return None
+    r_start = today - timedelta(days=(today.weekday() + 1) % 7)  # 오늘이 속한 회차의 일요일
+    r_end = r_start + timedelta(days=6)
+    return (
+        "[로또 회차 기준 — 엔진 계산값]\n"
+        "로또는 일요일부터 토요일 저녁 판매 마감 전까지 산 분량을 그 주 토요일 저녁에 추첨한다. "
+        f"오늘 {today.isoformat()}({_WEEKDAY_KO[today.weekday()]})이 속한 회차는 "
+        f"{r_start.isoformat()}(일) ~ {r_end.isoformat()}(토)이고, "
+        f"{(r_end + timedelta(days=1)).isoformat()}(일)부터는 다음 회차다. "
+        "언급하는 날이 어느 회차에 드는지 이 구간으로 구분해 말하고, 서로 다른 회차의 날을 "
+        "'같은 주'로 묶지 않는다. 토요일은 '저녁 판매 마감 전'에 사야 그 회차에 들어간다."
+    )
 
 
 def _is_lifestyle_windfall(intent: IntentJson, question: str) -> bool:
@@ -5835,6 +5919,9 @@ def chat(
     # 당첨단정 거부는 유지). CLAUDE.md 절대원칙 8 개정(2026-06-20 데굴님 승인).
     if _is_lifestyle_windfall(intent, question):
         trailing.append(_LIFESTYLE_WINDFALL_DIRECTIVE)
+    _lotto_round = _lotto_round_directive(intent, question, today, payload.date_selection)
+    if _lotto_round:
+        trailing.append(_lotto_round)
     # 투자·자산 운용(주식 장기 투자 등) — 횡재 프레임을 막고 재물 운용 축으로 고정, 하드 가드 유지
     # (2026-09-01 실로그: 장기 투자 질문이 '오늘 복권' 답으로 흘렀다). 횡재와 상호 배타.
     elif _is_investment_flow(intent, question):

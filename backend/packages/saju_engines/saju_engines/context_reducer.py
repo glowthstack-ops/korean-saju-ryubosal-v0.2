@@ -3123,6 +3123,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
         ds = payload.date_selection
         lines.append("")
         lines.append(f"[택일 결과 — {ds.purpose_ko} · {ds.period} · 엔진 확정값]")
+        for frame_note in ds.frame_notes:  # 주 호칭·회차 경계(엔진 확정 — 바꿔 말하기 금지)
+            lines.append(f"기간 기준: {frame_note}")
         for drow in ds.rows:
             notes = " · ".join(drow.notes) if drow.notes else ""
             # 택일 점수·내부 enum은 노출 금지 — 추천 등급을 한글 라벨로만 노출(항목 5).

@@ -236,6 +236,12 @@ class TimeRange(BaseModel):
     # 오름차순, 최대 4). 이때 start/end 는 min~max 스팬이며 사이 날은 질문 대상이 아니다(비어 있으면
     # 미사용). 연속 범위("7일부터 9일까지")는 start~end 만 쓰고 이 목록은 비워 둔다.
     dates: list[str] = Field(default_factory=list)
+    # 주 틀(2026-10-04) — 주 단위 창이 어떤 요일 경계로 잡혔는지. 'sun_sat' = 일요일~토요일
+    # (로또 판매 회차: 일~토 판매분을 토요일 저녁 추첨, 또는 사용자가 '일요일부터 토요일까지'로
+    # 지정). None = 기본 월~일 캘린더 주이거나 주 단위 창이 아님.
+    week_frame: str | None = None
+    # 사용자가 쓴 주 표현('이번 주'|'다음 주') — 답이 주 호칭을 바꿔 부르지 않게 블록에 싣는다.
+    week_label: str | None = None
     life_stage: str | None = None  # '초년'|'청년'|'중년'|'말년'|'평생'
     urgency: str | None = None  # 'asap'
     granularity_override: bool = False

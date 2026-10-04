@@ -208,6 +208,9 @@ interface IntentJson {
     ranges?: { label: string; start: string; end: string }[]; // "26-27 / 28-30 / 31-33년" (C10)
     dates?: string[];                  // "10월 7일과 9일" — 낱낱이 지목한 날(ISO, 최대 4). start/end 는 min~max 스팬이며
                                        // 사이 날은 대상이 아니다. 연속 범위("7일부터 9일까지")는 start/end 만 쓰고 비운다 (C5d, 2026-10-02)
+    weekFrame?: 'sun_sat' | null;      // 주 단위 창의 요일 경계. 'sun_sat' = 일요일~토요일(로또 판매 회차·사용자 지정
+                                       // "일요일부터 토요일까지"). null = 기본 월~일 또는 주 단위 아님 (C4·C3.4, 2026-10-04)
+    weekLabel?: '이번 주' | '다음 주' | '다다음 주' | null; // 사용자가 쓴 주 호칭 — 택일 블록 '기간 기준' 줄에 실어 답이 호칭을 바꿔 부르지 않게 한다
     lifeStage?: '초년' | '청년' | '중년' | '말년' | '평생';   // (C13)
     granularity: 'daewoon' | 'year' | 'month' | 'day' | 'hour';
     urgency?: 'asap' | null;           // "빠를수록 좋아" (C16)

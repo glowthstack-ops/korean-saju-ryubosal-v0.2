@@ -302,6 +302,9 @@ _GANJI_RE = re.compile(f"([{_STEM_CHARS}])([{_BRANCH_CHARS}])(?!\\()")
 #     일반화해 '정재(정재)'처럼 같은 한글을 괄호로 되풀이한다 → 괄호 군더더기만 제거.
 _NESTED_GLOSS_RE = re.compile(r"[가-힣]{2}\(([一-鿿]{2})\(([가-힣]{2})\)\)")
 _SELF_GLOSS_RE = re.compile(r"([가-힣]{2,})\(\1\)")
+# (1b) 동일 한자 중첩(2026-10-04 실답): LLM이 '乙卯(乙卯)'로 쓰면 _normalize_ganji가 안쪽 한자에만
+#      한글을 붙여 '乙卯(乙卯(을묘))'가 된다 → '乙卯(을묘)'로 접는다.
+_SAME_HANJA_NEST_RE = re.compile(r"([一-鿿]{2})\(\1\(([가-힣]{2})\)\)")
 # (3) 기간 괄호 군더더기(2026-09-20 데굴님 지적): '1월(辛丑(신축)월)'·'2026년(丙午(병오)년)'처럼
 #     달·해 숫자 뒤에 간지를 괄호로 한 번 더 싸는 표기 → '1월 辛丑(신축)월'로 편다. 단위 뒤 괄호
 #     안이 '한자(한글)[단위]' 꼴일 때만(설명 괄호 '1월(입춘 전)' 류는 그대로).
@@ -388,6 +391,7 @@ def _sanitize_output(text: str) -> str:
     cleaned = _normalize_ganji(text)  # 간지 한자/한글 혼용 → 한자(한글) 병기
     cleaned = _normalize_sinsal_terms(cleaned)  # 격격살 → 격각살 (없는 말만)
     cleaned = _NESTED_GLOSS_RE.sub(r"\1(\2)", cleaned)  # 한글(한자(한글)) → 한자(한글)
+    cleaned = _SAME_HANJA_NEST_RE.sub(r"\1(\2)", cleaned)  # 乙卯(乙卯(을묘)) → 乙卯(을묘)
     cleaned = _SELF_GLOSS_RE.sub(r"\1", cleaned)        # 정재(정재) → 정재
     cleaned = _PERIOD_WRAP_RE.sub(r"\1\2 \3(\4)\2", cleaned)  # 1월(辛丑(신축)월) → 1월 辛丑(신축)월
     cleaned = _STRIKETHROUGH_RE.sub("", cleaned)

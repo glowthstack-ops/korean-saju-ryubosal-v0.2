@@ -397,6 +397,9 @@ class DateSelectionBlock(BaseModel):
 
     purpose_ko: str
     period: str  # '2026-07-01 ~ 2026-07-31'
+    # 기간 기준 안내(2026-10-04) — 사용자가 쓴 주 호칭과 실제 구간, 로또 판매 회차(일~토) 사실.
+    # 엔진이 확정한 문장이며 LLM은 주 호칭·회차 경계를 바꿔 말하지 않는다. 빈 = 미사용.
+    frame_notes: list[str] = Field(default_factory=list)
     rows: list[DateChoiceRow] = Field(default_factory=list)
     avoid: list[dict] = Field(default_factory=list)  # {'date','reason'}
     cautions: list[str] = Field(default_factory=list)

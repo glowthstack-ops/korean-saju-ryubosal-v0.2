@@ -40,7 +40,7 @@ from saju_shared_types.intent import (
 )
 
 from .challenge_detect import is_challenge
-from .time_parser import parse_time_with_constraints
+from .time_parser import WEEK_FRAME_SUN_SAT, parse_time_with_constraints
 from .yongsin_color import detect_asked_colors, is_color_question
 
 # ── 어휘 사전 (실로그 기반 — docs/08 D) ──────────────────────────
@@ -1129,8 +1129,16 @@ def parse_message(
     # 연 단위 다중·부정·정정 표현은 제약 해소를 거친다(2026-07-14 P1 — "2026년 27년은
     # 의미없고 2033년이 중요해"에서 첫 연도가 시점으로 저장되던 결함 교정).
     time_text = mask_inline_birth_spans(text, today)  # 즉석 출생일은 시점이 아니다
+    # 직전 턴이 일~토 주 틀(로또 회차·사용자 지정)이면 후속의 '다음 주는?'도 같은 틀로 읽는다.
+    # 단 이번 발화가 새 도메인·사건을 들고 오면(로또 뒤 '그럼 이사는 다음주 언제?') 틀을 잇지
+    # 않는다 — 일~토 틀은 직전 주제(로또 회차)에 딸린 것이다.
+    sunday_week = (
+        prev_intent is not None and prev_intent.time_range is not None
+        and prev_intent.time_range.week_frame == WEEK_FRAME_SUN_SAT
+        and not _detect_domains(text) and _detect_event(text) is None
+    )
     time_range, time_scope, time_items = parse_time_with_constraints(
-        time_text, today, birth_year, current_month_label
+        time_text, today, birth_year, current_month_label, sunday_week
     )
     time_exclusions = [
         it for it in time_items if it.role is TimeConstraintRole.EXCLUDED
@@ -1232,7 +1240,9 @@ def parse_message(
         if not domains and event_key is not None:
             domains = [Domain(EVENT_DOMAIN[event_key])]
         piece_time, piece_scope, _ = parse_time_with_constraints(
-            mask_inline_birth_spans(piece, today), today, birth_year, current_month_label
+            mask_inline_birth_spans(piece, today), today, birth_year, current_month_label,
+            # 조각에 '로또'가 없어도 메시지 전체가 로또 질문이면 주는 회차(일~토) 틀이다.
+            sunday_week or bool(re.search(r"로또", text)),
         )
         if piece_time is None:
             piece_time, piece_scope = time_range, time_scope

@@ -13,7 +13,7 @@
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, timedelta
 
 from saju_shared_types.conversation import (
     ConversationState,
@@ -60,6 +60,7 @@ from .query_parser import (
     parse_message,
     strip_parenthetical,
 )
+from .time_parser import reframe_week, week_frame_start_weekday
 from .user_facts import extract_user_facts, merge_user_facts
 
 # 대상 정정(A10) — subject 교체 + 동일 intent 재실행.
@@ -324,6 +325,11 @@ class ConversationEngine:
         # 택일 창 안의 최상급 선택 후속 — 직전 택일 질문의 유계 창·사건·유형을 그대로 잇는다.
         # 아래 '언제' 시점-탐색 미승계 가드보다 먼저 판정해 창이 10년으로 열리지 않게 한다.
         best_pick_inherited = self._inherit_best_pick(parsed, prev, link, text)
+
+        # 주 틀 정정 후속('한주를 일요일부터 토요일까지로 잡고 확인해줘') — 직전 주 단위 창을
+        # 새 요일 경계로 다시 잡는다. 파서는 오늘이 속한 주를 돌려주므로, 직전 창이 다른 주
+        # (예: '다음 주')였다면 여기서 직전 창 기준으로 재조준한다.
+        self._reframe_prev_week(parsed, prev, text, today)
 
         # 슬롯 상속 보강: 파서가 직접 상속 못 한 경우(참조어형) 도메인/대상 병합.
         explicit_domains = bool(_detect_domains(text))
@@ -759,6 +765,28 @@ class ConversationEngine:
         if is_challenge(text):
             return self._follow(parent_id, LinkKind.CHALLENGE, state)
 
+        # 주 틀 정정('일요일부터 토요일까지로 잡고 확인해줘') — 직전 시점 질문의 주 경계만 바꾸는
+        # 후속이다. 새 도메인이 없을 때만(2026-10-04 실로그: 로또 택일 뒤 주 정의 정정).
+        if (
+            week_frame_start_weekday(text) is not None
+            and state.last_intent.time_range is not None
+            and not _detect_domains(text)
+        ):
+            return self._follow(parent_id, LinkKind.TIME_SHIFT, state)
+
+        # 택일 창 안의 최상급 선택('가장 좋은 날은 언제야?') — '그럼' 같은 참조어가 없어도 직전
+        # 택일 답의 후보 중 하나를 고르는 후속이다(2026-10-04: 참조어 없으면 NEW 로 끊겨 주제·
+        # 기간을 모두 잃던 공백). 창·사건 승계는 process_turn 의 _inherit_best_pick 이 맡는다.
+        _last_tr = state.last_intent.time_range
+        if (
+            state.last_intent.query_type is QueryType.DATE_RECOMMENDATION
+            and _last_tr is not None and _last_tr.start and _last_tr.end
+            and _BEST_PICK_RE.search(text)
+            and not _detect_domains(text)
+            and not _READING_REQUEST_RE.search(text)
+        ):
+            return self._follow(parent_id, LinkKind.TIME_SHIFT, state)
+
         # 0순위 — 직전 턴이 방향 질문이고 이번 발화가 특정 방향을 지목('남쪽은 어때?')하면 같은
         # 목적의 방향 판정 후속이다(docs/19 §6-7). 새 목적·도메인 어휘가 있으면 아래 일반 규칙으로.
         if (
@@ -788,7 +816,10 @@ class ConversationEngine:
         compact = text.replace(" ", "")
         if len(compact) <= 10:
             if re.search(
-                r"\d{1,2}월|오늘|내일|모레|글피|올해|내년|이번\s*주"
+                r"\d{1,2}월|오늘|내일|모레|글피|올해|내년|이번\s*주|다음\s*주|금주"
+                # 달·요일 단답('이번달은?'·'토요일은 어때?') — 직전 질문의 시점만 바꾸는 후속
+                # (2026-10-04: 로또 택일 뒤 일반 운세로 끊기던 공백).
+                r"|이번\s*달|다음\s*달|이달|내달|[월화수목금토일]요일"
                 r"|[년연월주일]\s*단위"  # '년단위였어' — 직전 질문의 기간 단위 정정(2026-06-12)
                 # 상대 창 단답('12개월 내에는 없어?'·'6개월 안에는?') — 직전 의도에 창만
                 # 교체하는 시점 후속(2026-07-21 데굴님 실로그: NEW→too_broad로 끊기던 결함).
@@ -901,6 +932,55 @@ class ConversationEngine:
 
         # 4순위 — 새로운 도메인+완결 질문 → 새 스레드 문맥.
         return LinkResult(is_follow_up=False, link_kind=LinkKind.NEW)
+
+    @staticmethod
+    def _reframe_prev_week(
+        parsed: ParsedMessage, prev: IntentJson | None, text: str, today: date,
+    ) -> bool:
+        """주 틀 정정 후속이면 직전 7일 창을 새 시작 요일 기준 주로 다시 잡는다.
+
+        조건: 후속(prev 존재) + 발화가 7일을 꽉 채우는 요일 범위('일요일부터 토요일까지') +
+        발화에 자체 주 지정어('이번 주'·'다음 주')가 없음 + 직전 창이 일 단위 7일 창.
+        새 창 = 직전 주 호칭(week_label '이번 주'·'다음 주')을 새 시작 요일 기준으로 다시 센 주.
+        호칭이 없으면 직전 창 시작일이 속한 주. 호칭은 그대로 유지한다.
+
+        Returns:
+            재조준했으면 True.
+        """
+        start_wd = week_frame_start_weekday(text)
+        if start_wd is None or prev is None or prev.time_range is None:
+            return False
+        if re.search(r"이번\s*주|다음\s*주|금주", text):
+            return False
+        ptr = prev.time_range
+        if ptr.granularity is not Granularity.DAY or not (ptr.start and ptr.end):
+            return False
+        try:
+            p_start, p_end = date.fromisoformat(ptr.start), date.fromisoformat(ptr.end)
+        except ValueError:
+            return False
+        if (p_end - p_start).days != 6:
+            return False
+        label_offset = {"이번 주": 0, "다음 주": 7, "다다음 주": 14}.get(ptr.week_label or "")
+        if label_offset is not None:
+            anchor = today + timedelta(days=label_offset)
+        else:
+            anchor = p_start
+        new_start, new_end = reframe_week(anchor, start_wd)
+        week_label = ptr.week_label
+        if new_end <= today < p_end:
+            # 호칭 기준 주가 이미 다 지났는데 직전 창에는 남은 날이 있었다(일요일에 '이번 주'를
+            # 월~일로 되돌리는 경우) — 직전 창과 가장 많이 겹치는 주로 잡고 호칭은 비운다.
+            new_start, new_end = new_start + timedelta(days=7), new_end + timedelta(days=7)
+            week_label = None
+        for intent in parsed.intents:
+            if intent.time_range is None:
+                continue
+            intent.time_range = intent.time_range.model_copy(update={
+                "start": new_start.isoformat(), "end": new_end.isoformat(),
+                "week_label": week_label,
+            })
+        return True
 
     @staticmethod
     def _inherit_best_pick(
