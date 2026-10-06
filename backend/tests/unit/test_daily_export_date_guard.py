@@ -102,14 +102,14 @@ def _at(hh: int, mm: int = 0) -> dt.datetime:
     return dt.datetime(2026, 8, 1, hh, mm, tzinfo=_KST)
 
 
-@pytest.mark.parametrize("hour", [0, 9, 20])
+@pytest.mark.parametrize("hour", [0, 9, THREADS_PUBLISH_HOUR - 1])
 def test_before_the_publish_hour_the_reference_is_today(hour: int) -> None:
     assert threads_publish_date(_at(hour, 59)) == _TODAY
 
 
-@pytest.mark.parametrize("hour", [21, 22, 23])
+@pytest.mark.parametrize("hour", [THREADS_PUBLISH_HOUR, 22, 23])
 def test_from_the_publish_hour_the_reference_is_tomorrow(hour: int) -> None:
-    """21시부터 파일은 **내일** 것을 담는다 — 이번 요구의 본체."""
+    """게시 시각(20시, 2026-10-06 21→20)부터 파일은 **내일** 것을 담는다 — 이번 요구의 본체."""
     assert threads_publish_date(_at(hour)) == _TODAY + dt.timedelta(days=1)
 
 
@@ -127,7 +127,7 @@ def test_tomorrow_board_is_written_after_the_publish_hour(
 ) -> None:
     """21시 이후에는 익일 보드가 통과한다 — 전일 저녁 게시가 성립하는 조건."""
     out = tmp_path / "오늘의운세.txt"
-    ref = threads_publish_date(_at(21))
+    ref = threads_publish_date(_at(THREADS_PUBLISH_HOUR))
     assert write_threads_export(tomorrow_board, out, publish_date=ref) is True
     assert "2026-08-02" in out.read_text(encoding="utf-8")
 

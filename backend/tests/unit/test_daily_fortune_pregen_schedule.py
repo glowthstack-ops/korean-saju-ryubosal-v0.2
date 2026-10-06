@@ -46,9 +46,9 @@ def test_recheck_export_is_on_the_target_day(now: datetime) -> None:
 
 
 def test_generation_is_at_the_publish_hour_of_the_previous_day() -> None:
-    """생성 = 전날 21:00. 이 시각부터 스레드 게시 기준일이 대상 날짜로 넘어간다."""
+    """생성 = 전날 게시 시각(20:00, 2026-10-06 21→20) — 이때부터 게시 기준일이 대상 날짜다."""
     run_at, target, _export_at = daily_fortune_pregen_schedule(_at(2026, 8, 1, 9, 0))
-    assert (run_at.hour, run_at.minute) == (21, 0)
+    assert (run_at.hour, run_at.minute) == (THREADS_PUBLISH_HOUR, 0)
     assert run_at.date() == date(2026, 8, 1)
     assert target == date(2026, 8, 2)
 
@@ -81,7 +81,7 @@ def test_recheck_export_still_targets_the_same_board() -> None:
 def test_after_the_generation_hour_the_schedule_rolls_forward() -> None:
     """21:00 을 지난 시각에 루프가 돌면 다음 날 주기를 잡는다 — 같은 날을 두 번 만들지 않는다."""
     run_at, target, export_at = daily_fortune_pregen_schedule(_at(2026, 8, 1, 23, 55))
-    assert run_at == _at(2026, 8, 2, 21, 0)
+    assert run_at == _at(2026, 8, 2, THREADS_PUBLISH_HOUR, 0)
     assert target == date(2026, 8, 3)
     assert export_at == _at(2026, 8, 3, 0, 5)
 
