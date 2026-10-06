@@ -45,9 +45,12 @@ _EVENT_KEYS = ("relocation", "career_change", "job_gain")
 #: 출생정보는 tests/fixtures/life_event_cases.jsonl 템플릿 행의 기준 명식과 동일.
 _EXTRA_CASES: list[dict[str, Any]] = [
     {
+        # 출생지 좌표 명시 — '서울 구로구'는 seed 지명이 아니라 좌표 없이는 계산이 ValueError 로
+        # 실패한다(2026-10-06 1차 대조에서 이 행이 조용히 건너뛰어졌던 원인).
         "birth": {
             "calendar_type": "solar", "birth_date": "1980-11-22", "birth_time": "09:40",
             "birth_place_name": "서울 구로구", "gender": "male",
+            "latitude": 37.4944, "longitude": 126.8563, "timezone": "Asia/Seoul",
         },
         "event_key": "relocation", "period": "2025-08", "outcome": "confirmed",
         "source": "cases.jsonl regression_2025_08_move_not_job",
