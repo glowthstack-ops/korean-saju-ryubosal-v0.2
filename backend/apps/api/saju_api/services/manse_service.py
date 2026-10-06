@@ -52,9 +52,17 @@ from saju_shared_types.constants import (
 from saju_shared_types.enums import Branch, Stem, YinYang
 from saju_shared_types.event_taxonomy_v2 import EVENT_CATEGORY
 from saju_shared_types.events import Confidence
-from saju_shared_types.hour_unknown import ConsensusItem, HourCandidate, HourUnknownAnalysis
+from saju_shared_types.hour_unknown import (
+    APPROX_BAND_BRANCHES,
+    HOUR_BRANCHES,
+    ConsensusItem,
+    HourCandidate,
+    HourUnknownAnalysis,
+    PillarVariant,
+)
 from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import EngineMetadata, ManseV2Result
+from saju_shared_types.pillars import FourPillarsResult
 from saju_shared_types.time_correction import SolarTermBasis, TimeCorrectionResult
 from saju_shared_types.yongsin import YongsinCandidateModel
 
@@ -582,10 +590,20 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
 
     chart_analysis = analyze_chart(pillars)
 
+    # 출생시간 미상 — 12시진(또는 시간대/추정 시진) 후보 비교. 운 계산 **앞**에서 돌려 용희신이
+    # 후보 간 갈리면 운 극성(용신운/기신운)도 중립으로 둔다(2026-10-06 데굴님 원칙: 불완전 정보는
+    # 확정이 아니다). 후보 계산은 캐시를 타 1회 비용(약 3초)만 든다.
+    hour_unknown_analysis: HourUnknownAnalysis | None = None
+    if not norm.time_known:
+        hour_unknown_analysis = _hour_unknown_analysis(birth, pillars, chart_analysis)
+
     direction = _daewoon_direction(birth, year_stem)
     luck_cycles = None
     if direction is not None:
         useful_elements, unfavorable_elements = _luck_role_sets(chart_analysis.yongsin)
+        if (hour_unknown_analysis is not None
+                and hour_unknown_analysis.is_unconfirmed("useful_gods")):
+            useful_elements, unfavorable_elements = set(), set()  # 운 카드 극성 중립(평운)
         luck_cycles = compute_luck_cycles(
             pillars=pillars,
             absolute_instant=term_basis_instant,
@@ -611,6 +629,7 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
         luck_cycles=luck_cycles,
         calibration=None,
         traditional_extras=chart_analysis.traditional,
+        hour_unknown=hour_unknown_analysis,
         metadata=metadata,
         trace={
             "absolute_instant_utc": absolute_instant.astimezone(UTC).isoformat(),
@@ -625,11 +644,6 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
             "boundary_diagnostics": boundary_trace,
         },
     )
-
-    # 출생시간 미상 — 12시진 후보 비교(일치/상이·대운수 범위·경계 경고). 3기둥 결과를 확정값으로
-    # 쓰지 않기 위한 메타(2026-10-06 데굴님 승인). 후보 계산은 캐시를 타 1회 비용(약 3초)만 든다.
-    if not norm.time_known:
-        result.hour_unknown = _hour_unknown_analysis(birth, result)
 
     # 삼재 quality(복/평/악·강도·겹삼재) — 세운 카드용, 기존 운 점수 불변(docs/18 §4-2).
     enrich_samjae_quality(result)
@@ -663,13 +677,14 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
     return result
 
 
-_HOUR_BRANCHES = ("子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥")
-_UNCONFIRMED_KO = {"strength_band": "신강약", "geokguk": "격국", "useful_gods": "용희신"}
+_UNCONFIRMED_KO = {
+    "strength_band": "신강약", "geokguk": "격국", "useful_gods": "용희신",
+    "year_pillar": "연주", "month_branch": "월주", "day_master": "일주(일간)",
+}
 
 
-def _useful_gods_key(result: ManseV2Result) -> tuple[str, str]:
+def _useful_gods_key(ya) -> tuple[str, str]:
     """(비교 키 '용土·희火·기木', 용신) — 용신 분석이 없으면 빈 문자열."""
-    ya = result.yongsin_analysis
     if ya is None:
         return "", ""
     f = ya.final or {}
@@ -682,27 +697,47 @@ def _consensus(base: str, values: list[str]) -> ConsensusItem:
     return ConsensusItem(status="agree" if len(uniq) <= 1 else "differ", base=base, values=uniq)
 
 
-def _hour_unknown_analysis(birth: BirthInput, result: ManseV2Result) -> HourUnknownAnalysis:
-    """시간 미상 명식의 12시진 후보 비교 — 미상을 없음으로 처리하지 않기 위한 메타.
+def candidate_hour_branches(birth: BirthInput) -> tuple[list[str], str]:
+    """시간 미상 명식의 후보 시진과 근거 — 추정 시진 > 시간대 > 전체 12시진."""
+    if birth.hour_branch_hint:
+        return [birth.hour_branch_hint], f"hint:{birth.hour_branch_hint}"
+    if birth.birth_time_approx:
+        band = birth.birth_time_approx
+        return list(APPROX_BAND_BRANCHES[band]), f"band:{band}"
+    return list(HOUR_BRANCHES), "all12"
+
+
+def candidate_birth(birth: BirthInput, hour_branch: str) -> BirthInput:
+    """후보 시진의 대표 시각(짝수 정시)으로 바꾼 BirthInput — 시간 '있음'으로 계산한다."""
+    idx = HOUR_BRANCHES.index(hour_branch)
+    return birth.model_copy(update={
+        "birth_time": time(idx * 2, 0), "birth_time_unknown": False,
+        "birth_time_approx": None, "hour_branch_hint": None,
+    })
+
+
+def _hour_unknown_analysis(
+    birth: BirthInput, pillars: FourPillarsResult, chart_analysis,
+) -> HourUnknownAnalysis:
+    """시간 미상 명식의 후보 비교 — 미상을 없음으로 처리하지 않기 위한 메타.
 
     대표 시각은 각 시진의 짝수 정시(00:00 子 … 22:00 亥)다. 23시대(야자시)는 일 경계 규칙에 따라
-    일주가 바뀔 수 있어 대표 시각에서 제외하고, 연·월·일주 변동은 경계 경고로만 알린다.
+    일주가 바뀔 수 있어 대표 시각에서 제외하고, 연·월·일주 변동은 명식 변형(pillar_variants)과
+    경계 경고로 알린다. 후보 집합은 추정 시진(성향 좁히기) > 대략 시간대 > 12시진 전체 순이다.
     """
-    assert result.pillars is not None
-    base_p = result.pillars
-    base_strength = result.force_analysis.strength.band if result.force_analysis else ""
-    base_geok = (result.geokguk.main_structure if result.geokguk else None) or ""
-    base_ug, _ = _useful_gods_key(result)
+    base_strength = chart_analysis.force.strength.band if chart_analysis.force else ""
+    base_geok = (chart_analysis.geokguk.main_structure if chart_analysis.geokguk else None) or ""
+    base_ug, _ = _useful_gods_key(chart_analysis.yongsin)
+    branches, basis = candidate_hour_branches(birth)
     cands: list[HourCandidate] = []
-    for idx, hb in enumerate(_HOUR_BRANCHES):
-        cb = birth.model_copy(update={"birth_time": time(idx * 2, 0), "birth_time_unknown": False})
+    for hb in branches:
         try:
-            r = calculate(cb)
+            r = calculate(candidate_birth(birth, hb))
         except Exception:  # noqa: BLE001 — 후보 1개 실패가 전체 분석을 막지 않도록
             continue
         if r.pillars is None or r.pillars.hour is None:
             continue
-        ug, y = _useful_gods_key(r)
+        ug, y = _useful_gods_key(r.yongsin_analysis)
         cands.append(HourCandidate(
             hour_branch=hb, ganji=r.pillars.hour.ganji,
             strength_band=r.force_analysis.strength.band if r.force_analysis else "",
@@ -720,26 +755,54 @@ def _hour_unknown_analysis(birth: BirthInput, result: ManseV2Result) -> HourUnkn
             ("strength_band", strength), ("geokguk", geok), ("useful_gods", ug_item),
         ) if item.status == "differ"
     ]
+    # 명식 변형(경계 당일) — 연·월·일주 조합별로 후보 시진을 묶는다.
+    groups: dict[tuple[str, str, str], list[str]] = {}
+    for c in cands:
+        groups.setdefault((c.year_ganji, c.month_ganji, c.day_ganji), []).append(c.hour_branch)
+    base_key = (pillars.year.ganji, pillars.month.ganji, pillars.day.ganji)
+    variants = [
+        PillarVariant(year_ganji=k[0], month_ganji=k[1], day_ganji=k[2], hour_branches=v,
+                      is_base=(k == base_key))
+        for k, v in groups.items()
+    ]
+    warnings: list[str] = []
+    if len({k[0] for k in groups}) > 1:
+        unconfirmed.append("year_pillar")
+        warnings.append("입춘 경계: 출생시각에 따라 연주가 달라질 수 있음 — 연주·대운 배열 보류")
+    if len({k[1] for k in groups}) > 1:
+        unconfirmed.append("month_branch")
+        warnings.append("절입 경계: 출생시각에 따라 월주가 달라질 수 있음 — 월령·격국 확정 보류")
+    if len({k[2] for k in groups}) > 1:
+        unconfirmed.append("day_master")
+        warnings.append("일 경계: 출생시각에 따라 일주가 달라질 수 있음 — 일간 확정 보류")
+        # 일간이 갈리면 그 위에 선 판정도 전부 확정 불가.
+        for key in ("strength_band", "geokguk", "useful_gods"):
+            if key not in unconfirmed:
+                unconfirmed.append(key)
     starts = [c.daewoon_start_exact for c in cands if c.daewoon_start_exact is not None]
     rng = (round(min(starts), 2), round(max(starts), 2)) if starts else None
-    warnings: list[str] = []
-    if any(c.year_ganji != base_p.year.ganji for c in cands):
-        warnings.append("입춘 경계: 출생시각에 따라 연주가 달라질 수 있음 — 연주·대운 배열 보류")
-    if any(c.month_ganji != base_p.month.ganji for c in cands):
-        warnings.append("절입 경계: 출생시각에 따라 월주가 달라질 수 있음 — 월령·격국 확정 보류")
-    if any(c.day_ganji != base_p.day.ganji for c in cands):
-        warnings.append("일 경계: 출생시각에 따라 일주가 달라질 수 있음 — 일간 확정 보류")
-    agree_ko = [ko for key, ko in _UNCONFIRMED_KO.items() if key not in unconfirmed]
+    agree_ko = [ko for key, ko in _UNCONFIRMED_KO.items()
+                if key in ("strength_band", "geokguk", "useful_gods") and key not in unconfirmed]
     differ_ko = [_UNCONFIRMED_KO[k] for k in unconfirmed]
+    if basis.startswith("hint:"):
+        scope = f"성향 추정 시진 {birth.hour_branch_hint}(확정 아님)"
+    elif basis.startswith("band:"):
+        scope = f"시간대 '{birth.birth_time_approx}' {len(cands)}후보"
+    else:
+        scope = "12시진 후보"
     notice = (
         "출생시간 미상 — 연·월·일주 3기둥 기준이며 시주·시지 항목은 산출하지 않는다. "
-        f"12시진 후보 비교: 일치 {'·'.join(agree_ko) or '없음'} / "
+        f"{scope} 비교: 일치 {'·'.join(agree_ko) or '없음'} / "
         f"상이 {'·'.join(differ_ko) or '없음'}. 상이 항목은 확정하지 않는다."
     )
+    if len(variants) > 1:
+        notice += f" 경계 당일: 명식 자체가 {len(variants)}갈래(연·월·일주 변형)."
     if rng is not None:
         notice += f" 대운수 {rng[0]}~{rng[1]}세(시각 범위)."
     return HourUnknownAnalysis(
-        candidates=cands, strength_band=strength, geokguk=geok, useful_gods=ug_item,
+        candidates=cands, basis=basis, approx_band=birth.birth_time_approx,
+        hint_branch=birth.hour_branch_hint, pillar_variants=variants,
+        strength_band=strength, geokguk=geok, useful_gods=ug_item,
         unconfirmed=unconfirmed, daewoon_start_range=rng, boundary_warnings=warnings,
         notice=notice,
     )

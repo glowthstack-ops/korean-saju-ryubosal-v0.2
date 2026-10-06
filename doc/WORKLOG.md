@@ -11420,3 +11420,15 @@ SSOT: `doc/v2_2/MOVEMENT_TIMING_SHADOW.md`.
   시주 칸·신살 시주 열·미확정 강약/격국/용신), `ConsensusBadge`, 대운수 범위.
 - **결함 수정**: `yongsin/candidates.py` 재성 투간 감점이 시주 미상이면 연간 판정까지 건너뛰던 괄호 결함.
 - 범위 밖: 엔진 내부 극성 중립화, 대략 시간대 후보 모드, 경계 당일 명식 분기 계산. 테스트 6건.
+
+### 2차(같은 날, 데굴님 지시) — 엔진 극성 중립화·경계 당일 명식 분기·시간대/성향 후보 좁히기
+
+- `favorability_map` 이 용희신 미확정이면 빈 매핑 → 사건 점수·위험·기회·관계·운 카드 전부 극성 중립(확정 용신
+  override 는 예외). 분석을 운 계산 앞으로 옮겨 `compute_luck_cycles` 도 같은 조건에서 평운.
+- `pillar_variants`(연·월·일주 조합) — 2갈래 이상이면 year_pillar/month_branch/day_master 미확정, 일주 분기면
+  신강약·격국·용희신도 전부 미확정. 실측 2024-02-04 입춘 당일 2갈래.
+- `birth_time_approx`·`hour_branch_hint` 입력, 후보 집합 hint>band>all12. `/manse/hour-traits`(사전 natal 문구,
+  즉석 작문 없음)·`/manse/hour-narrow`(일치 수 순위, 단독 1위·2개 이상만 추천). 추정 적용 후에도 시간 미상 모드
+  유지, LLM 헤더 `hour:추정 ○○(성향 기반·확정 아님)`, 강약·격국 '추정 시진 기준(3기둥만으론 …)' 병기, 지시문 6항.
+- 프론트: BirthForm 시간대 선택, `HourNarrowPanel`(문장 섞기·순위·추정 적용/해제·시간대만 적용), 배너에 시간대/
+  추정/명식 분기. 테스트 +5건(`test_hour_unknown_policy.py` 11건).

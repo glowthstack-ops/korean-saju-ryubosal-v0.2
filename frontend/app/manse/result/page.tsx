@@ -16,11 +16,12 @@ import {
   TrueSolarTimeCard,
 } from "@/components/manse/Panels";
 import { HourUnknownBanner } from "@/components/manse/HourUnknown";
+import { HourNarrowPanel } from "@/components/manse/HourNarrowPanel";
 import { PillarBoard } from "@/components/manse/PillarBoard";
 import { calculateManse, todayISO } from "@/lib/api";
 import {
   clearProfile, loadCalibration, loadEotPreference, loadJaHourRulePreference, loadProfile,
-  profileSig, saveCalibration, saveEotPreference, saveJaHourRulePreference,
+  profileSig, saveCalibration, saveEotPreference, saveJaHourRulePreference, saveProfile,
 } from "@/lib/storage";
 import {
   buildTimeOptions, subjectEotPreference, subjectJaHourRule, summaryToProfile,
@@ -34,7 +35,8 @@ import {
 } from "@/lib/subjects";
 import {
   DEFAULT_JA_HOUR_RULE,
-  type CalibrationResult, type JaHourRule, type ManseResult, type Profile, type SubjectSummary,
+  type ApproxBand, type CalibrationResult, type JaHourRule, type ManseResult, type Profile,
+  type SubjectSummary,
 } from "@/lib/types";
 
 // ?subject=<id>(로그인 사주) 우선, 없으면 IndexedDB 1회성 프로필을 로드한다.
@@ -193,6 +195,39 @@ export default function ManseResultPage() {
       .catch((e) => setError(e instanceof Error ? e.message : "계산 실패"));
   };
   const toggleEoT = (value: boolean) => applyTimeOptions(value, jaHourRule);
+
+  // 시주 후보 좁히기 적용(2026-10-06): 대략 시간대·성향 추정 시진을 프로필에 반영하고 재계산한다.
+  // 추정은 확정이 아니다 — birth_time 은 그대로 null(시간 미상 모드 유지). 로그인 사주는 DB 영속.
+  const applyHourNarrowing = (timeApprox: ApproxBand | null, hourHint: string | null) => {
+    if (!profile) return;
+    const next: Profile = { ...profile, timeApprox, hourHint };
+    setProfile(next);
+    if (subjectSummary && subjectId) {
+      const birth = {
+        ...subjectSummary.birth,
+        birth_time_approx: timeApprox,
+        hour_branch_hint: hourHint,
+      };
+      setSubjectSummary({ ...subjectSummary, birth });
+      void updateSubject(subjectId, {
+        kind: subjectSummary.kind,
+        label: subjectSummary.label,
+        birth,
+        gender: subjectSummary.gender,
+        relation_to_user: subjectSummary.relation_to_user,
+        aliases: subjectSummary.aliases,
+        is_minor: subjectSummary.is_minor,
+        subscribed: subjectSummary.subscribed,
+      }).catch(() => {
+        /* 영속 실패해도 화면 재계산은 유지 */
+      });
+    } else {
+      void saveProfile(next);
+    }
+    calculateManse(next, referenceDate, buildTimeOptions(applyEoT, jaHourRule))
+      .then(setResult)
+      .catch((e) => setError(e instanceof Error ? e.message : "계산 실패"));
+  };
   const changeJaHourRule = (value: JaHourRule) => applyTimeOptions(applyEoT, value);
 
   // 검증 제출 시: 화면 반영 + localStorage 저장(reload 후에도 유지).
@@ -235,6 +270,9 @@ export default function ManseResultPage() {
 
       <BirthSummaryBar result={result} />
       <HourUnknownBanner result={result} />
+      {result.pillars.hour === null && (
+        <HourNarrowPanel profile={profile} referenceDate={referenceDate} onApply={applyHourNarrowing} />
+      )}
       <div id="sec-truesolar" className="scroll-mt-4">
         <TrueSolarTimeCard
           result={result}

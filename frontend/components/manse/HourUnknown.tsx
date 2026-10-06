@@ -38,8 +38,19 @@ export function HourUnknownBanner({ result }: { result: ManseResult }) {
       role="status"
       className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
     >
-      <p className="font-medium">출생시간이 없어 연·월·일주(3기둥) 기준으로 계산했어요.</p>
+      <p className="font-medium">
+        출생시간이 없어 연·월·일주(3기둥) 기준으로 계산했어요.
+        {hu?.basis.startsWith("band:") && ` 대략 시간대 '${hu.approx_band}' 후보 ${hu.candidates.length}개로 좁혀 비교했어요.`}
+        {hu?.basis.startsWith("hint:") && ` 성향 문항으로 좁힌 추정 시진 ${hu.hint_branch}시 기준이에요(추정 — 확정 아님).`}
+      </p>
       <ul className="mt-1 space-y-0.5 text-xs text-amber-800">
+        {hu && hu.pillar_variants.length > 1 && (
+          <li className="text-rose-700">
+            <b>명식 분기</b> · 경계 당일이라 출생시각에 따라 명식 자체가 {hu.pillar_variants.length}갈래예요:{" "}
+            {hu.pillar_variants.map((v) => `${v.year_ganji}·${v.month_ganji}·${v.day_ganji}(${v.hour_branches.join("")}시${v.is_base ? ", 현재 표시" : ""})`).join(" / ")}
+            . 현재 표시 명식은 확정이 아니에요.
+          </li>
+        )}
         <li>
           <b>산출 불가</b> · 시주와 시지에 걸리는 십성·지장간·12운성·납음·신살·합충 — 흐린 예시 자리로
           표시했어요(시간을 입력하면 채워집니다).

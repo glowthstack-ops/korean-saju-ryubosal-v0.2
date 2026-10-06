@@ -14,6 +14,26 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 ConsensusStatus = Literal["agree", "differ"]
+ApproxBand = Literal["새벽", "아침", "낮", "저녁", "밤"]
+
+#: 대략 시간대 → 시진(12지지) 후보. KST 생활 시간대 기준(2026-10-06 데굴님 승인 범위):
+#: 새벽 03~07(寅卯) / 아침 07~11(辰巳) / 낮 11~15(午未) / 저녁 15~19(申酉) / 밤 19~03(戌亥子丑).
+APPROX_BAND_BRANCHES: dict[str, tuple[str, ...]] = {
+    "새벽": ("寅", "卯"),
+    "아침": ("辰", "巳"),
+    "낮": ("午", "未"),
+    "저녁": ("申", "酉"),
+    "밤": ("戌", "亥", "子", "丑"),
+}
+HOUR_BRANCHES: tuple[str, ...] = (
+    "子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥",
+)
+#: 시진 → 대표 시각 범위(표시용).
+HOUR_BRANCH_RANGE: dict[str, str] = {
+    "子": "23~01시", "丑": "01~03시", "寅": "03~05시", "卯": "05~07시", "辰": "07~09시",
+    "巳": "09~11시", "午": "11~13시", "未": "13~15시", "申": "15~17시", "酉": "17~19시",
+    "戌": "19~21시", "亥": "21~23시",
+}
 
 
 class HourCandidate(BaseModel):
@@ -29,6 +49,16 @@ class HourCandidate(BaseModel):
     month_ganji: str = ""
     day_ganji: str = ""
     daewoon_start_exact: float | None = None
+
+
+class PillarVariant(BaseModel):
+    """출생시각에 따라 연·월·일주가 달라지는 경우(입춘·절입·일 경계)의 명식 변형 1개."""
+
+    year_ganji: str
+    month_ganji: str
+    day_ganji: str
+    hour_branches: list[str] = Field(default_factory=list)  # 이 변형이 되는 시진들
+    is_base: bool = False  # 정오 기준(현재 표시 중) 명식인가
 
 
 class ConsensusItem(BaseModel):
@@ -47,10 +77,17 @@ class HourUnknownAnalysis(BaseModel):
     """시간 미상 분석 — ManseV2Result.hour_unknown (시간이 있으면 None)."""
 
     candidates: list[HourCandidate] = Field(default_factory=list)
+    #: 후보 집합의 근거: 'all12' | 'band:아침' | 'hint:子'(성향 추정 — 확정 아님)
+    basis: str = "all12"
+    approx_band: str | None = None
+    hint_branch: str | None = None
+    #: 연·월·일주 변형(경계 당일). 1개면 명식 자체는 확정, 2개 이상이면 분기.
+    pillar_variants: list[PillarVariant] = Field(default_factory=list)
     strength_band: ConsensusItem
     geokguk: ConsensusItem
     useful_gods: ConsensusItem
-    #: 확정에서 제외할 항목 키(상이 항목): 'strength_band' | 'geokguk' | 'useful_gods'
+    #: 확정에서 제외할 항목 키(상이 항목): 'strength_band' | 'geokguk' | 'useful_gods' |
+    #: 'year_pillar' | 'month_branch' | 'day_master'(경계 당일 — 명식 자체가 갈림)
     unconfirmed: list[str] = Field(default_factory=list)
     #: 대운수(기운 나이) 후보 범위 — 정오 단일값 대신 표시용.
     daewoon_start_range: tuple[float, float] | None = None

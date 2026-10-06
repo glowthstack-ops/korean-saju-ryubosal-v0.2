@@ -28,6 +28,8 @@ export function profileToBirthDTO(
     birth_date: profile.birthDate,
     birth_time: profile.timeUnknown ? null : profile.birthTime,
     birth_time_unknown: profile.timeUnknown,
+    birth_time_approx: profile.timeUnknown ? (profile.timeApprox ?? null) : null,
+    hour_branch_hint: profile.timeUnknown ? (profile.hourHint ?? null) : null,
     birth_place_name: profile.place.name,
     latitude: profile.place.lat,
     longitude: profile.place.lon,
@@ -86,6 +88,8 @@ export function summaryToProfile(s: SubjectSummary): Profile {
     birthDate: b.birth_date,
     birthTime: trimTime(b.birth_time),
     timeUnknown: b.birth_time_unknown ?? false,
+    timeApprox: b.birth_time_approx ?? null,
+    hourHint: b.hour_branch_hint ?? null,
     place,
   };
 }

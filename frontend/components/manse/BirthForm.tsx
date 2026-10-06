@@ -1,5 +1,6 @@
 "use client";
 
+import { APPROX_BANDS, APPROX_BAND_HOURS, type ApproxBand } from "@/lib/types";
 import { useMemo, useState } from "react";
 import { searchLocations } from "@/lib/locations";
 import type { Profile, SajuLocation } from "@/lib/types";
@@ -32,6 +33,7 @@ export function BirthForm({
   const [birthDate, setBirthDate] = useState(initial?.birthDate ?? "1990-01-01");
   const [birthTime, setBirthTime] = useState(initial?.birthTime ?? "12:00");
   const [timeUnknown, setTimeUnknown] = useState(initial?.timeUnknown ?? false);
+  const [timeApprox, setTimeApprox] = useState<ApproxBand | null>(initial?.timeApprox ?? null);
   const [query, setQuery] = useState(initial?.place.name ?? "서울");
   const [place, setPlace] = useState<SajuLocation | null>(initial?.place ?? null);
 
@@ -50,6 +52,10 @@ export function BirthForm({
             gender, calendarType, isLeapMonth, birthDate,
             birthTime: timeUnknown ? null : birthTime,
             timeUnknown, place: chosen,
+            timeApprox: timeUnknown ? timeApprox : null,
+            // 시간대를 바꾸면 이전 성향 추정 시진은 무효 — 결과 화면에서 다시 좁힌다.
+            hourHint: timeUnknown && timeApprox === (initial?.timeApprox ?? null)
+              ? (initial?.hourHint ?? null) : null,
           },
           submitter?.value || undefined,
         );
@@ -105,6 +111,24 @@ export function BirthForm({
             <input type="checkbox" checked={timeUnknown} onChange={(e) => setTimeUnknown(e.target.checked)} />
             시간 모름
           </label>
+          {timeUnknown && (
+            <div className="mt-1.5 text-xs">
+              <span className="mb-1 block text-gray-600">대략 시간대(알면 선택 — 시주 후보를 좁혀요)</span>
+              <div className="flex flex-wrap gap-1">
+                <button type="button" onClick={() => setTimeApprox(null)}
+                  className={`rounded border px-2 py-0.5 ${timeApprox === null ? "border-gray-800 bg-gray-800 text-white" : "bg-white"}`}>
+                  모름
+                </button>
+                {APPROX_BANDS.map((b) => (
+                  <button type="button" key={b} onClick={() => setTimeApprox(b)}
+                    title={APPROX_BAND_HOURS[b]}
+                    className={`rounded border px-2 py-0.5 ${timeApprox === b ? "border-gray-800 bg-gray-800 text-white" : "bg-white"}`}>
+                    {b} <span className="opacity-70">{APPROX_BAND_HOURS[b]}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </label>
       </div>
 

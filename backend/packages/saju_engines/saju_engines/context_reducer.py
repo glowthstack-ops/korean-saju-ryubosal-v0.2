@@ -1337,10 +1337,34 @@ def build_birth_summary(result: ManseV2Result) -> BirthChartSummary:
     if hour_unknown and hu is not None:
         hour_items = list(hu.unconfirmed)
         hour_note = hu.notice
+        if hu.hint_branch:
+            # 성향 좁히기 추정 시진 — 시주 글자를 확정처럼 넣지 않고 '추정' 라벨만 둔다.
+            hint = next((c for c in hu.candidates if c.hour_branch == hu.hint_branch), None)
+            pillars["hour"] = (
+                f"추정 {hint.ganji}(성향 기반·확정 아님)" if hint
+                else f"추정 {hu.hint_branch}시(확정 아님)"
+            )
+        if len(hu.pillar_variants) > 1:
+            hour_note += " 명식 변형: " + " / ".join(
+                f"{v.year_ganji}·{v.month_ganji}·{v.day_ganji}({''.join(v.hour_branches)}시"
+                + (" — 현재 표시)" if v.is_base else ")")
+                for v in hu.pillar_variants
+            )
         if hu.is_unconfirmed("strength_band"):
             strength = f"미확정(시주 미상 — 후보 {'/'.join(hu.strength_band.values)})"
+        elif hu.hint_branch and hu.candidates:
+            cand = hu.candidates[0]
+            strength = (
+                f"{cand.strength_band}(추정 시진 기준"
+                + (f" — 3기둥만으론 {strength})" if cand.strength_band != strength else ")")
+            )
         if hu.is_unconfirmed("geokguk"):
             geokguk = f"미확정(시주 미상 — 후보 {'/'.join(hu.geokguk.values)})"
+        elif hu.hint_branch and hu.candidates and hu.candidates[0].geokguk:
+            cg = hu.candidates[0].geokguk
+            geokguk = f"{cg}(추정 시진 기준)" if geokguk.startswith(cg) else (
+                f"{cg}(추정 시진 기준 — 3기둥만으론 {geokguk or '미정'})"
+            )
         if hu.is_unconfirmed("useful_gods"):
             fav = {}
     elif hour_unknown:
@@ -2416,8 +2440,10 @@ def serialize_chart_prefix(summary: BirthChartSummary, ci: ChartInterpretation |
     """
     ug = summary.useful_gods
     pillar_txt = " ".join(f"{k}:{v}" for k, v in summary.pillars.items())
-    if summary.hour_unknown:
+    if summary.hour_unknown and "hour" not in summary.pillars:
         pillar_txt += " hour:미상(산출 불가)"
+    if summary.hour_unknown and "day_master" in summary.hour_unknown_items:
+        pillar_txt += " · 일간 미확정(경계 당일 — 시각에 따라 일주가 갈림)"
     ug_unconfirmed = summary.hour_unknown and "useful_gods" in summary.hour_unknown_items
     lines: list[str] = [
         "[원국·명식 구조 — 엔진 확정값"

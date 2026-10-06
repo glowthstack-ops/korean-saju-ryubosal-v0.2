@@ -15,8 +15,17 @@ export interface Profile {
   birthDate: string; // YYYY-MM-DD
   birthTime: string | null; // HH:MM
   timeUnknown: boolean;
+  // 시간 모름 보조(2026-10-06): 대략 시간대·성향 문항으로 좁힌 추정 시진(확정 아님 — 미상 모드 유지)
+  timeApprox?: ApproxBand | null;
+  hourHint?: string | null; // 子~亥
   place: SajuLocation;
 }
+
+export type ApproxBand = "새벽" | "아침" | "낮" | "저녁" | "밤";
+export const APPROX_BANDS: ApproxBand[] = ["새벽", "아침", "낮", "저녁", "밤"];
+export const APPROX_BAND_HOURS: Record<ApproxBand, string> = {
+  새벽: "03~07시", 아침: "07~11시", 낮: "11~15시", 저녁: "15~19시", 밤: "19~03시",
+};
 
 // ── 백엔드 DTO (snake_case, /api/v2 응답·요청과 1:1) ─────────────
 
@@ -27,6 +36,8 @@ export interface BirthInputDTO {
   birth_date: string; // YYYY-MM-DD
   birth_time?: string | null; // HH:MM[:SS]
   birth_time_unknown?: boolean;
+  birth_time_approx?: ApproxBand | null;
+  hour_branch_hint?: string | null;
   birth_place_name: string;
   latitude?: number | null;
   longitude?: number | null;
@@ -527,7 +538,19 @@ export interface HourUnknownConsensus {
   values: string[];
 }
 
+export interface HourPillarVariant {
+  year_ganji: string;
+  month_ganji: string;
+  day_ganji: string;
+  hour_branches: string[];
+  is_base: boolean;
+}
+
 export interface HourUnknownAnalysis {
+  basis: string; // 'all12' | 'band:아침' | 'hint:子'
+  approx_band: string | null;
+  hint_branch: string | null;
+  pillar_variants: HourPillarVariant[];
   candidates: Array<{
     hour_branch: string;
     ganji: string;
@@ -544,6 +567,36 @@ export interface HourUnknownAnalysis {
   daewoon_start_range: [number, number] | null;
   boundary_warnings: string[];
   notice: string;
+}
+
+// 시주 후보 성향 문항(POST /manse/hour-traits) · 좁히기(POST /manse/hour-narrow) — 2026-10-06
+export interface HourTraitStatement {
+  id: string;
+  source: "stem" | "branch" | "stage";
+  label: string;
+  text: string;
+}
+export interface HourTraitCandidate {
+  hour_branch: string;
+  ganji: string;
+  time_range: string;
+  stem_ten_god: string;
+  branch_ten_god: string;
+  twelve_stage: string;
+  statements: HourTraitStatement[];
+}
+export interface HourTraitsResponse {
+  basis: string;
+  candidates: HourTraitCandidate[];
+  note: string;
+}
+export interface HourNarrowResponse {
+  ranking: Array<{
+    hour_branch: string; ganji: string; time_range: string; matched: number; total: number; share: number;
+  }>;
+  recommended: string | null;
+  confidence: "none" | "low" | "medium";
+  note: string;
 }
 
 export interface ManseResult {

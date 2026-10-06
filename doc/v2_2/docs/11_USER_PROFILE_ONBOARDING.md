@@ -50,7 +50,7 @@ interface BasicProfile {
 
 규칙 (전체):
 - `birthPlace`는 진태양시 보정과 야자시/조자시 처리의 입력이다. 기존 만세력 엔진의 보정 방식을 그대로 사용하며 재구현 금지.
-- `birthTimeUnknown=true`: 시주 제외 3주 분석 + 모든 출력에 정밀도 한계 1회 고지. `birthTimeApprox` 제공 시 해당 시간대의 시주 후보를 병기하되 단일 확정 금지.
+- `birthTimeUnknown=true`: 시주 제외 3주 분석 + 모든 출력에 정밀도 한계 1회 고지. `birthTimeApprox` 제공 시 해당 시간대의 시주 후보를 병기하되 단일 확정 금지. (구현 2026-10-06: 시간대 → 시진 매핑·성향 문항 좁히기·추정 시진 `hourBranchHint` 는 `doc/v2_2/HOUR_UNKNOWN_POLICY.md` §8)
 - 해외 출생(country≠KR): 현지 시각 기준 입력 + 시스템이 시차·경도 보정. 미지원 지역이면 보정 불가 고지 후 표준시 계산.
 - 수정 시: 해당 subject의 T0~T2 사전계산 전체 무효화 (docs/09).
 - 동반자 등록도 동일 스키마를 사용한다 (docs/02 E14 Companion.birth와 통합). 동반자 역시 `multipleBirth` 입력 가능.

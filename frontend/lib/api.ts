@@ -6,6 +6,8 @@ import type {
   ChatMessageDTO,
   ChatPartner,
   ChatThreadSummary,
+  HourNarrowResponse,
+  HourTraitsResponse,
   LlmServiceStatus,
   LuckPillar,
   ManseResult,
@@ -29,6 +31,8 @@ function profileToBirthInput(
     birth_date: profile.birthDate,
     birth_time: profile.timeUnknown ? null : profile.birthTime,
     birth_time_unknown: profile.timeUnknown,
+    birth_time_approx: profile.timeUnknown ? (profile.timeApprox ?? null) : null,
+    hour_branch_hint: profile.timeUnknown ? (profile.hourHint ?? null) : null,
     birth_place_name: profile.place.name,
     latitude: profile.place.lat,
     longitude: profile.place.lon,
@@ -205,6 +209,21 @@ export async function postChat(
 }
 
 // ── 대화 저장/열람/삭제 (로그인 전용) ──────────────────────────
+// 시주 후보 성향 문항·좁히기(2026-10-06) — 결과는 추정이며 확정이 아니다.
+export function getHourTraits(profile: Profile, referenceDate: string): Promise<HourTraitsResponse> {
+  return postJSON<HourTraitsResponse>("/api/v2/manse/hour-traits", {
+    birth: profileToBirthInput(profile, referenceDate),
+  });
+}
+
+export function postHourNarrow(
+  profile: Profile, referenceDate: string, picked: string[],
+): Promise<HourNarrowResponse> {
+  return postJSON<HourNarrowResponse>("/api/v2/manse/hour-narrow", {
+    birth: profileToBirthInput(profile, referenceDate), picked,
+  });
+}
+
 // LLM 서비스 상태(일시 중단 배너용). 실패하면 active 로 본다 — 상태 조회가 화면을 막지 않도록.
 export async function getLlmServiceStatus(): Promise<LlmServiceStatus> {
   try {

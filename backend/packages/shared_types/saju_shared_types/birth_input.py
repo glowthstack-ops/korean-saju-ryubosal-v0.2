@@ -27,6 +27,12 @@ class BirthInput(BaseModel):
     birth_date: date
     birth_time: time | None = None
     birth_time_unknown: bool = False
+    # 시간 모름 보조 정보(2026-10-06, docs/11 birthTimeApprox): 대략 시간대로 시주 후보를 좁힌다.
+    # 성향 문항으로 좁힌 추정 시진(hour_branch_hint)은 '추정'이며 확정이 아니다 — 미상 모드 유지.
+    birth_time_approx: Literal["새벽", "아침", "낮", "저녁", "밤"] | None = None
+    hour_branch_hint: Literal[
+        "子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥",
+    ] | None = None
 
     birth_place_name: str
     country_code: str | None = None
