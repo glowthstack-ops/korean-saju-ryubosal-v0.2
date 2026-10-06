@@ -19,6 +19,9 @@ CATALOG_META: dict[str, dict] = {
     "장성살": {"category": "wealth_status", "polarity": "positive", "tags": ["권위", "리더십"]},
     "반안살": {"category": "wealth_status", "polarity": "positive", "tags": ["안정", "출세"]},
     "역마살": {"category": "movement_change", "polarity": "neutral", "tags": ["이동", "변동"]},
+    # 寅申巳亥 보유 표지(글자) — 역마 성립·활성화와 분리된 '보유값'(2026-10-06 정의 통일).
+    # 보유만으로 이동을 뜻하지 않으며 sinsal_modifier·위험 보조 증폭 파생 대상에서 제외한다.
+    "이동지": {"category": "movement_change", "polarity": "neutral", "tags": ["사생지(글자)"]},
     "육해살": {"category": "health_risk", "polarity": "caution", "tags": ["지체", "질병"]},
     "화개살": {"category": "spiritual_intuition", "polarity": "neutral", "tags": ["예술", "고독"]},
     "겁살": {"category": "isolation_conflict", "polarity": "caution", "tags": ["손실", "강탈"]},
@@ -106,9 +109,10 @@ for _members, _gen in [
     for _b in _members:
         TRINE_SAENGJI[_b] = _gen
 
-# 역마·도화·화개 — 지지 글자(글자살) 기준. 사생지=역마 / 사정지=도화 / 사고지=화개.
-# (위치별 12신살 전체는 펼치지 않고 이 셋만 글자로 본다.)
-SASAENG: frozenset[B] = frozenset({B.IN, B.SIN, B.SA, B.HAE})   # 寅申巳亥 역마
+# 도화·화개 — 지지 글자(글자살) 기준. 사정지=도화 / 사고지=화개.
+# 역마는 2026-10-06 정의 통일로 글자살이 아니라 연지·일지 삼합국 기준 상대 12신살로 산출하며,
+# 사생지 보유는 '이동지' 표지로만 남긴다(structure_patterns.json yeokma_rule 과 동일 원칙).
+SASAENG: frozenset[B] = frozenset({B.IN, B.SIN, B.SA, B.HAE})   # 寅申巳亥 — 이동지(보유 표지)
 SAJEONG: frozenset[B] = frozenset({B.JA, B.O, B.MYO, B.YU})      # 子午卯酉 도화
 SAGO: frozenset[B] = frozenset({B.JIN, B.SUL, B.CHUK, B.MI})     # 辰戌丑未 화개
 

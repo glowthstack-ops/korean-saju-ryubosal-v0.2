@@ -42,6 +42,7 @@ MAINTAINED=(
     scripts/audit_event_layer_ablation.py
     # 재현 기준선 — 설계 변경 전후를 같은 모집단으로 재측정한다
     scripts/audit_amhap_saturation.py
+    scripts/backtest_movement_timing.py
     scripts/audit_wealth_taxonomy_separability.py
     scripts/shadow_daewoon_hwa_post_selection.py
     # 임계값 판정 기준선 — ROLE_CLOSE_MARGIN 을 조정할 때마다 같은 모집단으로 재측정한다

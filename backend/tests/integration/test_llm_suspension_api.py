@@ -60,6 +60,11 @@ def _memory_state(monkeypatch: pytest.MonkeyPatch):
     llm_service_state.use_memory_backend()
 
 
+def _probe(role: str, provider: str, ok: bool, kind: str | None = None) -> dict:
+    return {"role": role, "provider": provider, "model": provider[0], "ok": ok,
+            "kind": kind, "detail": "d" if not ok else ""}
+
+
 def _register(prefix: str) -> tuple[str, dict[str, str]]:
     login_id = f"{prefix}{uuid.uuid4().hex[:10]}"
     token = _request(
@@ -152,7 +157,7 @@ def test_admin_state_resume_and_suspend_endpoints(monkeypatch: pytest.MonkeyPatc
 
     # 프로브 전부 실패 → 409, 상태 유지.
     monkeypatch.setattr(llm_client, "probe_all", lambda: [
-        {"role": "primary", "provider": "gemini", "model": "g", "ok": False, "kind": "quota", "detail": "d"},
+        _probe("primary", "gemini", False, "quota"),
     ])
     r = _request("POST", "/api/v2/admin/llm/resume", headers=auth)
     assert r.status_code == 409 and r.json()["detail"]["probes"][0]["kind"] == "quota"
@@ -160,7 +165,7 @@ def test_admin_state_resume_and_suspend_endpoints(monkeypatch: pytest.MonkeyPatc
 
     # 프로브 통과 → 200 재개, 응답에 클레임 레코드 원본은 포함하지 않는다.
     monkeypatch.setattr(llm_client, "probe_all", lambda: [
-        {"role": "primary", "provider": "gemini", "model": "g", "ok": True, "kind": None, "detail": ""},
+        _probe("primary", "gemini", True),
     ])
     r = _request("POST", "/api/v2/admin/llm/resume", headers=auth)
     assert r.status_code == 200, r.text

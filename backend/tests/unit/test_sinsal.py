@@ -34,20 +34,23 @@ def test_known_sinsal_anchor() -> None:
     assert any(it.position == "year" for it in cheoneul)
     # 대상 지지는 원국 성립 여부와 무관하게 항상 응답에 포함(프론트 표 중복 제거용).
     assert s.cheoneul_targets == ["子", "申"]
-    # 역마살은 사생지(寅申巳亥) 글자 기준 — 申·亥 위치에 표시.
-    yeokma = [it for it in s.full_list if it.name == "역마살"]
-    assert {it.position for it in yeokma} >= {"month", "day"}
+    # 寅申巳亥 보유는 '이동지' 표지 — 申(년)·亥(월·일) 위치에 표시(역마 성립과 별개).
+    marker = [it for it in s.full_list if it.name == "이동지"]
+    assert {it.position for it in marker} >= {"year", "month", "day"}
+    # 역마살은 연지·일지 삼합국 기준 상대 12신살 — 연지 申(申子辰국)·일지 亥(亥卯未국)의 역마는
+    # 각각 寅·巳라 이 명식(申亥亥…)에는 성립하지 않는다(글자살이면 세 자리에 떴을 것).
+    assert not any(it.name == "역마살" for it in s.full_list)
     # 위치별 12신살(겁살·망신·지살 등)은 펼치지 않는다.
     assert not any(it.name in ("망신살", "지살", "겁살") for it in s.full_list)
 
 
 def test_repeated_sinsal_intensity_increases() -> None:
-    # 亥亥 → 역마살(글자살) 반복 → repeated=True, 강도 상승.
+    # 申·亥·亥 → '이동지' 표지 반복 → repeated=True, 강도 상승(표지도 집계 규칙은 공유).
     _r, s = _sinsal()
-    yeokma = [it for it in s.full_list if it.name == "역마살"]
-    assert all(it.repeated for it in yeokma)
-    assert any(it.intensity in ("high", "very_high") for it in yeokma)
-    assert "역마살" in s.summary.repeated
+    marker = [it for it in s.full_list if it.name == "이동지"]
+    assert all(it.repeated for it in marker)
+    assert any(it.intensity in ("high", "very_high") for it in marker)
+    assert "이동지" in s.summary.repeated
 
 
 def test_hour_unknown_suppresses_hour_sinsal() -> None:
@@ -66,12 +69,32 @@ def test_added_standard_sinsal() -> None:
     assert "천문성" in names    # 일지 亥
 
 
-def test_yeokma_is_branch_glyph_based() -> None:
-    # 09:40(申亥亥巳: 모두 사생지) → 역마살이 네 자리 모두에, 위치별 12신살은 없음.
+def test_yeokma_is_relative_not_glyph_based() -> None:
+    # 09:40(申亥亥巳: 모두 사생지) → '이동지' 표지는 네 자리 모두, 역마살은 상대 기준으로만.
+    # 일지 亥(亥卯未국)의 역마 = 巳 → 시지 巳에 역마살 1건(근거에 기준 지지 명시).
     _r, s = _sinsal(birth_time="09:40")
-    yeokma = {it.position for it in s.full_list if it.name == "역마살"}
-    assert yeokma >= {"year", "month", "day", "hour"}
+    marker = {it.position for it in s.full_list if it.name == "이동지"}
+    assert marker >= {"year", "month", "day", "hour"}
+    yeokma = [it for it in s.full_list if it.name == "역마살"]
+    assert [it.position for it in yeokma] == ["hour"]
+    assert "일지 亥 기준 역마" in yeokma[0].basis and "亥卯未" in yeokma[0].basis
     assert not any(it.name in ("망신살", "지살", "겁살") for it in s.full_list)
+
+
+def test_luck_yeokma_is_relative() -> None:
+    # 운 지지도 같은 원칙: 寅 운은 연지 申(申子辰국) 기준 역마 → 역마살+이동지, 巳 운은 일지 亥
+    # 기준 역마, 卯 운은 사생지가 아니라 둘 다 아님.
+    from saju_manse_analysis.sinsal.sinsal_aggregator import sinsal_for_luck
+
+    from saju_shared_types.enums import Branch as B
+    from saju_shared_types.enums import Stem as S
+
+    r, _s = _sinsal()
+    assert r.pillars is not None
+    names_in = {x.name for x in sinsal_for_luck(r.pillars, S.GAP, B.IN)}
+    names_myo = {x.name for x in sinsal_for_luck(r.pillars, S.EUL, B.MYO)}
+    assert {"역마살", "이동지"} <= names_in
+    assert not {"역마살", "이동지"} & names_myo
 
 
 def test_added_sinsal_tables_lookup() -> None:

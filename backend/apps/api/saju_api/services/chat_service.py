@@ -92,6 +92,7 @@ from saju_engines.month_coverage_audit import (
     build_coverage_notes,
     patch_month_coverage,
 )
+from saju_engines.movement_timing_shadow import detect_movement_timing_shadow
 from saju_engines.output_wealth_term import fix_wealth_generation_term
 from saju_engines.period_role_summary import build_period_role_summary
 from saju_engines.period_safe_template import build_safe_period_answer
@@ -2828,8 +2829,9 @@ _ACCIDENT_RISK_DIRECTIVE = (
     "이 질문의 주제는 '사고 위험'이다. 재물·직업 등 다른 주제로 흩어지지 말고, 아래 축 중 "
     "**제공된 후보·근거(충·형·기신 시기, 위험 신호 블록)에 실제로 존재하는 축만** 골라 "
     "'주의가 필요한 시기와 장면'으로 풀어라. 근거에 없는 축은 언급하지 않는다.\n"
-    "①이동·교통 축: 역마성 지지(寅申巳亥)가 충·형(특히 寅巳申)으로 흔들리는 시기는 이동 중 "
-    "돌발·차량·낙상 같은 횡액성 주의 시기다. 방어운전·일정 여유·무리한 이동 자제처럼 실행 "
+    "①이동·교통 축: 역마(연지·일지 삼합국 기준)가 충·형으로 흔들리는 시기나 寅巳申 삼형이 "
+    "성립하는 시기는 이동 중 돌발·차량·낙상 같은 횡액성 주의 시기다(寅申巳亥 글자 보유만으로는 "
+    "역마로 보지 않는다). 방어운전·일정 여유·무리한 이동 자제처럼 실행 "
     "가능한 대비로 연결하라.\n"
     "②문서·계약 사고 축: 인성(문서·도장·보증)이 기신운·재성운에 충극당하는 시기는 계약서·"
     "보증·도장·명의 관련 실수나 사기 주의 시기다. 원국에 인성이 과다한데 인성운이 겹치면 "
@@ -6003,6 +6005,27 @@ def chat(
                 _mk.commitment_marker, _mk.formalization_marker,
                 _mk.reasons, len(_mk.unevaluated), thread_id,
             )
+
+    # ── 이동 시기 shadow(계절 묶임·왕지 트리거 — 관측 전용, 2026-10-06 데굴님 승인) ──
+    # 영상 규칙(방합·중첩=계절 묶임, 삼합 왕지 도래=이동 시기)을 별도 가설로 명세해 감지·로그만
+    # 한다. 사용자 서술·LLM 입력·점수에 연결하지 않는다 — 승격은 shadow 지표(기존 이사 후보
+    # 월 일치율·무후보 트리거 비율·이사/이직 동시 상승 비율) 검토 후 별도 승인.
+    if intent.domain in (Domain.RELOCATION, Domain.CAREER) or any(
+        str(c.event_key) in ("relocation", "career_change") for c in candidates
+    ):
+        try:
+            _mv = detect_movement_timing_shadow(result, candidates)
+        except Exception:  # noqa: BLE001 — shadow 실패가 본 응답을 막지 않는다
+            _logger.warning("movement_timing_shadow 계산 실패", exc_info=True)
+        else:
+            if _mv.season_bound.tier != "none" or _mv.royal_triggers:
+                _logger.info(
+                    "movement_timing_shadow season=%s anchor=%s tier=%s evidence=%s flags=%s "
+                    "triggers=%s thread=%s",
+                    _mv.season_bound.season, _mv.season_bound.anchor, _mv.season_bound.tier,
+                    _mv.season_bound.evidence, _mv.season_bound.flags,
+                    [t.compact() for t in _mv.royal_triggers], thread_id,
+                )
 
     # ── CDS-S1 E4 timeline shadow(프롬프트 미노출 — completion UNKNOWN 허용) ──
     # 실행월 엔진 승격이 아니라 'coverage 명시된' shadow 관측: 지원 stage의

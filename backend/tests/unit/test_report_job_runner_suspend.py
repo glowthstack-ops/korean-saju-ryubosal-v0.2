@@ -72,7 +72,9 @@ def test_suspension_mid_report_preserves_passed_sections(monkeypatch: pytest.Mon
     _, (job_id, payload, done) = store.calls[1]
     assert job_id == "job1" and done == 2
     assert [s["section_id"] for s in payload["partial_sections"]] == ["C-01", "C-03"]
-    assert payload["resume"] == {"subject_id": "subj", "today": "2026-06-01", "display_name": "길동"}
+    assert payload["resume"] == {
+        "subject_id": "subj", "today": "2026-06-01", "display_name": "길동",
+    }
 
 
 def test_prior_sections_flow_into_generate_and_collected(monkeypatch: pytest.MonkeyPatch) -> None:

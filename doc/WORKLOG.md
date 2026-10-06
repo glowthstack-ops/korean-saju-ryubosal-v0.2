@@ -11368,3 +11368,39 @@ DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subjec
   대시보드 LLM 카드(상태·공급자·대기 작업·프로브·재개/수동 중단 버튼)·리포트 상세 보류 안내.
 - 테스트 33건(`test_llm_service_suspension` 17·`test_report_builder_resume` 2·`test_daily_polish_suspended` 4·
   `test_report_job_runner_suspend` 5·`integration/test_llm_suspension_api` 5). 미결: 월 예산 상한 경보(범위 밖).
+
+## 2026-10-06 — 역마 정의 통일 + 이동 시기 가설(계절 묶임·왕지 트리거) shadow (데굴님 지시·승인)
+
+배경: 영상 요약("寅申巳亥가 있다고 역마가 작동하는 건 아니다 / 같은 계절 글자가 모이면 묶인다 / 묶인
+생지를 끌어당기는 건 삼합 왕지다")과 현재 구현을 대조한 결과, 역마 정의가 경로마다 달랐고(집계기=글자살,
+구조 패턴·위험·기회·일진=연지·일지 삼합국 상대 신살) 계절 묶임·왕지 트리거 규칙은 코드·사전 어디에도
+없었다. 검토 의견에 따라 "정의 통일 → 별도 가설 명세 → shadow 검증 → 반영" 순서로 ①②까지 진행.
+SSOT: `doc/v2_2/MOVEMENT_TIMING_SHADOW.md`.
+
+- **정의 통일(값 3종 분리)**: `sinsal_aggregator` 역마살 글자살 산출을 제거하고 寅申巳亥 보유는 **'이동지'**
+  표지로, **'역마살'**은 연지·일지 삼합국 기준 상대 12신살(`branch_of_sinsal`)로 원국·운 모두 산출(근거에
+  기준 지지·삼합국 병기, 두 기준이 같은 자리면 1건 병합). `sinsal_modifier_config.BRANCH_MARKER_NAMES` 로
+  이동지는 파생 해석·LLM 노출·재활성 판정에서 제외. `sinsal_text.json` 역마살 fromLuck "실제로 발생" →
+  "가능성이 열리는 시기 — 동반 신호 필요"로 교정·basis 정정, '이동지' 항목 신설(dict 1.2.0). 사고수 지시문
+  "역마성 지지(寅申巳亥)" → "역마(연지·일지 삼합국 기준)… 또는 寅巳申 삼형". 도화·화개 글자살은 범위 밖.
+- **shadow**(`saju_engines/movement_timing_shadow.py`, 관측 전용): 계절 묶임 = 앵커(생지) 필수 + 근거
+  4종(방합 완성·생지 반복·편중≥3·부분+월지) → strong/moderate/none, 보조 플래그(辰戌丑未월 보류·월지
+  계절·앵커 충·대응 왕지 원국 보유 — 성향 서술 금지). 왕지 트리거 = 묶인 계절 앵커의 삼합 왕지 도래(대운·
+  세운·월운, `luck_cycles` 재사용), 고지는 명시적 비트리거, 삼합·반합 중복 플래그, 기존 이사·이직 후보 결합
+  플래그. `chat_service` 에서 이사·커리어 맥락일 때 `movement_timing_shadow` 로그만 남긴다(점수·서술·LLM
+  입력 연결 없음). 승격 지표(후보 일치율·무후보 트리거 비율·동시 상승 비율·삼합 중복·실사례 적중)는 명세에
+  정의, 집계 스크립트는 로그 축적 후.
+- 테스트: `test_movement_timing_shadow.py` 12건, `test_sinsal.py` 정의 통일 반영(상대 역마·운 역마 2건 추가).
+  이전 커밋 테스트 파일의 ruff E501 18건도 함께 정리(커밋 전 lint 재실행 누락 교정).
+
+### 실사례 대조 (같은 날, 데굴님 지시 "긍정적이면 반영")
+
+`scripts/backtest_movement_timing.py`(유지 allowlist 등재): 원장 confirmed/not_happened + 골든 2025-08 이사를
+정답으로 묶임 명식 4건(moderate)·확인 사건 17건 대조. 왕지 연/월 적중 1/17(5.9%) < 우연 15.5%, 고지 3/17,
+2025-08 이사도 미적중. **가설 미지지 → 승격 보류, shadow 로그 전용 유지.** 상세 §5-1(MOVEMENT_TIMING_SHADOW.md).
+
+## 2026-10-06 — 오늘의 운세 스레드 txt 게시 시각 21:00 → 20:00 (데굴님 지시)
+
+`daily_fortune_export.THREADS_PUBLISH_HOUR` 21→20. 선생성 루프(`daily_fortune_pregen_schedule`)·export 날짜
+가드·게시 기준일(`threads_publish_date`)·테스트가 모두 이 상수를 읽으므로 코드 변경은 상수 한 줄이며, 주석·docs/17
+표기만 함께 갱신. 사용자 API 노출 기준일(자정 전환)은 그대로다.

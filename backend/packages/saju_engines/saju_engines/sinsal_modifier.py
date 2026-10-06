@@ -180,6 +180,8 @@ def derive_natal_sinsal_modifiers(
         position = item.position
         if position not in _PILLARS:
             continue
+        if item.name in cfg.BRANCH_MARKER_NAMES:
+            continue  # 보유 표지(이동지)는 활성 판정·LLM 노출로 흐르지 않는다
         polarity = _polarity_of(item.name)
         mode, stage_weight = cfg.LIFE_STAGE_CURVE[position][stage]
         reactivated = _is_reactivated(

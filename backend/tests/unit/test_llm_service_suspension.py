@@ -50,6 +50,11 @@ def _ok(text: str):
     return lambda: (text, 100, 50, 0)
 
 
+def _probe(role: str, provider: str, ok: bool, kind: str | None = None, detail: str = "") -> dict:
+    return {"role": role, "provider": provider, "model": provider[0], "ok": ok,
+            "kind": kind, "detail": detail}
+
+
 def _raise(exc: Exception):
     def _f():
         raise exc
@@ -79,11 +84,15 @@ def test_classify_openai_rate_limit_is_transient() -> None:
 def test_classify_gemini_daily_quota_is_quota_but_per_minute_is_transient() -> None:
     daily = {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED",
                        "message": "You exceeded your current quota",
-                       "details": [{"@type": "type.googleapis.com/google.rpc.QuotaFailure",
-                                    "violations": [{"quotaId": "GenerateRequestsPerDayPerProjectPerModel"}]}]}}
+                       "details": [{
+                           "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+                           "violations": [{"quotaId": "GenerateRequestsPerDayPerProjectPerModel"}],
+                       }]}}
     minute = {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED",
                         "message": "You exceeded your current quota",
-                        "details": [{"violations": [{"quotaId": "GenerateRequestsPerMinutePerProjectPerModel"}]}]}}
+                        "details": [{"violations": [
+                            {"quotaId": "GenerateRequestsPerMinutePerProjectPerModel"},
+                        ]}]}}
     generic = {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED",
                          "message": "You exceeded your current quota"}}
     assert llm_client.classify_provider_error("gemini", 429, daily) == "quota"
@@ -99,11 +108,15 @@ def test_raise_for_provider_maps_quota_and_keeps_http_error() -> None:
     profile = {"model": "gpt-x"}
     with pytest.raises(llm_client.ProviderQuotaExhausted) as ei:
         llm_client._raise_for_provider(
-            "openai", profile, _resp(429, {"error": {"type": "insufficient_quota", "message": "no credit"}}),
+            "openai", profile,
+            _resp(429, {"error": {"type": "insufficient_quota", "message": "no credit"}}),
         )
-    assert ei.value.provider == "openai" and ei.value.model == "gpt-x" and "no credit" in ei.value.detail
+    assert ei.value.provider == "openai" and ei.value.model == "gpt-x"
+    assert "no credit" in ei.value.detail
     with pytest.raises(httpx.HTTPStatusError):
-        llm_client._raise_for_provider("openai", profile, _resp(503, {"error": {"message": "busy"}}))
+        llm_client._raise_for_provider(
+            "openai", profile, _resp(503, {"error": {"message": "busy"}}),
+        )
     llm_client._raise_for_provider("openai", profile, _resp(200, {}))  # 정상은 통과
 
 
@@ -150,7 +163,7 @@ def test_both_quota_suspends_service_and_short_circuits(monkeypatch) -> None:
 
 
 def test_suspend_is_recorded_once_in_error_sink(monkeypatch) -> None:
-    """중단 전이는 system_errors 에 1건(고정 메시지 → fingerprint 안정), 두 번째 전이 시도는 무기록."""
+    """중단 전이는 system_errors 에 1건(고정 메시지 → fingerprint 안정) — 재전이 시도는 무기록."""
     seen: list[dict[str, Any]] = []
     llm_client.set_error_sink(lambda exc, **f: seen.append(f))
     try:
@@ -189,8 +202,8 @@ def _suspend_now(monkeypatch) -> None:
 def test_resume_rejected_when_no_probe_passes(monkeypatch) -> None:
     _suspend_now(monkeypatch)
     monkeypatch.setattr(llm_client, "probe_all", lambda: [
-        {"role": "primary", "provider": "gemini", "model": "g", "ok": False, "kind": "quota", "detail": "d"},
-        {"role": "fallback", "provider": "openai", "model": "o", "ok": False, "kind": "quota", "detail": "d"},
+        _probe("primary", "gemini", False, "quota", "d"),
+        _probe("fallback", "openai", False, "quota", "d"),
     ])
     with pytest.raises(llm_resume_service.ResumeRejected) as ei:
         llm_resume_service.probe_and_resume("admin", None, None)
@@ -202,8 +215,8 @@ def test_resume_rejected_when_no_probe_passes(monkeypatch) -> None:
 def test_resume_with_all_probes_ok_clears_state_and_serves_again(monkeypatch) -> None:
     _suspend_now(monkeypatch)
     monkeypatch.setattr(llm_client, "probe_all", lambda: [
-        {"role": "primary", "provider": "gemini", "model": "g", "ok": True, "kind": None, "detail": ""},
-        {"role": "fallback", "provider": "openai", "model": "o", "ok": True, "kind": None, "detail": ""},
+        _probe("primary", "gemini", True),
+        _probe("fallback", "openai", True),
     ])
     out = llm_resume_service.probe_and_resume("admin", None, None)
     assert out["resumed"] is True and out["was_suspended"] is True and out["still_blocked"] == []
@@ -219,8 +232,8 @@ def test_resume_partial_keeps_failed_provider_in_cooldown(monkeypatch) -> None:
     """일부만 통과 → 재개하되 소진 공급자는 쿨다운(호출 안 함)."""
     _suspend_now(monkeypatch)
     monkeypatch.setattr(llm_client, "probe_all", lambda: [
-        {"role": "primary", "provider": "gemini", "model": "g", "ok": False, "kind": "quota", "detail": "still"},
-        {"role": "fallback", "provider": "openai", "model": "o", "ok": True, "kind": None, "detail": ""},
+        _probe("primary", "gemini", False, "quota", "still"),
+        _probe("fallback", "openai", True),
     ])
     out = llm_resume_service.probe_and_resume("admin", None, None)
     assert out["resumed"] is True and out["still_blocked"] == ["gemini"]
@@ -230,7 +243,7 @@ def test_resume_partial_keeps_failed_provider_in_cooldown(monkeypatch) -> None:
 
 
 def test_resume_when_active_is_noop() -> None:
-    out_probe = [{"role": "primary", "provider": "gemini", "model": "g", "ok": True, "kind": None, "detail": ""}]
+    out_probe = [_probe("primary", "gemini", True)]
     mp = pytest.MonkeyPatch()
     mp.setattr(llm_client, "probe_all", lambda: out_probe)
     try:

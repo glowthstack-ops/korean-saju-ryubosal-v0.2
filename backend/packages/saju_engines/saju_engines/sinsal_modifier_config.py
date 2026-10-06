@@ -99,6 +99,10 @@ LIFE_STAGE_MODE_KO: dict[str, dict[str, str]] = {
 
 # ── §8-3 재활성화 ──
 REACTIVATION_WEIGHT_BOOST = 0.25
+
+#: 보유 표지(글자) — 신살이 아니라 '글자가 있다'는 사실만 담는 항목. 파생 해석(SinsalModifier)·
+#: LLM 노출·재활성 판정 대상에서 제외한다(2026-10-06 역마 정의 통일: 보유≠성립≠활성화).
+BRANCH_MARKER_NAMES: tuple[str, ...] = ("이동지",)
 # relations_to_chart 접두(형충회합/합) — 운이 원국 글자를 건드림 = 재활성화 트리거.
 REACTIVATION_RELATION_PREFIXES: tuple[str, ...] = (
     "충", "육합", "파", "해", "무례지형", "천간합",

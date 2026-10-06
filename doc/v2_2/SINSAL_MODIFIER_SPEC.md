@@ -154,7 +154,7 @@ branch_special_weight  = { month_branch: 1.15, day_branch: 1.20, year_branch: 0.
 | 양인 | 0.12 | 일·월 | 경쟁·긴장·결단 |
 | 겁살/재살 | 0.08~0.12 | intent별 | 손실·관재·압박(재물·계약·법무 결합 시 주의) |
 | 귀문/원진 | 0.12 | 일·월 | 예민·집착·정서 어긋남 |
-| 역마(중립) | activation +0.12 / stability −0.08 | 월·일 | 이동·변동(intent=이직·이사 정렬 시 강) |
+| 역마(중립) | activation +0.12 / stability −0.08 | 월·일 | 이동·변동(intent=이직·이사 정렬 시 강). **역마 성립은 연지·일지 삼합국 기준 상대 12신살**이며 寅申巳亥 보유는 '이동지' 표지로 분리되어 보정 대상이 아니다(2026-10-06, MOVEMENT_TIMING_SHADOW.md §0) |
 | 도화(중립) | exposure +0.12 / 과다 risk +0.08 | 일·월 | 매력·인기·노출(intent=관계/영업 정렬 시 강) |
 
 > 전체 계수표는 `sinsal_modifier_config.py`에 둔다. 위 값은 제안서 채택 **초기 기본값**이며,
