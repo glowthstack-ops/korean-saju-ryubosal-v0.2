@@ -29,7 +29,7 @@ from saju_shared_types.daily_fortune import (
 )
 
 from . import llm_client
-from .daily_fortune_export import write_threads_export
+from .daily_fortune_export import threads_publish_date, write_threads_export
 from .daily_fortune_service import board_ttl_seconds, get_board
 
 logger = logging.getLogger("saju.daily_fortune.polish")
@@ -272,6 +272,12 @@ def polish_board(cache: DailyFortuneCache, d: date) -> dict[str, Any] | None:
                 surface="daily_fortune",
                 ref_id=d.isoformat(),
             )
+        except llm_client.LLMServiceSuspended as exc:
+            # 비용 소진 일시 중단 — FAILED 로 바꾸지 않고 RAW 로 둔다. 'RAW 일 때만 교정'
+            # 멱등 규칙이 그대로 재개 조건이 되어, 관리자 재개 시 게시 기준일 보드만 다시
+            # 교정된다(지난 날짜는 대상이 아니다). 원문 보드는 그대로 제공된다.
+            logger.warning("daily fortune polish 서비스 중단 — RAW 유지 date=%s err=%s", d, exc)
+            return {"accepted": 0, "suspended": True}
         except Exception as exc:  # 공급자 실패 — 원문 유지, FAILED 마킹(자동 재시도 없음)
             logger.warning("daily fortune polish 공급자 실패 date=%s err=%s", d, exc)
             failed = board.model_copy(deep=True)
@@ -295,11 +301,19 @@ _attempted: set[str] = set()
 _attempted_mutex = threading.Lock()
 
 
+def _attempt_key(d: date) -> str:
+    return f"{d.isoformat()}|{active_content_version(d)}|{PROMPT_VERSION}"
+
+
 def maybe_schedule_polish(cache: DailyFortuneCache, d: date) -> bool:
-    """lazy 경로용 — 프로세스당 날짜·버전 1회, 데몬 스레드로 교정 예약."""
-    if not llm_client.is_available():
+    """lazy 경로용 — 프로세스당 날짜·버전 1회, 데몬 스레드로 교정 예약.
+
+    서비스 일시 중단 중에는 예약하지 않고 `_attempted` 에도 넣지 않는다 — 재개 뒤 첫 요청이
+    다시 예약할 수 있어야 한다.
+    """
+    if not llm_client.is_available() or llm_client.is_suspended():
         return False
-    key = f"{d.isoformat()}|{active_content_version(d)}|{PROMPT_VERSION}"
+    key = _attempt_key(d)
     with _attempted_mutex:
         if key in _attempted:
             return False
@@ -311,7 +325,29 @@ def maybe_schedule_polish(cache: DailyFortuneCache, d: date) -> bool:
 
 
 def generate_and_polish(cache: DailyFortuneCache, d: date) -> None:
-    """익일 선생성 경로(23:50 KST 태스크·운영자 수동 실행) — 생성 후 즉시 교정."""
+    """익일 선생성 경로(23:50 KST 태스크·운영자 수동 실행) — 생성 후 즉시 교정.
+
+    중단 중에는 보드 생성(엔진·무료)만 하고 교정은 건너뛴다(RAW 유지 → 재개 시 대상).
+    """
     get_board(cache, d)
-    if llm_client.is_available():
+    if llm_client.is_available() and not llm_client.is_suspended():
         polish_board(cache, d)
+
+
+def resume_polish_after_suspension(cache: DailyFortuneCache, now: Any = None) -> dict[str, Any]:
+    """관리자 재개 후 — **현재 게시 기준일 보드 하나만** RAW 면 교정한다(2026-10-06).
+
+    지난 날짜 보드는 대상이 아니다(이미 수명이 끝났거나 끝나 가는 콘텐츠를 교정해도 값이
+    없다). 보드가 아직 없으면 만들지 않는다 — lazy 경로가 요청 시 만들고 그때 예약한다.
+    """
+    d = threads_publish_date(now)
+    version = active_content_version(d)
+    board = cache.load_board(d, version)
+    if board is None:
+        return {"date": d.isoformat(), "action": "skipped_no_board"}
+    if board.polish_status != "RAW":
+        return {"date": d.isoformat(), "action": "skipped_status", "status": board.polish_status}
+    with _attempted_mutex:
+        _attempted.discard(_attempt_key(d))
+    audit = polish_board(cache, d)
+    return {"date": d.isoformat(), "action": "polished", "audit": audit}

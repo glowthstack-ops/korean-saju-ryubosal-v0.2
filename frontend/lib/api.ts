@@ -6,6 +6,7 @@ import type {
   ChatMessageDTO,
   ChatPartner,
   ChatThreadSummary,
+  LlmServiceStatus,
   LuckPillar,
   ManseResult,
   PersonaConfig,
@@ -204,6 +205,16 @@ export async function postChat(
 }
 
 // ── 대화 저장/열람/삭제 (로그인 전용) ──────────────────────────
+// LLM 서비스 상태(일시 중단 배너용). 실패하면 active 로 본다 — 상태 조회가 화면을 막지 않도록.
+export async function getLlmServiceStatus(): Promise<LlmServiceStatus> {
+  try {
+    const r = await getJSON<{ llm_service: LlmServiceStatus }>("/api/v2/service/status");
+    return r.llm_service;
+  } catch {
+    return { state: "active", reason: null, suspended_at: null };
+  }
+}
+
 export function listChatThreads(): Promise<ChatThreadSummary[]> {
   return getJSON<ChatThreadSummary[]>("/api/v2/chat/threads");
 }

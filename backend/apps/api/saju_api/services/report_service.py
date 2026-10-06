@@ -186,6 +186,7 @@ from saju_shared_types.report import (
     ReportSpec,
     SectionContext,
     SectionPlan,
+    SectionResult,
     TargetChars,
 )
 from saju_shared_types.topic_context import PeriodSpec as _TopicPeriodSpec
@@ -3987,13 +3988,18 @@ def generate_report(
     subject_id: str | None = None,
     partner_birth: BirthInput | None = None,
     progress_fn: Callable[[int, int], None] | None = None,
+    prior_sections: Mapping[str, SectionResult] | None = None,
+    section_sink: Callable[[SectionResult], None] | None = None,
 ) -> ReportResult:
     """보고서 실생성 — ReportBuilder에 실데이터 컨텍스트 + llm_client 주입.
 
     owner_id·subject_id가 있으면 개인화(현실 신호 시그니처·코호트) LEI 정렬축이 후보 선별에 반영.
+    prior_sections·section_sink 는 LLM 서비스 중단 재개용(통과 섹션 재사용·부분 보존 —
+    report_builder 참조).
 
     Raises:
         RuntimeError: LLM 키 미설정(메인·폴백 모두) — 호출 측에서 dry-run 안내.
+        LLMServiceSuspended: 비용 소진 일시 중단(llm_client) — 호출 측이 잡을 보류한다.
     """
     if not llm_client.is_available():
         raise RuntimeError("LLM API 키 미설정 — plan_report(dry-run)로 검증하세요")
@@ -4110,8 +4116,9 @@ def generate_report(
         # 분할 페이지 확장(십년 풀이·한해 반기·테마 연도별 상세, docs/10) — 잔여 대운
         # 수·예측 연도는 명식 데이터가 필요해 plan 계층이 아닌 여기서 확장한다.
         plan_expander=lambda plans: _expand_report_plans(plans, data),
+        section_sink=section_sink,
     )
-    result = builder.build(spec, display_name=display_name)
+    result = builder.build(spec, display_name=display_name, prior_sections=prior_sections)
     # 간지 달력표 결정론적 첨부 — LLM 생성·분량 캡(_repair_section) 모두 거친 뒤 본문 끝에 붙인다.
     # 표는 엔진 계산값이므로 절단·정합성 검사·간지 변형 대상에서 제외한다(절대원칙 1).
     cal_md = ""

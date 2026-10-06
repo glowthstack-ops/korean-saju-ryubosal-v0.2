@@ -140,3 +140,54 @@ export const getErrors = (
 
 export const resolveErrors = (body: { ids?: number[]; fingerprint?: string }) =>
   postJSON<{ ok: boolean; resolved: number }>("/api/v2/admin/errors/resolve", body);
+
+// ── LLM 서비스 중단/재개 (비용 소진 — 2026-10-06) ──────────────────
+
+export interface LlmProviderStatus {
+  provider: string;
+  model: string;
+  kind: "quota" | "cooldown" | string;
+  detail: string;
+  since: string;
+  until: string | null;
+}
+
+export interface LlmProbeResult {
+  role: string;
+  provider: string;
+  model: string;
+  ok: boolean;
+  kind: "quota" | "error" | null;
+  detail: string;
+}
+
+export interface LlmServiceState {
+  state: "active" | "suspended";
+  reason: string | null;
+  suspended_at: string | null;
+  resumed_at: string | null;
+  resumed_by: string | null;
+  providers: Record<string, LlmProviderStatus>;
+  last_probe: { at: string; results: LlmProbeResult[] } | null;
+  pending: {
+    suspended_report_jobs: number;
+    daily_board: { date: string; polish_status: string | null } | null;
+  };
+  providers_configured: { role: string; provider: string; model: string; has_key: boolean }[];
+}
+
+export interface LlmResumeResult {
+  resumed: boolean;
+  was_suspended: boolean;
+  probes: LlmProbeResult[];
+  still_blocked: string[];
+  resolved_errors: number;
+  requeued_reports: number;
+  daily_polish_scheduled: boolean;
+  state: LlmServiceState;
+}
+
+export const getLlmState = () => getJSON<LlmServiceState>("/api/v2/admin/llm/state");
+export const postLlmResume = () => postJSON<LlmResumeResult>("/api/v2/admin/llm/resume", {});
+export const postLlmSuspend = (reason = "manual") =>
+  postJSON<{ suspended: boolean; state: LlmServiceState }>("/api/v2/admin/llm/suspend", { reason });

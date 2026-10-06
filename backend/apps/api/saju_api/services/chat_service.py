@@ -759,7 +759,9 @@ class ChatPostprocessContext(BaseModel):
 class ChatResponse(BaseModel):
     """대화형 응답 — answer가 본문, 나머지는 추적/디버그 메타."""
 
-    status: str  # 'answered' | 'pending' | 'dry_run' | 'policy' | 'too_broad' | 'need_subject'
+    # 'answered' | 'pending' | 'dry_run' | 'policy' | 'too_broad' | 'need_subject'
+    # | 'suspended'(비용 소진 일시 중단 — 즉시 안내, 라우터가 부여)
+    status: str
     answer: str | None = None
     message_id: int | None = None  # 'pending' 응답 — 백그라운드 생성 중인 답변 메시지 id
     intents: list[IntentJson] = Field(default_factory=list)

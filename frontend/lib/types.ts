@@ -629,6 +629,13 @@ export interface ChatThreadSummary {
   pending?: boolean; // 생성 중인 답변 존재
 }
 
+// LLM 서비스 상태(비용 소진 일시 중단) — GET /api/v2/service/status
+export interface LlmServiceStatus {
+  state: "active" | "suspended";
+  reason: string | null;
+  suspended_at: string | null;
+}
+
 // 저장된 대화 메시지(열람·이어가기)
 export interface ChatMessageDTO {
   role: "user" | "assistant";
@@ -641,7 +648,8 @@ export interface ChatMessageDTO {
 
 // 대화형 통변 (v2.2 — /api/v2/chat)
 export interface ChatApiResponse {
-  status: "answered" | "pending" | "dry_run" | "policy" | "too_broad" | "need_subject";
+  // 'suspended' = LLM 비용 소진 일시 중단(즉시 안내, 2026-10-06)
+  status: "answered" | "pending" | "dry_run" | "policy" | "too_broad" | "need_subject" | "suspended";
   answer: string | null;
   // 'pending' 응답 — 백그라운드 생성 중인 답변 메시지 id(폴링 키)
   message_id?: number | null;

@@ -10,6 +10,12 @@ generation_extras로 강제), 입출력 토큰은 원가 장부에 적재한다.
 폴백 정책: 메인(Gemini) 실패(네트워크/5xx/429/타임아웃) 시 재시도 후 비상
 모델(OpenAI)로 전환. 사용된 공급자는 장부 product_code 접미로 기록한다.
 (Anthropic API는 결제 문제로 사용하지 않음 — 사용자 결정 2026-06-11.)
+
+비용 소진 정책(2026-10-06, doc/v2_2/LLM_SERVICE_SUSPENSION.md): 공급자 응답 중 **명시 소진
+신호**(OpenAI insufficient_quota/402, Gemini 일일 쿼터·billing)는 일시 오류와 구분해
+`ProviderQuotaExhausted` 로 올리고, 그 공급자를 쿨다운 동안 건너뛴다(실패 호출 반복 방지).
+키가 있는 공급자 전부가 소진이면 서비스가 `suspended` 로 전이하며, 이후 모든 호출은
+네트워크에 닿기 전에 `LLMServiceSuspended` 로 단락된다. 재개는 관리자 콘솔 프로브 후 수동.
 """
 
 from __future__ import annotations
@@ -28,6 +34,8 @@ import httpx
 from saju_engines.llm_guard import LLMCallGuard, LLMCostLedger
 from saju_engines.report_builder import load_model_prices
 from saju_shared_types.constants import BRANCH_KO, STEM_KO
+
+from . import llm_service_state as _svc
 
 _BACKEND = Path(__file__).resolve().parents[4]
 _CONFIG_PATH = _BACKEND / "config" / "llm_config.json"
@@ -175,9 +183,99 @@ def parser_model() -> str:
 
 
 def is_available() -> bool:
-    """실호출 가능 여부 — 메인 또는 폴백 키 존재."""
+    """실호출 가능 여부 — 메인 또는 폴백 키 존재(중단 상태와 무관 — `is_suspended` 로 따로 본다)."""
     cfg = load_config()
     return bool(_api_key(cfg["primary"]) or _api_key(cfg["fallback"]))
+
+
+def is_suspended() -> bool:
+    """비용 소진으로 서비스가 일시 중단 상태인가(DB 단일 행, 5초 캐시)."""
+    return _svc.is_suspended()
+
+
+def service_state_snapshot(*, public: bool = True) -> dict[str, Any]:
+    """중단 상태 스냅샷(health·관리자 콘솔용). public=True 면 비밀 없는 최소 필드."""
+    return _svc.current().snapshot(public=public)
+
+
+# ── 비용 소진 분류 ──────────────────────────────────────────────────
+
+
+class ProviderQuotaExhausted(RuntimeError):
+    """공급자가 **명시 소진 신호**를 돌려줬다(결제·쿼터) — 일시 오류와 구분해 쿨다운 대상."""
+
+    def __init__(self, provider: str, model: str, detail: str) -> None:
+        super().__init__(f"{provider} {model} 비용 소진: {detail[:200]}")
+        self.provider = provider
+        self.model = model
+        self.detail = detail
+
+
+class LLMServiceSuspended(RuntimeError):
+    """서비스 일시 중단 — 호출 없이 단락됐다. 호출처는 사용자 안내문으로 마감한다."""
+
+
+def _walk_strings(obj: Any, depth: int = 0) -> list[str]:
+    """중첩 JSON 안의 문자열 값 전부(소문자) — 쿼터 ID·메시지 키워드 탐지용."""
+    if depth > 6:
+        return []
+    if isinstance(obj, str):
+        return [obj.lower()]
+    if isinstance(obj, dict):
+        return [s for v in obj.values() for s in _walk_strings(v, depth + 1)]
+    if isinstance(obj, list):
+        return [s for v in obj for s in _walk_strings(v, depth + 1)]
+    return []
+
+
+#: Gemini 429 중 '비용 소진'으로 볼 힌트 — quotaId(…PerDay…)·메시지의 daily/billing.
+#: 범용 문구("exceeded your current quota")는 분당 한도에도 붙으므로 힌트에 넣지 않는다.
+_GEMINI_QUOTA_HINTS = ("perday", "per_day", "daily", "billing")
+
+
+def classify_provider_error(provider: str, status_code: int, body: Any) -> str:
+    """공급자 오류 응답을 'quota'(비용 소진) | 'transient'(일시 오류) 로 분류한다.
+
+    하드 중단은 오분류 비용이 크므로(관리자가 올 때까지 서비스가 멈춘다) **명시 신호에만**
+    'quota' 를 준다. 분당 한도 류의 429 는 'transient' 로 두어 기존 재시도·폴백 경로를 탄다.
+
+    - OpenAI: 429 + error.type/code == insufficient_quota, 또는 402.
+    - Gemini: 429 RESOURCE_EXHAUSTED 중 quotaId/메시지에 일일(PerDay·Daily)·billing 힌트,
+      403/400 중 billing 문구. 분당(PerMinute) 한도만 보이는 429 는 transient.
+    """
+    err = body.get("error") if isinstance(body, dict) else None
+    err = err if isinstance(err, dict) else {}
+    if provider == "openai":
+        if status_code == 402:
+            return "quota"
+        if status_code == 429 and "insufficient_quota" in (
+            str(err.get("type", "")), str(err.get("code", "")),
+        ):
+            return "quota"
+        return "transient"
+    if provider == "gemini":
+        joined = " ".join(_walk_strings(err))
+        if status_code == 429 and any(h in joined for h in _GEMINI_QUOTA_HINTS):
+            return "quota"
+        if status_code in (400, 403) and "billing" in joined:
+            return "quota"
+    return "transient"
+
+
+def _raise_for_provider(provider: str, profile: dict, res: httpx.Response) -> None:
+    """4xx/5xx 응답을 분류해 올린다 — quota 는 ProviderQuotaExhausted, 그 외는 HTTPStatusError."""
+    if res.status_code < 400:
+        return
+    try:
+        body: Any = res.json()
+    except ValueError:
+        body = None
+    if classify_provider_error(provider, res.status_code, body) == "quota":
+        detail = ""
+        if isinstance(body, dict) and isinstance(body.get("error"), dict):
+            detail = str(body["error"].get("message") or body["error"])
+        raise ProviderQuotaExhausted(provider, str(profile.get("model")), detail or res.text[:300])
+    res.raise_for_status()
 
 
 # ── 공급자별 호출부(REST — 응답 텍스트, 입력/출력 토큰) ───────────
@@ -205,7 +303,7 @@ def _call_gemini(
     res = httpx.post(
         url, json=body, headers={"x-goog-api-key": key}, timeout=timeout,
     )
-    res.raise_for_status()
+    _raise_for_provider("gemini", profile, res)
     data = res.json()
     parts = data["candidates"][0].get("content", {}).get("parts", [])
     text = "".join(p.get("text", "") for p in parts)
@@ -241,7 +339,7 @@ def _call_openai(
         headers={"Authorization": f"Bearer {key}"},
         timeout=timeout,
     )
-    res.raise_for_status()
+    _raise_for_provider("openai", profile, res)
     data = res.json()
     text = data["choices"][0]["message"]["content"] or ""
     usage = data.get("usage", {})
@@ -437,6 +535,7 @@ def generate_reading(
 
     Raises:
         TokenBudgetExceeded: 입력 상한 초과(호출 전 차단).
+        LLMServiceSuspended: 비용 소진 일시 중단(호출 없이 단락) — 이번 호출로 전이된 경우 포함.
         RuntimeError: 키 미설정 또는 메인·폴백 모두 실패.
     """
     cfg = load_config()
@@ -444,6 +543,12 @@ def generate_reading(
     timeout = float(options.get("timeout_seconds", 60))
     attempts = int(options.get("primary_attempts", 2))
     backoff = float(options.get("retry_backoff_seconds", 1.5))
+    cooldown = float(options.get("provider_cooldown_seconds", 900))
+
+    # 중단 상태면 가드·네트워크 어디에도 닿지 않는다(실패 호출 반복·과금 방지).
+    state = _svc.current()
+    if state.is_suspended:
+        raise LLMServiceSuspended(_svc.SUSPENDED_ERROR_MESSAGE)
 
     guard = LLMCallGuard(call_type, ledger=COST_LEDGER)
     sys_text = system or _SYSTEM_PROMPT
@@ -451,8 +556,23 @@ def generate_reading(
     max_tokens = guard.request_params()["max_tokens"]
 
     last_error: Exception | None = None
-    # 메인(Gemini) — 일시 오류 재시도.
-    if _api_key(cfg["primary"]):
+
+    def _on_quota(exc: ProviderQuotaExhausted) -> None:
+        """공급자 소진 기록 + 새로 막힌 경우 경고 1건(비치명 — 다른 공급자로 계속)."""
+        if _svc.mark_provider_exhausted(
+            exc.provider, exc.model, exc.detail, kind="quota", cooldown_seconds=cooldown,
+        ):
+            _emit_error(
+                exc, kind=_svc.PROVIDER_EXHAUSTED_KIND, severity="warning",
+                message=f"공급자 비용 소진(쿨다운 {int(cooldown)}s): {exc.provider} {exc.model}",
+                detail=exc.detail[:1000], surface=surface,
+                provider=exc.provider, model=exc.model, owner_id=owner_id, ref_id=ref_id,
+            )
+
+    primary_provider = str(cfg["primary"]["provider"])
+    primary_skipped = state.provider_blocked(primary_provider)
+    # 메인(Gemini) — 일시 오류 재시도. 소진 쿨다운 중이면 시도하지 않는다.
+    if _api_key(cfg["primary"]) and not primary_skipped:
         for attempt in range(attempts):
             try:
                 text, in_tok, out_tok, cached = _call_profile(
@@ -473,6 +593,11 @@ def generate_reading(
                     call_type=call_type, ref_id=ref_id,
                 )
                 return text
+            except ProviderQuotaExhausted as exc:
+                # 소진은 재시도해도 같다 — 즉시 기록하고 폴백으로.
+                last_error = exc
+                _on_quota(exc)
+                break
             except (httpx.HTTPError, RuntimeError, KeyError, IndexError) as exc:
                 last_error = exc
                 # 관측(2026-07-21 데굴님 실로그): 타임아웃→폴백 전환이 무기록이라 '공급자
@@ -487,8 +612,9 @@ def generate_reading(
                 if attempt + 1 < attempts:
                     time.sleep(backoff * (attempt + 1))
 
+    fallback_provider = str(cfg["fallback"]["provider"])
     # 비상 폴백(OpenAI) — 문체만 메인 결로 맞추는 지침을 덧붙인다(내용·판정 규칙 불변).
-    if _api_key(cfg["fallback"]):
+    if _api_key(cfg["fallback"]) and not state.provider_blocked(fallback_provider):
         if last_error is not None:
             # 폴백 전환을 영속 기록(system_errors) — 비치명(사용자 응답은 폴백으로 정상
             # 전달)이지만, 메인에서 생성 완료된 응답이 버려지는 구간이라 빈도 관찰이 필요.
@@ -530,9 +656,30 @@ def generate_reading(
                 call_type=call_type, ref_id=ref_id,
             )
             return text
+        except ProviderQuotaExhausted as exc:
+            last_error = exc
+            _on_quota(exc)
         except (httpx.HTTPError, RuntimeError, KeyError, IndexError) as exc:
             last_error = exc
 
+    # 키가 있는 공급자 전부가 **명시 소진**이면 서비스 중단 전이(1회 기록) — 이후 호출은 단락.
+    if _all_keyed_providers_quota_blocked(cfg):
+        suspended_err = LLMServiceSuspended(_svc.SUSPENDED_ERROR_MESSAGE)
+        if _svc.suspend("quota_exhausted"):
+            _emit_error(
+                suspended_err, kind=_svc.SUSPENDED_ERROR_KIND,
+                message=_svc.SUSPENDED_ERROR_MESSAGE,
+                detail=f"last_error={type(last_error).__name__}: {str(last_error)[:500]}",
+                surface=surface,
+                provider=str(cfg["primary"].get("provider")),
+                model=str(cfg["primary"].get("model")),
+                owner_id=owner_id, ref_id=ref_id,
+            )
+        raise suspended_err
+
+    if last_error is None:
+        # 호출을 한 번도 못 냈다(키 없음 또는 전 공급자 쿨다운 — 소진 아닌 쿨다운 포함).
+        last_error = RuntimeError("호출 가능한 공급자 없음(키 미설정 또는 쿨다운)")
     err = RuntimeError(f"LLM 호출 실패(메인·폴백 모두): {last_error}")
     _emit_error(
         err,
@@ -545,6 +692,74 @@ def generate_reading(
         ref_id=ref_id,
     )
     raise err
+
+
+def _all_keyed_providers_quota_blocked(cfg: dict) -> bool:
+    """키가 설정된 공급자(메인·폴백)가 모두 명시 소진(quota)으로 막혀 있는가 — 중단 전이 조건."""
+    state = _svc.current(force=True)
+    keyed = {
+        str(cfg[role]["provider"]) for role in ("primary", "fallback") if _api_key(cfg[role])
+    }
+    return bool(keyed) and all(state.provider_quota_blocked(p) for p in keyed)
+
+
+# ── 재개 프로브(관리자 콘솔) ────────────────────────────────────────
+
+_PROBE_SYSTEM = "다음 요청에 'OK' 한 단어로만 답하라."
+_PROBE_PROMPT = "OK"
+
+
+def probe_provider(role: str) -> dict[str, Any]:
+    """공급자 1개에 소액 실호출(출력 수 토큰)로 결제 복구 여부를 확인한다.
+
+    Returns:
+        {"role","provider","model","ok","kind","detail"} — kind 는 'quota'(여전히 소진) |
+        'error'(그 외 실패) | None(성공). 가드는 거치지 않는다(프롬프트가 수 토큰).
+    """
+    cfg = load_config()
+    profile = cfg[role]
+    provider, model = str(profile["provider"]), str(profile["model"])
+    out: dict[str, Any] = {"role": role, "provider": provider, "model": model,
+                           "ok": False, "kind": None, "detail": ""}
+    if not _api_key(profile):
+        out.update(kind="error", detail=f"{profile['api_key_env']} 미설정")
+        return out
+    timeout = float(cfg.get("options", {}).get("timeout_seconds", 60))
+    max_tokens = int(cfg.get("options", {}).get("probe_max_tokens", 8))
+    try:
+        _text, in_tok, out_tok, cached = _call_profile(
+            profile, _PROBE_SYSTEM, _PROBE_PROMPT, max_tokens, timeout,
+        )
+    except ProviderQuotaExhausted as exc:
+        out.update(kind="quota", detail=exc.detail[:300])
+        return out
+    except Exception as exc:  # noqa: BLE001 — 프로브 실패 사유는 그대로 콘솔에 보인다
+        out.update(kind="error", detail=f"{type(exc).__name__}: {str(exc)[:300]}")
+        return out
+    _emit_usage(
+        surface="probe", model=model, provider=provider, is_fallback=(role == "fallback"),
+        input_tokens=in_tok, output_tokens=out_tok, cached_tokens=cached,
+        owner_id=None, product_code="PROBE", call_type="probe", ref_id=None,
+    )
+    out.update(ok=True)
+    return out
+
+
+def probe_all() -> list[dict[str, Any]]:
+    """메인·폴백 프로브(키가 있는 역할만). 공급자가 같으면 한 번만 친다."""
+    cfg = load_config()
+    seen: set[str] = set()
+    results: list[dict[str, Any]] = []
+    for role in ("primary", "fallback"):
+        profile = cfg[role]
+        if not _api_key(profile):
+            continue
+        provider = str(profile["provider"])
+        if provider in seen:
+            continue
+        seen.add(provider)
+        results.append(probe_provider(role))
+    return results
 
 
 # 표현 원칙 고정 블록(docs/06 v2.2.1 — 시스템 프롬프트에 고정).

@@ -64,10 +64,15 @@ def _llm_sink(
     exc: BaseException, *, kind: str, message: str, surface: str | None = None,
     provider: str | None = None, model: str | None = None,
     owner_id: str | None = None, ref_id: str | None = None,
+    severity: str = "error", detail: str | None = None,
 ) -> None:
-    """llm_client가 메인·폴백 모두 실패했을 때 호출 — source='llm'로 적재."""
+    """llm_client 통지 sink — source='llm'로 적재.
+
+    메인·폴백 모두 실패(error), 폴백 전환(비치명), 공급자 비용 소진(warning), 서비스 일시
+    중단(error, 메시지 고정 → fingerprint 안정 → 재개 시 resolve 가능)을 모두 받는다.
+    """
     where = f"{surface or 'llm'}:{provider or '?'}/{model or '?'}"
     record_error(
-        source="llm", kind=kind, message=message, path=where,
-        owner_id=owner_id, ref_id=ref_id, exc=exc,
+        source="llm", kind=kind, message=message, severity=severity, detail=detail,
+        path=where, owner_id=owner_id, ref_id=ref_id, exc=exc,
     )

@@ -33,7 +33,7 @@ from .routers import (
     report,
     subjects,
 )
-from .services import daily_fortune_export, error_logging, usage_logging
+from .services import daily_fortune_export, error_logging, llm_service_state, usage_logging
 
 # 앱 로거 콘솔 노출(2026-07-14 관측성) — uvicorn 기본 로깅은 자체(uvicorn.*) 로거만
 # 핸들링해 엔진·서비스의 INFO 진단 로그(overview_selection 등)가 침묵한다. 루트가 아니라
@@ -229,6 +229,8 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
         usage_logging.setup()
     with contextlib.suppress(Exception):
         error_logging.setup()  # 010 마이그레이션 + llm 에러 sink 주입
+    with contextlib.suppress(Exception):
+        llm_service_state.setup()  # 019 마이그레이션 — 비용 소진 중단 상태(재기동 후에도 유지)
     with contextlib.suppress(Exception):
         _seed_admins()
     with contextlib.suppress(Exception):

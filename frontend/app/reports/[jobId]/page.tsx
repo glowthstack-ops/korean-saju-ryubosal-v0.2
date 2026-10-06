@@ -101,6 +101,11 @@ export default function ReportJobPage() {
           {job.status === "queued" ? "대기 중" : "작성 중"} · {job.sections_done}/
           {job.sections_total} 장
         </p>
+        {job.error === "LLM_SUSPENDED" && (
+          <p className="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            서비스 일시 중단으로 잠시 멈춰 있어요. 재개되면 작성한 부분부터 이어서 완성돼요.
+          </p>
+        )}
         <div className="mt-3 h-2 w-full overflow-hidden rounded bg-gray-100">
           <div className="h-full bg-gray-800 transition-all" style={{ width: `${pct}%` }} />
         </div>

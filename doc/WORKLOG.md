@@ -11339,3 +11339,32 @@ DB chat_messages 738쌍 점검: 과거 바운스 83건(too_broad 43·need_subjec
 - **로또 회차 지시문**(`_lotto_round_directive`): 주 단위 택일이 아닌 로또 질문('내일 사도 돼?'·주말·7일 창)에
   오늘이 속한 회차 구간과 다음 회차 시작일을 엔진이 계산해 싣는다. 택일 블록이 이미 회차를 실었으면 생략.
 - 남은 결정: '복권'을 로또와 같이 택일·일~토로 볼지(현재 '로또'만). 테스트 25건(`test_week_frame_lotto.py`).
+
+## 2026-10-06 — LLM 비용 소진 일시 중단·재개 프로세스 (데굴님 지시·추천안 승인)
+
+배경: 공급자 429를 네트워크 오류와 같은 일시 오류로 취급해, 비용 소진 상태에서도 매 요청마다
+메인→폴백 실패 호출을 반복하고 사용자는 일반 오류 문구만 받았다. 중단 상태가 어디에도 저장되지 않아
+"중단 중"이라는 개념이 없었고 관리자는 에러 그룹 급증이나 신고로만 알 수 있었다. SSOT:
+`doc/v2_2/LLM_SERVICE_SUSPENSION.md`.
+
+- **소진 분류**(`llm_client.classify_provider_error`): OpenAI `insufficient_quota`/402, Gemini 일일 쿼터
+  (`PerDay`·`Daily`)·`billing` 만 `quota`(하드) — 분당 429·범용 문구는 종전 일시 오류 경로 유지.
+  `ProviderQuotaExhausted`(RuntimeError 하위)로 올려 기존 except 절 호환.
+- **상태 영속**(migration 019 `llm_service_state` 단일 행, `llm_service_state_store` + 서비스
+  `llm_service_state`): active/suspended·공급자별 소진/쿨다운(`until`)·마지막 프로브. 5초 캐시, DSN 없으면
+  메모리. 메인만 소진 → 폴백으로 계속 서비스 + 메인 쿨다운(`options.provider_cooldown_seconds`=900).
+  키 있는 공급자 전부 소진 → suspended 전이(system_errors 1건, 메시지 고정) → 이후 호출은 네트워크 없이
+  `LLMServiceSuspended` 단락.
+- **중단 중 표면**: 채팅 신규 질문 즉시 `status=suspended` 안내(pending·큐 없음), 생성 중이던 pending 은
+  error+`reason=llm_suspended`(재개 시 되살리지 않음). 리포트 신규 503 거부, 진행 중 잡은
+  `queued`+`error=LLM_SUSPENDED` 로 보류하며 통과 섹션·재실행 컨텍스트를 result 에 보존. 일운 교정은
+  RAW 유지(FAILED 아님)·예약 차단. `/health`·`/api/v2/service/status` 에 `llm_service` 블록.
+- **관리자 재개**(`/api/v2/admin/llm/{state,resume,suspend}`, `llm_resume_service`): 공급자별 소액 프로브
+  (`probe_max_tokens`=8) → 통과 0 이면 409·상태 유지, ≥1 이면 재개(여전히 소진인 공급자는 쿨다운) →
+  중단 기록 resolve → 보류 잡 원자 클레임(중복 클릭 1회) → 백그라운드로 잡 이어 돌리기(통과 섹션 재사용,
+  `ReportBuilder.build(prior_sections)`·`section_sink`) + 게시 기준일 일운 보드만 교정. 리포트 실행기는
+  `services/report_job_runner.py` 로 이관(라우터·재개 공유).
+- **프론트**: 채팅 배너(진입 시 상태 조회 + suspended 응답 즉시 반영)·`ChatApiResponse.status` 확장·관리자
+  대시보드 LLM 카드(상태·공급자·대기 작업·프로브·재개/수동 중단 버튼)·리포트 상세 보류 안내.
+- 테스트 33건(`test_llm_service_suspension` 17·`test_report_builder_resume` 2·`test_daily_polish_suspended` 4·
+  `test_report_job_runner_suspend` 5·`integration/test_llm_suspension_api` 5). 미결: 월 예산 상한 경보(범위 밖).
