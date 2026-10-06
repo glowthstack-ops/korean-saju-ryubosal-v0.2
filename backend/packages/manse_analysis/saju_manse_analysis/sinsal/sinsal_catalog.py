@@ -22,6 +22,9 @@ CATALOG_META: dict[str, dict] = {
     # 寅申巳亥 보유 표지(글자) — 역마 성립·활성화와 분리된 '보유값'(2026-10-06 정의 통일).
     # 보유만으로 이동을 뜻하지 않으며 sinsal_modifier·위험 보조 증폭 파생 대상에서 제외한다.
     "이동지": {"category": "movement_change", "polarity": "neutral", "tags": ["사생지(글자)"]},
+    # 子午卯酉·辰戌丑未 보유 표지 — 도화(년살)·화개 성립과 분리(2026-10-06 2차 정의 통일).
+    "사정지": {"category": "relationship_social", "polarity": "neutral", "tags": ["왕지(글자)"]},
+    "사고지": {"category": "spiritual_intuition", "polarity": "neutral", "tags": ["고지(글자)"]},
     "육해살": {"category": "health_risk", "polarity": "caution", "tags": ["지체", "질병"]},
     "화개살": {"category": "spiritual_intuition", "polarity": "neutral", "tags": ["예술", "고독"]},
     "겁살": {"category": "isolation_conflict", "polarity": "caution", "tags": ["손실", "강탈"]},
@@ -109,12 +112,12 @@ for _members, _gen in [
     for _b in _members:
         TRINE_SAENGJI[_b] = _gen
 
-# 도화·화개 — 지지 글자(글자살) 기준. 사정지=도화 / 사고지=화개.
-# 역마는 2026-10-06 정의 통일로 글자살이 아니라 연지·일지 삼합국 기준 상대 12신살로 산출하며,
-# 사생지 보유는 '이동지' 표지로만 남긴다(structure_patterns.json yeokma_rule 과 동일 원칙).
+# 역마·도화·화개는 글자살이 아니라 연지·일지 삼합국 기준 상대 12신살(역마살·년살·화개살)로 산출한다
+# (2026-10-06 정의 통일 — structure_patterns.json yeokma_rule 과 동일 원칙). 사생지·사정지·사고지
+# 글자 보유는 각각 '이동지'·'사정지'·'사고지' 표지로만 남긴다(성립·활성화와 분리).
 SASAENG: frozenset[B] = frozenset({B.IN, B.SIN, B.SA, B.HAE})   # 寅申巳亥 — 이동지(보유 표지)
-SAJEONG: frozenset[B] = frozenset({B.JA, B.O, B.MYO, B.YU})      # 子午卯酉 도화
-SAGO: frozenset[B] = frozenset({B.JIN, B.SUL, B.CHUK, B.MI})     # 辰戌丑未 화개
+SAJEONG: frozenset[B] = frozenset({B.JA, B.O, B.MYO, B.YU})      # 子午卯酉 — 사정지(보유 표지)
+SAGO: frozenset[B] = frozenset({B.JIN, B.SUL, B.CHUK, B.MI})     # 辰戌丑未 — 사고지(보유 표지)
 
 # 천을귀인 (일간 → 지지 2개)
 CHEONEUL: dict[S, list[B]] = {

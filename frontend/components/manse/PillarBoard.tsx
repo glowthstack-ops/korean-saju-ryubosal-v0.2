@@ -107,12 +107,18 @@ function Column({ title, p, ghost = false }: { title: string; p: Pillar | null; 
 export function PillarBoard({
   result,
   applyEquationOfTime,
+  onSelectVariant,
 }: {
   result: ManseResult;
   /** 균시차 적용 여부 — 엔진 응답에는 적용 플래그가 없어 화면 상태를 받는다. 미전달 시 배지 생략. */
   applyEquationOfTime?: boolean;
+  /** 경계 당일 명식 변형 선택(그 변형의 시진 목록, null=해제) — 저장·재계산은 호출 측 책임. */
+  onSelectVariant?: (hourBranches: string[] | null) => void;
 }) {
   const { year, month, day, hour, day_master } = result.pillars;
+  const hu = hour === null ? result.hour_unknown ?? null : null;
+  const variants = hu?.pillar_variants ?? [];
+  const DIR_KO: Record<string, string> = { forward: "순행", backward: "역행" };
   // 자시 규칙은 엔진이 실제로 쓴 값(time_correction.ja_hour_rule)을 그대로 표시한다.
   // "none"은 엔진에서 standard_zi와 동일 동작이라 정자시로 표기.
   const tc = result.time_correction as Record<string, unknown> | null;
@@ -149,6 +155,49 @@ export function PillarBoard({
           <span className="rounded bg-gray-100 px-1.5 py-0.5">{JA_HOUR_RULE_LABEL[jaRule]}</span>
         </span>
       </div>
+      {variants.length > 1 && (
+        // 경계 당일(입춘·절입·일 경계) — 출생시각에 따라 명식 자체가 갈린다. 변형별 핵심 사실을 나란히
+        // 보여 주고 '이 변형으로 보기'로 표시 명식을 바꾼다(보기 선택일 뿐 확정이 아니다, 2026-10-06).
+        <div className="mb-2 rounded-lg border border-rose-200 bg-rose-50 p-2 text-[11px] text-rose-900">
+          <p className="mb-1 font-medium">
+            명식 분기 · 경계 당일이라 출생시각에 따라 명식이 {variants.length}갈래예요. 현재 표시 중인 명식은
+            확정이 아니에요.
+          </p>
+          <div className="grid gap-1.5 sm:grid-cols-2">
+            {variants.map((v, i) => (
+              <div key={i} className={`rounded border bg-white p-2 ${v.is_base ? "border-rose-400" : "border-rose-100"}`}>
+                <div className="flex items-center justify-between">
+                  <b>[{String.fromCharCode(65 + i)}] {v.year_ganji}·{v.month_ganji}·{v.day_ganji}</b>
+                  <span className="text-gray-500">{v.hour_branches.join("")}시</span>
+                </div>
+                <div className="mt-0.5 text-gray-700">
+                  일간 {v.day_master} · 강약 {v.strength_bands.join("/") || "-"} · 격국 {v.geokguks.join("/") || "-"}
+                  {" · "}대운 {v.daewoon_directions.map((d) => DIR_KO[d] ?? d).join("/") || "-"}
+                </div>
+                <div className="mt-1 flex items-center gap-2">
+                  {v.is_base ? (
+                    <span className="rounded bg-rose-100 px-1.5 py-0.5 text-rose-700">현재 표시</span>
+                  ) : (
+                    onSelectVariant && (
+                      <button
+                        onClick={() => onSelectVariant(v.hour_branches)}
+                        className="rounded bg-rose-600 px-2 py-0.5 text-white hover:bg-rose-700"
+                      >
+                        이 변형으로 보기
+                      </button>
+                    )
+                  )}
+                  {v.is_base && hu?.variant_choice && onSelectVariant && (
+                    <button onClick={() => onSelectVariant(null)} className="text-gray-500 underline">
+                      선택 해제(정오 기준)
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="flex gap-2">
         <Column title="시주" p={hour} />
         <Column title="일주" p={day} />

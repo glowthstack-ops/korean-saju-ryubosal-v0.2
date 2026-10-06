@@ -49,16 +49,31 @@ class HourCandidate(BaseModel):
     month_ganji: str = ""
     day_ganji: str = ""
     daewoon_start_exact: float | None = None
+    daewoon_direction: str = ""  # forward | backward (연간 음양×성별 — 연주가 갈리면 바뀔 수 있다)
 
 
 class PillarVariant(BaseModel):
-    """출생시각에 따라 연·월·일주가 달라지는 경우(입춘·절입·일 경계)의 명식 변형 1개."""
+    """출생시각에 따라 연·월·일주가 달라지는 경우(입춘·절입·일 경계)의 명식 변형 1개.
+
+    변형별 핵심 사실(일간·강약·격국·용희신·대운 방향)은 그 변형에 속한 후보 시진들의 값을 모은
+    것이다(2개 이상이면 변형 안에서도 갈린다). LLM 은 변형을 고르지 않고 '변형별 분기 풀이'를 한다.
+    """
 
     year_ganji: str
     month_ganji: str
     day_ganji: str
     hour_branches: list[str] = Field(default_factory=list)  # 이 변형이 되는 시진들
-    is_base: bool = False  # 정오 기준(현재 표시 중) 명식인가
+    is_base: bool = False  # 현재 표시 중(계산 기준) 명식인가
+    day_master: str = ""
+    strength_bands: list[str] = Field(default_factory=list)
+    geokguks: list[str] = Field(default_factory=list)
+    useful_gods: list[str] = Field(default_factory=list)
+    daewoon_directions: list[str] = Field(default_factory=list)
+
+    def label(self) -> str:
+        """표시용 한 줄 — '甲辰·丙寅·乙丑(子~申시)'."""
+        hours = ''.join(self.hour_branches)
+        return f"{self.year_ganji}·{self.month_ganji}·{self.day_ganji}({hours}시)"
 
 
 class ConsensusItem(BaseModel):
@@ -77,10 +92,13 @@ class HourUnknownAnalysis(BaseModel):
     """시간 미상 분석 — ManseV2Result.hour_unknown (시간이 있으면 None)."""
 
     candidates: list[HourCandidate] = Field(default_factory=list)
-    #: 후보 집합의 근거: 'all12' | 'band:아침' | 'hint:子'(성향 추정 — 확정 아님)
+    #: 후보 집합의 근거: 'all12' | 'band:아침' | 'variant:子丑寅'(사용자가 고른 명식 변형) |
+    #: 'hint:子'(성향 추정 — 확정 아님)
     basis: str = "all12"
     approx_band: str | None = None
     hint_branch: str | None = None
+    #: 사용자가 고른 명식 변형의 시진들(경계 당일) — 확정이 아니라 '보기 선택'이다.
+    variant_choice: list[str] | None = None
     #: 연·월·일주 변형(경계 당일). 1개면 명식 자체는 확정, 2개 이상이면 분기.
     pillar_variants: list[PillarVariant] = Field(default_factory=list)
     strength_band: ConsensusItem

@@ -33,6 +33,8 @@ class BirthInput(BaseModel):
     hour_branch_hint: Literal[
         "子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥",
     ] | None = None
+    # 경계 당일(입춘·절입·일 경계) 명식 변형 선택 — 그 변형의 시진 목록. 확정이 아니라 '보기 선택'.
+    hour_branch_candidates: list[str] | None = None
 
     birth_place_name: str
     country_code: str | None = None

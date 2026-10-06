@@ -33,6 +33,7 @@ function profileToBirthInput(
     birth_time_unknown: profile.timeUnknown,
     birth_time_approx: profile.timeUnknown ? (profile.timeApprox ?? null) : null,
     hour_branch_hint: profile.timeUnknown ? (profile.hourHint ?? null) : null,
+    hour_branch_candidates: profile.timeUnknown ? (profile.hourCandidates ?? null) : null,
     birth_place_name: profile.place.name,
     latitude: profile.place.lat,
     longitude: profile.place.lon,

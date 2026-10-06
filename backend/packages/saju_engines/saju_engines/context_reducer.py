@@ -1345,11 +1345,19 @@ def build_birth_summary(result: ManseV2Result) -> BirthChartSummary:
                 else f"추정 {hu.hint_branch}시(확정 아님)"
             )
         if len(hu.pillar_variants) > 1:
-            hour_note += " 명식 변형: " + " / ".join(
-                f"{v.year_ganji}·{v.month_ganji}·{v.day_ganji}({''.join(v.hour_branches)}시"
-                + (" — 현재 표시)" if v.is_base else ")")
-                for v in hu.pillar_variants
+            # 경계 당일 — 변형별 핵심 사실(엔진 계산)을 그대로 싣는다. LLM 은 변형을 고르지 않고
+            # '변형별 분기 풀이'를 한다(지시문 7항). 선택 변형이 있으면 그것이 현재 표시 명식이다.
+            _dir_ko = {"forward": "순행", "backward": "역행"}
+            hour_note += " 명식 변형(경계 당일 — 변형별 분기 풀이 대상): " + " / ".join(
+                f"[{chr(ord('A') + i)}] {v.year_ganji}·{v.month_ganji}·{v.day_ganji}"
+                f"({''.join(v.hour_branches)}시{' — 현재 표시' if v.is_base else ''}) "
+                f"일간 {v.day_master} · 강약 {'/'.join(v.strength_bands) or '-'} · "
+                f"격국 {'/'.join(v.geokguks) or '-'} · {'/'.join(v.useful_gods) or '-'} · "
+                f"대운 {'/'.join(_dir_ko.get(d, d) for d in v.daewoon_directions) or '-'}"
+                for i, v in enumerate(hu.pillar_variants)
             )
+            if hu.variant_choice:
+                hour_note += " (사용자가 고른 변형 기준으로 표시 중 — 확정 아님)"
         if hu.is_unconfirmed("strength_band"):
             strength = f"미확정(시주 미상 — 후보 {'/'.join(hu.strength_band.values)})"
         elif hu.hint_branch and hu.candidates:

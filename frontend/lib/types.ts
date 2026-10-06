@@ -18,6 +18,7 @@ export interface Profile {
   // 시간 모름 보조(2026-10-06): 대략 시간대·성향 문항으로 좁힌 추정 시진(확정 아님 — 미상 모드 유지)
   timeApprox?: ApproxBand | null;
   hourHint?: string | null; // 子~亥
+  hourCandidates?: string[] | null; // 경계 당일 명식 변형 선택(그 변형의 시진들) — 보기 선택, 확정 아님
   place: SajuLocation;
 }
 
@@ -38,6 +39,7 @@ export interface BirthInputDTO {
   birth_time_unknown?: boolean;
   birth_time_approx?: ApproxBand | null;
   hour_branch_hint?: string | null;
+  hour_branch_candidates?: string[] | null;
   birth_place_name: string;
   latitude?: number | null;
   longitude?: number | null;
@@ -544,12 +546,18 @@ export interface HourPillarVariant {
   day_ganji: string;
   hour_branches: string[];
   is_base: boolean;
+  day_master: string;
+  strength_bands: string[];
+  geokguks: string[];
+  useful_gods: string[];
+  daewoon_directions: string[];
 }
 
 export interface HourUnknownAnalysis {
-  basis: string; // 'all12' | 'band:아침' | 'hint:子'
+  basis: string; // 'all12' | 'band:아침' | 'variant:酉戌亥' | 'hint:子'
   approx_band: string | null;
   hint_branch: string | null;
+  variant_choice: string[] | null;
   pillar_variants: HourPillarVariant[];
   candidates: Array<{
     hour_branch: string;

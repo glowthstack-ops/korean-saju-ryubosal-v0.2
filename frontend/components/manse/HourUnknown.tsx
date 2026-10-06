@@ -42,6 +42,7 @@ export function HourUnknownBanner({ result }: { result: ManseResult }) {
         출생시간이 없어 연·월·일주(3기둥) 기준으로 계산했어요.
         {hu?.basis.startsWith("band:") && ` 대략 시간대 '${hu.approx_band}' 후보 ${hu.candidates.length}개로 좁혀 비교했어요.`}
         {hu?.basis.startsWith("hint:") && ` 성향 문항으로 좁힌 추정 시진 ${hu.hint_branch}시 기준이에요(추정 — 확정 아님).`}
+        {hu?.basis.startsWith("variant:") && ` 경계 당일 명식 변형 중 선택한 변형(${hu.variant_choice?.join("")}시) 기준으로 표시 중이에요(보기 선택 — 확정 아님).`}
       </p>
       <ul className="mt-1 space-y-0.5 text-xs text-amber-800">
         {hu && hu.pillar_variants.length > 1 && (

@@ -198,15 +198,19 @@ export default function ManseResultPage() {
 
   // 시주 후보 좁히기 적용(2026-10-06): 대략 시간대·성향 추정 시진을 프로필에 반영하고 재계산한다.
   // 추정은 확정이 아니다 — birth_time 은 그대로 null(시간 미상 모드 유지). 로그인 사주는 DB 영속.
-  const applyHourNarrowing = (timeApprox: ApproxBand | null, hourHint: string | null) => {
+  const applyHourNarrowing = (
+    timeApprox: ApproxBand | null, hourHint: string | null,
+    hourCandidates: string[] | null = profile?.hourCandidates ?? null,
+  ) => {
     if (!profile) return;
-    const next: Profile = { ...profile, timeApprox, hourHint };
+    const next: Profile = { ...profile, timeApprox, hourHint, hourCandidates };
     setProfile(next);
     if (subjectSummary && subjectId) {
       const birth = {
         ...subjectSummary.birth,
         birth_time_approx: timeApprox,
         hour_branch_hint: hourHint,
+        hour_branch_candidates: hourCandidates,
       };
       setSubjectSummary({ ...subjectSummary, birth });
       void updateSubject(subjectId, {
@@ -283,7 +287,12 @@ export default function ManseResultPage() {
         />
       </div>
       <div id="sec-pillar" className="scroll-mt-4">
-        <PillarBoard result={result} applyEquationOfTime={applyEoT} />
+        <PillarBoard
+          result={result}
+          applyEquationOfTime={applyEoT}
+          // 경계 당일 변형 선택 — 추정 시진은 해제(변형과 충돌 방지), 시간대는 유지.
+          onSelectVariant={(hours) => applyHourNarrowing(profile.timeApprox ?? null, null, hours)}
+        />
       </div>
       <div id="sec-structure" className="scroll-mt-4">
         <StructurePanel result={result} />

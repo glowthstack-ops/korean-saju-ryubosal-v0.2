@@ -119,3 +119,25 @@ def test_sinsal_does_not_affect_strength_or_yongsin() -> None:
     assert r.force_analysis.strength.score == 35.51  # 통합형 강약(진태양시 戊辰) 스냅샷
     assert r.yongsin_analysis.final["yongsin"] == "土"
     assert r.geokguk.main_structure == "정재격"
+
+
+def test_dohwa_hwagae_are_relative_with_glyph_markers() -> None:
+    """도화(년살)·화개살도 연지·일지 삼합국 기준 상대 산출 — 글자 보유는 사정지·사고지 표지."""
+    from saju_manse_analysis.sinsal.sinsal_aggregator import sinsal_for_luck
+
+    from saju_shared_types.enums import Branch as B
+    from saju_shared_types.enums import Stem as S
+
+    # 1980-11-22 09:40 申亥亥巳: 연지 申(申子辰국) 년살 酉·화개 辰 / 일지 亥(亥卯未국) 년살 子·
+    # 화개 未 → 원국에 子午卯酉·辰戌丑未 글자가 없어 표지도, 도화·화개 성립도 없다.
+    r, s = _sinsal(birth_time="09:40")
+    names = {it.name for it in s.full_list}
+    assert not names & {"도화", "화개살", "사정지", "사고지"}
+    assert r.pillars is not None
+    # 운 酉 → 연지 申 기준 년살(도화)+사정지 / 운 辰 → 연지 기준 화개+사고지 / 운 午 → 표지만.
+    yu = {x.name for x in sinsal_for_luck(r.pillars, S.GYE, B.YU)}
+    jin = {x.name for x in sinsal_for_luck(r.pillars, S.GAP, B.JIN)}
+    o = {x.name for x in sinsal_for_luck(r.pillars, S.GAP, B.O)}
+    assert {"도화", "사정지"} <= yu and "화개살" not in yu
+    assert {"화개살", "사고지"} <= jin and "도화" not in jin
+    assert "사정지" in o and "도화" not in o

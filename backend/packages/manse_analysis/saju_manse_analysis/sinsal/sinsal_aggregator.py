@@ -36,24 +36,15 @@ def _detect(pillars: FourPillarsResult) -> list[_Detection]:
     year_branch = Branch(pillars.year.branch)
     day_branch = Branch(pillars.day.branch)
 
-    # 도화·화개 — 지지 글자(사정·사고지) 기준. 위치별 12신살 전체는 펼치지 않는다.
-    char_groups: list[tuple[str, frozenset[Branch]]] = [
-        ("도화", cat.SAJEONG), ("화개살", cat.SAGO),
-    ]
+    # 역마·도화·화개 — 값 3종 분리(2026-10-06 데굴님 승인): ①글자 보유=표지(이동지·사정지·사고지)
+    # ②성립=연지·일지 삼합국 기준 상대 12신살(역마살·년살→'도화'·화개살) ③활성화=구조 패턴·기회
+    # 엔진(여기선 안 봄). 위치별 12신살 전체는 펼치지 않는다.
     for pos, p in positions:
-        cb = Branch(p.branch)
-        for name, group in char_groups:
-            if cb in group:
-                meta = cat.CATALOG_META[name]
-                out.append((name, meta["category"], pos, f"{p.branch} {name}(글자살)"))
-
-    # 역마 — 값 3종 분리(2026-10-06 데굴님 승인): ①寅申巳亥 보유='이동지'(글자 표지)
-    # ②역마 성립=연지·일지 삼합국 기준 상대 12신살 ③활성화=구조 패턴·기회 엔진(여기선 안 봄).
-    for pos, p in positions:
-        if Branch(p.branch) in cat.SASAENG:
-            out.append(("이동지", cat.CATALOG_META["이동지"]["category"], pos,
-                        f"{p.branch} 사생지(글자) — 보유 표지, 역마 성립과 별개"))
-    out.extend(_relative_yeokma(positions, year_branch, day_branch))
+        for marker, group, what in _BRANCH_MARKERS:
+            if Branch(p.branch) in group:
+                out.append((marker, cat.CATALOG_META[marker]["category"], pos,
+                            f"{p.branch} {what}(글자) — 보유 표지, 성립과 별개"))
+    out.extend(_relative_trine_sinsal(positions, year_branch, day_branch))
 
     # 일간 기준 지지 타깃 신살.
     stem_branch_targets: list[tuple[str, list[Branch]]] = [
@@ -213,28 +204,43 @@ def _detect(pillars: FourPillarsResult) -> list[_Detection]:
     return out
 
 
-def _relative_yeokma(
+#: (표시명, 12신살명) — 집계기 표시명은 기존 소비처(사전·FE) 호환을 위해 유지한다.
+_RELATIVE_TRINE_SINSAL: tuple[tuple[str, str], ...] = (
+    ("역마살", "역마살"), ("도화", "년살"), ("화개살", "화개살"),
+)
+#: (표지명, 글자군, 설명) — 보유 표지.
+_BRANCH_MARKERS: tuple[tuple[str, frozenset[Branch], str], ...] = (
+    ("이동지", cat.SASAENG, "사생지"),
+    ("사정지", cat.SAJEONG, "왕지"),
+    ("사고지", cat.SAGO, "고지"),
+)
+
+
+def _relative_trine_sinsal(
     positions: list[tuple[str, Pillar]], year_branch: Branch, day_branch: Branch,
 ) -> list[_Detection]:
-    """연지·일지 삼합국 기준 상대 역마 — 같은 자리에 두 기준이 겹치면 1건으로 합쳐 근거를 병기한다.
+    """연지·일지 삼합국 기준 상대 역마·도화(년살)·화개 — 같은 자리에 두 기준이 겹치면 1건으로 병기.
 
-    글자살(寅申巳亥 보유)로 판정하지 않는다 — structure_patterns.json `yeokma_rule`
-    (2026-07-23 데굴님 정정)과 같은 원칙을 집계기에도 적용한다(2026-10-06 정의 통일).
+    글자살(寅申巳亥·子午卯酉·辰戌丑未 보유)로 판정하지 않는다 — structure_patterns.json
+    `yeokma_rule`(2026-07-23 데굴님 정정)과 같은 원칙을 세 신살 모두에 적용한다(2026-10-06 통일).
     """
     bases = (("연지", year_branch), ("일지", day_branch))
-    by_pos: dict[str, list[str]] = {}
-    for label, base in bases:
-        target = branch_of_sinsal(base, "역마살")
-        for pos, p in positions:
-            if Branch(p.branch) == target:
-                by_pos.setdefault(pos, []).append(
-                    f"{label} {base.value} 기준 역마({trine_group_label(base)}국)"
-                )
-    meta = cat.CATALOG_META["역마살"]
-    return [
-        ("역마살", meta["category"], pos, " · ".join(dict.fromkeys(bases_txt)))
-        for pos, bases_txt in by_pos.items()
-    ]
+    out: list[_Detection] = []
+    for display, sinsal in _RELATIVE_TRINE_SINSAL:
+        by_pos: dict[str, list[str]] = {}
+        for label, base in bases:
+            target = branch_of_sinsal(base, sinsal)
+            for pos, p in positions:
+                if Branch(p.branch) == target:
+                    by_pos.setdefault(pos, []).append(
+                        f"{label} {base.value} 기준 {display}({trine_group_label(base)}국)"
+                    )
+        meta = cat.CATALOG_META[display]
+        out.extend(
+            (display, meta["category"], pos, " · ".join(dict.fromkeys(txt)))
+            for pos, txt in by_pos.items()
+        )
+    return out
 
 
 def _intensity(name: str, position: str, repeated: bool, void: bool, overlaps: bool) -> str:
@@ -294,13 +300,14 @@ def sinsal_for_luck(
         if name not in names:
             names.append(name)
 
-    # 글자살: 도화/화개 (운 지지 글자 기준). 寅申巳亥는 '이동지'(보유 표지)로만 표시한다.
-    for nm, group in (("도화", cat.SAJEONG), ("화개살", cat.SAGO), ("이동지", cat.SASAENG)):
+    # 글자 보유 표지(이동지·사정지·사고지) — 성립과 별개.
+    for marker, group, _what in _BRANCH_MARKERS:
         if branch in group:
-            add(nm)
-    # 역마 성립 — 연지·일지 삼합국 기준 상대 12신살(운 지지가 그 기준의 역마 자리일 때).
-    if any(branch == branch_of_sinsal(base, "역마살") for base in (year_branch, day_branch)):
-        add("역마살")
+            add(marker)
+    # 역마·도화(년살)·화개 성립 — 연지·일지 삼합국 기준 상대 12신살(운 지지가 그 자리일 때).
+    for display, sinsal in _RELATIVE_TRINE_SINSAL:
+        if any(branch == branch_of_sinsal(base, sinsal) for base in (year_branch, day_branch)):
+            add(display)
 
     # 일간 기준 지지 타깃.
     stem_branch_targets: list[tuple[str, list[Branch]]] = [

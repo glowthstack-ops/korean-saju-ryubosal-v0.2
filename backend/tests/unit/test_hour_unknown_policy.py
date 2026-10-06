@@ -169,7 +169,7 @@ def test_boundary_day_splits_pillar_variants() -> None:
     assert any("입춘 경계" in w for w in hu.boundary_warnings)
     assert "명식 자체가 2갈래" in hu.notice
     summary = build_birth_summary(r)
-    assert "명식 변형:" in summary.hour_unknown_note
+    assert "명식 변형(" in summary.hour_unknown_note
     text = hour_unknown_directive(r)
     assert text is not None and "경계 경고" in text
 
@@ -195,3 +195,39 @@ def test_hour_narrowing_statements_and_ranking() -> None:
     # 시간이 있으면 좁힐 것이 없다.
     known = hn.trait_candidates(BirthInput(**_BASE, birth_time="09:40"))
     assert known.basis == "known" and known.candidates == []
+
+
+# ── 3차: 경계 당일 변형 선택·변형별 사실 ──────────────────────────────────
+
+
+def test_variant_choice_anchors_base_chart_and_keeps_all_variants() -> None:
+    """입춘 당일 변형 B(酉戌亥시)를 고르면 표시 명식이 그 변형이 되고 변형 목록은 2개 그대로다."""
+    base = calculate(BirthInput(
+        calendar_type="solar", birth_date="2024-02-04", birth_time=None, birth_time_unknown=True,
+        birth_place_name="서울", gender="female", reference_date=date(2026, 10, 6),
+    ))
+    hu = base.hour_unknown
+    assert hu is not None and len(hu.pillar_variants) == 2
+    other = next(v for v in hu.pillar_variants if not v.is_base)
+    assert other.day_master and other.strength_bands and other.useful_gods  # 변형별 사실 채움
+    chosen = calculate(BirthInput(
+        calendar_type="solar", birth_date="2024-02-04", birth_time=None, birth_time_unknown=True,
+        birth_place_name="서울", gender="female", reference_date=date(2026, 10, 6),
+        hour_branch_candidates=other.hour_branches,
+    ))
+    assert chosen.pillars is not None and chosen.pillars.hour is None  # 여전히 시간 미상
+    assert chosen.pillars.year.ganji == other.year_ganji
+    assert chosen.pillars.month.ganji == other.month_ganji
+    hu2 = chosen.hour_unknown
+    assert hu2 is not None and hu2.basis.startswith("variant:")
+    assert hu2.variant_choice == other.hour_branches
+    assert len(hu2.pillar_variants) == 2
+    assert next(v for v in hu2.pillar_variants if v.is_base).year_ganji == other.year_ganji
+    assert "year_pillar" not in hu2.unconfirmed and "month_branch" not in hu2.unconfirmed
+    assert "선택한 변형 기준으로 표시 중(확정 아님)" in hu2.notice
+    summary = build_birth_summary(chosen)
+    assert "명식 변형(경계 당일 — 변형별 분기 풀이 대상)" in summary.hour_unknown_note
+    assert "[A]" in summary.hour_unknown_note and "[B]" in summary.hour_unknown_note
+    assert "사용자가 고른 변형 기준으로 표시 중" in summary.hour_unknown_note
+    text = hour_unknown_directive(chosen)
+    assert text is not None and "변형별 분기 풀이" in text
