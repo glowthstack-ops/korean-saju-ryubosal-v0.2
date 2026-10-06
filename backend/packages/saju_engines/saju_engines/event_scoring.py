@@ -105,7 +105,8 @@ def favorability_map(result: ManseV2Result) -> dict[str, str]:
     """
     if result.yongsin_analysis is None:
         return {}
-    hu = result.hour_unknown
+    # duck-typed 호출(테스트 fake 등)을 위해 속성 부재는 '시간 있음'으로 본다.
+    hu = getattr(result, "hour_unknown", None)
     if hu is not None and hu.is_unconfirmed("useful_gods"):
         return {}
     final = result.yongsin_analysis.final
