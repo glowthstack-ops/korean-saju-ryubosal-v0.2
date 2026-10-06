@@ -219,6 +219,7 @@ from . import (
     relationship_vector_sidecar,
     relationship_vector_telemetry,
     risk_exposure_service,
+    variant_branching,
 )
 from .manse_service import (
     calculate,
@@ -5224,6 +5225,15 @@ def chat(
     # 주간(일 범위) 질문은 7일 일별 일운을 surface — 월운으로 뭉뚱그려지던 결함 보완(2026-06-18).
     if structural is not None and _is_day_range(intent):
         structural = structural + _weekly_overview_lines(birth, intent, today)
+    # 경계 당일 명식 변형 완전 분기(2026-10-06): 표시 변형 외 변형마다 사건 점수를 따로 돌려 변형별
+    # 시기 후보 블록을 싣는다. 시간이 있거나 변형이 하나면 빈 목록(바이트 불변).
+    if structural is not None and result.hour_unknown is not None \
+            and len(result.hour_unknown.pillar_variants) > 1:
+        structural = structural + variant_branching.variant_candidate_blocks(
+            result, chart_birth, scorer=_get_scorer(), base_candidates=candidates,
+            fav_override=_fav_override, occupation_status=occupation_status,
+            relationship_status=relationship_status,
+        )
     # 막연한 시점 → 10년 연 단위 흐름의 대운 배경·교운기를 구조 블록에 실어 LLM이 반영하게 한다.
     if structural is not None and vague_future and year_digest_years:
         span = _daewoon_span_context(year_result, year_digest_years[0], year_digest_years[-1])

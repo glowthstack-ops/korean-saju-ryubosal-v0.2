@@ -197,6 +197,7 @@ from . import (
     precompute_service,
     relationship_shadow,
     relationship_vector_sidecar,
+    variant_branching,
 )
 from .manse_service import calculate, luck_months, luck_years
 from .personalization import (
@@ -1119,6 +1120,14 @@ class _ReportData:
         _hour_directive = hour_unknown_directive(self.result)
         if _hour_directive:
             self.prefix_lines.append(_hour_directive)
+            # 경계 당일 변형 완전 분기(2026-10-06) — 표시 변형 외 변형마다 보고서 기간 안의 시기
+            # 후보를 따로 채점해 전 섹션 공통 prefix 에 싣는다(변형 하나면 빈 목록).
+            self.prefix_lines.extend(variant_branching.variant_candidate_blocks(
+                self.result, chart_birth, scorer=self.scorer, base_candidates=self.candidates,
+                period_start=spec.period.start, period_end=spec.period.end,
+                fav_override=fav_override, occupation_status=occ_status,
+                relationship_status=rel_status,
+            ))
         # 공망 해석 규칙(전 섹션 공통) — 원국 공망은 배경값·운 자극 시만 발동(미발동 시 언급 금지).
         # 불확실성 번역 규칙(전 섹션 공통, 2026-07-22) — '가능성이 열리는 달' 류 추상 문구
         # 단독 금지, 구체 사건·미확정 결과·실제 변수·행동으로 번역(chat과 공용 상수).
