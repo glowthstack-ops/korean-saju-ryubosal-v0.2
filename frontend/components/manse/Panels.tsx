@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Collapsible } from "@/components/layout/Collapsible";
 import { InfoTooltip } from "@/components/layout/InfoTooltip";
+import { ConsensusBadge, GhostOverlay, hourUnknownOf, isHourUnknown } from "./HourUnknown";
 import { fetchLuckMonths } from "@/lib/api";
 import { ELEMENT_KO, elementLabel, elementStyle, ganjiKo } from "@/lib/elements";
 import { applyCalibrationToLuckCycles, applyCalibrationToLuckPillars } from "@/lib/luck-calibration";
@@ -205,10 +206,23 @@ export function TrueSolarTimeCard({
 export function StrengthPanel({ result }: { result: ManseResult }) {
   const st = result.force_analysis.strength;
   const b = st.basis;
+  const hu = hourUnknownOf(result);
+  const unconfirmed = hu?.unconfirmed.includes("strength_band") ?? false;
+  const band = unconfirmed ? (
+    <GhostOverlay label="미확정 · 시주 미상" sub={`후보 ${hu!.strength_band.values.join(" / ")}`}>
+      <b className="inline-block min-w-[9rem] px-2">{st.band}</b>
+    </GhostOverlay>
+  ) : (
+    <b>{st.band}</b>
+  );
   return (
     <Card title="신강/신약" info="나(일간)를 돕는 기운과 빼앗는 기운을 견줘 사주가 강한지 약한지 보는 지표입니다. 어떤 기운이 필요한지 가늠하는 출발점이 됩니다.">
       <p className="flex flex-wrap items-center gap-2 text-sm">
-        <b>{st.band}</b>
+        {band}
+        <ConsensusBadge hu={hu} item="strength_band" />
+        {isHourUnknown(result) && (
+          <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600">3기둥 기준</span>
+        )}
         {st.borderline && <span className="text-[11px] text-amber-600">경계값</span>}
         {st.element_presence_label && (
           <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600">
@@ -402,6 +416,12 @@ export function DistributionPanel({ result }: { result: ManseResult }) {
 
   return (
     <Card title="오행 · 십성 분포" info="사주를 이루는 다섯 기운(오행)과 나를 기준으로 한 관계(십성)의 분포입니다. 탭으로 보는 기준(원국 글자 / 지장간 포함 / 계절 반영)을 바꿀 수 있습니다.">
+      {isHourUnknown(result) && (
+        <p className="mb-2 rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
+          부분 확인 · 세 기둥(6글자)에서 보이는 분포예요. 시주에서 보충될 수 있어 &quot;없음&quot;은
+          &quot;세 기둥에 없음&quot;으로 읽어 주세요.
+        </p>
+      )}
       <div className="mb-3 flex flex-wrap gap-1">
         {DIST_MODES.map((m) => (
           <button
@@ -484,10 +504,20 @@ export function GeokgukPanel({ result }: { result: ManseResult }) {
   // 파격은 코드 대신 한글 근거(evidence)+구제 여부로 표시.
   const failures = ((e?.failures as Array<Record<string, unknown>> | undefined) ?? []).filter((f) => f.active);
   const sfGrade = String(e?.success_failure_grade ?? "");
+  const hu = hourUnknownOf(result);
+  const geokUnconfirmed = hu?.unconfirmed.includes("geokguk") ?? false;
+  const mainName = geokUnconfirmed ? (
+    <GhostOverlay label="미확정 · 시주 미상" sub={`후보 ${hu!.geokguk.values.join(" / ")}`}>
+      <b className="inline-block min-w-[8rem] px-2">{String(g.main_structure)}</b>
+    </GhostOverlay>
+  ) : (
+    <b>{String(g.main_structure)}</b>
+  );
   return (
     <Card title="격국" info="월(月)을 중심으로 본 사주의 큰 틀로, 직업·사회적 역할의 성향을 읽는 데 씁니다. 용신 판단의 참고이며 이것만으로 용신을 정하지는 않습니다.">
       <p className="flex flex-wrap items-center gap-2 text-sm">
-        <b>{String(g.main_structure)}</b>
+        {mainName}
+        <ConsensusBadge hu={hu} item="geokguk" />
         {e && (
           <span className={`rounded px-1.5 py-0.5 text-[11px] ${SF_BADGE[sfGrade] ?? "bg-gray-100 text-gray-600"}`}>
             {String(e.success_failure_label)}
@@ -811,6 +841,21 @@ export function SinsalPanel({ result }: { result: ManseResult }) {
       <div className="flex gap-2">
         {cols.map(([pos, ko]) => {
           const items = sinsal.filter((s) => s.position === pos);
+          if (pos === "hour" && isHourUnknown(result)) {
+            // 시주 미상 — '해당 없음(-)'과 구분되는 '산출 불가' 자리. 흐린 예시 위에 레이어를 덮는다.
+            return (
+              <GhostOverlay key={pos} className="flex-1" label="산출 불가" sub="시주 미상">
+                <div className="flex h-full flex-col rounded-lg border bg-white p-2">
+                  <div className="mb-1 text-center text-xs font-semibold text-gray-500">{ko}</div>
+                  <div className="flex flex-1 flex-wrap content-start justify-center gap-1">
+                    {["역마살", "천을귀인"].map((n) => (
+                      <span key={n} className="rounded border px-1.5 py-0.5 text-[11px]">{n}</span>
+                    ))}
+                  </div>
+                </div>
+              </GhostOverlay>
+            );
+          }
           return (
             <div key={pos} className="flex flex-1 flex-col rounded-lg border bg-white p-2">
               <div className="mb-1 text-center text-xs font-semibold text-gray-500">{ko}</div>
@@ -1156,7 +1201,10 @@ export function LuckPanel({
         hint="선택 시 해당 세운이 표시됩니다"
         note={
           <p className="text-xs text-gray-600">
-            {lc.direction === "forward" ? "순행" : "역행"} · 대운수 {lc.start_age}세
+            {lc.direction === "forward" ? "순행" : "역행"} · 대운수{" "}
+            {result.hour_unknown?.daewoon_start_range
+              ? `${result.hour_unknown.daewoon_start_range[0]}~${result.hour_unknown.daewoon_start_range[1]}세(시각 범위)`
+              : `${lc.start_age}세`}
             {lc.current_age != null && ` · 현재 ${lc.current_age}세`}
           </p>
         }

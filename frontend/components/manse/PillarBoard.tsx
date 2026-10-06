@@ -1,5 +1,19 @@
 import { ELEMENT_KO, elementLabel, elementStyle, ganjiKo, naeumElement, yinyangSign } from "@/lib/elements";
 import { JA_HOUR_RULE_LABEL, type JaHourRule, type ManseResult, type Pillar } from "@/lib/types";
+import { GhostOverlay } from "./HourUnknown";
+
+// 시주 미상일 때 보여 주는 흐린 예시 — 실제 데이터가 아니다(블러+반투명 레이어 아래 자리만 잡는다).
+const GHOST_HOUR_PILLAR: Pillar = {
+  stem: "丙", branch: "午", ganji: "丙午",
+  stem_element: "火", branch_element: "火", stem_yinyang: "양", branch_yinyang: "양",
+  stem_ten_god: "편인", branch_main_ten_god: "정인", twelve_unseong: "제왕",
+  hidden_stems: [
+    { stem: "丙", type: "residual", element: "火", weight: 0.3 },
+    { stem: "己", type: "middle", element: "土", weight: 0.2 },
+    { stem: "丁", type: "main", element: "火", weight: 0.5 },
+  ],
+  naeum: "天河水", gongmang_hit: false, palace: "자녀궁",
+} as unknown as Pillar;
 
 function Cell(
   { char, ko, element, mark, sub, isVoid = false }:
@@ -28,18 +42,22 @@ function _mainHidden(p: Pillar): string {
   return (p.hidden_stems.find((h) => h.type === "main") ?? p.hidden_stems[0])?.stem ?? "";
 }
 
-function Column({ title, p }: { title: string; p: Pillar | null }) {
+function Column({ title, p, ghost = false }: { title: string; p: Pillar | null; ghost?: boolean }) {
   if (!p) {
+    // 시간 모름 — 빈칸 대신 흐린 예시 위에 반투명 레이어를 덮어 '여기에 시주 정보가 들어온다'는
+    // 것을 보여 준다(2026-10-06 데굴님 지시). 예시 글자는 실제 데이터가 아니다.
     return (
-      <div className="flex-1 rounded-lg border bg-white p-2 text-center">
-        <div className="mb-2 text-xs font-semibold text-gray-500">{title}</div>
-        <div className="rounded bg-gray-100 p-6 text-2xl text-gray-400">?</div>
-        <div className="mt-2 text-[11px] text-gray-400">시간 모름</div>
-      </div>
+      <GhostOverlay
+        className="flex-1"
+        label="시주 미상 · 산출 불가"
+        sub="출생시간을 입력하면 시주·십성·지장간·운성이 여기에 표시돼요"
+      >
+        <Column title={title} p={GHOST_HOUR_PILLAR} ghost />
+      </GhostOverlay>
     );
   }
   return (
-    <div className="flex-1 rounded-lg border bg-white p-2">
+    <div className={`flex-1 rounded-lg border bg-white p-2 ${ghost ? "h-full" : ""}`}>
       <div className="mb-2 text-center text-xs font-semibold text-gray-500">{title}</div>
       <div className="space-y-1">
         <Cell

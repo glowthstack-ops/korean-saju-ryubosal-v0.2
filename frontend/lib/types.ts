@@ -520,6 +520,32 @@ export interface CalibrationResult {
   user_summary?: string[]; // 사용자용 결과 설명(근거 한 줄·역할 의미·다음 행동, CAL-P3)
 }
 
+// 출생시간 미상 분석(12시진 후보 비교) — 시간이 있으면 null/미포함(2026-10-06).
+export interface HourUnknownConsensus {
+  status: "agree" | "differ";
+  base: string;
+  values: string[];
+}
+
+export interface HourUnknownAnalysis {
+  candidates: Array<{
+    hour_branch: string;
+    ganji: string;
+    strength_band: string;
+    geokguk: string;
+    useful_gods: string;
+    yongsin: string;
+    daewoon_start_exact: number | null;
+  }>;
+  strength_band: HourUnknownConsensus;
+  geokguk: HourUnknownConsensus;
+  useful_gods: HourUnknownConsensus;
+  unconfirmed: string[];
+  daewoon_start_range: [number, number] | null;
+  boundary_warnings: string[];
+  notice: string;
+}
+
 export interface ManseResult {
   chart_id: string;
   input_summary: Record<string, unknown>;
@@ -585,6 +611,7 @@ export interface ManseResult {
   yongsin_analysis: YongsinAnalysis;
   luck_cycles: LuckCycles | null;
   calibration: { status: string; questions: CalibrationQuestion[]; note?: string } | null;
+  hour_unknown?: HourUnknownAnalysis | null;
   traditional_extras: {
     sinsal: {
       full_list: SinsalItem[];

@@ -491,6 +491,8 @@ _POLARITY_KO = {
     "negative_or_forced": "부담·비자발 계열",
     "conditional": "조건부",
     "neutral": "중립",
+    # 시주 미상으로 용희신이 미확정인 명식 — 극성(길흉)을 LLM 에 넘기지 않는다(2026-10-06).
+    "unconfirmed": "극성 보류(시주 미상·용희신 미확정)",
 }
 
 
@@ -1319,7 +1321,6 @@ def build_birth_summary(result: ManseV2Result) -> BirthChartSummary:
     if result.force_analysis is not None:
         strength = result.force_analysis.strength.band
     fav = favorability_map(result)
-    roles = lambda name: [el for el, role in fav.items() if role == name]  # noqa: E731
     geokguk = ""
     g = result.geokguk
     if g is not None and g.main_structure:
@@ -1327,6 +1328,24 @@ def build_birth_summary(result: ManseV2Result) -> BirthChartSummary:
         if g.evaluation is not None:
             parts.append(g.evaluation.success_failure_label)
         geokguk = " · ".join(part for part in parts if part)
+    # 출생시간 미상(2026-10-06): 12시진 후보가 갈리는 항목은 확정값이 아니다 — 강약·격국은
+    # '미확정'으로 바꾸고 용희신은 비워 LLM 이 길흉·처방에 쓰지 못하게 한다(미상≠없음).
+    hu = result.hour_unknown
+    hour_unknown = p.hour is None
+    hour_items: list[str] = []
+    hour_note = ""
+    if hour_unknown and hu is not None:
+        hour_items = list(hu.unconfirmed)
+        hour_note = hu.notice
+        if hu.is_unconfirmed("strength_band"):
+            strength = f"미확정(시주 미상 — 후보 {'/'.join(hu.strength_band.values)})"
+        if hu.is_unconfirmed("geokguk"):
+            geokguk = f"미확정(시주 미상 — 후보 {'/'.join(hu.geokguk.values)})"
+        if hu.is_unconfirmed("useful_gods"):
+            fav = {}
+    elif hour_unknown:
+        hour_note = "출생시간 미상 — 연·월·일주 3기둥 기준(후보 비교 미산출)."
+    roles = lambda name: [el for el, role in fav.items() if role == name]  # noqa: E731
     # 표면 부재 오행의 지장간 잠복(2026-07-03 데굴님 확정) — '완전 부재'≠'숨은 존재'.
     # 출처 포맷 '亥중甲' = [지지][단계(정/중/여)][천간]. 십성은 일간 기준 엔진 계산.
     hidden_latents: list[str] = []
@@ -1372,6 +1391,9 @@ def build_birth_summary(result: ManseV2Result) -> BirthChartSummary:
         geokguk=geokguk,
         hidden_latents=hidden_latents,
         flow_note=flow_note,
+        hour_unknown=hour_unknown,
+        hour_unknown_items=hour_items,
+        hour_unknown_note=hour_note,
     )
 
 
@@ -2217,6 +2239,14 @@ def build_llm_input(
     )
 
     _folk_lines = _folk_taboo_lines(intent, user_question, today)
+    # 시주 미상으로 용희신이 미확정이면 용신 기반 처방(색·방향)을 싣지 않는다 — 사용자가 검증으로
+    # 확정한 용신(favorability_confirmed)이 있을 때만 예외(2026-10-06 데굴님 원칙: 불완전 정보는
+    # 확정이 아니므로 풀이에 적극 활용하지 않는다).
+    _ug_unconfirmed = (
+        result.hour_unknown is not None
+        and result.hour_unknown.is_unconfirmed("useful_gods")
+        and not favorability_confirmed
+    )
     # 오행 보완 색 첨언(2026-10-01 데굴님 승인) — 색 질문 턴에만. 엔진이 역할별 색 후보·톤을 모두
     # 제시해 LLM의 상생 연쇄 확장(기신 木 색을 '화를 생하니 좋다'로 추천)을 막는다. 라우팅 불변.
     _yongsin_color = (
@@ -2224,7 +2254,7 @@ def build_llm_input(
             favorability if favorability is not None else favorability_map(result),
             intent.colors_asked, confirmed=favorability_confirmed,
         )
-        if intent.color_question
+        if intent.color_question and not _ug_unconfirmed
         else None
     )
     # 오행 보완 방향 첨언(2026-09-22 데굴님 승인) — 사용자가 직접 방향을 물은 턴(수동 블록)에만.
@@ -2235,6 +2265,7 @@ def build_llm_input(
             intent.direction_asked, confirmed=favorability_confirmed,
         )
         if _sinsal_direction is not None and not _sinsal_direction.proactive
+        and not _ug_unconfirmed
         # 이사 방향은 택일 경로가 용희기구한 8방위 적합도(direction_fit)를 이미 싣는다 — 같은 답에
         # 오행 방위 결론이 둘이 되지 않게 제외(택일·이사 미변경 원칙).
         and date_selection is None
@@ -2320,6 +2351,11 @@ def build_llm_input(
             _c.period_rank_tied = _row.period_rank_tied
             _c.period_rank_population = _row.period_rank_population
     _apply_rank_guards(payload, result, selected, ganji, intent, call_type, reserved_tokens)
+    # 시주 미상·용희신 미확정 — 후보 극성(길흉)을 '보류'로 바꿔 LLM 이 길흉을 단정하지 못하게 한다.
+    # 점수·선별은 그대로다(엔진 내부 판정 불변 — LLM 입력 계층의 노출 제한).
+    if _ug_unconfirmed:
+        for _c in (*payload.event_candidates, *payload.out_of_range_candidates):
+            _c.polarity = "unconfirmed"
     return payload
 
 
@@ -2379,18 +2415,31 @@ def serialize_chart_prefix(summary: BirthChartSummary, ci: ChartInterpretation |
     사용자별로 바이트 단위 동일해야 한다(provider 캐시 조건) — 가변 값 삽입 금지.
     """
     ug = summary.useful_gods
+    pillar_txt = " ".join(f"{k}:{v}" for k, v in summary.pillars.items())
+    if summary.hour_unknown:
+        pillar_txt += " hour:미상(산출 불가)"
+    ug_unconfirmed = summary.hour_unknown and "useful_gods" in summary.hour_unknown_items
     lines: list[str] = [
-        "[원국·명식 구조 — 엔진 확정값]",
-        f"일간 {summary.day_master} · 명식 "
-        + " ".join(f"{k}:{v}" for k, v in summary.pillars.items())
+        "[원국·명식 구조 — 엔진 확정값"
+        + (" · 시주 미상: 3기둥 기준, '미확정' 표기 항목은 확정값 아님"
+           if summary.hour_unknown else "")
+        + "]",
+        f"일간 {summary.day_master} · 명식 {pillar_txt}"
         + f" · 공망 {''.join(summary.void_branches) or '없음'} · 강약 {summary.strength}",
         # 용희기구한 5역할 전부(항목 8) — 희신/구신/한신 질문에도 답할 수 있게.
-        f"용신 {','.join(ug.yongsin) or '미정'} · 희신 {','.join(ug.heesin) or '없음'} · "
-        f"기신 {','.join(ug.gisin) or '미정'} · 구신 {','.join(ug.gusin) or '없음'} · "
-        f"한신 {','.join(ug.hansin) or '없음'}",
+        (
+            "용신·희신·기신·구신·한신: 미확정(시주 미상 — 12시진 후보에 따라 달라짐. 길흉 판정·"
+            "보완 색·방향·오행 처방에 쓰지 말 것)"
+            if ug_unconfirmed else
+            f"용신 {','.join(ug.yongsin) or '미정'} · 희신 {','.join(ug.heesin) or '없음'} · "
+            f"기신 {','.join(ug.gisin) or '미정'} · 구신 {','.join(ug.gusin) or '없음'} · "
+            f"한신 {','.join(ug.hansin) or '없음'}"
+        ),
     ]
     if summary.geokguk:
         lines.append(f"격국: {summary.geokguk}")  # 항목 9
+    if summary.hour_unknown_note:
+        lines.append("[시주 미상 — 확정 제외·해석 제한] " + summary.hour_unknown_note)
     # 표면 부족 오행의 지장간 잠복 — '존재'와 '작동'을 구분해 잠재·조건부로만 서술
     # (2026-07-03 데굴님 확정 원리: 천간 투출=실제 작동선 / 지장간=숨은 연결선).
     if summary.hidden_latents:

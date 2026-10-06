@@ -44,7 +44,12 @@ interface LlmInput {
 
   birthChartSummary: {
     dayMaster: Stem;
-    pillars: { year: string; month: string; day: string; hour: string };  // '庚申' 형태
+    pillars: { year: string; month: string; day: string; hour?: string };  // '庚申' 형태. 시주 미상이면 hour 생략
+    // 시주 미상(2026-10-06, HOUR_UNKNOWN_POLICY.md): 3기둥 기준. 12시진 후보가 갈리는 항목은
+    // strength/geokguk 에 '미확정(시주 미상 — 후보 …)'로 표기하고 usefulGods 는 비운다(길흉·처방 금지).
+    hourUnknown?: boolean;
+    hourUnknownItems?: ('strength_band' | 'geokguk' | 'useful_gods')[];
+    hourUnknownNote?: string;              // 엔진 생성 1회 고지 문구
     voidBranches: Branch[];
     strength: string;                    // '중화신강'
     usefulGods: { yongsin: Element[]; gisin: Element[] };

@@ -16,6 +16,7 @@ import {
 } from "@/lib/calibration";
 import { elementLabel, elementStyle } from "@/lib/elements";
 import type { CalibrationResult, ManseResult, Profile } from "@/lib/types";
+import { ConsensusBadge, GhostOverlay, hourUnknownOf } from "./HourUnknown";
 
 const ALL_ELEMENTS = ["木", "火", "土", "金", "水"];
 
@@ -72,23 +73,46 @@ export function YongsinPanel({
   // 한신 = 용/희/기/구에 배정되지 않은 나머지 한 오행.
   const assigned = [yongsin, heesin, gisin, gusin].filter(Boolean) as string[];
   const hansin = ALL_ELEMENTS.find((e) => !assigned.includes(e)) ?? null;
+  // 시주 미상 — 12시진 후보에 따라 용희신이 갈리면 '미확정'으로 가린다(사용자가 검증·등록으로
+  // 확정한 용신이 있으면 그 값은 유지). 전부 일치하면 뱃지만 붙인다.
+  const hu = hourUnknownOf(result);
+  const ugUnconfirmed = (hu?.unconfirmed.includes("useful_gods") ?? false) && !calibration && !registered;
+  const boxes = (
+    <div className="mt-2 grid grid-cols-5 gap-1.5 text-xs">
+      <Box label="용신" v={yongsin} />
+      <Box label="희신" v={heesin} />
+      <Box label="기신" v={gisin} />
+      <Box label="구신" v={gusin} />
+      <Box label="한신" v={hansin} />
+    </div>
+  );
   return (
     <section className="rounded-lg border bg-white p-4">
       <h2 className="mb-2 flex items-center text-sm font-semibold">
         용신 후보
         <InfoTooltip text="사주의 균형을 잡아 주는, 가장 필요한 핵심 기운입니다. 먼저 후보로 제시하고 과거 경험과 맞춰 본 뒤 확정합니다. 부족한 오행이 곧 용신은 아닙니다." />
       </h2>
-      <p className="text-sm">
-        상태:{" "}
-        <b>{registered ? "확정(등록됨)" : (statusKo[calibration?.status ?? y.status] ?? y.status)}</b>
+      <p className="flex flex-wrap items-center gap-2 text-sm">
+        <span>
+          상태:{" "}
+          <b>
+            {ugUnconfirmed
+              ? "미확정(시주 미상)"
+              : registered ? "확정(등록됨)" : (statusKo[calibration?.status ?? y.status] ?? y.status)}
+          </b>
+        </span>
+        {!calibration && !registered && <ConsensusBadge hu={hu} item="useful_gods" />}
       </p>
-      <div className="mt-2 grid grid-cols-5 gap-1.5 text-xs">
-        <Box label="용신" v={yongsin} />
-        <Box label="희신" v={heesin} />
-        <Box label="기신" v={gisin} />
-        <Box label="구신" v={gusin} />
-        <Box label="한신" v={hansin} />
-      </div>
+      {ugUnconfirmed ? (
+        <GhostOverlay
+          label="미확정 · 시주 미상"
+          sub={`출생시각에 따라 용희신이 달라져요 — 후보 ${hu!.useful_gods.values.join(" / ")}. 풀이에서는 길흉·보완 색·방향 판단에 쓰지 않아요.`}
+        >
+          {boxes}
+        </GhostOverlay>
+      ) : (
+        boxes
+      )}
       <p className="mt-2 text-[11px] text-gray-500">
         후보 모델: {y.candidate_models.map((m) => `${m.label}${m.is_auxiliary ? "(보조)" : ""}`).join(" · ")}
       </p>

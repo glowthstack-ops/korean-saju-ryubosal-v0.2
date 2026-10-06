@@ -153,6 +153,7 @@ from saju_engines.structural_context import (
     daewoon_progression_lines,
     document_caution_block,
     document_contrast_block,
+    hour_unknown_directive,
     spouse_star_directive,
 )
 from saju_engines.task_procedures import (
@@ -3487,6 +3488,16 @@ def _compat_prompt_block(
         return None
     lines = ["", "[궁합 분석 — 아래 엔진 계산값만 근거로 두 사람 궁합을 설명할 것]"]
     lines += compatibility_lines(report)
+    # 시주 미상 궁합 고지(2026-10-06) — 시주가 없는 쪽은 3기둥 기준이며 시지 상호작용은 미산출.
+    _missing = [
+        label for label, res in (("본인", result), (partner_label, partner_result))
+        if res.pillars is not None and res.pillars.hour is None
+    ]
+    if _missing:
+        lines.append(
+            f"[궁합 한계] {'·'.join(_missing)} 출생시간 미상 — 3기둥 기준 궁합이며 시지 합·충 등 "
+            "시주가 참여하는 상호작용은 산출하지 않았다. 확정 궁합으로 서술하지 말 것."
+        )
     # 12신살 상대위치(P2) — 년지(사회)·일지(친밀) 기준 상대 12신살 양방향 체감(설명, 점수 미개입).
     from saju_engines.relationship_relative_sinsal import relative_sinsal_lines
 
@@ -5458,9 +5469,13 @@ def chat(
     # 토큰 가드 예약분으로 넘겨야 컨텍스트 축소기가 '실제 총 입력(payload+오버헤드)' 기준으로
     # 줄인다. 안 그러면 serialize 통과 후 지시문·시스템이 더해져 generate_reading 재검사에서
     # 한도 초과 → 일반 오류로 마감되던 결함(2026-06-18, 10년 이사 질문 12,098tok 초과).
+    # 시주 미상(3주) — 궁위·부재 단정·미확정 용희신 사용 금지(docs/11, 2026-10-06). 시간이
+    # 있으면 None.
+    _hour_dir = hour_unknown_directive(result)
     trailing: list[str] = [
         _CHAT_SCOPE_DIRECTIVE,
         GONGMANG_ACTIVATION_DIRECTIVE,
+        *([_hour_dir] if _hour_dir else []),
         # 추상 불확실성 문구('가능성 열림·조건 확인 필요') 금지 — 상시(2026-07-22 P0,
         # structural_context 공용 — 테마 리포트 전 섹션 prefix에도 동일 적용).
         UNCERTAINTY_TRANSLATION_DIRECTIVE,

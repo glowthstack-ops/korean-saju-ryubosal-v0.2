@@ -222,6 +222,35 @@ TONE_LAYER_DIRECTIVE = (
     "(12운성 유입)은 흐름·결과 서술 문장의 결로 삼아 표현을 고를 것 — 같은 사건이라도 "
     "해석·결이 다르면 다른 결로 쓰고, 이 결은 문체 힌트일 뿐 점수·판정·간지 사실을 바꾸지 않는다."
 )
+HOUR_UNKNOWN_DIRECTIVE = (
+    "[시주 미상 — 해석 제한 규칙(docs/11 3주 모드, 2026-10-06)]\n"
+    "1. 이 명식은 출생시간이 없어 연·월·일주 3기둥만 확정이다. 답 첫 부분에 한 번만 '출생시간이 "
+    "없어 3기둥 기준으로 본다'고 짧게 밝히고 반복하지 말 것.\n"
+    "2. 시주·시지 궁위(자녀·말년·결과·표출·아랫사람)에 근거한 서술 금지 — '시주는 후반·결과의 "
+    "자리' 류 규칙은 이 명식에 적용하지 않는다. 자녀·말년은 다른 기둥의 자녀성과 후반 대운·운의 "
+    "관계로만 제한해 서술하고, 그 한계를 한 번 밝힐 것.\n"
+    "3. '무재성·무관성·무인성·오행 부재' 같은 원국 전체 단정 금지 — '세 기둥에서는 보이지 않는다'"
+    "로만 말하고 시주에 있을 수 있음을 전제할 것.\n"
+    "4. 명식 헤더에 '미확정'으로 표시된 항목(강약·격국·용희신)은 확정하지도 인용하지도 말 것. "
+    "용희신이 미확정이면 길흉 판정·보완 색·방향·오행 처방을 쓰지 않는다. '후보 전부 일치'로 "
+    "표시된 항목만 '시주 후보 전부 동일'을 전제로 쓴다.\n"
+    "5. 대운수·교운 시점은 범위로 말하고 특정 연·월 경계를 단정하지 말 것."
+)
+
+
+def hour_unknown_directive(result: ManseV2Result) -> str | None:
+    """시주 미상 명식에만 붙는 해석 제한 지시문(고정 규칙 + 엔진 산출 상세). 시간이 있으면 None."""
+    if result.pillars is None or result.pillars.hour is not None:
+        return None
+    hu = result.hour_unknown
+    if hu is None:
+        return HOUR_UNKNOWN_DIRECTIVE
+    details = [hu.notice]
+    if hu.boundary_warnings:
+        details.append("경계 경고: " + " / ".join(hu.boundary_warnings))
+    return HOUR_UNKNOWN_DIRECTIVE + "\n[엔진 산출] " + " ".join(details)
+
+
 UNCERTAINTY_TRANSLATION_DIRECTIVE = (
     "[불확실성 표현 규칙 — 항상 적용]\n"
     "'가능성이 열려요'·'조건 확인이 필요한 달'·'변수가 있어요'·'흐름이 들어와요'·'상황에 "

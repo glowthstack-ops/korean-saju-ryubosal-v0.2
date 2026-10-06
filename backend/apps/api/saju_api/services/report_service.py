@@ -142,6 +142,7 @@ from saju_engines.structural_context import (
     era_energy_lines,
     external_impression_lines,
     health_lines,
+    hour_unknown_directive,
     marriage_age_prior_lines,
     marriage_resource_lines,
     preparation_context_lines,
@@ -635,6 +636,22 @@ _PARTNER_NATAL_SECTIONS = {"RP-03"}
 _COMPAT_SECTIONS = {"RP-04", "RP-05", "RP-08"}
 # 섹션 → 도메인(섹션별 도메인 스코프 후보 사용 — 강신호 반복·intent 편향 차단, 2026-06-16).
 # 한해풀이 Y-06~Y-09 + 총운 F-15~F-18에 적용(RPT_YEAR·RPT_FULL 동일 강화 — 사용자 확정).
+# 시주 미상(3주) 모드에서 바뀌는 섹션 지침 — 시주 궁위 서술을 요구하던 항목만 교체(2026-10-06).
+_SECTION_GUIDES_HOUR_UNKNOWN: dict[str, str] = {
+    "F-04": "강약·격국·용신 판정을 설명하되 명식 헤더에 '미확정'으로 표시된 항목은 확정하지 말 "
+    "것 — 출생시간이 없어 12시진 후보에 따라 달라지는 항목은 '후보가 갈린다'고 밝히고, 용신이 "
+    "미확정이면 용신 오행을 지목하지 말 것. 후보 전부 일치한 항목만 그 사실을 전제로 설명할 것.",
+    "F-05": "신살·공망·특수 구조를 양면(빛/그림자)으로 설명할 것 — 신살은 보조 자료임을 전제. "
+    "출생시간 미상이라 시주(말년·결실 자리) 신살은 산출되지 않았다 — 연·월·일주 세 자리의 정점 "
+    "시기(년=초년·배경 / 월=청년·사회 / 일=중년·본인)만 다루고, 말년 자리는 '시주가 없어 보지 "
+    "못한다'고 한 번 밝힐 것. 운이 그 자리를 합·충·형으로 건드리면 재활성되며, 그래도 단독 사건 "
+    "단정은 금지.",
+    "F-17c": "출생시간 미상이라 자녀궁(시주)은 산출되지 않았다 — 이 한계를 서두에 한 번 밝히고, "
+    "다른 기둥의 자녀성(식상·관성 등 성별 기준 자녀성)과 운이 그 글자를 자극하는 시기만으로 자녀 "
+    "인연·양육 결을 제한해 서술할 것. 시주 궁위 추정·임신·출산 단정 금지. 무자녀·미혼이면 가능성 "
+    "서술로, 자녀 정보가 입력돼 있으면 그 관계 중심으로.",
+}
+
 _SECTION_DOMAIN: dict[str, str] = {
     "Y-06": "career",
     "Y-07": "wealth",
@@ -1097,6 +1114,11 @@ class _ReportData:
             self.summary,
             build_chart_interpretation(self.result),
         )
+        # 출생시간 미상(2026-10-06) — 전 섹션 공통 해석 제한 지시문(시간이 있으면 None).
+        self.hour_unknown = self.result.pillars is not None and self.result.pillars.hour is None
+        _hour_directive = hour_unknown_directive(self.result)
+        if _hour_directive:
+            self.prefix_lines.append(_hour_directive)
         # 공망 해석 규칙(전 섹션 공통) — 원국 공망은 배경값·운 자극 시만 발동(미발동 시 언급 금지).
         # 불확실성 번역 규칙(전 섹션 공통, 2026-07-22) — '가능성이 열리는 달' 류 추상 문구
         # 단독 금지, 구체 사건·미확정 결과·실제 변수·행동으로 번역(chat과 공용 상수).
@@ -1218,6 +1240,14 @@ class _ReportData:
         if self.compatibility is None:
             return ["[궁합 신호 없음 — 상대 명식이 없어 비교할 수 없습니다.]"]
         lines = compatibility_lines(self.compatibility)
+        if self.hour_unknown or (
+            self.partner_result is not None and self.partner_result.pillars is not None
+            and self.partner_result.pillars.hour is None
+        ):
+            lines.append(
+                "[궁합 한계] 한쪽 이상 출생시간 미상 — 3기둥 기준 궁합이며 시지가 참여하는 "
+                "상호작용은 산출하지 않았다. 확정 궁합으로 서술하지 말 것."
+            )
         # 12신살 상대위치(P2) — 년지(사회)·일지(친밀) 상대 12신살 양방향(설명 레이어, 점수 미개입).
         partner = getattr(self, "partner_result", None)
         if partner is not None:
@@ -3191,7 +3221,9 @@ def build_section_context(
         else None
     )
     sid = plan.section_id
-    if sid in _SECTION_GUIDES:
+    if data.hour_unknown and sid in _SECTION_GUIDES_HOUR_UNKNOWN:
+        guide = _SECTION_GUIDES_HOUR_UNKNOWN[sid]  # 시주 의존 섹션의 3주 모드 지침(2026-10-06)
+    elif sid in _SECTION_GUIDES:
         guide = _SECTION_GUIDES[sid]
     elif sid.startswith("F-14-D"):
         guide = _DECADE_PAGE_GUIDE

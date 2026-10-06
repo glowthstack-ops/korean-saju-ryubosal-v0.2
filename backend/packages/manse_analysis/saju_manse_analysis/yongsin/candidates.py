@@ -1188,9 +1188,10 @@ def _wealth_standalone_operability(
         mult *= 0.9
         notes.append("재성 실령(월령이 재성의 극 대상 — 제어에 소모)")
     dm_controls_wealth = CONTROLS[g["peer"]] == g["wealth"]
-    if dm_controls_wealth and pillars.hour is not None and (
-        pillars.hour.stem_element == wealth or pillars.year.stem_element == wealth
-    ):
+    # 시주가 없어도 연간 투간은 독립적으로 본다(2026-10-06 — 종전 괄호 구조가 시주 미상이면
+    # 연간 판정까지 건너뛰었다).
+    hour_wealth = pillars.hour is not None and pillars.hour.stem_element == wealth
+    if dm_controls_wealth and (hour_wealth or pillars.year.stem_element == wealth):
         mult *= 0.9
         notes.append("투간 재성이 왕한 일간 계열의 극에 노출")
     notes.append("土 생조·통근을 얻는 운에서 실질 작동(운 판정 참고)")

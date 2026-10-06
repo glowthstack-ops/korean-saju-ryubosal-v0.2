@@ -48,6 +48,11 @@ class BirthChartSummary(BaseModel):
     hidden_latents: list[str] = Field(default_factory=list)
     # 오행 유통 완화 메모(신약 + 상생 순환 원활일 때만) — 예: '유통 양호(상생 고리 5/5)'.
     flow_note: str = ""
+    # 출생시간 미상(2026-10-06): 3기둥 기준. 상이 항목은 strength/geokguk 에 '미확정' 표기,
+    # useful_gods 는 비운다(용희신 미확정 — 풀이에 적극 활용 금지). hour_unknown_note = 1회 고지.
+    hour_unknown: bool = False
+    hour_unknown_items: list[str] = Field(default_factory=list)  # 'strength_band' 등 상이 키
+    hour_unknown_note: str = ""
 
 
 class PillarDetail(BaseModel):

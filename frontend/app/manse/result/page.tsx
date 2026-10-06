@@ -15,6 +15,7 @@ import {
   StructurePanel,
   TrueSolarTimeCard,
 } from "@/components/manse/Panels";
+import { HourUnknownBanner } from "@/components/manse/HourUnknown";
 import { PillarBoard } from "@/components/manse/PillarBoard";
 import { calculateManse, todayISO } from "@/lib/api";
 import {
@@ -233,6 +234,7 @@ export default function ManseResultPage() {
       </div>
 
       <BirthSummaryBar result={result} />
+      <HourUnknownBanner result={result} />
       <div id="sec-truesolar" className="scroll-mt-4">
         <TrueSolarTimeCard
           result={result}
