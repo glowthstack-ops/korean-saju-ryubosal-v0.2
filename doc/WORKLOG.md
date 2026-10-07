@@ -11521,3 +11521,26 @@ conditions 미작성=미검토 상태).
   legacy 모드 고정, 감점 모드 신규 테스트 1건.
 - 남은 것: 사전 §6 태그 감수 후 `reviewed:true` 커밋, conditions[] 2차 감수(辰月 癸 청명/곡우 등), 규칙 B 재논의,
   `axis_graded` 재결정(축 공식 월령 가중), 종격 검출기 통일(C1-c), 이어서 C3(밴드)·C4(격국 성패)·C5(건강 채널).
+
+## 2026-10-07 — C3 신강약 9단계 → 7단계(극신약·극신강 제거) (데굴님 결정)
+
+### 배경
+사례집 전수 대조에서 극·태 4밴드에 57%(무작위 그리드 49~51%)가 몰렸다. 점수 히스토그램은 25~70에 평평한데 옛 밴드가
+가운데 3개(43~58)만 좁게 잡아 분포의 몸통이 극·태로 분류됐다. 데굴님 결정: 극신약·극신강을 없애고 2단계 낮춘다.
+
+### 해결
+- 7단계 경계(그리드 3,000명식 분위수): 태신약 ≤30 · 신약 ≤40 · 중화신약 ≤47(옛 경계 유지) · 중화 ≤51 · 중화신강 ≤57 ·
+  신강 ≤71 · 태신강 >71. `StrengthBand` enum EXTREME_* 제거. 점수식 불변.
+- 판정 보존: 종격 탐지 `score ≤ FOLLOW_MAX_SCORE(34)`, mediator 금지 `score > EXTREME_STRONG_SCORE(75)` — 밴드는
+  라벨, 탐지 모집단은 불변(025/L 壬寅×4 종아격 유지). `_WEAK/_STRONG` 집합·`_DM_CAPABILITY`·prediction·structure_patterns·
+  shadow specs 에서 극 라벨 제거.
+- 잠재 버그 수정: `_classify_bridge_roles` 희신=기신 충돌(과다 출발축이 희신 제안과 같은 오행) — 병 우선, 희신 폴백.
+- 사전 라벨 정리: direction_suggestions(bands 목록)·structure_patterns(증거 문구) 같은 버전 재컴파일.
+- 골든 4건(australia·uk·us 극신강→태신강, japan 극신약→태신약)·테스트 3파일 갱신(승인).
+- 설계·결과: `doc/v2_2/STRENGTH_BAND_CALIBRATION_C3.md`.
+
+### 결과
+사례집 태 합 38%·중화권 16%(그리드 시뮬 33%/26%), C2 대비 최종 역할 변경 1건(063/L)·격국 변경 0, 기준 사주 6건 불변, 5역할
+분할 위반 0, 사례집 지표 44.1/34.1/59.1/50.0/38.6(잡음 범위). 전체 스위트·게이트는 아래 기록. 남은 것: C4 격국 성패·
+그릇 지수, C5 건강 채널, `coverage_report.json` 라벨은 다음 shadow 재스캔 때 갱신.
+검증 기록: `./scripts/run_suite.sh` VALID_SUITE_PASS(최종 상태, 중화신약 상한 47) · `./scripts/gates.sh --quick` ruff·typecheck·maintained_scripts exit 0 · 기준 사주 6건 5역할 엄격 회귀 통과.

@@ -101,7 +101,7 @@ def test_japgi_insu_geok_month_storage(chart_1980_01_20) -> None:
 
 def test_harmony_requires_non_weak_day_master(chart_1980_01_20) -> None:
     """壬 극신약 + 木 존재 — 약한 일간의 生은 설기이므로 수목청화 불성립."""
-    assert chart_1980_01_20.force_analysis.strength.band == "극신약"
+    assert chart_1980_01_20.force_analysis.strength.band == "태신약"  # 7단계(2026-10-07)
     assert "SUMOK_CHEONGHWA" not in _ids(chart_1980_01_20)
 
 
@@ -117,7 +117,7 @@ def test_jeonghwa_yeongeum_without_byeokgap() -> None:
 def test_sinwang_muui_strong_without_outlet() -> None:
     """甲 신강 · 식상+재성+관살 통로 15% 이하 → 신왕무의."""
     r = _chart("1975-07-07", "22:00", place="부산")
-    assert r.force_analysis.strength.band in {"신강", "태신강", "극신강"}
+    assert r.force_analysis.strength.band in {"신강", "태신강"}  # 7단계(2026-10-07)
     assert "SINWANG_MUUI" in _ids(r)
 
 

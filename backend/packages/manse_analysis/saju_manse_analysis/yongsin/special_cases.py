@@ -11,6 +11,7 @@ from saju_shared_types.enums import Element
 from saju_shared_types.structure import StructureAnalysis
 from saju_shared_types.yongsin import SpecialCaseCheck
 
+from ..strength.strength_score import FOLLOW_MAX_SCORE
 from .operational_role_config import DOMINANT_CONTROLLER_PRESENT_PCT
 
 
@@ -37,7 +38,7 @@ def detect_special_cases(
     # 전왕/일행득기: 한 오행이 압도적이며 신강 계열.
     strongest_el = max(pct, key=lambda e: pct[e])
     maxpct = pct[strongest_el]
-    dominant_detected = maxpct >= 60.0 and band in ("신강", "태신강", "극신강")
+    dominant_detected = maxpct >= 60.0 and band in ("신강", "태신강")  # 7단계(2026-10-07)
     # E(2026-10-01): 압도 오행을 극하는 오행이 분포 임계 이상 남아 있으면 기세 집중이 깨져 진전왕이
     # 아니다 → detail 을 'pseudo:'로 표기(플래그 ON 시 build_yongsin 이 억부와 경쟁시킨다). 플래그
     # OFF 면 detail 표기만 바뀌고 판정은 기존과 같다.
@@ -70,7 +71,8 @@ def detect_special_cases(
     dom_grp = max(_pressure, key=lambda k: _pressure[k])
     dom_ratio = _pressure[dom_grp] / g_total
     follow_kind: str | None = None
-    if band in ("극신약", "태신약"):
+    # 7단계(2026-10-07): 옛 '극신약·태신약' 전제를 점수 임계(≤34)로 보존 — 탐지 모집단 불변.
+    if float(force.strength.score) <= FOLLOW_MAX_SCORE:
         if root_score < 8.0:
             follow_kind = "real"  # 무근 → 진종(종세 포함)
         elif peer_ratio < 0.07 and dom_ratio >= 0.33:

@@ -26,6 +26,7 @@ from saju_shared_types.yongsin import (
 )
 
 from ..relations.hap_modes import resolve_stem_hap
+from ..strength.strength_score import EXTREME_STRONG_SCORE
 from .johu_dict import load_johu_table
 from .operational_role_config import (
     CLIMATE_DEMOTE_REQUIRE_SEVERE,
@@ -78,7 +79,7 @@ _ROLE_KO = {
 }
 
 _NEUTRAL = {"중화", "중화신강"}
-_STRONG = {"신강", "태신강", "극신강"}
+_STRONG = {"신강", "태신강"}  # 7단계(2026-10-07): 극신강 제거
 _COLD_MONTHS = {Branch.HAE, Branch.JA, Branch.CHUK}
 _HOT_MONTHS = {Branch.SA, Branch.O, Branch.MI}
 
@@ -925,6 +926,10 @@ def _classify_bridge_roles(
         source = detail.split("|", 1)[0].split("→", 1)[0]
         if source in elements and source != yongsin_el:
             gisin = source
+            if heesin == gisin:
+                # 과다 출발축(병)이 다른 모델의 희신 제안과 같은 오행이면 병이 우선 — 희신은
+                # 폴백으로 다시 뽑는다(5역할 분할 불변식; 2026-10-07 7단계 전환 중 080/R 실측 충돌).
+                heesin = None
     if gisin is None:
         # sorted 순회 필수: set 순서는 프로세스 해시 시드에 따라 달라 max() 동점 시 결과가
         # 흔들린다(실측 — 1953-01-15 희신 火/木 플립). 결정적 순서로 고정한다.
@@ -1096,8 +1101,9 @@ def _mediator_promotion_veto(
          한습월(亥子丑) 水 mediator(한기 심화).
     차단해도 병 감지 자체는 유효 — 財損印 등 다른 치료 후보가 경쟁을 이어받는다.
     """
-    if band == "극신강":
-        return "극신강 — 비겁 mediator 승격은 신강 악화(strength_aggravation)"
+    # 7단계(2026-10-07): '극신강' 밴드가 없어졌으므로 옛 극신강 상한(점수>75)으로 판정을 보존한다.
+    if float(force.strength.score) > EXTREME_STRONG_SCORE:
+        return "극단 신강(점수>75) — 비겁 mediator 승격은 신강 악화(strength_aggravation)"
     fe = force.five_elements
     dist = fe.season_adjusted_element_strength or fe.distribution_environment
     total = sum(dist.values()) or 1.0
@@ -2028,7 +2034,10 @@ def build_yongsin(
             yongsin=_e(follow_el), gisin=_e(g["peer"]),
             confidence=round(checks["follow_structure"].confidence, 4),
             reasons=(
-                [f"극신약·무근 → 가장 강한 세력({subtype})에 순응", "억지로 돕는 비겁/인성은 기신"]
+                [
+                    f"극단 신약·무근 → 가장 강한 세력({subtype})에 순응",
+                    "억지로 돕는 비겁/인성은 기신",
+                ]
                 + (
                     ["인성이 약하게 남아 가종(假從) — 운에서 비겁·인성 입운 시 파격, 검증 필요"]
                     if is_pseudo_follow else []

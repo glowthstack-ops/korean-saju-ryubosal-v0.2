@@ -93,9 +93,8 @@ class Palace(StrEnum):
 
 
 class StrengthBand(StrEnum):
-    """신강/신약 9단계 (defined now; populated in a later phase)."""
+    """신강/신약 7단계 (2026-10-07 데굴님 결정: 극신약·극신강 제거, 양끝은 태신약·태신강)."""
 
-    EXTREME_WEAK = "극신약"
     VERY_WEAK = "태신약"
     WEAK = "신약"
     NEUTRAL_WEAK = "중화신약"
@@ -103,7 +102,6 @@ class StrengthBand(StrEnum):
     NEUTRAL_STRONG = "중화신강"
     STRONG = "신강"
     VERY_STRONG = "태신강"
-    EXTREME_STRONG = "극신강"
 
 
 class CalendarType(StrEnum):

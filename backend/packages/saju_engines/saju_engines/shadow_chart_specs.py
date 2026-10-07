@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from . import shadow_chart_predicates as P
 from .shadow_chart_predicates import Pred
 
-_WEAK = ["극신약", "태신약", "신약", "중화신약"]
+_WEAK = ["태신약", "신약", "중화신약"]  # 7단계(2026-10-07): 극신약 제거
 
 
 @dataclass
@@ -103,7 +103,7 @@ SPECS: list[ChartSpec] = [
               notes="신약 재성 위험"),
     ChartSpec("inseong_gwada_01", "인성과다",
               required=[P.dominant_group("resource")],
-              preferred=[P.strength_in(["중화신강", "신강", "태신강", "극신강"])],
+              preferred=[P.strength_in(["중화신강", "신강", "태신강"])],
               notes="인성 과다 병"),
     ChartSpec("siksang_gwada_01", "식상과다",
               required=[P.dominant_group("output")], notes="설기 과다"),
@@ -142,7 +142,7 @@ SPECS: list[ChartSpec] = [
         "jonggyeok_01", "종격 후보(종재/종살/종아 — follow)",
         required=[P.special_pattern_type("follow")],
         critical=[P.special_pattern_type("follow")],
-        best_match_allowed=True, notes="극신약+무근 순응(종격)",
+        best_match_allowed=True, notes="극단 신약(점수≤34)+무근 순응(종격)",
     ),
     ChartSpec(
         "jeonwang_01", "전왕격/일행득기(곡직/염상/가색/종혁/윤하 — dominant)",

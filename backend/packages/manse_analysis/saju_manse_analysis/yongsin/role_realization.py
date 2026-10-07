@@ -36,7 +36,7 @@ from saju_shared_types.yongsin import ElementCandidate, YongsinCandidateModel
 _ROLE_KEYS = ("yongsin", "heesin", "gisin", "gusin", "hansin")
 
 #: 무비겁 부일간 특수분기의 강약 밴드 조건.
-_WEAK = {"극신약", "태신약", "신약", "중화신약"}
+_WEAK = {"태신약", "신약", "중화신약"}  # 7단계(2026-10-07): 극신약 제거
 
 _BRIDGE_MODEL = "bridge_tonggwan"
 _SUPPORT_MODEL = "support_day_master"

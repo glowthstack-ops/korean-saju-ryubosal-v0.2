@@ -56,7 +56,8 @@ def test_1965_trace_problem_and_rejected(make_pillars) -> None:
     y = analyze_chart(make_pillars(*_G1965)).yongsin
     t = y.decision_trace
     assert t is not None
-    assert "극신강" in t.problem and "인성 과다(火)" in t.problem and "극열" in t.problem
+    # 7단계(2026-10-07): 옛 극신강(84.9)은 태신강으로 표기된다.
+    assert "태신강" in t.problem and "인성 과다(火)" in t.problem and "극열" in t.problem
     assert t.chosen_path.startswith("조후 보조형")
     assert t.heesin_function == "generate_yongsin"
     rejected = {(r["element"], r["reason"].split("(")[0]) for r in t.rejected}

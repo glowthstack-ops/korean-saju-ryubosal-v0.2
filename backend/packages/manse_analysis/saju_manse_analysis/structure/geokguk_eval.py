@@ -45,8 +45,10 @@ _GEOK_SANGSIN: dict[str, list[str]] = {
     "월겁격": ["officer", "output"],
 }
 
-_WEAK = {"극신약", "태신약", "신약", "중화신약"}
-_STRONG = {"중화신강", "신강", "태신강", "극신강"}
+_WEAK = {"태신약", "신약", "중화신약"}  # 7단계(2026-10-07): 극 밴드 제거
+_STRONG = {"중화신강", "신강", "태신강"}
+#: 옛 9단계 태신약 상한 — 종격 신호 전제를 밴드 이름 대신 점수로 보존(탐지 모집단 불변).
+_FOLLOW_MAX_SCORE = 34.0
 _GROUP_KO = {"peer": "비겁", "resource": "인성", "output": "식상",
              "wealth": "재성", "officer": "관성"}
 
@@ -289,8 +291,8 @@ def _detect_failures(
 
 # 일간 감당력(factor 2) band별 raw.
 _DM_CAPABILITY = {
-    "극신약": -70, "태신약": -45, "신약": -40, "중화신약": -10,
-    "중화": 20, "중화신강": 40, "신강": 50, "태신강": 30, "극신강": 10,
+    "태신약": -45, "신약": -40, "중화신약": -10,
+    "중화": 20, "중화신강": 40, "신강": 50, "태신강": 30,
 }
 
 
@@ -365,8 +367,8 @@ _BASE_WEIGHT = 0.25
 
 
 def _clarity_level(confidence: int, sf_score: float, band: str, root_score: float) -> str:
-    if band in ("극신약", "태신약") and root_score < 8.0:
-        return "special_pattern_uncertain"  # 종격 의심
+    if band == "태신약" and root_score < 8.0:
+        return "special_pattern_uncertain"  # 종격 의심(7단계: 태신약이 옛 극신약을 흡수)
     if confidence >= 80 and sf_score >= 40:
         return "very_clear"
     if confidence >= 60 and sf_score >= -10:
@@ -448,14 +450,15 @@ def special_signal(force, pillars: FourPillarsResult) -> dict | None:
     if pct:
         strongest = max(pct, key=lambda e: pct[e])
         maxp = pct[strongest]
-        if maxp >= 60.0 and band in ("신강", "태신강", "극신강"):
+        if maxp >= 60.0 and band in ("신강", "태신강"):
             return {
                 "name": _DOMINANT_NAME.get(strongest, "전왕격"),
                 "type": "dominant",
                 "confidence": round(min((maxp - 50) / 50, 0.95), 3),
                 "reason": f"{strongest} {maxp}% 압도 + {band} → 전왕/일행득기 가능",
             }
-    if band in ("극신약", "태신약") and root < 8.0:
+    # 7단계(2026-10-07): 밴드 이름 대신 옛 태신약 상한 점수(≤34)로 종격 전제를 보존한다.
+    if float(force.strength.score) <= _FOLLOW_MAX_SCORE and root < 8.0:
         counts = _tg_counts(pillars)
         groups = _group_counts(counts)
         ext = {g: groups[g] for g in ("wealth", "officer", "output")}
@@ -464,7 +467,7 @@ def special_signal(force, pillars: FourPillarsResult) -> dict | None:
             "name": _FOLLOW_NAME.get(top, "종세격"),
             "type": "follow",
             "confidence": round(min(max((10 - root) / 10, 0.0), 0.9), 3),
-            "reason": f"극신약+무근(root={root:.1f}) → 종격 가능",
+            "reason": f"극단 신약(점수≤{_FOLLOW_MAX_SCORE:.0f})+무근(root={root:.1f}) → 종격 가능",
         }
     return None
 

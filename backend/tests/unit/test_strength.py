@@ -17,18 +17,20 @@ from saju_shared_types.enums import Branch, Element
 @pytest.mark.parametrize(
     "score,band",
     [
-        (20, "극신약"), (31, "태신약"), (38, "신약"), (45, "중화신약"), (50, "중화"),
-        (56, "중화신강"), (62, "신강"), (70, "태신강"), (90, "극신강"),
+        (20, "태신약"), (30, "태신약"), (31, "신약"), (40, "신약"), (43, "중화신약"),
+        (45, "중화신약"), (48, "중화"), (51, "중화"), (54, "중화신강"), (57, "중화신강"),
+        (62, "신강"), (71, "신강"), (72, "태신강"), (90, "태신강"),
     ],
 )
 def test_classify_band(score: float, band: str) -> None:
-    # 통합형 9밴드(0~100, 상한 inclusive).
+    # 통합형 7밴드(0~100, 상한 inclusive) — 2026-10-07 데굴님 결정: 극신약·극신강 제거,
+    # 경계 30/40/47/51/57/71(그리드 분위수, 중화신약 상한은 옛 47 유지).
     assert classify_band(score) == band
 
 
 def test_borderline() -> None:
-    assert is_borderline(48) is True  # 경계 47 ±2 이내
-    assert is_borderline(50) is False  # 중화 중심(경계에서 멀다)
+    assert is_borderline(46) is True  # 경계 47 ±2 이내
+    assert is_borderline(44) is False  # 경계 40·47 에서 멀다
     assert is_borderline(0) is False
 
 
