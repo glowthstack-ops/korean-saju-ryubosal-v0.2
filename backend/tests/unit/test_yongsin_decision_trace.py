@@ -145,9 +145,18 @@ def test_pseudo_dominant_flag_competes_with_eokbu(monkeypatch) -> None:
     경쟁."""
     from saju_manse_analysis import analyze_chart as _ac
 
+    # C1-b(2026-10-07 데굴님 승인): 격국이 곡직격을 주격으로 치환하지 않은(압도 70%) 차트는
+    # 기본 설정에서도 가전왕으로 억부(관성 제겁)와 경쟁한다 — 전왕 단독 주도는 격국 override 한정.
+    default = _ac(calculate(_GRID_1951_03).pillars).yongsin
+    assert default.final["selected_model"] == "officer_controls_peer"
+    assert default.final["yongsin"] == "金"
+    assert any(m.label.startswith("가전왕") for m in default.candidate_models)
+    assert str(default.special_case_checks["dominant_one_element"].detail).startswith("pseudo:")
+
+    # E 플래그 단독 비교: C1-b 게이트를 끄면 OFF=전왕 단독, ON=가전왕 경쟁(기존 계약 유지).
+    monkeypatch.setattr(cand, "DOMINANT_SPECIAL_REQUIRE_OVERRIDE", False)
     off = _ac(calculate(_GRID_1951_03).pillars).yongsin
     assert off.final["selected_model"] == "dominant_one_element"
-    assert str(off.special_case_checks["dominant_one_element"].detail).startswith("pseudo:")
     monkeypatch.setattr(cand, "DOMINANT_REQUIRE_NO_CONTROLLER", True)
     on = _ac(calculate(_GRID_1951_03).pillars).yongsin
     assert on.final["selected_model"] != "dominant_one_element"

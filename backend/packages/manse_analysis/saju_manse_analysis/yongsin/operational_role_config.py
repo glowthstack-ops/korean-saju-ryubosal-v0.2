@@ -425,3 +425,22 @@ CLIMATE_DEMOTE_REQUIRE_SEVERE: bool = False
 DOMINANT_REQUIRE_NO_CONTROLLER: bool = False
 #: 극 오행 '잔존' 판정 임계(월령 보정 분포 %). 이 미만이면 부재로 본다(투간 여부는 호출부 보강).
 DOMINANT_CONTROLLER_PRESENT_PCT: float = 8.0
+
+# ── C1 특수격↔용신 정합(2026-10-07 데굴님 승인, CASEBOOK_CALIBRATION_PLAN §3 F1) ─────────────
+#: C1-a — 진종(從)·진전왕(專旺)이 확정된 명식에서는 조후 역행 강등(_climate_harmful)을 적용하지
+#: 않는다. 종격 용신(윤하격의 水, 염상격의 火, 종재격의 재성 …)이 월령 한습·조열 때문에 기신으로
+#: 뒤집히던 결함(사례집 11건 중 8건). 조후 필요는 경고·서술 레이어로만 남긴다.
+SPECIAL_SKIP_CLIMATE_DEMOTE: bool = True
+#: C1-b — 전왕(일행득기)을 용신 '특수격 단독 주도'(special 축 1.0)로 취급하는 조건을 격국의
+#: 특수격 치환 게이트(geokguk.special_pattern.override — 압도 ≥80%)와 동일하게 맞춘다.
+#: 60~80% 구간은 격국이 정격(양인·건록·월겁 …)으로 두므로 용신도 가전왕(假專旺)으로 억부와
+#: 경쟁시킨다(일간 동기 오행이 용신이 되던 059·067·053 류 교정).
+DOMINANT_SPECIAL_REQUIRE_OVERRIDE: bool = True
+#: C1-d — 부분맵 모델(조후·격국 상신 등, 용신만 내는 모델)이 선택되면 기·구신을 정적 생극
+#: 순환이 아니라 집계된 불리 후보(억부 맥락: 신강이면 인성·비겁)로 배정하고 한신은 나머지 오행.
+#: 기준 사주 2018-01-09 창원(丁酉·癸丑·辛丑·甲午, 조후 火): 기대 한신 水가 정적 순환 때문에
+#: 기신이 되던 결함. 통관·무비겁 특수분기와 완비 모델맵 승격은 그대로다.
+PARTIAL_MAP_ADOPT_AGGREGATED_UNFAVORABLE: bool = True
+#: (C1-c 종격 게이트 정합은 보류 — 격국 종격 신호가 root_score<8 기준이라 교과서 종살격
+#: 庚申·庚申·甲申·庚午(root 30)조차 신호가 없다. 종격은 용신 쪽 세력군 판정을 유지하고, C1-a
+#: 면제만 양쪽 합의(override) 때 적용한다. 검출기 통일은 골든 스냅샷에 닿아 별도 결정 사항.)

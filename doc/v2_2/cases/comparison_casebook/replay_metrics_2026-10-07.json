@@ -1,21 +1,21 @@
 {
  "pair_total": 68,
- "pair_agree": 29,
+ "pair_agree": 31,
  "pair_detail": [
   {
    "case": "CASE-001",
    "better": "L",
    "worse": "R",
-   "lfi_better": -0.045,
-   "lfi_worse": 0.563,
-   "agree": false
+   "lfi_better": -0.348,
+   "lfi_worse": -0.398,
+   "agree": true
   },
   {
    "case": "CASE-001",
    "better": "X",
    "worse": "R",
-   "lfi_better": 0.39,
-   "lfi_worse": 0.563,
+   "lfi_better": -0.565,
+   "lfi_worse": -0.398,
    "agree": false
   },
   {
@@ -54,8 +54,8 @@
    "case": "CASE-004",
    "better": "A",
    "worse": "C",
-   "lfi_better": -0.077,
-   "lfi_worse": -0.07,
+   "lfi_better": 0.095,
+   "lfi_worse": 0.152,
    "agree": false
   },
   {
@@ -70,17 +70,17 @@
    "case": "CASE-008",
    "better": "R",
    "worse": "L",
-   "lfi_better": 0.41,
-   "lfi_worse": 0.427,
+   "lfi_better": -0.345,
+   "lfi_worse": 0.54,
    "agree": false
   },
   {
    "case": "CASE-009",
    "better": "R",
    "worse": "L",
-   "lfi_better": -0.15,
-   "lfi_worse": -0.197,
-   "agree": true
+   "lfi_better": -0.448,
+   "lfi_worse": -0.435,
+   "agree": false
   },
   {
    "case": "CASE-011",
@@ -102,8 +102,8 @@
    "case": "CASE-014",
    "better": "R",
    "worse": "L",
-   "lfi_better": 0.255,
-   "lfi_worse": -0.332,
+   "lfi_better": 0.262,
+   "lfi_worse": 0.127,
    "agree": true
   },
   {
@@ -134,7 +134,7 @@
    "case": "CASE-020",
    "better": "R",
    "worse": "L",
-   "lfi_better": 0.175,
+   "lfi_better": 0.135,
    "lfi_worse": -0.072,
    "agree": true
   },
@@ -159,7 +159,7 @@
    "better": "2",
    "worse": "1",
    "lfi_better": -0.028,
-   "lfi_worse": -0.062,
+   "lfi_worse": -0.155,
    "agree": true
   },
   {
@@ -167,15 +167,15 @@
    "better": "3",
    "worse": "1",
    "lfi_better": -0.132,
-   "lfi_worse": -0.062,
-   "agree": false
+   "lfi_worse": -0.155,
+   "agree": true
   },
   {
    "case": "CASE-024",
    "better": "4",
    "worse": "1",
-   "lfi_better": 0.052,
-   "lfi_worse": -0.062,
+   "lfi_better": -0.087,
+   "lfi_worse": -0.155,
    "agree": true
   },
   {
@@ -230,8 +230,8 @@
    "case": "CASE-038",
    "better": "R",
    "worse": "L",
-   "lfi_better": -0.257,
-   "lfi_worse": -0.257,
+   "lfi_better": 0.135,
+   "lfi_worse": 0.135,
    "agree": false
   },
   {
@@ -278,9 +278,9 @@
    "case": "CASE-044",
    "better": "L",
    "worse": "R",
-   "lfi_better": 0.063,
-   "lfi_worse": 0.023,
-   "agree": true
+   "lfi_better": -0.055,
+   "lfi_worse": 0.02,
+   "agree": false
   },
   {
    "case": "CASE-046",
@@ -310,9 +310,9 @@
    "case": "CASE-050",
    "better": "L",
    "worse": "R",
-   "lfi_better": 0.238,
-   "lfi_worse": 0.285,
-   "agree": false
+   "lfi_better": -0.088,
+   "lfi_worse": -0.12,
+   "agree": true
   },
   {
    "case": "CASE-051",
@@ -335,7 +335,7 @@
    "better": "L",
    "worse": "R",
    "lfi_better": -0.032,
-   "lfi_worse": 0.143,
+   "lfi_worse": -0.032,
    "agree": false
   },
   {
@@ -382,17 +382,17 @@
    "case": "CASE-059",
    "better": "R",
    "worse": "L",
-   "lfi_better": -0.337,
-   "lfi_worse": -0.337,
+   "lfi_better": 0.267,
+   "lfi_worse": 0.267,
    "agree": false
   },
   {
    "case": "CASE-060",
    "better": "L",
    "worse": "R",
-   "lfi_better": -0.068,
-   "lfi_worse": -0.043,
-   "agree": false
+   "lfi_better": -0.055,
+   "lfi_worse": -0.105,
+   "agree": true
   },
   {
    "case": "CASE-061",
@@ -406,7 +406,7 @@
    "case": "CASE-062",
    "better": "L",
    "worse": "R",
-   "lfi_better": -0.197,
+   "lfi_better": -0.157,
    "lfi_worse": 0.04,
    "agree": false
   },
@@ -415,8 +415,8 @@
    "better": "L",
    "worse": "R",
    "lfi_better": -0.258,
-   "lfi_worse": 0.348,
-   "agree": false
+   "lfi_worse": -0.473,
+   "agree": true
   },
   {
    "case": "CASE-066",
@@ -494,7 +494,7 @@
    "case": "CASE-077",
    "better": "R",
    "worse": "L",
-   "lfi_better": -0.372,
+   "lfi_better": -0.257,
    "lfi_worse": -0.152,
    "agree": false
   },
@@ -502,9 +502,9 @@
    "case": "CASE-078",
    "better": "R",
    "worse": "L",
-   "lfi_better": 0.0,
+   "lfi_better": -0.09,
    "lfi_worse": -0.017,
-   "agree": true
+   "agree": false
   },
   {
    "case": "CASE-079",
@@ -548,10 +548,10 @@
   }
  ],
  "timed_total": 44,
- "timed_sewoon_agree": 17,
- "timed_daewoon_agree": 28,
+ "timed_sewoon_agree": 15,
+ "timed_daewoon_agree": 26,
  "timed_event_hit": 22,
- "timed_risk_above_base": 16,
+ "timed_risk_above_base": 17,
  "timed_detail": [
   {
    "case": "CASE-007",
@@ -559,10 +559,10 @@
    "domain": "death",
    "pol": "-",
    "when": "~age 30",
-   "sewoon_mean": -0.09,
+   "sewoon_mean": -0.08,
    "daewoon_mean": 0.26,
    "event_hit": true,
-   "event_fav": 0.5,
+   "event_fav": 0.7,
    "risk_inc": 0,
    "risk_base": 0
   },
@@ -637,12 +637,12 @@
    "domain": "legal",
    "pol": "-",
    "when": "daewoon=丙子(23세~)",
-   "sewoon_mean": -0.06,
-   "daewoon_mean": -0.4,
+   "sewoon_mean": -0.07,
+   "daewoon_mean": 0.35,
    "event_hit": true,
-   "event_fav": -0.33,
+   "event_fav": -0.23,
    "risk_inc": 1.8,
-   "risk_base": 2.71
+   "risk_base": 2.46
   },
   {
    "case": "CASE-025",
@@ -767,8 +767,8 @@
    "domain": "family",
    "pol": "-",
    "when": "year=2004",
-   "sewoon_mean": -0.45,
-   "daewoon_mean": -1.1,
+   "sewoon_mean": 0.67,
+   "daewoon_mean": 0.35,
    "event_hit": false,
    "event_fav": null,
    "risk_inc": 0,
@@ -819,8 +819,8 @@
    "domain": "death",
    "pol": "-",
    "when": "age 18~27",
-   "sewoon_mean": -0.21,
-   "daewoon_mean": -0.38,
+   "sewoon_mean": -0.18,
+   "daewoon_mean": -0.53,
    "event_hit": false,
    "event_fav": null,
    "risk_inc": 0,
@@ -871,8 +871,8 @@
    "domain": "family",
    "pol": "-",
    "when": "year=1999",
-   "sewoon_mean": -0.09,
-   "daewoon_mean": 0.35,
+   "sewoon_mean": 0.09,
+   "daewoon_mean": 0.3,
    "event_hit": false,
    "event_fav": null,
    "risk_inc": 0,
@@ -1027,12 +1027,12 @@
    "domain": "wealth",
    "pol": "-",
    "when": "~age 57",
-   "sewoon_mean": -0.04,
-   "daewoon_mean": -0.52,
+   "sewoon_mean": 0.03,
+   "daewoon_mean": -0.41,
    "event_hit": true,
-   "event_fav": -0.14,
-   "risk_inc": 3.4,
-   "risk_base": 3.07
+   "event_fav": 0.04,
+   "risk_inc": 2.82,
+   "risk_base": 2.68
   },
   {
    "case": "CASE-077",
@@ -1040,12 +1040,12 @@
    "domain": "wealth",
    "pol": "+",
    "when": "age=58",
-   "sewoon_mean": -0.68,
-   "daewoon_mean": -0.61,
+   "sewoon_mean": -0.81,
+   "daewoon_mean": -0.76,
    "event_hit": false,
    "event_fav": null,
-   "risk_inc": 0,
-   "risk_base": 3.07
+   "risk_inc": 3,
+   "risk_base": 2.68
   },
   {
    "case": "CASE-079",

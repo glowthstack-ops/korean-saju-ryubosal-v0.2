@@ -35,6 +35,7 @@ from .operational_role_config import (
     COLLATERAL_SCORE_ENABLED,
     CONDITION_TEMPLATES,
     DOMINANT_REQUIRE_NO_CONTROLLER,
+    DOMINANT_SPECIAL_REQUIRE_OVERRIDE,
     GYEOKGAK_ALLOWLIST,
     HEESIN_FUNCTION_KO,
     MODEL_HEESIN_FUNCTION,
@@ -43,6 +44,8 @@ from .operational_role_config import (
     OPERABILITY_PENALTY,
     OPERABILITY_REASON,
     OPERATIONAL_ROLE_CLASS,
+    PARTIAL_MAP_ADOPT_AGGREGATED_UNFAVORABLE,
+    SPECIAL_SKIP_CLIMATE_DEMOTE,
     TEN_GOD_HAP_MODE_PHRASE,
     TEN_GOD_HAP_REASON,
 )
@@ -50,6 +53,7 @@ from .role_realization import (
     _ROLE_KEYS,
     _WEAK,
     RoleRealizationChartContext,
+    RoleRealizationOrigin,
     _e,
     resolve_realized_roles,
 )
@@ -1909,6 +1913,15 @@ def build_yongsin(
     dominant_pseudo = DOMINANT_REQUIRE_NO_CONTROLLER and str(
         checks["dominant_one_element"].detail or ""
     ).startswith("pseudo:")
+    # C1-b(2026-10-07 데굴님 승인): 격국이 전왕으로 주격을 치환하지 않았으면(override=False,
+    # 압도 <80%) 용신도 전왕 단독 주도가 아니라 가전왕(억부 경쟁)으로 다룬다 — 격국·용신 정합.
+    _sp = geokguk.special_pattern or {}
+    if (
+        DOMINANT_SPECIAL_REQUIRE_OVERRIDE
+        and checks["dominant_one_element"].detected
+        and not (_sp.get("type") == "dominant" and _sp.get("override"))
+    ):
+        dominant_pseudo = True
 
     # 특수격 우선
     if checks["dominant_one_element"].detected and not dominant_pseudo:
@@ -2149,8 +2162,22 @@ def build_yongsin(
     #    B(2026-10-01, 플래그): severe 기후 축일 때만 강등 — 그 외에는 후보를 남기고 축 충돌로 보고.
     _climate_axes_now = _climate_axes(pillars, force)
     _climate_primary = str(_climate_axes_now["primary_climate_axis"])
-    if not CLIMATE_DEMOTE_REQUIRE_SEVERE or _climate_primary.startswith("severe_"):
-        _demote(_climate_harmful(month_branch, force), "climate_demote")
+    _climate_el = _climate_harmful(month_branch, force)
+    # C1-a 면제는 용신 쪽 진종·진전왕 판정과 격국 쪽 특수격 치환(override)이 합의한 때만 —
+    # 격국 종격 신호(root_score 기준)는 용신 쪽(세력군 기준)보다 약해 단독 SSOT 로 쓰지 않는다.
+    special_confirmed = special and bool(_sp.get("override"))
+    if (
+        SPECIAL_SKIP_CLIMATE_DEMOTE and special_confirmed
+        and _climate_el and _climate_el in useful
+    ):
+        # C1-a(2026-10-07 데굴님 승인): 진종·진전왕은 순응이 우선 — 종격 용신을 조후 역행으로
+        # 강등하지 않는다. 한난 보완은 운 서술 레이어에서 다룬다.
+        warnings.append(
+            f"조후 역행({_climate_el}) 경고: 특수격 순응 우선으로 강등하지 않음 — "
+            "운에서 한난 보완 검토"
+        )
+    elif not CLIMATE_DEMOTE_REQUIRE_SEVERE or _climate_primary.startswith("severe_"):
+        _demote(_climate_el, "climate_demote")
     # ② 극파 무력: 용/희 원소가 그것을 극하는 그룹에게 압도(>3배·최강군)당하면 강등
     #    (재다→인성, 군겁→재성, 인성과다→식상, 상관견관→관성 등 일괄).
     #    단 비겁(일간 동기·방조 유효)·조후 필요 원소(한습 火/조열 水)는 보존.
@@ -2249,6 +2276,30 @@ def build_yongsin(
     realized = realization.result
     warnings.extend(realized.warnings)  # 통관 동점 타이브레이크 사유 — 순서 유지
     roles = realized.final_role_map.as_dict()
+    # C1-d(2026-10-07 데굴님 승인): 부분맵 모델(조후·상신 등) 선택 시 기·구신은 정적 생극이 아니라
+    # 집계된 불리 후보(억부 맥락)를 채택하고 한신은 나머지 오행. 특수분기·완비 모델맵은 그대로.
+    if (
+        PARTIAL_MAP_ADOPT_AGGREGATED_UNFAVORABLE
+        and realized.realization_origin is RoleRealizationOrigin.STATIC_FALLBACK_ROLE_MAP
+        and len(unfavorable_candidates) >= 2
+    ):
+        _y_el, _h_el = roles.get("yongsin"), roles.get("heesin")
+        _gi, _gu = unfavorable_candidates[0].element, unfavorable_candidates[1].element
+        # 정적 기신이 집계 불리 집합 안에 있으면 그 순서를 지킨다(기존 기준 사주 1980-戊 등 보존).
+        if roles.get("gisin") == _gu:
+            _gi, _gu = _gu, _gi
+        if _y_el and _h_el and len({_y_el, _h_el, _gi, _gu}) == 4:
+            _rest = [
+                _e(el) for el in Element
+                if _e(el) not in (_y_el, _h_el, _gi, _gu)
+            ]
+            roles = {
+                "yongsin": _y_el, "heesin": _h_el,
+                "gisin": _gi, "gusin": _gu, "hansin": _rest[0],
+            }
+            warnings.append(
+                "부분맵 모델: 기·구신을 집계 불리 후보로 배정(정적 생극 순환 대신) — 한신은 나머지"
+            )
     top_model = realized.top_model_type
     selected_model = realization.selected_model_ref  # 읽기 전용 참조
     model_complete = realized.model_complete
