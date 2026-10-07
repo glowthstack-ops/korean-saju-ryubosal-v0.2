@@ -1,0 +1,1137 @@
+{
+ "pair_total": 68,
+ "pair_agree": 29,
+ "pair_detail": [
+  {
+   "case": "CASE-001",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": -0.045,
+   "lfi_worse": 0.563,
+   "agree": false
+  },
+  {
+   "case": "CASE-001",
+   "better": "X",
+   "worse": "R",
+   "lfi_better": 0.39,
+   "lfi_worse": 0.563,
+   "agree": false
+  },
+  {
+   "case": "CASE-002",
+   "better": "B",
+   "worse": "A",
+   "lfi_better": -0.005,
+   "lfi_worse": -0.083,
+   "agree": true
+  },
+  {
+   "case": "CASE-002",
+   "better": "A",
+   "worse": "C",
+   "lfi_better": -0.083,
+   "lfi_worse": -0.047,
+   "agree": false
+  },
+  {
+   "case": "CASE-002",
+   "better": "B",
+   "worse": "C",
+   "lfi_better": -0.005,
+   "lfi_worse": -0.047,
+   "agree": true
+  },
+  {
+   "case": "CASE-003",
+   "better": "M",
+   "worse": "F",
+   "lfi_better": 0.002,
+   "lfi_worse": -0.283,
+   "agree": true
+  },
+  {
+   "case": "CASE-004",
+   "better": "A",
+   "worse": "C",
+   "lfi_better": -0.077,
+   "lfi_worse": -0.07,
+   "agree": false
+  },
+  {
+   "case": "CASE-005",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": -0.127,
+   "lfi_worse": -0.037,
+   "agree": false
+  },
+  {
+   "case": "CASE-008",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": 0.41,
+   "lfi_worse": 0.427,
+   "agree": false
+  },
+  {
+   "case": "CASE-009",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": -0.15,
+   "lfi_worse": -0.197,
+   "agree": true
+  },
+  {
+   "case": "CASE-011",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": -0.053,
+   "lfi_worse": -0.22,
+   "agree": true
+  },
+  {
+   "case": "CASE-012",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": -0.105,
+   "lfi_worse": -0.003,
+   "agree": false
+  },
+  {
+   "case": "CASE-014",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": 0.255,
+   "lfi_worse": -0.332,
+   "agree": true
+  },
+  {
+   "case": "CASE-015",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": -0.457,
+   "lfi_worse": -0.093,
+   "agree": false
+  },
+  {
+   "case": "CASE-016",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": -0.415,
+   "lfi_worse": -0.423,
+   "agree": true
+  },
+  {
+   "case": "CASE-019",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": 0.19,
+   "lfi_worse": 0.185,
+   "agree": true
+  },
+  {
+   "case": "CASE-020",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": 0.175,
+   "lfi_worse": -0.072,
+   "agree": true
+  },
+  {
+   "case": "CASE-021",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": -0.34,
+   "lfi_worse": -0.407,
+   "agree": true
+  },
+  {
+   "case": "CASE-022",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": 0.18,
+   "lfi_worse": -0.215,
+   "agree": true
+  },
+  {
+   "case": "CASE-024",
+   "better": "2",
+   "worse": "1",
+   "lfi_better": -0.028,
+   "lfi_worse": -0.062,
+   "agree": true
+  },
+  {
+   "case": "CASE-024",
+   "better": "3",
+   "worse": "1",
+   "lfi_better": -0.132,
+   "lfi_worse": -0.062,
+   "agree": false
+  },
+  {
+   "case": "CASE-024",
+   "better": "4",
+   "worse": "1",
+   "lfi_better": 0.052,
+   "lfi_worse": -0.062,
+   "agree": true
+  },
+  {
+   "case": "CASE-025",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": -0.315,
+   "lfi_worse": -0.315,
+   "agree": false
+  },
+  {
+   "case": "CASE-029",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": -0.082,
+   "lfi_worse": -0.157,
+   "agree": true
+  },
+  {
+   "case": "CASE-030",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": -0.275,
+   "lfi_worse": -0.247,
+   "agree": false
+  },
+  {
+   "case": "CASE-032",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": -0.035,
+   "lfi_worse": 0.017,
+   "agree": false
+  },
+  {
+   "case": "CASE-033",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": 0.272,
+   "lfi_worse": 0.238,
+   "agree": true
+  },
+  {
+   "case": "CASE-036",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": -0.205,
+   "lfi_worse": -0.262,
+   "agree": true
+  },
+  {
+   "case": "CASE-038",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": -0.257,
+   "lfi_worse": -0.257,
+   "agree": false
+  },
+  {
+   "case": "CASE-039",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": -0.163,
+   "lfi_worse": -0.245,
+   "agree": true
+  },
+  {
+   "case": "CASE-041",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": 0.068,
+   "lfi_worse": -0.227,
+   "agree": true
+  },
+  {
+   "case": "CASE-042",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": 0.308,
+   "lfi_worse": 0.363,
+   "agree": false
+  },
+  {
+   "case": "CASE-043",
+   "better": "3",
+   "worse": "1",
+   "lfi_better": -0.188,
+   "lfi_worse": 0.502,
+   "agree": false
+  },
+  {
+   "case": "CASE-043",
+   "better": "3",
+   "worse": "2",
+   "lfi_better": -0.188,
+   "lfi_worse": 0.577,
+   "agree": false
+  },
+  {
+   "case": "CASE-044",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": 0.063,
+   "lfi_worse": 0.023,
+   "agree": true
+  },
+  {
+   "case": "CASE-046",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": -0.18,
+   "lfi_worse": 0.12,
+   "agree": false
+  },
+  {
+   "case": "CASE-048",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": -0.342,
+   "lfi_worse": -0.327,
+   "agree": false
+  },
+  {
+   "case": "CASE-049",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": 0.073,
+   "lfi_worse": 0.13,
+   "agree": false
+  },
+  {
+   "case": "CASE-050",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": 0.238,
+   "lfi_worse": 0.285,
+   "agree": false
+  },
+  {
+   "case": "CASE-051",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": -0.067,
+   "lfi_worse": -0.098,
+   "agree": true
+  },
+  {
+   "case": "CASE-052",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": -0.208,
+   "lfi_worse": -0.268,
+   "agree": true
+  },
+  {
+   "case": "CASE-053",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": -0.032,
+   "lfi_worse": 0.143,
+   "agree": false
+  },
+  {
+   "case": "CASE-054",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": -0.277,
+   "lfi_worse": -0.277,
+   "agree": false
+  },
+  {
+   "case": "CASE-055",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": 0.0,
+   "lfi_worse": -0.45,
+   "agree": true
+  },
+  {
+   "case": "CASE-056",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": 0.398,
+   "lfi_worse": 0.428,
+   "agree": false
+  },
+  {
+   "case": "CASE-057",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": -0.052,
+   "lfi_worse": -0.052,
+   "agree": false
+  },
+  {
+   "case": "CASE-058",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": -0.445,
+   "lfi_worse": -0.473,
+   "agree": true
+  },
+  {
+   "case": "CASE-059",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": -0.337,
+   "lfi_worse": -0.337,
+   "agree": false
+  },
+  {
+   "case": "CASE-060",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": -0.068,
+   "lfi_worse": -0.043,
+   "agree": false
+  },
+  {
+   "case": "CASE-061",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": -0.193,
+   "lfi_worse": -0.183,
+   "agree": false
+  },
+  {
+   "case": "CASE-062",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": -0.197,
+   "lfi_worse": 0.04,
+   "agree": false
+  },
+  {
+   "case": "CASE-063",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": -0.258,
+   "lfi_worse": 0.348,
+   "agree": false
+  },
+  {
+   "case": "CASE-066",
+   "better": "L",
+   "worse": "M",
+   "lfi_better": -0.402,
+   "lfi_worse": -0.377,
+   "agree": false
+  },
+  {
+   "case": "CASE-066",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": -0.402,
+   "lfi_worse": -0.377,
+   "agree": false
+  },
+  {
+   "case": "CASE-068",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": -0.112,
+   "lfi_worse": 0.083,
+   "agree": false
+  },
+  {
+   "case": "CASE-069",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": -0.067,
+   "lfi_worse": -0.003,
+   "agree": false
+  },
+  {
+   "case": "CASE-070",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": -0.182,
+   "lfi_worse": 0.173,
+   "agree": false
+  },
+  {
+   "case": "CASE-071",
+   "better": "L",
+   "worse": "R",
+   "lfi_better": -0.058,
+   "lfi_worse": -0.012,
+   "agree": false
+  },
+  {
+   "case": "CASE-073",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": 0.207,
+   "lfi_worse": 0.035,
+   "agree": true
+  },
+  {
+   "case": "CASE-076",
+   "better": "X",
+   "worse": "L",
+   "lfi_better": 0.408,
+   "lfi_worse": -0.1,
+   "agree": true
+  },
+  {
+   "case": "CASE-076",
+   "better": "X",
+   "worse": "R",
+   "lfi_better": 0.408,
+   "lfi_worse": 0.158,
+   "agree": true
+  },
+  {
+   "case": "CASE-077",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": -0.372,
+   "lfi_worse": -0.152,
+   "agree": false
+  },
+  {
+   "case": "CASE-078",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": 0.0,
+   "lfi_worse": -0.017,
+   "agree": true
+  },
+  {
+   "case": "CASE-079",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": -0.04,
+   "lfi_worse": 0.332,
+   "agree": false
+  },
+  {
+   "case": "CASE-080",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": -0.127,
+   "lfi_worse": 0.245,
+   "agree": false
+  },
+  {
+   "case": "CASE-083",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": 0.008,
+   "lfi_worse": -0.083,
+   "agree": true
+  },
+  {
+   "case": "CASE-084",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": 0.182,
+   "lfi_worse": -0.087,
+   "agree": true
+  },
+  {
+   "case": "CASE-085",
+   "better": "R",
+   "worse": "L",
+   "lfi_better": -0.182,
+   "lfi_worse": 0.013,
+   "agree": false
+  }
+ ],
+ "timed_total": 44,
+ "timed_sewoon_agree": 17,
+ "timed_daewoon_agree": 28,
+ "timed_event_hit": 22,
+ "timed_risk_above_base": 16,
+ "timed_detail": [
+  {
+   "case": "CASE-007",
+   "key": "A",
+   "domain": "death",
+   "pol": "-",
+   "when": "~age 30",
+   "sewoon_mean": -0.09,
+   "daewoon_mean": 0.26,
+   "event_hit": true,
+   "event_fav": 0.5,
+   "risk_inc": 0,
+   "risk_base": 0
+  },
+  {
+   "case": "CASE-010",
+   "key": "L",
+   "domain": "health",
+   "pol": "-",
+   "when": "year=2010",
+   "sewoon_mean": 0.07,
+   "daewoon_mean": 0.08,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 0
+  },
+  {
+   "case": "CASE-010",
+   "key": "R",
+   "domain": "health",
+   "pol": "-",
+   "when": "year=2000",
+   "sewoon_mean": -0.01,
+   "daewoon_mean": -0.71,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 0
+  },
+  {
+   "case": "CASE-018",
+   "key": "R",
+   "domain": "wealth",
+   "pol": "+",
+   "when": "year=1991",
+   "sewoon_mean": 0.09,
+   "daewoon_mean": -0.71,
+   "event_hit": true,
+   "event_fav": 0.5,
+   "risk_inc": 1,
+   "risk_base": 2.47
+  },
+  {
+   "case": "CASE-023",
+   "key": "L",
+   "domain": "wealth",
+   "pol": "-",
+   "when": "daewoon=辛酉(19세~)",
+   "sewoon_mean": 0.01,
+   "daewoon_mean": -0.87,
+   "event_hit": true,
+   "event_fav": 0.02,
+   "risk_inc": 2.9,
+   "risk_base": 2.18
+  },
+  {
+   "case": "CASE-023",
+   "key": "R",
+   "domain": "wealth",
+   "pol": "-",
+   "when": "daewoon=辛酉(19세~)",
+   "sewoon_mean": 0.03,
+   "daewoon_mean": -0.87,
+   "event_hit": true,
+   "event_fav": -0.0,
+   "risk_inc": 3.1,
+   "risk_base": 2.24
+  },
+  {
+   "case": "CASE-024",
+   "key": "1",
+   "domain": "legal",
+   "pol": "-",
+   "when": "daewoon=丙子(23세~)",
+   "sewoon_mean": -0.06,
+   "daewoon_mean": -0.4,
+   "event_hit": true,
+   "event_fav": -0.33,
+   "risk_inc": 1.8,
+   "risk_base": 2.71
+  },
+  {
+   "case": "CASE-025",
+   "key": "R",
+   "domain": "wealth",
+   "pol": "+",
+   "when": "~age 39",
+   "sewoon_mean": -0.0,
+   "daewoon_mean": 0.33,
+   "event_hit": true,
+   "event_fav": 0.13,
+   "risk_inc": 3.33,
+   "risk_base": 3.26
+  },
+  {
+   "case": "CASE-025",
+   "key": "R",
+   "domain": "wealth",
+   "pol": "-",
+   "when": "age=40",
+   "sewoon_mean": -0.58,
+   "daewoon_mean": -0.13,
+   "event_hit": true,
+   "event_fav": -0.7,
+   "risk_inc": 5,
+   "risk_base": 3.26
+  },
+  {
+   "case": "CASE-028",
+   "key": "L",
+   "domain": "family",
+   "pol": "+",
+   "when": "~age 50",
+   "sewoon_mean": 0.12,
+   "daewoon_mean": 0.05,
+   "event_hit": true,
+   "event_fav": 0.02,
+   "risk_inc": 0.38,
+   "risk_base": 0.5
+  },
+  {
+   "case": "CASE-033",
+   "key": "L",
+   "domain": "education",
+   "pol": "+",
+   "when": "year=2001",
+   "sewoon_mean": 0.44,
+   "daewoon_mean": 0.0,
+   "event_hit": true,
+   "event_fav": 0.5,
+   "risk_inc": 1,
+   "risk_base": 0.53
+  },
+  {
+   "case": "CASE-034",
+   "key": "L",
+   "domain": "accident",
+   "pol": "-",
+   "when": "year=2004",
+   "sewoon_mean": -0.01,
+   "daewoon_mean": -0.35,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 0
+  },
+  {
+   "case": "CASE-034",
+   "key": "R",
+   "domain": "accident",
+   "pol": "-",
+   "when": "year=2004",
+   "sewoon_mean": -0.11,
+   "daewoon_mean": -0.35,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 0
+  },
+  {
+   "case": "CASE-035",
+   "key": "R",
+   "domain": "wealth",
+   "pol": "+",
+   "when": "age=70",
+   "sewoon_mean": -0.29,
+   "daewoon_mean": 0.14,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 3,
+   "risk_base": 2.57
+  },
+  {
+   "case": "CASE-036",
+   "key": "L",
+   "domain": "death",
+   "pol": "-",
+   "when": "year=1971",
+   "sewoon_mean": 0.63,
+   "daewoon_mean": 0.0,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 0
+  },
+  {
+   "case": "CASE-036",
+   "key": "R",
+   "domain": "health",
+   "pol": "-",
+   "when": "years=[1994, 1995, 1998]",
+   "sewoon_mean": -0.45,
+   "daewoon_mean": -0.53,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 0
+  },
+  {
+   "case": "CASE-038",
+   "key": "R",
+   "domain": "family",
+   "pol": "-",
+   "when": "year=2004",
+   "sewoon_mean": -0.45,
+   "daewoon_mean": -1.1,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 0.36
+  },
+  {
+   "case": "CASE-039",
+   "key": "R",
+   "domain": "death",
+   "pol": "-",
+   "when": "year=1997",
+   "sewoon_mean": 0.0,
+   "daewoon_mean": -0.87,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 0
+  },
+  {
+   "case": "CASE-041",
+   "key": "L",
+   "domain": "family",
+   "pol": "-",
+   "when": "~age 16",
+   "sewoon_mean": -0.06,
+   "daewoon_mean": -0.53,
+   "event_hit": true,
+   "event_fav": 0.3,
+   "risk_inc": 0.12,
+   "risk_base": 0.33
+  },
+  {
+   "case": "CASE-042",
+   "key": "L",
+   "domain": "wealth",
+   "pol": "-",
+   "when": "~age 30",
+   "sewoon_mean": 0.05,
+   "daewoon_mean": 0.21,
+   "event_hit": true,
+   "event_fav": -0.04,
+   "risk_inc": 3.6,
+   "risk_base": 3.13
+  },
+  {
+   "case": "CASE-044",
+   "key": "R",
+   "domain": "death",
+   "pol": "-",
+   "when": "age 18~27",
+   "sewoon_mean": -0.21,
+   "daewoon_mean": -0.38,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 0
+  },
+  {
+   "case": "CASE-049",
+   "key": "R",
+   "domain": "marriage",
+   "pol": "-",
+   "when": "year=1979",
+   "sewoon_mean": 0.32,
+   "daewoon_mean": 0.25,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 0.6
+  },
+  {
+   "case": "CASE-051",
+   "key": "L",
+   "domain": "wealth",
+   "pol": "-",
+   "when": "daewoon=丁未(21세~)",
+   "sewoon_mean": 0.03,
+   "daewoon_mean": -0.14,
+   "event_hit": true,
+   "event_fav": 0.12,
+   "risk_inc": 1.7,
+   "risk_base": 2.54
+  },
+  {
+   "case": "CASE-052",
+   "key": "L",
+   "domain": "family",
+   "pol": "-",
+   "when": "age=2",
+   "sewoon_mean": null,
+   "daewoon_mean": null,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 0.55
+  },
+  {
+   "case": "CASE-053",
+   "key": "R",
+   "domain": "family",
+   "pol": "-",
+   "when": "year=1999",
+   "sewoon_mean": -0.09,
+   "daewoon_mean": 0.35,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 0.46
+  },
+  {
+   "case": "CASE-055",
+   "key": "L",
+   "domain": "wealth",
+   "pol": "-",
+   "when": "year=1996",
+   "sewoon_mean": 0.09,
+   "daewoon_mean": -0.39,
+   "event_hit": true,
+   "event_fav": -0.7,
+   "risk_inc": 10,
+   "risk_base": 2.86
+  },
+  {
+   "case": "CASE-057",
+   "key": "R",
+   "domain": "death",
+   "pol": "-",
+   "when": "age 38~47",
+   "sewoon_mean": 0.04,
+   "daewoon_mean": -0.18,
+   "event_hit": true,
+   "event_fav": -0.4,
+   "risk_inc": 0,
+   "risk_base": 0
+  },
+  {
+   "case": "CASE-061",
+   "key": "R",
+   "domain": "family",
+   "pol": "-",
+   "when": "age=33",
+   "sewoon_mean": -0.09,
+   "daewoon_mean": -0.84,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 0.51
+  },
+  {
+   "case": "CASE-063",
+   "key": "L",
+   "domain": "wealth",
+   "pol": "+",
+   "when": "age=38",
+   "sewoon_mean": 0.65,
+   "daewoon_mean": 0.0,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 2.4
+  },
+  {
+   "case": "CASE-071",
+   "key": "L",
+   "domain": "wealth",
+   "pol": "-",
+   "when": "year=1981",
+   "sewoon_mean": 1.1,
+   "daewoon_mean": -0.62,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 4,
+   "risk_base": 3.49
+  },
+  {
+   "case": "CASE-071",
+   "key": "R",
+   "domain": "marriage",
+   "pol": "-",
+   "when": "year=1982",
+   "sewoon_mean": 0.45,
+   "daewoon_mean": -0.62,
+   "event_hit": true,
+   "event_fav": 0.5,
+   "risk_inc": 1,
+   "risk_base": 0.33
+  },
+  {
+   "case": "CASE-072",
+   "key": "L",
+   "domain": "wealth",
+   "pol": "+",
+   "when": "age 25~44",
+   "sewoon_mean": -0.08,
+   "daewoon_mean": 0.08,
+   "event_hit": true,
+   "event_fav": -0.21,
+   "risk_inc": 6.05,
+   "risk_base": 4.99
+  },
+  {
+   "case": "CASE-072",
+   "key": "L",
+   "domain": "wealth",
+   "pol": "-",
+   "when": "age 45~49",
+   "sewoon_mean": -0.02,
+   "daewoon_mean": -0.07,
+   "event_hit": true,
+   "event_fav": -0.55,
+   "risk_inc": 5.8,
+   "risk_base": 4.99
+  },
+  {
+   "case": "CASE-072",
+   "key": "R",
+   "domain": "wealth",
+   "pol": "+",
+   "when": "age 25~44",
+   "sewoon_mean": -0.1,
+   "daewoon_mean": 0.08,
+   "event_hit": true,
+   "event_fav": -0.07,
+   "risk_inc": 5.4,
+   "risk_base": 4.5
+  },
+  {
+   "case": "CASE-072",
+   "key": "R",
+   "domain": "wealth",
+   "pol": "-",
+   "when": "age 45~49",
+   "sewoon_mean": -0.02,
+   "daewoon_mean": -0.07,
+   "event_hit": true,
+   "event_fav": -0.4,
+   "risk_inc": 6,
+   "risk_base": 4.5
+  },
+  {
+   "case": "CASE-076",
+   "key": "R",
+   "domain": "marriage",
+   "pol": "-",
+   "when": "age=36",
+   "sewoon_mean": -1.0,
+   "daewoon_mean": -0.87,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 0.24
+  },
+  {
+   "case": "CASE-077",
+   "key": "R",
+   "domain": "wealth",
+   "pol": "-",
+   "when": "~age 57",
+   "sewoon_mean": -0.04,
+   "daewoon_mean": -0.52,
+   "event_hit": true,
+   "event_fav": -0.14,
+   "risk_inc": 3.4,
+   "risk_base": 3.07
+  },
+  {
+   "case": "CASE-077",
+   "key": "R",
+   "domain": "wealth",
+   "pol": "+",
+   "when": "age=58",
+   "sewoon_mean": -0.68,
+   "daewoon_mean": -0.61,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 3.07
+  },
+  {
+   "case": "CASE-079",
+   "key": "L",
+   "domain": "wealth",
+   "pol": "-",
+   "when": "age=44",
+   "sewoon_mean": 0.44,
+   "daewoon_mean": 1.1,
+   "event_hit": true,
+   "event_fav": 0.5,
+   "risk_inc": 1,
+   "risk_base": 2.41
+  },
+  {
+   "case": "CASE-079",
+   "key": "R",
+   "domain": "wealth",
+   "pol": "+",
+   "when": "age=44",
+   "sewoon_mean": 0.1,
+   "daewoon_mean": 0.0,
+   "event_hit": true,
+   "event_fav": -0.7,
+   "risk_inc": 3,
+   "risk_base": 2.32
+  },
+  {
+   "case": "CASE-084",
+   "key": "L",
+   "domain": "misc",
+   "pol": "-",
+   "when": "age 37~46",
+   "sewoon_mean": 0.14,
+   "daewoon_mean": 0.29,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 0
+  },
+  {
+   "case": "CASE-084",
+   "key": "R",
+   "domain": "misc",
+   "pol": "+",
+   "when": "age 37~46",
+   "sewoon_mean": 0.03,
+   "daewoon_mean": 0.39,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 0
+  },
+  {
+   "case": "CASE-085",
+   "key": "L",
+   "domain": "health",
+   "pol": "-",
+   "when": "age=40",
+   "sewoon_mean": -0.65,
+   "daewoon_mean": -0.09,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 0
+  },
+  {
+   "case": "CASE-085",
+   "key": "R",
+   "domain": "education",
+   "pol": "+",
+   "when": "age=20",
+   "sewoon_mean": -0.42,
+   "daewoon_mean": -0.71,
+   "event_hit": false,
+   "event_fav": null,
+   "risk_inc": 0,
+   "risk_base": 0.61
+  }
+ ],
+ "structure_only": [
+  "CASE-004/B",
+  "CASE-031/L",
+  "CASE-031/R",
+  "CASE-074/L",
+  "CASE-074/R"
+ ],
+ "pillars_mismatch": []
+}
