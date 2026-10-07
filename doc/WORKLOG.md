@@ -11544,3 +11544,14 @@ conditions 미작성=미검토 상태).
 분할 위반 0, 사례집 지표 44.1/34.1/59.1/50.0/38.6(잡음 범위). 전체 스위트·게이트는 아래 기록. 남은 것: C4 격국 성패·
 그릇 지수, C5 건강 채널, `coverage_report.json` 라벨은 다음 shadow 재스캔 때 갱신.
 검증 기록: `./scripts/run_suite.sh` VALID_SUITE_PASS(최종 상태, 중화신약 상한 47) · `./scripts/gates.sh --quick` ruff·typecheck·maintained_scripts exit 0 · 기준 사주 6건 5역할 엄격 회귀 통과.
+
+## 2026-10-07 — C4 격국 성패 경계 분위수 재설정 + 원국 품질 shadow 지표 (데굴님 결정 ①~④)
+
+- 분석(`CHART_QUALITY_INDEX_C4.md`): 68쌍에서 격국 성패·작동성·충합·사전 극성·대운 극성 등 17성분 전부 우연 수준 →
+  가중 그릇 지수 **보류**(결정 ①). 용신 유력/무력 역방향(9:15·14:8)은 십성군·표면 비중·모델 어느 축도 쏠리지 않아 작동성
+  계수 변경 근거 없음(결정 ② 조사 결과) — Vol.3 후 '용신 희소성' 가설 재측정.
+- 결정 ③ `geokguk_eval._SF_*`: 완전 ≥37·성 ≥22·패 ≤−5.5·혼탁 ≤−15(그리드 분위수), 패격 세분은 실제 구제 여부. 그리드
+  성 27/중성 56/패 15%, 사례집 23/57/13%. 점수식 불변.
+- 결정 ④ `saju_engines/chart_quality_shadow.py` 부호 패턴 7종 합(비노출), `casebook_replay.py` 기록.
+- 골든 1건(1981-06-15 구조패턴: PAEJUNG_YUSEONG 추가) 갱신 승인 요청, 기준 사주 6건·골든 8건·1980 픽스처 불변.
+검증 기록(C4): `./scripts/run_suite.sh` VALID_SUITE_PASS · `./scripts/gates.sh --quick` ruff·typecheck·maintained_scripts exit 0.

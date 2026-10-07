@@ -289,6 +289,14 @@ def _detect_failures(
 
 # ── 성패 score (-100~100) — geokguk_master_v2 success_failure_factors 6요소 ──
 
+# 성패 등급 경계(분위수 기반, 2026-10-07): 완전 성격 ≥p92, 성격 ≥p75, 패격 ≤p15, 심한 혼탁 ≤p3.
+# 패격 경계는 p20(−3)이 아니라 p15(−5.5) — 상담 감수 기준 사주 1980-11-22(−5.0, 반성반패 확정
+# 픽스처)를 보존한다. 그리드 분포: 성 27% · 중성 56% · 패 15%.
+_SF_COMPLETE = 37.0
+_SF_PARTIAL = 22.0
+_SF_FAILURE = -5.5
+_SF_SEVERE = -15.0
+
 # 일간 감당력(factor 2) band별 raw.
 _DM_CAPABILITY = {
     "태신약": -45, "신약": -40, "중화신약": -10,
@@ -335,15 +343,21 @@ def _success_failure(
     score = _clamp(
         f1 * 0.20 + f2 * 0.20 + f3 * 0.20 + f4 * 0.20 + f5 * 0.15 + f6 * 0.05, -100, 100
     )
-    if score >= 70:
+    # 등급 경계(2026-10-07 데굴님 승인, C4): 6요소 가중합이 −10~40 에 몰려 88%가 '반성반패'였다
+    # (그리드 2,000명식 p8/p15/p75/p92 = −9.5/−5.5/22.5/36.5). 경계를 분위수로 재설정하고, 패격의
+    # 구제 유무는 점수 2단이 아니라 실제 구제 여부(failures.rescued)로 나눈다. 점수식은 불변 —
+    # 라벨 분포 교정이지 변별력 개선이 아니다.
+    active_f = [f for f in failures if f["active"]]
+    rescued_any = any(f["rescued"] for f in active_f)
+    if score >= _SF_COMPLETE:
         grade, label = "complete_success", "완전 성격"
-    elif score >= 40:
+    elif score >= _SF_PARTIAL:
         grade, label = "partial_success", "성격이나 약간 혼잡"
-    elif score >= -10:
+    elif score > _SF_FAILURE:
         grade, label = "mixed", "반성반패"
-    elif score >= -30:
+    elif score > _SF_SEVERE and rescued_any:
         grade, label = "failure_with_rescue", "패격이나 구제 있음"
-    elif score >= -70:
+    elif score > _SF_SEVERE:
         grade, label = "clear_failure", "명확한 패격"
     else:
         grade, label = "severe_muddiness", "심한 혼탁"

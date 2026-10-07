@@ -313,6 +313,12 @@ def replay_subject(case: dict, subj: dict, engine: EventEngineV2) -> dict[str, A
     out["pillars_match"] = out["pillars_engine"] == subj["pillars"]
     out["structure"] = _structure(r)
     out["roles"] = _roles(r)
+    # C4 결정 ④: 원국 품질 shadow 지표(사용자 비노출·평가 전용) 기록.
+    try:
+        from saju_engines.chart_quality_shadow import chart_quality_shadow
+        out["quality_shadow"] = chart_quality_shadow(r).as_dict()
+    except Exception as exc:  # noqa: BLE001
+        out["quality_shadow"] = {"error": str(exc)}
     out["luck_direction"] = r.luck_cycles.direction
     out["luck_start_age"] = r.luck_cycles.start_age
     out["daewoon"] = _daewoon(r)
