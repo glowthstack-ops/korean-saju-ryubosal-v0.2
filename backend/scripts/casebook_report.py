@@ -119,9 +119,16 @@ def _domain_hits(sub: dict, years: list[int], domain: str) -> dict[str, Any]:
     evs = DOMAIN_EVENTS.get(domain, set())
     pref = DOMAIN_RISK_PREFIX.get(domain, ())
 
+    # C5-3(2026-10-07): HLT_* 는 incident_risk 가 없고 pressure 뿐이라, 건강 계열 도메인은
+    # pressure 를 포함한 전체 수를 개인 기준선과 비교한다(지표 전용, 노출 로직 무관).
+    health_like = domain in ("health", "death", "accident")
+
     def _inc(y: str) -> int:
-        """개인 기준선용: 해당 연도 도메인 incident_risk 수."""
-        return sum(1 for r in risks.get(y, []) if r.startswith(pref) and "incident_risk" in r)
+        """개인 기준선용: 해당 연도 도메인 위험 수(건강 계열은 전체 kind, 그 외 incident_risk)."""
+        return sum(
+            1 for r in risks.get(y, [])
+            if r.startswith(pref) and (health_like or "incident_risk" in r)
+        )
 
     base = [_inc(y) for y in sew] or [0]
     base_mean = statistics.mean(base)

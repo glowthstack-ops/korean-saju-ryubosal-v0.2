@@ -344,6 +344,13 @@ class EventEngineV2:
             self._rel_shadow_tls.last = tuple(rel_sink)
             self._dw_bg_tls.sink = None
             self._dw_bg_tls.last = MappingProxyType(dict(dw_bg_sink))
+        # C5-1(2026-10-07): 연·월 health_attention 은 건강 창 점수에서 파생(기존 규칙 후보 치환).
+        # 6계층 보정·랭킹 뒤의 후처리라 다른 도메인 후보의 점수·순위는 바뀌지 않는다.
+        if period_v2_config.HEALTH_WINDOW_CHANNEL_ENABLED and (
+            levels is None or {GanjiLevel.YEAR, GanjiLevel.MONTH} & set(levels)
+        ):
+            from .health_window_channel import inject_health_window_candidates
+            out = inject_health_window_candidates(result, out)
         return out
 
     def take_daewoon_hwa_backgrounds(self) -> Mapping[str, DaewoonHwaBackground]:

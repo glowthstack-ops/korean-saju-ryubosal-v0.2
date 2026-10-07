@@ -11555,3 +11555,16 @@ conditions 미작성=미검토 상태).
 - 결정 ④ `saju_engines/chart_quality_shadow.py` 부호 패턴 7종 합(비노출), `casebook_replay.py` 기록.
 - 골든 1건(1981-06-15 구조패턴: PAEJUNG_YUSEONG 추가) 갱신 승인 요청, 기준 사주 6건·골든 8건·1980 픽스처 불변.
 검증 기록(C4): `./scripts/run_suite.sh` VALID_SUITE_PASS · `./scripts/gates.sh --quick` ruff·typecheck·maintained_scripts exit 0.
+
+## 2026-10-07 — C5 건강 채널: 건강 창 점수 SSOT 배선 + 개인 분위수 노출 + 관리자 비밀 코드 (데굴님 결정)
+
+- 분석(`HEALTH_CHANNEL_C5.md`): 이벤트 health_attention 규칙 후보는 12연도 중 8건 부재, HLT 위험은 pressure 28·incident 0
+  으로 포화, 기존 `health_risk_windows` 는 7/12 ≥30(기준율 34%) — 엔진은 맞고 노출 경로가 끊겨 있었다.
+- C5-1 `health_window_channel.py`(플래그 `SAJU_HEALTH_WINDOW_CHANNEL_ENABLED`, 기본 OFF): 연 단위 health_attention 을
+  창 점수에서 파생·치환. C5-2 노출은 본인 생애 분위수 p85/p93/p97. C5-3 지표 pressure 포함. C5-4 데굴님 지시로 사망·중대
+  사고 어휘 대신 **관리자 비밀 코드**("코드 F-1에 해당하는 사건이 발생할 가능성이 있습니다") — `severe_event_codes.json`
+  (reviewed:false, 의미는 사전에만), LLM 가드 "문자 그대로·의미 추측 금지".
+- 테스트 +6(`test_health_window_channel.py`). 사례집 건강 계열 히트 2/11→4/11, 전체 C 56.8%·C' 52.3%.
+- 남은 결정: .env.beta ON, 코드 표 확정(F-3 정의), 월 단위 창 규칙.
+- 같은 날 확정: 코드 체계 F-1 내적 질병/F-2 외적 사고/F-3 스스로 만드는 위기(`severe_event_codes.json` reviewed:true), 034→F-2 로 F-1 조건 강화, 월 단위 창 추가, .env.beta ON. 테스트 8건.
+검증 기록(C5 최종): `./scripts/run_suite.sh` VALID_SUITE_PASS · `./scripts/gates.sh --quick` ruff·typecheck·maintained_scripts exit 0.

@@ -19,7 +19,14 @@ from saju_shared_types.wealth_capacity import WealthCapacity
 from saju_shared_types.wealth_status_lean import WealthStatusLean
 
 from .era_energy import era_curated_note, era_energy_profile
-from .health_vulnerability import health_risk_windows
+from .health_vulnerability import (
+    health_percentile_thresholds,
+    health_risk_windows,
+    lifetime_health_scores,
+    load_severe_codes,
+    percentile_level,
+    severe_event_code,
+)
 from .marriage_age_prior import analyze_marriage_age_prior
 from .marriage_timing_profile import active_marriage_aux
 from .relationship_relation_labels import relation_summary_ko
@@ -695,13 +702,37 @@ def health_lines(
         lines.append(f"일간 물상 참고: {hv.stem_symbol_caution}")
     windows = health_risk_windows(result, hv, today_year)
     if windows:
-        lines.append(
-            "관리 권장 시기(운에서 취약 구조가 재자극되는 때 — 질병·사망 예측 아님, 그 무렵 "
-            "컨디션·검진을 챙기라는 신호):"
-        )
+        # C5-2(2026-10-07 데굴님 승인): 전역 ≥30 대신 **본인 생애 분위수**(p85/p93/p97)로 노출·등급.
+        # 분위수 모집단은 출생~+90년 세운 창 점수(lifetime_health_scores). 임계 미만은 비노출.
+        thresholds = health_percentile_thresholds(lifetime_health_scores(result, hv))
+        codes = load_severe_codes()
+        default_tpl = "코드 {code}에 해당하는 사건이 발생할 가능성이 있습니다."
+        template = str(codes.get("render_template") or default_tpl)
+        shown: list[str] = []
+        coded: list[str] = []
         for w in windows:
+            level = percentile_level(w.score, thresholds) if thresholds else w.level
+            if level is None:
+                continue
+            code = severe_event_code(w, thresholds, codes) if thresholds else None
             bg = f" {w.daewoon}대운" if w.daewoon else ""
-            lines.append(f"- {w.period}년{bg}: {w.level} ({', '.join(w.reasons)})")
+            if code:
+                # C5-4(데굴님 지시): 금지 어휘 대신 관리자 전용 코드 문장으로만 표시 — 의미 비전달.
+                coded.append(f"- {w.period}년{bg}: {template.format(code=code)}")
+            else:
+                shown.append(f"- {w.period}년{bg}: {level} ({', '.join(w.reasons)})")
+        if shown:
+            lines.append(
+                "관리 권장 시기(운에서 취약 구조가 재자극되는 때 — 질병·사망 예측 아님, 그 무렵 "
+                "컨디션·검진을 챙기라는 신호; 본인 생애 분포 상위 15% 해만 표시):"
+            )
+            lines.extend(shown)
+        if coded:
+            lines.append(
+                "[관리자 코드 표기 — 아래 문장은 **문자 그대로 한 번만** 전달하고, 코드의 의미를 "
+                "추측·설명·완곡화하지 말 것. 질병명·사망·사고·수명 어휘로 바꾸지 말 것]"
+            )
+            lines.extend(coded)
     return lines
 
 
