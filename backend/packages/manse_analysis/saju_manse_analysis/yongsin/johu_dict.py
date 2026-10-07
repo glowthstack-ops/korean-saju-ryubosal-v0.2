@@ -15,9 +15,12 @@ from pathlib import Path
 _BACKEND = Path(__file__).resolve().parents[4]
 _COMPILED_DEFAULT = _BACKEND / "compiled"
 _DICTS_DEFAULT = _BACKEND / "dictionaries"
-JOHU_YONGSIN_VERSION = "0.2.0"
+JOHU_YONGSIN_VERSION = "0.3.0"
 
-# 셀 구조: {"primary": [천간], "secondary": [...], "avoid": [...], "climate_axis": str}
+# 셀 구조(v0.3.0): {"primary": [천간], "secondary": [...], "avoid": [...], "climate_axis": str,
+#   "needs": [{"stem", "roles": [climate_*|source|drain|control|wealth|peer|pair],
+#              "relation": priority|pair|alternative, "note", "tag_source"}], "conditions": []}
+# 조후 후보는 needs 의 climate_* 역할 천간만 쓴다(2026-10-07 데굴님 결정 A).
 JohuCell = dict[str, object]
 
 

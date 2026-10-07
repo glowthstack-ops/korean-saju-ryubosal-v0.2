@@ -24,6 +24,61 @@ _BRANCHES = list("寅卯辰巳午未申酉戌亥子丑")
 _AXES = {"cold", "heat", "dry", "damp", "mixed", "neutral"}
 
 
+# v0.3.0(2026-10-07 C2, 데굴님 결정 A): 천간별 역할 태그. 조후 축 점수는 climate_* 역할만 쓴다.
+_ROLES = {
+    "climate_warm", "climate_cool", "climate_dry", "climate_moisten",
+    "source", "drain", "control", "wealth", "peer", "pair",
+}
+_RELATIONS = {"priority", "pair", "alternative"}
+_TAG_SOURCES = {"override", "mechanical", "reviewed"}
+_COLD_HOT = set("亥子丑巳午未")
+WARNINGS: list[str] = []
+
+
+def _validate_needs(stem: str, branch: str, cell: dict) -> list[str]:
+    """needs[] 구조 검증(v0.3.0). 한난 월 셀에 climate 역할이 없으면 경고(오류 아님 — 결정 A)."""
+    errors: list[str] = []
+    needs = cell.get("needs")
+    if needs is None:
+        return [f"{stem}×{branch}: needs 누락(v0.3.0 필수)"]
+    if not isinstance(needs, list) or not needs:
+        return [f"{stem}×{branch}: needs 목록 아님/빈 목록"]
+    listed = {s for key in ("primary", "secondary") for s in cell.get(key, [])}
+    seen: set[str] = set()
+    for n in needs:
+        if not isinstance(n, dict):
+            errors.append(f"{stem}×{branch}: needs 항목 비객체")
+            continue
+        s = n.get("stem")
+        if s not in _STEMS:
+            errors.append(f"{stem}×{branch}: needs 무효 천간 {s!r}")
+            continue
+        if s in seen:
+            errors.append(f"{stem}×{branch}: needs 천간 중복 {s}")
+        seen.add(s)
+        roles = n.get("roles")
+        if not isinstance(roles, list) or not roles or not set(roles) <= _ROLES:
+            errors.append(f"{stem}×{branch}: {s} roles 무효 {roles!r}")
+        if n.get("relation") not in _RELATIONS:
+            errors.append(f"{stem}×{branch}: {s} relation 무효 {n.get('relation')!r}")
+        if n.get("tag_source") not in _TAG_SOURCES:
+            errors.append(f"{stem}×{branch}: {s} tag_source 무효 {n.get('tag_source')!r}")
+    if seen != listed:
+        errors.append(
+            f"{stem}×{branch}: needs 천간 집합 {sorted(seen)} ≠ primary∪secondary {sorted(listed)}"
+        )
+    if not isinstance(cell.get("conditions", []), list):
+        errors.append(f"{stem}×{branch}: conditions 목록 아님")
+    if branch in _COLD_HOT and not any(
+        isinstance(n, dict) and any(str(r).startswith("climate_") for r in n.get("roles", []))
+        for n in needs
+    ):
+        WARNINGS.append(
+            f"{stem}×{branch}: 한난 월인데 climate 역할 천간 없음 — 조후 후보 없음(경고만)"
+        )
+    return errors
+
+
 def validate(raw: dict) -> list[str]:
     """조후 사전 v0.2 구조 검증 — 위반 메시지 목록(빈 목록=통과).
 
@@ -59,6 +114,7 @@ def validate(raw: dict) -> list[str]:
                 errors.append(
                     f"{stem}×{branch}: climate_axis 무효 {cell.get('climate_axis')!r}"
                 )
+            errors.extend(_validate_needs(stem, branch, cell))
         extra = set(row) - set(_BRANCHES)
         if extra:
             errors.append(f"{stem}: 무효 월지 키 {sorted(extra)}")
@@ -78,11 +134,13 @@ def main() -> int:
         for e in errors:
             print(f"[error] {e}", file=sys.stderr)
         return 1
+    for w in WARNINGS:
+        print(f"[warn] {w}", file=sys.stderr)
     out = _COMPILED / f"johu_yongsin_v{raw['version']}.json"
     out.write_text(
         json.dumps(raw, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
     )
-    print(f"validated 120 cells → {out}")
+    print(f"validated 120 cells ({len(WARNINGS)} warnings) → {out}")
     return 0
 
 

@@ -179,3 +179,16 @@ C1 → C2 → (C3 ∥ C4) → C5 → C6. C1·C2는 용신 배정을 바꾸므로
   위험밀도 38.6%(영향 17사례 범위 이동). 생애 변별의 큰 개선은 C4 몫이다.
 - C2 착수 시 주의: §3 F2의 조후 "전문가" 근거 중 용희기신 표기는 신뢰 경계에 따라 제외하고, 실제 사건·시점과
   궁통보감 계열 조후표 자체로 판단한다.
+
+### 2026-10-07 — C2 적용(데굴님 결정 A 승인·B 보류·C 조건부·사전 초안 채택)
+
+- 설계·결정·검증표: `JOHU_NEED_DICTIONARY_C2.md`, 전/후 비교: `cases/comparison_casebook/JOHU_AB_2026-10-07.md`.
+- 사전 `johu_yongsin.json` v0.3.0(needs[] 역할 태그·conditions 슬롯, reviewed:false) + 스냅샷 컴파일(경고 10칸).
+- 규칙 A `JOHU_CLIMATE_ROLE_ONLY`(조후 후보=climate 글자만, 후보 없는 셀은 경고만), D(need/present/absent),
+  C `CLIMATE_PENALTY_MODE=month_axis_graded`(mild 0.4·severe 0.2 감점, 자동 강등 없음). B 미구현.
+- 214명식 A/B: 조후 후보 변경 111, **최종 역할표 변경 1**(020/R), 용신 변경 0, 조후·억부 동일 오행 후보 56→31.
+  기준 사주 6건·종격·골든 불변, 사례집 지표 C1과 동일. `run_suite.sh` VALID_SUITE_PASS, `gates.sh --quick` 전부 0.
+- 테스트 계약 변경 6건 승인(1959 亥月 辛 억부 金→조후 火 판정 수용 등). 상세는 WORKLOG 2026-10-07 C2.
+- 남은 결정: ①`axis_graded`(월지 무관) 재결정 — 축 공식이 분포 중심이라 창원 2018이 neutral 로 빠짐, 월령 가중
+  필요 ②규칙 B 재논의 ③사전 §6 태그 감수 → reviewed:true ④conditions[] 2차 감수 ⑤종격 검출기 통일(C1-c).
+- 다음: C3(신강약 밴드)·C4(격국 성패·그릇 지수)·C5(건강 채널).

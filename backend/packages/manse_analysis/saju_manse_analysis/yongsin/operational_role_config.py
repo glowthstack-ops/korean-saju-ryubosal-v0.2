@@ -441,6 +441,25 @@ DOMINANT_SPECIAL_REQUIRE_OVERRIDE: bool = True
 #: 기준 사주 2018-01-09 창원(丁酉·癸丑·辛丑·甲午, 조후 火): 기대 한신 水가 정적 순환 때문에
 #: 기신이 되던 결함. 통관·무비겁 특수분기와 완비 모델맵 승격은 그대로다.
 PARTIAL_MAP_ADOPT_AGGREGATED_UNFAVORABLE: bool = True
+# ── C2 조후 필요신 후보 생성부 교체(2026-10-07 데굴님 결정 A·C, B 보류) ──────────────────────
+#: 결정 A — 조후 후보는 사전 needs[] 의 climate_* 역할 천간만. 생조·설기·제련·배합 글자는 설명에만.
+#: climate 글자가 없는 셀(丙·丁 겨울 등 10칸)은 후보를 내지 않고 교정 필요 오행을 경고로만 표시
+#: (0.25 보조 후보 금지). OFF 면 v0.2 동작(셀 첫 글자 오행 환원).
+JOHU_CLIMATE_ROLE_ONLY: bool = True
+#: 결정 C — 조후 역행 감점 모드(후보 유지, 자동 강등 없음; mild 약한 감점·severe 강한 감점).
+#:   "axis_graded"        기후 축(계산)이 mild 이상일 때만, 월지 무관 — 결정 C 문면. 단 축 공식이
+#:                        분포 중심이라 卯·辰월에서도 발동하고 丑月 창원 2018(기준 사주)은
+#:                        neutral 로 빠져 火 용신을 잃는다 → 재결정 전까지 기본값으로 쓰지 않는다.
+#:   "month_axis_graded"  한난 월(亥子丑/巳午未)을 필요조건으로, 축으로 강도만(severe=강, 그 외=약).
+#:   "legacy_month_demote" 월지+분포 기준 강등(CLIMATE_DEMOTE_REQUIRE_SEVERE 적용) — v0.2 동작.
+CLIMATE_PENALTY_MODE: str = "month_axis_graded"
+#: 감점 계수 — 214명식 A/B 스윕(2026-10-07): 0.6/0.3 이면 CASE-020(未月 甲, 전문가 '水 필요')이
+#: 火 통관 용신으로 뒤집힌다. 0.4/0.2 는 기준 사주·골든 불변, 역할표 변경 1건(020/R 구·한 교환) →
+#: 제안값.
+CLIMATE_PENALTY_MILD: float = 0.4
+CLIMATE_PENALTY_SEVERE: float = 0.2
+#: 결정 B(보류) — 조후 필요 오행의 최저 역할 보장은 구현하지 않는다(조후 필요성 ≠ 종합 용희기구한).
+
 #: (C1-c 종격 게이트 정합은 보류 — 격국 종격 신호가 root_score<8 기준이라 교과서 종살격
 #: 庚申·庚申·甲申·庚午(root 30)조차 신호가 없다. 종격은 용신 쪽 세력군 판정을 유지하고, C1-a
 #: 면제만 양쪽 합의(override) 때 적용한다. 검출기 통일은 골든 스냅샷에 닿아 별도 결정 사항.)

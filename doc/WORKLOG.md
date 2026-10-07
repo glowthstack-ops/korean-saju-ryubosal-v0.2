@@ -11482,3 +11482,42 @@ SSOT: `doc/v2_2/MOVEMENT_TIMING_SHADOW.md`.
 - 사례집 지표: 쌍 비교 42.6→45.6%, 대운 극성 63.6→59.1%, 세운 34.1%, 이벤트 히트 50.0%(영향 차트 17사례 범위 이동).
 - 기준 사주 6건 일치, 용신 1·2차 링 통과, 전체 스위트 VALID_SUITE_PASS(아래 기록).
 - 남은 것: C2 조후표 사전화·강등 감사, C3 밴드, C4 격국 성패·그릇 지수, C5 건강 채널, 종격 검출기 통일 결정.
+
+## 2026-10-07 — C2 조후 필요신 후보 생성부 교체: 사전 v0.3.0 needs[] + 규칙 A·C·D (데굴님 결정·승인)
+
+### 배경
+사례집 전수 대조(C0)에서 조후 월 85건 중 17건의 조후 오행이 기·구신으로 떨어졌고, 조후 모델이 亥月 甲→金·丑月 丙→水
+같은 후보를 냈다. 원인은 셀 **첫 글자의 오행 환원**(궁통보감 취용 글자 庚=벽갑인정·壬=輝映이 '조후 후보'로 축 가중치
+0.40을 받음 = 억부와 중복 가산)과 **월지 단독 강등**(축 neutral 인 丑月 己亥도 水 강등). 데굴님 지침: 교체 범위는 후보
+생성부에 한정, 한난조습 심각도·충족도·최종 통합은 별도, 천간 단위 유지, 필요/작동 분리, 첫 글자=용신 매핑 금지.
+
+### 결정(데굴님)
+A 승인(climate_* 역할 글자만 후보, 후보 없는 10칸은 severe 여도 보조 후보 없이 경고) · B 보류(최저 역할 보장 미구현) ·
+C 조건부(월지 단독 제거, 축 mild 이상에서 mild 약/severe 강 감점, 자동 강등 없음) · 사전 초안 채택(확정·배포는 감수 후,
+conditions 미작성=미검토 상태).
+
+### 해결
+- `dictionaries/johu_yongsin.json` v0.3.0: 셀마다 `needs[]`(stem·roles·relation·note·tag_source)·`conditions[]`,
+  `reviewed:false`·`review_status`. override 157(한난 월 60칸 전부)·나머지 mechanical. `build_johu_snapshot.py` 검증
+  확장(needs 구조·어휘·primary∪secondary 일치, 한난 월 climate 부재 경고 10칸) → `compiled/johu_yongsin_v0.3.0.json`.
+- 규칙 A `JOHU_CLIMATE_ROLE_ONLY`: `_johu_model` 후보 오행 = climate 역할 글자(priority→alternative) 첫 글자의 오행.
+  생조·설기·제련·배합 글자는 reasons "배합·구조 글자(점수 제외)"에만. 후보 없는 셀은 `_johu_no_candidate_warning`
+  (축 mild 이상일 때 "조후 교정 필요(火/水) … 취용 甲庚 …").
+- 규칙 D: reasons `need=… / present=…(투간|장간) / absent=…`.
+- 규칙 C `CLIMATE_PENALTY_MODE="month_axis_graded"`(계수 mild 0.4·severe 0.2): 한난 월을 필요조건으로 두고 축으로
+  강도만. 문면의 `axis_graded`(월지 무관)는 축 공식이 분포 중심이라 卯·辰월에서 발동하고 丑月 창원 2018(기준 사주)이
+  neutral 로 빠져 火 용신을 잃으므로 기본값으로 쓰지 않음(모드로 보존, 재결정 항목). 0.6/0.3 이면 CASE-020(未月 甲,
+  전문가 '水 필요')이 火 통관으로 뒤집혀 0.4/0.2 채택. 격국 미확정 종격(용신 쪽만 진종)은 special 축 1.0 이라 감점으로
+  경쟁 불가 → 조후 역행이면 기존대로 강등(C1-c 보류 중 안전장치).
+- `scripts/johu_ab_compare.py`: 214명식(사례집 175+shadow 33+기준 6) 전/후 비교 → `doc/v2_2/cases/comparison_casebook/
+  JOHU_AB_2026-10-07.md`.
+
+### 결과
+- 214명식: 조후 후보 변경 111, 최종 역할표 변경 1(020/R 구·한 교환), 용신·선택 모델 변경 0, 조후·억부 동일 오행 후보
+  56→31, 후보 없음 경고 43. 기준 사주 6건·종격 3종·골든·구조패턴 회귀 통과. 사례집 지표 C1과 동일.
+- 기존 테스트 계약 변경 6건(승인): 1959 亥月 辛(johu 水→火, 최종 억부 金→조후 火 — **데굴님 판정 수용**: 중화·한난 월
+  축 가중치 0.40>0.25 에서 丙火 온난이 근소 우세, 壬 강등의 부산물이던 기존 계약 폐기), 1965 rejected 라벨
+  climate_demote→climate_penalty:severe, 1953 丙×丑 조후 후보 없음(axis_conflict None + 경고), 플래그 B 테스트는
+  legacy 모드 고정, 감점 모드 신규 테스트 1건.
+- 남은 것: 사전 §6 태그 감수 후 `reviewed:true` 커밋, conditions[] 2차 감수(辰月 癸 청명/곡우 등), 규칙 B 재논의,
+  `axis_graded` 재결정(축 공식 월령 가중), 종격 검출기 통일(C1-c), 이어서 C3(밴드)·C4(격국 성패)·C5(건강 채널).

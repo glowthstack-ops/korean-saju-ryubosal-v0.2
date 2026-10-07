@@ -60,7 +60,8 @@ def test_1965_trace_problem_and_rejected(make_pillars) -> None:
     assert t.chosen_path.startswith("조후 보조형")
     assert t.heesin_function == "generate_yongsin"
     rejected = {(r["element"], r["reason"].split("(")[0]) for r in t.rejected}
-    assert ("木", "경쟁 후보") in rejected and ("火", "climate_demote") in rejected
+    # C2 결정 C(2026-10-07): 조후 역행은 강등이 아니라 감점(후보 유지) — severe 축은 강한 감점.
+    assert ("火", "climate_penalty:severe") in rejected
     assert y.final["heesin"] not in {r["element"] for r in t.rejected}  # 채택 희신은 기각이 아니다
     # 설명 전용 — 감수 골든 판정 불변.
     assert y.final["yongsin"] == "水" and y.final["heesin"] == "金"
@@ -74,17 +75,22 @@ def test_1953_bridge_heesin_function_and_collateral(make_pillars) -> None:
     assert any("火(희신)" in c and "金(용신)을 극함" in c for c in t.collateral)
     fire = next(r for r in y.operational_roles if r.element == "火")
     assert fire.note and "부작용" in fire.note
-    assert t.axis_conflict is not None and t.axis_conflict["eokbu"] == "土"
+    # C2 결정 A(2026-10-07): 丙×丑 셀은 climate 역할 글자가 없어(壬=輝映·甲=생조) 조후 후보가 없다 —
+    # 축 충돌 대신 '조후 교정 필요' 경고만 남는다(보조 후보 생성 금지).
+    assert t.axis_conflict is None
+    assert any(w.startswith("조후 교정 필요") for w in y.warnings)
 
 
 def test_1959_axis_conflict_reported_without_changing_final(make_pillars) -> None:
     y = analyze_chart(make_pillars(*_G1959)).yongsin
     t = y.decision_trace
+    # C2 결정 A(2026-10-07): 辛×亥 셀의 조후 후보는 丙(온난) → 火. 壬(淘洗)은 설명 전용.
+    # 데굴님 판정 수용: 중화·한난 월 축 가중치에서 조후 火가 억부 金을 근소하게 이긴다(조후 우선).
     assert t is not None and t.axis_conflict == {
-        "eokbu": "金", "johu": "水", "resolution": "억부 우선", "significant": True,
+        "eokbu": "金", "johu": "火", "resolution": "조후 우선", "significant": True,
     }
     assert any(w.startswith("억부·조후 축 충돌") for w in y.warnings)
-    assert y.final["selected_model"] != "johu"
+    assert y.final["selected_model"] == "johu"
 
 
 def test_models_carry_heesin_function(make_pillars) -> None:
@@ -98,8 +104,9 @@ def test_models_carry_heesin_function(make_pillars) -> None:
 def test_climate_demote_gate_flag_keeps_candidate_when_not_severe(
     make_pillars, monkeypatch,
 ) -> None:
-    """B 플래그: 1959(한·비severe)는 ON 이면 水가 강등되지 않는다. 1965(극열·severe)는 ON/OFF
-    동일."""
+    """B 플래그(레거시 강등 모드 한정): 1959(한·비severe)는 ON 이면 水가 강등되지 않는다.
+    1965(극열·severe)는 ON/OFF 동일. C2(2026-10-07) 이후 기본은 감점 모드라 레거시로 고정."""
+    monkeypatch.setattr(cand, "CLIMATE_PENALTY_MODE", "legacy_month_demote")
     off = analyze_chart(make_pillars(*_G1959)).yongsin
     assert any(r["reason"] == "climate_demote" for r in off.decision_trace.rejected)
     monkeypatch.setattr(cand, "CLIMATE_DEMOTE_REQUIRE_SEVERE", True)
@@ -108,6 +115,21 @@ def test_climate_demote_gate_flag_keeps_candidate_when_not_severe(
     on1965 = analyze_chart(make_pillars(*_G1965)).yongsin
     assert any(r["reason"] == "climate_demote" for r in on1965.decision_trace.rejected)
     assert on1965.final["yongsin"] == "水"
+
+
+def test_climate_penalty_graded_keeps_candidate(make_pillars) -> None:
+    """C2 결정 C(2026-10-07): 기본 모드(month_axis_graded)는 강등 대신 감점 — 후보를 지우지 않는다.
+    1959(亥월·한, 축 mild)는 약한 감점, 1965(巳월·극열, 축 severe)는 강한 감점. 최종 판정 불변."""
+    y1959 = analyze_chart(make_pillars(*_G1959)).yongsin
+    pen = [r for r in y1959.decision_trace.rejected if r["reason"].startswith("climate_penalty")]
+    assert pen and pen[0]["element"] == "水" and ":mild" in pen[0]["reason"]
+    assert not any(r["reason"] == "climate_demote" for r in y1959.decision_trace.rejected)
+    assert y1959.final["selected_model"] == "johu"  # 데굴님 판정 수용(조후 火 우선)
+    y1965 = analyze_chart(make_pillars(*_G1965)).yongsin
+    pen = [r for r in y1965.decision_trace.rejected if r["reason"].startswith("climate_penalty")]
+    assert pen and pen[0]["element"] == "火" and ":severe" in pen[0]["reason"]
+    assert y1965.final["yongsin"] == "水" and y1965.final["heesin"] == "金"
+    assert any(w.startswith("조후 역행 감점") for w in y1965.warnings)
 
 
 @pytest.mark.parametrize(

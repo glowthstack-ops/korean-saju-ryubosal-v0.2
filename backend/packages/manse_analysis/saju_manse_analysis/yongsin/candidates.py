@@ -30,6 +30,9 @@ from .johu_dict import load_johu_table
 from .operational_role_config import (
     CLIMATE_DEMOTE_REQUIRE_SEVERE,
     CLIMATE_HARMFUL_REASON,
+    CLIMATE_PENALTY_MILD,
+    CLIMATE_PENALTY_MODE,
+    CLIMATE_PENALTY_SEVERE,
     COLLATERAL_PENALTY,
     COLLATERAL_REASON,
     COLLATERAL_SCORE_ENABLED,
@@ -38,6 +41,7 @@ from .operational_role_config import (
     DOMINANT_SPECIAL_REQUIRE_OVERRIDE,
     GYEOKGAK_ALLOWLIST,
     HEESIN_FUNCTION_KO,
+    JOHU_CLIMATE_ROLE_ONLY,
     MODEL_HEESIN_FUNCTION,
     MODEL_LABEL_HEESIN_FUNCTION,
     OFFICER_HAP_REASON,
@@ -1519,9 +1523,28 @@ def _johu_model(
     primary_stems = _stems("primary")
     secondary_stems = _stems("secondary")
     avoid_stems = _stems("avoid")
-    if not primary_stems:
-        return None
-    ordered = primary_stems + secondary_stems
+    needs_raw = cell.get("needs")
+    needs = [n for n in needs_raw if isinstance(n, dict)] if isinstance(needs_raw, list) else []
+    climate_needs = [
+        n for n in needs
+        if any(str(r).startswith("climate_") for r in (n.get("roles") or []))
+    ]
+    support_needs = [n for n in needs if n not in climate_needs]
+    if JOHU_CLIMATE_ROLE_ONLY and needs:
+        # 결정 A(2026-10-07): 조후 후보는 climate_* 역할 천간만. 없으면 후보 없음(경고는 호출부).
+        if not climate_needs:
+            return None
+        _rank = {"priority": 0, "alternative": 1, "pair": 2}
+        climate_needs = sorted(
+            climate_needs, key=lambda n: _rank.get(str(n.get("relation")), 9)
+        )
+        ordered = [str(n["stem"]) for n in climate_needs if n.get("stem")]
+        if not ordered:
+            return None
+    else:
+        if not primary_stems:
+            return None
+        ordered = primary_stems + secondary_stems
     extreme = month_branch in (_COLD_MONTHS | _HOT_MONTHS)
     natal = [
         p for p in (pillars.year, pillars.month, pillars.day, pillars.hour)
@@ -1537,13 +1560,32 @@ def _johu_model(
 
     reasons = [
         f"궁통보감 조후: {month_branch}월 {day_stem}일간 → {'·'.join(ordered)}"
-        f" (최우선 {primary_stems[0]})",
+        f" (최우선 {ordered[0]})",
         f"기후 축: 한난={axes['temperature_axis']} 조습={axes['moisture_axis']}"
         f" → primary={primary_axis}",
         "조후는 단독 확정 금지, 억부와 함께 검증",
     ]
+    if JOHU_CLIMATE_ROLE_ONLY and needs:
+        # 결정 D: 필요(need)와 원국 존재(present/absent)를 분리해 적는다 — 부재해도 필요는 유지.
+        present = [
+            f"{s}({'투간' if s in transparent else '장간'})"
+            for s in ordered if s in transparent or s in hidden
+        ]
+        absent = [s for s in ordered if s not in transparent and s not in hidden]
+        reasons.append(
+            f"조후 역할 글자 need={'·'.join(ordered)} / present={'·'.join(present) or '없음'}"
+            f" / absent={'·'.join(absent) or '없음'}"
+        )
+        if support_needs:
+            reasons.append(
+                "궁통보감 배합·구조 글자(점수 제외): " + " ".join(
+                    f"{n.get('stem')}[{'/'.join(str(r) for r in (n.get('roles') or []))}]"
+                    for n in support_needs
+                )
+            )
     conf = 0.4 if extreme else 0.35
-    yong_el = STEM_ELEMENT[Stem(primary_stems[0])]
+    # 결정 A: climate 역할 순서의 첫 글자 — 오행 환원은 후보 오행을 만드는 이 한 곳에서만.
+    yong_el = STEM_ELEMENT[Stem(ordered[0])]
 
     # severe 축 + 셀 내 직접 교정 천간 → emergency 평가(부재 시에만 가산).
     if severe and corrective_el is not None:
@@ -1614,6 +1656,44 @@ def _johu_model(
         confidence=round(conf, 4),
         reasons=reasons,
         is_auxiliary=True,
+    )
+
+
+def _johu_no_candidate_warning(
+    month_branch: Branch,
+    day_stem: Stem,
+    pillars: FourPillarsResult,
+    force: ForceAnalysis,
+) -> str | None:
+    """결정 A: 사전 셀에 climate 역할 천간이 없는 한난 월 — 보조 후보 대신 경고만.
+
+    기후 축이 mild 이상일 때만 경고를 낸다(neutral 이면 조용). 교정 필요 오행과 궁통보감 취용 글자를
+    함께 적어 억부·생조 판단의 참고가 되게 한다.
+    """
+    if not JOHU_CLIMATE_ROLE_ONLY:
+        return None
+    table = load_johu_table()
+    if table is None:
+        return None
+    cell = table.get(str(day_stem), {}).get(str(month_branch))
+    if not isinstance(cell, dict):
+        return None
+    needs_raw = cell.get("needs")
+    needs = [n for n in needs_raw if isinstance(n, dict)] if isinstance(needs_raw, list) else []
+    if not needs or any(
+        any(str(r).startswith("climate_") for r in (n.get("roles") or [])) for n in needs
+    ):
+        return None
+    axes = _climate_axes(pillars, force)
+    primary_axis = str(axes["primary_climate_axis"])
+    if primary_axis == "neutral":
+        return None
+    corrective = _AXIS_CORRECTIVE.get(primary_axis.removeprefix("severe_"))
+    take_use = "·".join(str(n.get("stem")) for n in needs if n.get("stem"))
+    return (
+        f"조후 교정 필요({_e(corrective) if corrective else '?'}, 축={primary_axis}) — "
+        f"사전 {day_stem}×{month_branch} 셀에 조후 역할 천간 없음(궁통보감 취용 {take_use}); "
+        "보조 후보 생성 안 함, 억부·생조 판단 참고"
     )
 
 
@@ -2055,6 +2135,10 @@ def build_yongsin(
     johu = _johu_model(month_branch, dm, pillars, force)
     if johu is not None:
         models.append(johu)
+    else:
+        _johu_warn = _johu_no_candidate_warning(month_branch, dm, pillars, force)
+        if _johu_warn:
+            warnings.append(_johu_warn)
     # 격국(상신)·병약(약신) 보정 축 — 용신을 단독 확정하지 않고 후보 우선순위만 조정.
     pattern = _pattern_model(geokguk, g)
     if pattern is not None:
@@ -2176,6 +2260,47 @@ def build_yongsin(
             f"조후 역행({_climate_el}) 경고: 특수격 순응 우선으로 강등하지 않음 — "
             "운에서 한난 보완 검토"
         )
+    elif CLIMATE_PENALTY_MODE in ("axis_graded", "month_axis_graded"):
+        # 결정 C(2026-10-07 데굴님): 강등 대신 **감점**(후보 유지, 자동 강등 없음). mild=약한 감점,
+        # severe=강한 감점. 두 게이트:
+        #   axis_graded       — 한난 축(계산)이 mild 이상일 때만, 월지와 무관.
+        #   month_axis_graded — 한난 월(亥子丑/巳午未)을 필요조건으로 두고 축으로 강도만
+        #                       매긴다(축 neutral 이어도 레거시 분포 임계면 약한 감점). 기준
+        #                       사주 창원 2018(丑月, 축 neutral)이 axis_graded 에서는 火 용신을
+        #                       잃어 이 모드를 둔다.
+        _t_axis = str(_climate_axes_now["temperature_axis"])
+        _axis_el = (
+            _e(Element.WATER) if _t_axis.endswith("cold")
+            else _e(Element.FIRE) if _t_axis.endswith("heat") else None
+        )
+        if CLIMATE_PENALTY_MODE == "axis_graded":
+            _pen_el = _axis_el
+        else:
+            _pen_el = _climate_el if _climate_el and (
+                _axis_el in (None, _climate_el)
+            ) else None
+        if (
+            _pen_el and _pen_el in useful
+            and special and not special_confirmed
+            and useful[_pen_el][1] in ("dominant_one_element", "follow_structure")
+        ):
+            # 격국이 확정하지 않은 종격·전왕(용신 쪽만 진종)의 조후 역행은 기존대로 강등한다 —
+            # special 축 가중치 1.0 이라 감점으로는 억부·조후 후보가 경쟁할 수 없다
+            # (C1-c 보류 중 안전장치).
+            _demote(_pen_el, "climate_demote")
+        elif _pen_el and _pen_el in useful:
+            _severe = _t_axis.startswith("severe_") and _axis_el == _pen_el
+            _factor = CLIMATE_PENALTY_SEVERE if _severe else CLIMATE_PENALTY_MILD
+            _sc, _mdl, _role = useful[_pen_el]
+            useful[_pen_el] = (_sc * _factor, _mdl, _role)
+            _tag = "severe" if _severe else "mild"
+            demoted.append({
+                "element": _pen_el, "model": _mdl, "score": round(_sc, 4),
+                "reason": f"climate_penalty:{_tag}(×{_factor})",
+            })
+            warnings.append(
+                f"조후 역행 감점: {_pen_el}({_mdl}) 한난 축 {_t_axis} → ×{_factor} (후보 유지)"
+            )
     elif not CLIMATE_DEMOTE_REQUIRE_SEVERE or _climate_primary.startswith("severe_"):
         _demote(_climate_el, "climate_demote")
     # ② 극파 무력: 용/희 원소가 그것을 극하는 그룹에게 압도(>3배·최강군)당하면 강등
