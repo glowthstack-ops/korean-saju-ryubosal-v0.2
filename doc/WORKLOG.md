@@ -11754,3 +11754,8 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
   달력표 첨부 전 적용.
 - 테스트: `test_report_year_title_and_ganji_dedupe.py` 3건(파라미터 6), `test_plan_report_year_titles_use_selected_year`. 관련 포커스 테스트 통과,
   gates --quick, 프론트 tsc·build. 백엔드 재기동.
+
+## 2026-10-08 — 풀이 섹션 입력 상한 2차 상향 18,000 → 20,000 (데굴님 승인)
+
+- 총운 job 4540fd5b(1978년생, RPT_FULL)가 `report_full_section: 입력 18247tok > 상한 18000tok`로 실패. 당일 1차 상향(15k→18k) 뒤 두 번째 초과.
+- `llm_guard.CALL_LIMITS` report_focus/full_section 20,000(출력 8,000·thinking 불변). docs/09 §8 표·주석 갱신. 세 번째 초과 시 명식 블록 압축 검토를 기록.

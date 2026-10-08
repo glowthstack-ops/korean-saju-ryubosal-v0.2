@@ -54,8 +54,10 @@ CALL_LIMITS: dict[str, CallLimit] = {
     # section) 초과 실패 — 같은 날 추가된 격국 정합 표기·화기격 경고·용신 작동성 사유(#6c)로 명식
     # 블록이 커졌다.
     # 선례(docs/09 §8)대로 재료를 잘라내지 않고 상한을 올린다(출력 상한·thinking 정책 불변).
-    "report_focus_section": CallLimit(18_000, 8_000, max_output_chars=4_500),
-    "report_full_section": CallLimit(18_000, 8_000, max_output_chars=4_500),
+    # 2026-10-08 2차 상향 18,000 → 20,000(데굴님 승인): 총운(report_full_section) 1978년생 명식이
+    # 18,247tok 로 다시 초과 실패(job 4540fd5b).
+    "report_focus_section": CallLimit(20_000, 8_000, max_output_chars=4_500),
+    "report_full_section": CallLimit(20_000, 8_000, max_output_chars=4_500),
     "consistency_check": CallLimit(8_000, 500),
     # 일주별 오늘의 운세 60건 배치 문장 교정(JSONL, 하루 1회) — 2026-07-23 계획 승인분.
     # 출력 예산: 60건 × 레코드 상한(헤드라인 120자·장소 60자·로또 80자 + JSON 구조) 실측
