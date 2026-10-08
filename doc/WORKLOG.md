@@ -11800,3 +11800,28 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
   `test_realtime_log_misses_20260911::test_parenthetical_birth_prefers_registered_companion_in_thread` 는 gitignore ONNX 모델(compiled/intent_onnx)
   + onnxruntime 이 없는 러너에서 규칙 폴백으로 라우팅이 갈라진 것(빈 프롬프트 / too_broad). `get_intent_classifier().available()` 거짓이면 skip.
   로컬(모델 있음)은 그대로 실행·통과.
+
+## 2026-10-08 — 종살 역할맵 정정: 길흉 역전 제거(기 식상·구 비겁·한 인성), 인성 강도는 미해결 명시 (데굴님 결정)
+
+- 1차안의 한신=식상이 운 점수에서 HAN_GOOD 로 뒤집히던 문제. `candidates.py` `_follow_full` 종살 행을 생극 순환으로 정정하고 모델 사유 교체.
+  종재 유지, 종아·전왕 제외. 테스트 `test_follow_role_map_completion.py` 2건(완비 승격 + 식상/비겁 운 GI·인성 HAN_BAD).
+- 미해결: 인성 조신 파격 강도가 '약한 흉'에 묶임(별도 검토). 문서 FOLLOW_DETECTOR_UNIFICATION_C1C.md §10-1, 스펙 표 8행.
+
+## 2026-10-08 — 종살 인성 운 감점 방식 정리: 한신 기준값 대체(−0.5)·합거 완화·범위 한정 (데굴님 결정)
+
+- 조사로 §10-1 진단 정정: 인성 운은 이미 특수격 역행(−0.2)으로 −0.5까지 내려감. 문제는 추가 감점 방식·완화 조건 부재.
+- `period_v2_config.JONGSAL_RESOURCE_BREACH_FAV=-0.5`, `event_engine_v2._jongsal_resource_breach_mode`(종살 override + 인성 천간 → replace /
+  합거 bind·away → mitigated / 그 외 None) + `_apply_luck_structure_flags` 후보별 분기(HAN_BAD 만 대체, 다른 극성은 공통 −0.2).
+  serializer 라벨 2종. 테스트 7건. 문서 §10-2·스펙 표 8행.
+- 비겁 중복 아님(근거 상이)·구신→GI 의도적 분리·stem_mitigated 역할 조건 확인 기록.
+
+## 2026-10-08 — [원국 횡재 그릇] 블록 개편: 미성립 구조 명시·합성 금지·재성 역할 병기 (데굴님 지적·승인)
+
+- 실로그(로또 구매일 질문, 데굴 庚申 丁亥 己亥 戊辰): "지장간에 숨은 식상생재의 통로" 서술. 엔진 판정은 암장 식상 통로 **미성립**(庚 상관은
+  연간 투출·申 본기, hidden_output=False). dry-run 프롬프트에 해당 문장 없음 — LLM이 ①블록의 일반 '발동 조건' 문장(식상생재) ②준비기
+  '식상 동반(식상생재 유입)' ③[표면 부족 오행의 잠재 신호 — 지장간] 블록을 합성. 재성 水가 구신인데 "타고난 재물 감각"으로 미화한 자기모순도 동반.
+- `structural_context.wealth_capacity_lines(wc, wealth_role=None)`: 6구조 성립/미성립을 모두 적고(미성립 = '숨은·잠재 통로' 서술 금지),
+  발동 조건은 '운의 사건'으로 못박고, 합성 금지 서술 규칙 추가. 재성 오행의 용희기구한 병기 + 기·구신이면 미화 금지 문장. chat_service(재물·총운)
+  와 report_service(재물 섹션) 호출부가 `favorability_map` 역할 전달. `preparation_context_lines` 발현 후보 문구를 "그 해 운 천간에 식상 동반
+  (운에서의 식상생재 유입 — 원국 구조 아님)"으로.
+- 테스트 `test_wealth_capacity_lines.py` 3건. 재물 그릇 판정 로직(`analyze_wealth_capacity`) 자체는 불변.

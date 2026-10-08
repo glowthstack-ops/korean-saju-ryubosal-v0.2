@@ -2123,19 +2123,29 @@ def build_yongsin(
         sp_follow = _strongest_pressure(groups)
         follow_el = g[sp_follow]
         subtype = _FOLLOW_SUBTYPE[sp_follow]
-        # 종재·종살 역할맵 완비(2026-10-08 데굴님 승인): 희신=용신을 生하는 십성군, 기신=비겁,
-        # 구신=인성(비겁을 生), 한신=나머지. 부분맵(용신·기신만)이면 canonical 이 정적 생극으로
-        # 폴백해 모델이 말한 '비겁 기신'이 식상으로 바뀌는 모순이 있었다(종격 통합 c9cc799 회귀,
-        # test_yongsin_decision_provenance). 종아격은 비겁이 용신(식상)을 生해 같은 규칙을 못 쓰므로
-        # 기존 부분맵 유지(결정 대기).
+        # 종재·종살 역할맵 완비(2026-10-08 데굴님 승인, 같은 날 종살 정정): 부분맵(용신·기신만)이면
+        # canonical 이 정적 생극으로 폴백해 모델맵이 버려지던 결함(종격 통합 c9cc799 회귀,
+        # test_yongsin_decision_provenance)의 해소. 5역할은 생극 순환(희=生용신, 기=克용신,
+        # 구=生기신, 한=용신이 生)으로 두어 운 점수의 극성이 뒤집히지 않게 한다 —
+        #   종살: 용 관살·희 재·기 식상(제살, 克 용신)·구 비겁(克 희신)·한 인성(生 구신 → 약한 흉).
+        #   종재: 용 재·희 식상·기 비겁·구 인성·한 관살.
+        # 1차안(종살 기=비겁·구=인성·한=식상)은 식상이 用을 克하는데도 한신 세분 규칙이
+        # 生 희신(金)을 보고 HAN_GOOD 로 읽어 길흉이 역전됐다(데굴님 지적). 인성이 '약한 흉'에
+        # 묶이는 강도 문제는 미해결(별도 검토). 종아격은 비겁이 용신(식상)을 生해 같은 순환을
+        # 못 쓰므로 부분맵 유지(결정 대기 — 정적 순환과 일치한다고 명리 타당성이 검증된 것은 아님).
         _follow_full: dict[str, str] = {
-            "officer": {"heesin": "wealth", "gusin": "resource", "hansin": "output"},
-            "wealth": {"heesin": "output", "gusin": "resource", "hansin": "officer"},
+            "officer": {
+                "heesin": "wealth", "gisin": "output", "gusin": "peer", "hansin": "resource",
+            },
+            "wealth": {
+                "heesin": "output", "gisin": "peer", "gusin": "resource", "hansin": "officer",
+            },
         }.get(sp_follow, {})
         follow_model = YongsinCandidateModel(
             model_type="follow_structure",
             label=("가종격(假從)·" + subtype) if is_pseudo_follow else subtype,
-            yongsin=_e(follow_el), gisin=_e(g["peer"]),
+            yongsin=_e(follow_el),
+            gisin=_e(g[_follow_full.get("gisin", "peer")]),
             heesin=_e(g[_follow_full["heesin"]]) if "heesin" in _follow_full else None,
             gusin=_e(g[_follow_full["gusin"]]) if "gusin" in _follow_full else None,
             hansin=_e(g[_follow_full["hansin"]]) if "hansin" in _follow_full else None,
@@ -2143,7 +2153,12 @@ def build_yongsin(
             reasons=(
                 [
                     f"극단 신약·무근 → 가장 강한 세력({subtype})에 순응",
-                    "억지로 돕는 비겁/인성은 기신",
+                    (
+                        "식상 제살(상관견관)·인비 조신 모두 불리 — "
+                        "식상 기신, 비겁 구신, 인성 한신(약한 흉)"
+                        if sp_follow == "officer" else
+                        "억지로 돕는 비겁/인성은 기신"
+                    ),
                 ]
                 + (
                     ["인성이 약하게 남아 가종(假從) — 운에서 비겁·인성 입운 시 파격, 검증 필요"]

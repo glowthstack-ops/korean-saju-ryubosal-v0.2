@@ -1571,20 +1571,80 @@ def _apply_luck_structure_flags(
     if fl.rescue_damaged:
         delta -= period_v2_config.GEOK_BREAK_PENALTY
         reasons.append(f"格_운파격_구응손상_{fl.rescue_damaged[0]}")
-    if fl.special_breach:
+    # 종살 인성 운(2026-10-08 데굴님 결정): 역행이 성립한 인성 천간은 한신 기준값을 대체(replace)
+    # 하고 공통 −GEOK_BREAK_PENALTY 는 얹지 않는다. 운 천간이 합거로 묶이면 둘 다 적용하지 않는다.
+    # 그 외(다른 종격·전왕·비겁 천간 등)는 기존 공통 역행 감점 그대로.
+    jongsal_mode = (
+        _jongsal_resource_breach_mode(target, result, special) if fl.special_breach else None
+    )
+    if fl.special_breach and jongsal_mode is None:
         delta -= period_v2_config.GEOK_BREAK_PENALTY
         reasons.append("特_특수격역행")
-    if not reasons:
+    elif jongsal_mode == "mitigated":
+        reasons.append("特_종살역행_인성_합거완화")
+    if not reasons and jongsal_mode != "replace":
         return cands
     out: list[EventCandidateV2] = []
     for c in cands:
+        c_delta, c_reasons = delta, list(reasons)
+        if jongsal_mode == "replace":
+            if c.polarity_role is PolarityRole.HAN_BAD:
+                # 한신 기준값(−0.3) → 대체값: 차이만 fav_adj 에 더해 '기준값 교체'와 같게 만든다.
+                c_delta += (
+                    period_v2_config.JONGSAL_RESOURCE_BREACH_FAV
+                    - _ROLE_FAV[PolarityRole.HAN_BAD]
+                )
+                c_reasons.append("特_종살역행_인성_강도대체")
+            else:
+                # 지지가 기·구신 등으로 극성이 이미 직접 흉이면 대체 대상이 아니다 — 기존 공통 감점.
+                c_delta -= period_v2_config.GEOK_BREAK_PENALTY
+                c_reasons.append("特_특수격역행")
+        if not c_reasons:
+            out.append(c)
+            continue
         prev = c.contributions.get("fav_adj", 0.0)
         out.append(c.model_copy(update={  # provenance-audit: not-risk (EventCandidateV2)
-            "reason_codes": [*c.reason_codes, *reasons],
-            **({"contributions": {**c.contributions, "fav_adj": round(prev + delta, 4)}}
-               if delta else {}),
+            "reason_codes": [*c.reason_codes, *c_reasons],
+            **({"contributions": {**c.contributions, "fav_adj": round(prev + c_delta, 4)}}
+               if c_delta else {}),
         }))
     return out
+
+
+def _jongsal_resource_breach_mode(
+    target: LuckPillar, result: ManseV2Result, special: dict | None,
+) -> str | None:
+    """종살격(override) 명식에 **인성 천간**이 운으로 들어온 경우의 처리 모드.
+
+    - 'replace': 역행 성립(종살 확정 + 일간을 生하는 천간 유입) → 한신 기준값을 대체.
+    - 'mitigated': 그 운 천간이 원국 천간과 합거(bind·away)로 묶임 → 대체·감점 모두 없음.
+    - None: 종살격이 아니거나 인성 천간이 아님(비겁 천간·지지 인성·다른 종격) → 기존 공통 처리.
+    '역행 성립'은 파격 확정이 아니다 — 근거 문구는 "종살에 역행하는 인성 유입으로 불리 강도 조정".
+    범위 결정(2026-10-08): 천간만, 종살만, 가종·지지 인성은 별도.
+    """
+    if not special or special.get("name") != "종살격" or not special.get("override"):
+        return None
+    p = result.pillars
+    if p is None:
+        return None
+    try:
+        luck_el = str(STEM_ELEMENT[Stem(target.stem)])
+        dm_el = str(STEM_ELEMENT[Stem(p.day_master)])
+    except (KeyError, ValueError):
+        return None
+    if _GENERATES.get(luck_el) != dm_el:
+        return None  # 인성(일간을 生) 천간만 — 비겁 천간은 극성(GI) 쪽이 직접 다룬다.
+    try:
+        res = resolve_stem_hap(p, {}, luck_stems=[target.stem])
+    except (KeyError, ValueError):
+        res = []
+    for sr in res:
+        if (
+            sr.luck_origin and not sr.blocked and sr.hap_mode == "bind"
+            and sr.direction == "away" and target.stem in sr.pair
+        ):
+            return "mitigated"
+    return "replace"
 
 
 # 관운 강화 대상 — 관(官) 계열 사건(이직·취업·승진). 합 결과 오행이 관일 때만 보정한다.
