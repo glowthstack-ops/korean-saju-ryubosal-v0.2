@@ -11639,3 +11639,9 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - `luck_cycles`: `gate_protect` 모드(`SEWOON_DAEWOON_PROTECT_MIN=0.5`, 플래그 OFF 기본 불변) + 테스트 2건. replay 1회(동일 셸): 묻힘 26.9→15.6%,
   악화 018/R·024/1 미해소, 개선 071/L·077/R 상실 → 보정 효과 부족, 튜닝 없이 종료·연구 결과 보존(SEWOON_DAEWOON_CONTEXT_C6 §8).
 - 검증: 집중 테스트 7건 통과, `gates.sh --quick` ruff·typecheck·maintained exit 0. 전체 스위트는 데굴님 지시로 반복하지 않음(직전 VALID_SUITE_PASS = ebe1f43).
+
+## 2026-10-08 — C7 육친 귀속 대조표 (데굴님 지시, 문서 단계·런타임 테스트 없음)
+
+- `doc/v2_2/YUKCHIN_ATTRIBUTION_C7.md`(대조표·결정 요청 D1~D6) + 부록 인벤토리. 滴天髓 六親論 원문 취득(维基文库), 사례집 귀속 4건(028·052·053·067)을
+  일간 기준 십성으로 재계산해 통설 정합 확인(053 木=재성, 067 戌중 辛=정관). 엔진은 배우자 축만 성별 분기, 부친=편재·남명 자녀=관살은 점수 경로에 없음.
+- 구현 없음(결정 후). C6 종료·표현 정정은 6fa80ac.
