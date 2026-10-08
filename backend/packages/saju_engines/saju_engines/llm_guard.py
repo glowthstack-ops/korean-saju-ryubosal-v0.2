@@ -50,8 +50,12 @@ CALL_LIMITS: dict[str, CallLimit] = {
     "chat_single": CallLimit(28_000, 5_000, max_output_chars=1_500),
     "chat_compare": CallLimit(28_000, 5_500, max_output_chars=2_400),
     "query_parser": CallLimit(2_000, 300),
-    "report_focus_section": CallLimit(15_000, 8_000, max_output_chars=4_500),
-    "report_full_section": CallLimit(15_000, 8_000, max_output_chars=4_500),
+    # 2026-10-08 데굴님 승인: 풀이 섹션 입력 상한 15,000 → 18,000. 실측 15,156tok(report_focus_
+    # section) 초과 실패 — 같은 날 추가된 격국 정합 표기·화기격 경고·용신 작동성 사유(#6c)로 명식
+    # 블록이 커졌다.
+    # 선례(docs/09 §8)대로 재료를 잘라내지 않고 상한을 올린다(출력 상한·thinking 정책 불변).
+    "report_focus_section": CallLimit(18_000, 8_000, max_output_chars=4_500),
+    "report_full_section": CallLimit(18_000, 8_000, max_output_chars=4_500),
     "consistency_check": CallLimit(8_000, 500),
     # 일주별 오늘의 운세 60건 배치 문장 교정(JSONL, 하루 1회) — 2026-07-23 계획 승인분.
     # 출력 예산: 60건 × 레코드 상한(헤드라인 120자·장소 60자·로또 80자 + JSON 구조) 실측
