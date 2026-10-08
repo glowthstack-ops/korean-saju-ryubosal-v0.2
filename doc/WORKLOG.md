@@ -11730,3 +11730,5 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - `johu_yongsin.json` 0.3.4(conditions 19건 등재, 미소비). `period_v2_config.TRANSIT_HIDDEN_STEM_ENABLED`(OFF), `ten_god_brancher._hidden_stem_signals`, 엔진 day_master 전달,
   테스트 3건. 재생 1회(beta+ON): C 25→22·C' 23→19·상위4 집합 변경 45% → 미채택·OFF 보존. gates --quick exit 0.
 - 풀이 상한 재검증: 실패 작업(test1/데굴/RPT_YEAR 2027)과 같은 사양으로 1회 재실행 → job b10a27b7 completed 14/14(오류 없음). 섹션 입력 토큰 최대값은 llm_usage 로 확인(아래 보고).
+  재실행 결과: 14/14 completed, 오류 없음. llm_usage(공급자 집계) report_focus_section 최대 입력 13,363tok(6 호출, $0.050). 가드 집계(시스템 프롬프트·후행 지시문 합산)는
+  로그에 남지 않아 이번 실행이 15,000을 넘었는지는 미확인 — 상한 18,000 적용 자체는 코드·재기동으로 확정.
