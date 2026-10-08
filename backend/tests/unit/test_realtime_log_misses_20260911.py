@@ -12,6 +12,7 @@ from datetime import date
 import pytest
 
 import saju_api.services.chat_service as cs
+from saju_engines.intent_embedding import get_intent_classifier
 from saju_engines.query_parser import parse_message
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.intent import Domain, QueryType, SubjectKind
@@ -226,6 +227,13 @@ def test_inline_subject_birth_is_computed_with_note() -> None:
     assert "[즉석 대상 안내] 동생" in t2 and "동생(" in t2  # 궁합 경로에도 대상 명식·안내
 
 
+# 괄호 생년 질문의 범위 판정은 ONNX 의도 임베딩(gitignore compiled/intent_onnx + onnxruntime)에
+# 기대며, 모델·의존성 없는 환경(CI)은 규칙 폴백이 too_broad 로 갈라 실패했다(2026-10-08 CI 실측)
+# — 분류기 비가용이면 skip.
+@pytest.mark.skipif(
+    not get_intent_classifier().available(),
+    reason="의도 임베딩 모델(compiled/intent_onnx)·onnxruntime 부재 — 규칙 폴백 라우팅",
+)
 def test_parenthetical_birth_prefers_registered_companion_in_thread() -> None:
     idx = {"신랑": [AliasEntry("h1", "신랑", "husband", "label")]}
     res = _thread_chat(

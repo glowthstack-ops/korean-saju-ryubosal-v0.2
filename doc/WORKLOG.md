@@ -11793,3 +11793,10 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - `candidates.py` follow_structure 모델에 종살(희 재·기 비겁·구 인성·한 식상)·종재(희 식상·기 비겁·구 인성·한 관살) 완비 규칙표. 종아격·전왕은
   부분맵 유지(결정 대기). 1983-04-17 23:40 남: 水·金·火·木·土 로 승격, provenance 불변식 복원.
 - 문서: FOLLOW_DETECTOR_UNIFICATION_C1C.md §10, YONGSIN_OPERATIONAL_ROLE_SPEC 표 8행. 테스트 `test_follow_role_map_completion.py`.
+
+## 2026-10-08 — CI 복구 3차: 의도 임베딩 모델 의존 테스트 2건 skip 조건 (데굴님 승인 범위)
+
+- DB 서비스 적용 후 CI: 3 failed / 5,679 passed. provenance 1건은 역할맵 완비로 해소. 나머지 `test_offer_continue::test_affirm_continue_injects_prior_offer`·
+  `test_realtime_log_misses_20260911::test_parenthetical_birth_prefers_registered_companion_in_thread` 는 gitignore ONNX 모델(compiled/intent_onnx)
+  + onnxruntime 이 없는 러너에서 규칙 폴백으로 라우팅이 갈라진 것(빈 프롬프트 / too_broad). `get_intent_classifier().available()` 거짓이면 skip.
+  로컬(모델 있음)은 그대로 실행·통과.
