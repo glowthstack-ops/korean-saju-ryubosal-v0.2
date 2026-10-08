@@ -27,6 +27,8 @@ from saju_shared_types.constants import (
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.pillars import FourPillarsResult
 
+_BRANCH_INDEX: dict[Branch, int] = {b: i for i, b in enumerate(Branch)}  # 子→亥 정의 순
+
 _ADJACENT = [("year", "month"), ("month", "day"), ("day", "hour")]
 _ADJ_PAIRS = {frozenset(p) for p in _ADJACENT}  # 인접 자리쌍(연-월·월-일·일-시)
 
@@ -105,6 +107,15 @@ def detect(pillars: FourPillarsResult) -> list[Relation]:
 
     present = {b for _, b in branches}
 
+    def _ordered(wanted: frozenset[Branch]) -> list[str]:
+        """구성 글자를 **원국 자리 순(연→월→일→시, 첫 등장)**으로 — frozenset 순회는 프로세스마다
+        순서가 달라 라벨·재현 지문이 흔들린다(2026-10-08 데굴님 지시, 판정 로직 불변)."""
+        out: list[str] = []
+        for _, b in branches:
+            if b in wanted and str(b) not in out:
+                out.append(str(b))
+        return out
+
     # 삼합 / 반합
     for members, element, royal in THREE_HARMONY:
         have = members & present
@@ -112,16 +123,14 @@ def detect(pillars: FourPillarsResult) -> list[Relation]:
             combo_pos = [p for p, b in branches if b in members]
             rels.append(
                 Relation(
-                    "three_harmony", "branch", combo_pos,
-                    [str(b) for b in members], str(element),
+                    "three_harmony", "branch", combo_pos, _ordered(members), str(element),
                 )
             )
         elif royal in present and len(have) == 2:
             combo_pos = [p for p, b in branches if b in have]
             rels.append(
                 Relation(
-                    "half_harmony", "branch", combo_pos,
-                    [str(b) for b in have], str(element),
+                    "half_harmony", "branch", combo_pos, _ordered(have), str(element),
                 )
             )
 
@@ -131,8 +140,7 @@ def detect(pillars: FourPillarsResult) -> list[Relation]:
             combo_pos = [p for p, b in branches if b in members]
             rels.append(
                 Relation(
-                    "directional", "branch", combo_pos,
-                    [str(b) for b in members], str(element),
+                    "directional", "branch", combo_pos, _ordered(members), str(element),
                 )
             )
 
@@ -175,8 +183,9 @@ def detect(pillars: FourPillarsResult) -> list[Relation]:
             )
         )
 
-    # 자형 (같은 지지 2개 이상이며 자형 지지)
-    for b in SELF_PUNISHMENT:
+    # 자형 (같은 지지 2개 이상이며 자형 지지) — set 순회 대신 12지 정의 순으로 고정(관계 목록 순서
+    # 재현).
+    for b in sorted(SELF_PUNISHMENT, key=_BRANCH_INDEX.__getitem__):
         sp_positions = [p for p, bb in branches if bb == b]
         if len(sp_positions) >= 2:
             rels.append(

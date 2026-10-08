@@ -11654,3 +11654,12 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 테스트: `test_topic_modules_domain`(기존 1건 갱신 + 신규 4건), `test_palace_role_contract.py` 2건. 실시간 로그 테스트는 `.env` DB DSN 로드 시 통과(미설정 셸에서는 환경 실패).
 - 영향(사례집 175): M04 평균 +11.1p·편재 無 42건 불변, M05 남명 평균 −1.4p, 여명 불변. 검증: 집중 테스트·replay 1회·gates --quick(아래). 전체 스위트 생략(데굴님 지시).
 검증 기록(C7 구현): replay 1회(동일 셸) 180명식 이벤트·세운 0건 차이, 구조·역할 필드 59건 차이는 interactions 라벨 글자 나열 순서(집합 순회 비결정성, 기존 현상·C7 무관), final 5역할 변경 0 · `gates.sh --quick` ruff·typecheck·maintained_scripts exit 0 · 전체 스위트 생략(데굴님 지시).
+
+## 2026-10-08 — 원국 관계 라벨 순서 고정(합·방합 글자 자리 순, 자형 12지 순) (데굴님 지시: 별도 소규모 수정)
+
+- 배경: 사례집 재생 비교에서 `three_harmony:未卯亥` ↔ `未亥卯`, `half_harmony:卯未` ↔ `未卯`, 자형 관계 순서 교차 등 59명식 라벨 차이 —
+  `manse_core/relations/relations.py` 가 frozenset(THREE_HARMONY·DIRECTIONAL 구성)과 set(SELF_PUNISHMENT)을 그대로 순회해 프로세스별
+  해시 무작위화에 따라 순서가 달라졌다. 판정 로직(성립 조건·positions)은 불변.
+- 수정: 구성 글자는 **원국 자리 순(연→월→일→시, 첫 등장)** — 같은 함수의 삼형·자형·육합이 이미 쓰는 표기 규칙과 동일. 자형 순회는 12지 정의 순.
+- 검증(최소, 데굴님 지시): `tests/unit/test_relations_order_determinism.py` 2건(자리 순 불변식 + PYTHONHASHSEED 0/1/12345 하위 프로세스 동일),
+  `test_relations.py`, 회귀 골든(`tests/regression`)·structure·yongsin 단위 테스트, `gates.sh --quick`. 전체 스위트·replay 반복 없음.
