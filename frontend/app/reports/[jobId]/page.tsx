@@ -36,7 +36,12 @@ interface ReportResultLike {
   sections?: ReportSection[];
   status?: string;
   meta?: Record<string, unknown>;
-  spec?: { product_code?: string; topic?: string | null; subjects?: { label?: string }[] };
+  spec?: {
+    product_code?: string;
+    topic?: string | null;
+    subjects?: { label?: string }[];
+    period?: { start?: string; end?: string };
+  };
 }
 
 export default function ReportJobPage() {
@@ -122,6 +127,8 @@ export default function ReportJobPage() {
   const spec = result.spec;
   const heading = spec ? themeLabel(spec.product_code ?? "", spec.topic ?? null) : "풀이 결과";
   const who = spec?.subjects?.map((s) => s.label).filter(Boolean).join(", ");
+  // 한해풀이 선택 연도 — 섹션 제목·설명의 '올해'를 그 연도로 표기(2026-10-08).
+  const year = spec?.product_code === "RPT_YEAR" ? spec.period?.start?.slice(0, 4) : undefined;
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between print:hidden">
@@ -138,7 +145,7 @@ export default function ReportJobPage() {
           현재 준비 중인 내용이 있어 일부만 표시됩니다. 곧 완성된 풀이로 업데이트돼요.
         </p>
       )}
-      <ReportPager sections={sections} title="테마사주 풀이" />
+      <ReportPager sections={sections} title="테마사주 풀이" year={year} />
     </div>
   );
 }

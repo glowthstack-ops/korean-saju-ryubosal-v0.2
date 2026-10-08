@@ -123,6 +123,28 @@ def test_plan_report_year_half_pages() -> None:
     assert "2026-02" not in h2_table and "2026-07" not in h2_table
 
 
+def test_plan_report_year_titles_use_selected_year() -> None:
+    """RPT_YEAR — 규격 제목의 '올해…'는 선택 연도로 표기(2026-10-08 데굴님 요청).
+
+    목차 항목·순서(docs/10 §4-2)는 그대로이고 표기만 바뀐다. '올해'가 없는 제목은 불변.
+    """
+    contexts = report_service.plan_report(_BIRTH, _spec("RPT_YEAR"), _TODAY)
+    # SectionContext는 제목을 따로 들지 않고 프롬프트 머리의 '[섹션 과제 — id. 제목]'에 싣는다.
+    titles = {
+        c.section_id: c.body_prompt.split(f"[섹션 과제 — {c.section_id}. ", 1)[1].split("]", 1)[0]
+        for c in contexts
+    }
+    assert titles["Y-01"] == "2026년 한눈에"
+    assert titles["Y-03"] == "2026년이 속한 대운 맥락"
+    assert titles["Y-10"] == "2026년의 행동 전략"
+    assert titles["Y-11b"] == "2026년의 방위 활용과 삼재 흐름"
+    assert titles["Y-07"] == "재물 흐름"
+    assert not any("올해" in t for t in titles.values())
+    # 본문 지시: '올해' 대신 연도로 지칭(제목·목차와 동일 표기).
+    y01 = next(c for c in contexts if c.section_id == "Y-01")
+    assert "'올해'라 쓰지 말고 항상 '2026년'으로 지칭할 것" in y01.body_prompt
+
+
 def test_plan_report_full_natal_sections() -> None:
     """RPT_FULL — F-02 일주 서사, F-04 용신 확정(이후 섹션 일관 검사 기준).
 

@@ -117,11 +117,20 @@ const SECTION_DISPLAY: Record<string, SectionDisplay> = {
 };
 
 /** 섹션의 친화 표시 제목 — 매핑 없으면 원본 title 폴백. */
-export function sectionLabel(sectionId: string, fallbackTitle: string): string {
-  return SECTION_DISPLAY[sectionId]?.label ?? fallbackTitle;
+/** '올해…' 표기를 선택 연도로 — 한해풀이는 올해가 아닌 해를 고를 수 있어 '올해'가 읽는 시점과
+ *  어긋난다(2026-10-08). 조사 호환: '올해가'→'{y}년이', '올해는'→'{y}년은', 그 외 '올해'→'{y}년'.
+ *  year 미지정이면 원문 그대로(총운 F-11 등). 백엔드 _year_title과 같은 규칙. */
+export function yearizeLabel(text: string, year?: string | null): string {
+  if (!year) return text;
+  const ys = `${year}년`;
+  return text.replaceAll("올해가", `${ys}이`).replaceAll("올해는", `${ys}은`).replaceAll("올해", ys);
+}
+
+export function sectionLabel(sectionId: string, fallbackTitle: string, year?: string | null): string {
+  return yearizeLabel(SECTION_DISPLAY[sectionId]?.label ?? fallbackTitle, year);
 }
 
 /** 섹션 한 줄 설명 — 없으면 빈 문자열(설명 줄 미표시). */
-export function sectionBlurb(sectionId: string): string {
-  return SECTION_DISPLAY[sectionId]?.blurb ?? "";
+export function sectionBlurb(sectionId: string, year?: string | null): string {
+  return yearizeLabel(SECTION_DISPLAY[sectionId]?.blurb ?? "", year);
 }

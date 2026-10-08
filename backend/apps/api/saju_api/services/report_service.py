@@ -577,7 +577,9 @@ _SECTION_GUIDES: dict[str, str] = {
     "Y-10": "이 해 행동 전략을 분기·시기 단위로 구체화 — 시도/대기/준비/보류 단위.",
     "Y-11": "이 해 개운·보완 가이드를 용신 오행 기준으로 — 색·방위·생활 습관 등 실천 항목 중심.",
     "Y-12": "이 섹션 끝에는 이 해 12개월 간지 달력표가 엔진 계산값으로 자동 첨부된다. 본문에서 "
-    "간지 표를 직접 만들지 말 것(간지를 지어내면 안 됨) — 표 읽는 법을 안내하고, 본문에 "
+    "간지 표를 직접 만들지 말 것(간지를 지어내면 안 됨) — 월별 간지를 목록으로 다시 나열하는 "
+    "것도 금지(첨부 표와 중복). 간지를 적을 때는 '癸丑(계축)'처럼 한 번만 병기하고 독음을 겹쳐 "
+    "쓰지 말 것. 표 읽는 법을 안내하고, 본문에 "
     "등장한 용어를 아래 [용어 사전] 기준으로 짧게 풀이하는 데 집중할 것. 용어 풀이는 "
     "산문으로 뭉치지 말고 **용어마다 줄을 바꿔** '- 용어: 설명' 마크다운 목록으로 작성할 "
     "것 — 이 부록 섹션은 조밀한 산문 규칙의 예외다(한 줄에 용어 하나, 목록 항목 사이 "
@@ -810,6 +812,29 @@ def _ganji_ko(ganji: str) -> str:
         return ganji
     ko = _STEM_KO_BY_HANJA.get(ganji[0], "") + _BRANCH_KO_BY_HANJA.get(ganji[1], "")
     return f"{ganji}({ko})" if len(ko) == 2 else ganji
+
+
+def _year_title(text: str, year: int) -> str:
+    """'올해…' 표기를 선택 연도로 바꾼다 — 예 '올해 한눈에'→'2027년 한눈에'.
+
+    한해풀이(RPT_YEAR)는 올해가 아닌 해를 고를 수 있어 '올해'가 독자의 읽는 시점과 어긋난다
+    (2026-10-08 데굴님 요청). 조사 호환: '올해가'→'{y}년이', '올해는'→'{y}년은',
+    그 외 '올해'→'{y}년'.
+    docs/10 §4-2 목차 규격 자체(항목·순서)는 불변이며 표기만 바꾼다.
+    """
+    ys = f"{year}년"
+    return text.replace("올해가", f"{ys}이").replace("올해는", f"{ys}은").replace("올해", ys)
+
+
+# '癸丑(계축) (계축)'처럼 LLM이 입력의 병기 뒤에 독음을 한 번 더 붙인 중복(2026-10-08 실측, Y-12).
+_DUP_GANJI_KO_RE = re.compile(
+    r"([甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥])\(([가-힣]{2})\)\s*\(\2\)"
+)
+
+
+def _dedupe_ganji_ko(text: str) -> str:
+    """간지 독음이 겹친 병기를 한 번으로 — '癸丑(계축) (계축)'→'癸丑(계축)'. 결정론적 후처리."""
+    return _DUP_GANJI_KO_RE.sub(r"\1(\2)", text)
 
 
 # 대운 framing 관점을 붙일 섹션(대운 개관·정밀·로드맵·한해 대운 맥락).
@@ -1445,6 +1470,12 @@ class _ReportData:
                 else:
                     future = "(남은 달 없음)"
                 lines.append(f"{y}년은 올해다 — {past}, {t.month}월은 이번 달, {future}다.")
+            # 제목·목차가 '{y}년 …'으로 표기되므로 본문도 같은 지칭을 쓴다(독자가 읽는 시점과
+            # 다를 수 있어 '올해'는 혼동 원인 — 2026-10-08 데굴님 요청).
+            lines.append(
+                f"본문에서 이 해를 가리킬 때 '올해'라 쓰지 말고 항상 '{y}년'으로 지칭할 것"
+                "(제목·목차도 연도로 표기된다)."
+            )
         return lines
 
     def _evidence_paths_for(self, candidates: list[EventCandidate]) -> list[str]:
@@ -3117,7 +3148,8 @@ def _expand_report_plans(plans: list[SectionPlan], data: _ReportData) -> list[Se
         out: list[SectionPlan] = []
         for p in plans:
             if p.section_id != "Y-05":
-                out.append(p)
+                # '올해 한눈에' 등 규격 제목의 '올해'를 선택 연도로 표기(2026-10-08 데굴님 요청).
+                out.append(p.model_copy(update={"title": _year_title(p.title, y)}))
                 continue
             # 절기 기준 반기(2026-10-08): 상반기 = y-02..y-07(寅~未), 하반기 = y-08..y-12 +
             # (y+1)-01(申~丑).
@@ -4171,6 +4203,9 @@ def generate_report(
     # 표는 엔진 계산값이므로 절단·정합성 검사·간지 변형 대상에서 제외한다(절대원칙 1).
     cal_md = ""
     for sec in result.sections:
+        if sec.passed:
+            # LLM이 '癸丑(계축) (계축)'처럼 독음을 겹쳐 쓴 병기를 결정론적으로 정리(간지 자체 불변).
+            sec.text = _dedupe_ganji_ko(sec.text)
         if sec.section_id in _GANJI_CALENDAR_SECTIONS and sec.passed:
             if not cal_md:
                 cal_md = data.ganji_calendar_md()

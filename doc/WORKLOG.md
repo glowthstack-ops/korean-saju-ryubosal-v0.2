@@ -11741,3 +11741,16 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 내역 목록: `ReportJobSummary` 에 `period_start/end`·`subjects[{label,kind,relation_type,relation_label}]` 추가(`job_summary`, RELATION_KO), 프론트 목록에
   '테마 · 2027년' + '데굴(본인) · 민수(연인)' 표시. 구 저장분은 라벨만. 테스트 `test_report_job_summary.py` 3건.
 - 검증: 관련 테스트 17건, gates --quick, 프론트 tsc·build. 백엔드 재기동.
+
+## 2026-10-08 — 한해풀이 제목 '올해'→선택 연도 표기 + Y-12 간지 독음 중복 병기 정리 (데굴님 요청)
+
+- 배경: 한해풀이(RPT_YEAR)는 올해가 아닌 해(예 2027)를 고를 수 있는데 섹션 제목·설명이 '올해 한눈에'처럼 '올해'로 표기돼 읽는 시점과 어긋났다.
+  또 실측 job b10a27b7 Y-12 본문에서 LLM이 월별 간지를 목록으로 다시 나열하며 '癸丑(계축) (계축)'처럼 독음을 겹쳐 썼다.
+- 제목: `report_service._year_title`(조사 호환 '올해가'→'{y}년이', '올해는'→'{y}년은', 그 외 '{y}년') — `_expand_report_plans`에서 RPT_YEAR 비분할 섹션
+  제목에 적용(프롬프트 '[섹션 과제 — Y-01. 2027년 한눈에]'). 프론트 `section-display.yearizeLabel` + `sectionLabel/sectionBlurb(…, year)`,
+  `ReportPager(year)`, 상세 페이지가 `spec.period.start[:4]`를 전달. 본문은 `tense_anchor_lines`에 "'올해'라 쓰지 말고 '{y}년'으로 지칭" 지시 추가.
+  docs/10 §4-2 표기 규칙 기록(목차 항목·순서 불변).
+- Y-12: 지시문에 월별 간지 목록 재나열 금지·독음 한 번만 병기 추가. 후처리 `_dedupe_ganji_ko`(정규식, 간지 불변)를 전 섹션 passed 본문에
+  달력표 첨부 전 적용.
+- 테스트: `test_report_year_title_and_ganji_dedupe.py` 3건(파라미터 6), `test_plan_report_year_titles_use_selected_year`. 관련 포커스 테스트 통과,
+  gates --quick, 프론트 tsc·build. 백엔드 재기동.
