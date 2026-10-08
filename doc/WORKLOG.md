@@ -11732,3 +11732,12 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 풀이 상한 재검증: 실패 작업(test1/데굴/RPT_YEAR 2027)과 같은 사양으로 1회 재실행 → job b10a27b7 completed 14/14(오류 없음). 섹션 입력 토큰 최대값은 llm_usage 로 확인(아래 보고).
   재실행 결과: 14/14 completed, 오류 없음. llm_usage(공급자 집계) report_focus_section 최대 입력 13,363tok(6 호출, $0.050). 가드 집계(시스템 프롬프트·후행 지시문 합산)는
   로그에 남지 않아 이번 실행이 15,000을 넘었는지는 미확인 — 상한 18,000 적용 자체는 코드·재기동으로 확정.
+
+## 2026-10-08 — 한해풀이 반기 분할 절기 기준 개정 + 풀이 내역 선택값 표시 (데굴님 지적·승인)
+
+- 배경: Y-05 반기 창이 양력 1~6/7~12 로 잘려 있었으나 월운 라벨(`luck_months`)은 입춘 기준 y-02…(y+1)-01 열두 달 → 상반기 5달·다음 해 1월(丑월) 누락·전년 丑월 혼입.
+- `report_service._expand_report_plans`: 상반기 y-02..y-07(寅~未)·하반기 y-08..y-12+(y+1)-01(申~丑), 라벨 "상반기(입춘 2월~7월)"·"하반기(8월~다음해 1월)".
+  docs/10 §4-2 개정 기록, 프론트 Y-05 설명 "입춘부터 열두 달". `test_plan_report_year_half_pages` 갱신(2026 창: H1 02~07, H2 08~2027-01).
+- 내역 목록: `ReportJobSummary` 에 `period_start/end`·`subjects[{label,kind,relation_type,relation_label}]` 추가(`job_summary`, RELATION_KO), 프론트 목록에
+  '테마 · 2027년' + '데굴(본인) · 민수(연인)' 표시. 구 저장분은 라벨만. 테스트 `test_report_job_summary.py` 3건.
+- 검증: 관련 테스트 17건, gates --quick, 프론트 tsc·build. 백엔드 재기동.

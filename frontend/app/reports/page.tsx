@@ -24,6 +24,24 @@ function formatDate(iso: string | null): string {
   return iso.slice(0, 16).replace("T", " ");
 }
 
+/** 기간 표시 — 한해풀이는 연도만('2027년, 입춘~입춘'), 그 외는 'YYYY-MM~YYYY-MM'. */
+function periodLabel(j: ReportJobSummary): string {
+  const s = j.period_start ?? null;
+  const e = j.period_end ?? null;
+  if (!s) return "";
+  if (j.product_code === "RPT_YEAR") return `${s.slice(0, 4)}년`;
+  if (j.product_code === "RPT_FULL") return "인생 전반";
+  return e ? `${s}~${e}` : s;
+}
+
+/** 대상 표시 — '데굴(본인) · 민수(연인)'. 구 저장분(subjects 없음)은 라벨만. */
+function subjectsLabel(j: ReportJobSummary): string {
+  if (j.subjects && j.subjects.length > 0) {
+    return j.subjects.map((s) => `${s.label}(${s.relation_label})`).join(" · ");
+  }
+  return j.subject_labels.join(", ");
+}
+
 export default function ReportsHistoryPage() {
   const { ready, isLoggedIn } = useAuth();
   const { markReportsSeen } = useReportNotifications();
@@ -89,12 +107,12 @@ export default function ReportsHistoryPage() {
                     <div className="min-w-0">
                       <p className="font-semibold">
                         {themeLabel(j.product_code, j.topic)}
-                        {j.subject_labels.length > 0 && (
-                          <span className="ml-1 text-sm font-normal text-gray-500">
-                            · {j.subject_labels.join(", ")}
-                          </span>
+                        {periodLabel(j) && (
+                          <span className="ml-1 text-sm font-normal text-gray-600">· {periodLabel(j)}</span>
                         )}
                       </p>
+                      {/* 선택값(대상·관계) — 같은 테마가 여러 건일 때 구분용(2026-10-08). */}
+                      <p className="mt-0.5 truncate text-sm text-gray-500">{subjectsLabel(j)}</p>
                       <p className="mt-0.5 text-xs text-gray-400">{formatDate(j.created_at)}</p>
                     </div>
                     <span className={`shrink-0 rounded px-2 py-0.5 text-xs ${st.cls}`}>

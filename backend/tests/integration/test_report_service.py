@@ -100,7 +100,11 @@ def test_wealth_section_surfaces_wealth_capacity() -> None:
 
 
 def test_plan_report_year_half_pages() -> None:
-    """RPT_YEAR — Y-05가 상·하반기 2페이지로 분할(2026-08-13, 12개월 전부 서술 보장)."""
+    """RPT_YEAR — Y-05가 절기 기준 상·하반기 2페이지로 분할(2026-08-13 분할, 2026-10-08 절기 기준).
+
+    상반기 = 입춘 2월~7월(寅~未), 하반기 = 8월~다음해 1월(申~丑). 다음 해 1월(丑월)이 하반기에
+    포함된다.
+    """
     contexts = report_service.plan_report(_BIRTH, _spec("RPT_YEAR"), _TODAY)
     ids = [c.section_id for c in contexts]
     assert "Y-05" not in ids  # 단일 월별 섹션은 반기 2페이지로 대체된다.
@@ -108,13 +112,15 @@ def test_plan_report_year_half_pages() -> None:
     assert ids.index("Y-04") < h1_pos < h2_pos < ids.index("Y-06")
     h1 = next(c for c in contexts if c.section_id == "Y-05-H1")
     h2 = next(c for c in contexts if c.section_id == "Y-05-H2")
-    assert "상반기(1~6월)의 6개 달" in h1.body_prompt
-    assert "하반기(7~12월)의 6개 달" in h2.body_prompt
+    assert "상반기(입춘 2월~7월)의 6개 달" in h1.body_prompt
+    assert "하반기(8월~다음해 1월)의 6개 달" in h2.body_prompt
     # 월별 흐름 표는 자기 반기의 달만 담는다(모듈 블록의 달 언급은 별개 — 표만 검사).
     h1_table = h1.body_prompt.split("[월별 흐름 — ")[1].split("\n\n")[0]
     h2_table = h2.body_prompt.split("[월별 흐름 — ")[1].split("\n\n")[0]
-    assert "2026-03" in h1_table and "2026-09" not in h1_table
-    assert "2026-09" in h2_table and "2026-03" not in h2_table
+    assert "2026-02" in h1_table and "2026-07" in h1_table
+    assert "2026-01" not in h1_table and "2026-08" not in h1_table  # 전년 丑월·8월 제외
+    assert "2026-08" in h2_table and "2027-01" in h2_table  # 다음 해 1월(丑월) 포함
+    assert "2026-02" not in h2_table and "2026-07" not in h2_table
 
 
 def test_plan_report_full_natal_sections() -> None:

@@ -152,39 +152,80 @@ def create_job(
     return ReportJobCreated(job_id=job_id)
 
 
+class ReportJobSubject(BaseModel):
+    """목록용 대상 1명 — 라벨 + 관계(본인/동반자 관계유형 한글)."""
+
+    label: str
+    kind: str
+    relation_type: str | None = None
+    relation_label: str  # '본인' | RELATION_KO | '동반자'
+
+
 class ReportJobSummary(BaseModel):
-    """내 풀이 내역 1건 — 목록 표시용(본문 제외)."""
+    """내 풀이 내역 1건 — 목록 표시용(본문 제외).
+
+    2026-10-08 데굴님 지시: 연도(기간)·대상·관계가 없으면 내역에서 구분이 안 된다 → 선택값을
+    함께 싣는다.
+    """
 
     job_id: str
     status: str
     product_code: str
     topic: str | None = None
     subject_labels: list[str] = Field(default_factory=list)
+    subjects: list[ReportJobSubject] = Field(default_factory=list)
+    period_start: str | None = None  # 'YYYY-MM' — 한해풀이는 연도만 표시
+    period_end: str | None = None
     sections_done: int
     sections_total: int
     created_at: str | None = None
 
 
+def job_summary(j: dict) -> ReportJobSummary:
+    """report_jobs 행(spec JSON 포함) → 목록 요약. 관계 라벨은 relationship_hints.RELATION_KO."""
+    from saju_engines.relationship_hints import RELATION_KO
+
+    spec = j.get("spec") or {}
+    subjects = [s for s in (spec.get("subjects") or []) if isinstance(s, dict)]
+    subs: list[ReportJobSubject] = []
+    for s in subjects:
+        kind = str(s.get("kind", ""))
+        rel = s.get("relation_type")
+        if kind == "self":
+            rel_label = "본인"
+        elif rel:
+            rel_label = RELATION_KO.get(str(rel), str(rel))
+        else:
+            rel_label = "동반자"
+        subs.append(ReportJobSubject(label=str(s.get("label", "")), kind=kind,
+                                     relation_type=rel, relation_label=rel_label))
+    period = spec.get("period") or {}
+    return ReportJobSummary(
+        job_id=j["job_id"],
+        status=j["status"],
+        product_code=spec.get("product_code", ""),
+        topic=spec.get("topic"),
+        subject_labels=[s.label for s in subs],
+        subjects=subs,
+        period_start=period.get("start"),
+        period_end=period.get("end"),
+        sections_done=j["sections_done"],
+        sections_total=j["sections_total"],
+        created_at=_iso(j.get("created_at")),
+    )
+
+
+def _iso(value: object) -> str | None:
+    """저장소가 datetime 또는 ISO 문자열을 줄 수 있어 둘 다 받는다."""
+    if value is None:
+        return None
+    return value.isoformat() if hasattr(value, "isoformat") else str(value)
+
+
 @router.get("/jobs", response_model=list[ReportJobSummary])
 def list_jobs(owner_id: OwnerId, jobs: Jobs) -> list[ReportJobSummary]:
     """내 풀이(리포트) 내역 — 최신순. 본문은 상세 조회(GET /jobs/{id})로."""
-    out: list[ReportJobSummary] = []
-    for j in jobs.list_by_owner(owner_id):
-        spec = j.get("spec") or {}
-        subjects = spec.get("subjects") or []
-        out.append(
-            ReportJobSummary(
-                job_id=j["job_id"],
-                status=j["status"],
-                product_code=spec.get("product_code", ""),
-                topic=spec.get("topic"),
-                subject_labels=[s.get("label", "") for s in subjects if isinstance(s, dict)],
-                sections_done=j["sections_done"],
-                sections_total=j["sections_total"],
-                created_at=j["created_at"],
-            )
-        )
-    return out
+    return [job_summary(j) for j in jobs.list_by_owner(owner_id)]
 
 
 @router.get("/jobs/{job_id}", response_model=ReportJobStatus)

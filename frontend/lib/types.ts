@@ -251,12 +251,23 @@ export interface ReportSpec {
 }
 
 // 내 풀이 내역 1건(목록) — report 라우터 GET /jobs.
+export interface ReportJobSubject {
+  label: string;
+  kind: string;
+  relation_type: string | null;
+  relation_label: string; // '본인' | 관계 한글 | '동반자'
+}
+
 export interface ReportJobSummary {
   job_id: string;
   status: "queued" | "running" | "completed" | "on_hold" | "failed";
-  product_code: "RPT_FULL" | "RPT_FOCUS";
+  product_code: "RPT_FULL" | "RPT_FOCUS" | "RPT_YEAR";
   topic: string | null;
   subject_labels: string[];
+  // 2026-10-08: 내역에서 연도·대상·관계를 구분할 수 있도록 선택값을 함께 싣는다.
+  subjects?: ReportJobSubject[];
+  period_start?: string | null; // 'YYYY-MM'
+  period_end?: string | null;
   sections_done: number;
   sections_total: number;
   created_at: string | null;

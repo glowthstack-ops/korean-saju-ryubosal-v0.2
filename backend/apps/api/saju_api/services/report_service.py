@@ -3098,8 +3098,10 @@ def _expand_report_plans(plans: list[SectionPlan], data: _ReportData) -> list[Se
     """고정 목차의 동적 분할 페이지 확장(docs/10 — 2026-08-13 확정, 확장 규칙 자체가 규격).
 
     - RPT_FULL: F-14 뒤 십년 풀이 페이지(F-14-D*, 현재 대운~90세 창 대운당 1페이지).
-    - RPT_YEAR: Y-05(월별 흐름)를 상반기(1~6월)·하반기(7~12월) 2페이지로 교체 —
-      12개월 전부를 한 섹션에서 다루기 어렵던 문제의 구조 해소.
+    - RPT_YEAR: Y-05(월별 흐름)를 절기 기준 상반기(寅~未월 = 입춘 2월~7월)·하반기(申~丑월 =
+      8월~다음해 1월) 2페이지로 교체 — 12개월 전부를 한 섹션에서 다루기 어렵던 문제의 구조
+      해소. 월운 라벨(luck_months)이 입춘부터 열두 달(y-02 … (y+1)-01)이라 양력 1~6/7~12 로
+      자르면 다음 해 1월(丑월)이 빠지고 전년 丑월이 섞였다(2026-10-08 데굴님 지적·승인).
     - RPT_FOCUS: '기간 종합' 섹션 뒤에 예측 창 연도당 1페이지(연도별 상세) 삽입 —
       특정 달·해만 반복되지 않도록 전 연도에 상세 지면을 배정.
 
@@ -3117,14 +3119,18 @@ def _expand_report_plans(plans: list[SectionPlan], data: _ReportData) -> list[Se
             if p.section_id != "Y-05":
                 out.append(p)
                 continue
-            for half, label, m_lo, m_hi in (
-                ("H1", "상반기(1~6월)", 1, 6),
-                ("H2", "하반기(7~12월)", 7, 12),
-            ):
+            # 절기 기준 반기(2026-10-08): 상반기 = y-02..y-07(寅~未), 하반기 = y-08..y-12 +
+            # (y+1)-01(申~丑).
+            halves = (
+                ("H1", "상반기(입춘 2월~7월)", [f"{y}-{m:02d}" for m in range(2, 8)]),
+                ("H2", "하반기(8월~다음해 1월)",
+                 [f"{y}-{m:02d}" for m in range(8, 13)] + [f"{y + 1}-01"]),
+            )
+            for half, label, months in halves:
                 sid = f"Y-05-{half}"
                 data.month_page_windows[sid] = (
-                    {f"{y}-{m:02d}" for m in range(m_lo, m_hi + 1)},
-                    f"{y}년 {label}의 6개 달",
+                    set(months),
+                    f"{y}년 {label}의 6개 달 — 절기(입춘~입춘) 기준",
                 )
                 out.append(
                     SectionPlan(
