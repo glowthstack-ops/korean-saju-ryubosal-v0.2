@@ -86,3 +86,33 @@ def test_yearly_range_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
     assert plain[0].daewoon_context_score is None
     assert ctx[0].daewoon_context_score is not None
     assert plain[0].luck_score == ctx[0].luck_score
+
+
+def test_gate_protect_keeps_strong_sewoon(monkeypatch: pytest.MonkeyPatch) -> None:
+    """gate_protect: 세운 |점수| ≥ 0.5 는 대운이 뚜렷해도 원본 유지, 약신호만 게이트 블렌드."""
+    monkeypatch.setattr(lc, "SEWOON_DAEWOON_CONTEXT_MODE", "gate_protect")
+    assert lc.daewoon_context_score(0.8, -0.9) == 0.8        # 강한 세운 보호(부호 반대여도)
+    assert lc.daewoon_context_score(-0.5, 0.9) == -0.5       # 경계값 포함
+    assert lc.daewoon_context_score(0.2, 0.1) == 0.2         # 약신호 + 약한 대운 → 세운 그대로
+    # 약신호만 블렌드
+    assert lc.daewoon_context_score(0.2, -0.6) == round(0.3 * 0.2 + 0.7 * -0.6, 4)
+    # gate 와의 차이는 강한 세운 구간에서만 난다.
+    monkeypatch.setattr(lc, "SEWOON_DAEWOON_CONTEXT_MODE", "gate")
+    assert lc.daewoon_context_score(0.8, -0.9) == round(0.3 * 0.8 + 0.7 * -0.9, 4)
+    assert lc.daewoon_context_score(0.2, -0.6) == round(0.3 * 0.2 + 0.7 * -0.6, 4)
+
+
+def test_gate_protect_wiring_keeps_original(monkeypatch: pytest.MonkeyPatch) -> None:
+    """배선 경로에서도 보호 규칙이 적용되고 원본 점수·라벨은 불변."""
+    monkeypatch.setattr(lc, "SEWOON_DAEWOON_CONTEXT_ENABLED", True)
+    monkeypatch.setattr(lc, "SEWOON_DAEWOON_CONTEXT_MODE", "gate_protect")
+    r = _fresh(_birth())
+    seen_protected = False
+    for dw in r.luck_cycles.daewoon_table:
+        for sp in dw.sewoon:
+            expected = lc.daewoon_context_score(sp.luck_score, dw.luck_score)
+            assert sp.daewoon_context_score == expected
+            if abs(sp.luck_score) >= lc.SEWOON_DAEWOON_PROTECT_MIN:
+                assert sp.daewoon_context_score == round(sp.luck_score, 4)
+                seen_protected = True
+    assert seen_protected

@@ -119,13 +119,17 @@ SEWOON_DAEWOON_CONTEXT_ENABLED: bool = (
     in ("1", "true", "yes")
 )
 # blend: w·세운 + (1−w)·대운 / gate: |대운| ≥ GATE_MIN 일 때만 GATE_W·세운 + (1−GATE_W)·대운,
-# 아니면 세운 그대로.
+# 아니면 세운 그대로 / gate_protect: gate + 강한 세운(|세운| ≥ PROTECT_MIN) 원본 보호.
 SEWOON_DAEWOON_CONTEXT_MODE: str = (
     os.environ.get("SAJU_SEWOON_DAEWOON_CONTEXT_MODE", "blend").strip().lower() or "blend"
 )
 SEWOON_DAEWOON_CONTEXT_W: float = float(os.environ.get("SAJU_SEWOON_DAEWOON_CONTEXT_W", "0.5"))
 SEWOON_DAEWOON_GATE_MIN: float = 0.3  # CALIBRATE(C6 조사 §4 대운지배 게이트 임계)
 SEWOON_DAEWOON_GATE_W: float = 0.3  # CALIBRATE(게이트 통과 시 세운 가중)
+# gate_protect(2026-10-08 데굴님 지시 — 검증 가설, 사례 맞춤 반복 조정 금지): 세운 |점수| ≥
+# PROTECT_MIN 이면 강한 세운 신호로 보고 원본을 그대로 둔다(약신호만 대운에 기댄다).
+# 묻힘(세운 부호 뒤집힘) 감소가 목적.
+SEWOON_DAEWOON_PROTECT_MIN: float = 0.5
 
 
 def daewoon_context_score(sewoon_score: float, daewoon_score: float) -> float:
@@ -137,9 +141,12 @@ def daewoon_context_score(sewoon_score: float, daewoon_score: float) -> float:
 
     Returns:
         blend 모드 = w·세운 + (1−w)·대운, gate 모드 = |대운| ≥ 임계일 때만 블렌드
-        (아니면 세운 그대로).
+        (아니면 세운 그대로), gate_protect 모드 = gate + 세운 |점수| ≥ PROTECT_MIN 이면 원본 유지.
     """
-    if SEWOON_DAEWOON_CONTEXT_MODE == "gate":
+    if SEWOON_DAEWOON_CONTEXT_MODE in ("gate", "gate_protect"):
+        if (SEWOON_DAEWOON_CONTEXT_MODE == "gate_protect"
+                and abs(sewoon_score) >= SEWOON_DAEWOON_PROTECT_MIN):
+            return round(sewoon_score, 4)
         if abs(daewoon_score) < SEWOON_DAEWOON_GATE_MIN:
             return round(sewoon_score, 4)
         w = SEWOON_DAEWOON_GATE_W

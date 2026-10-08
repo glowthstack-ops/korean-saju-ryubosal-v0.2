@@ -11632,3 +11632,10 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 ### 결과
 검증 기록은 아래. 승인 대기: avoid 결정, C6 후속(약신호 보정 등), 3-B.
 검증 기록(2026-10-08 C6 B/C·A-1): `./scripts/gates.sh --quick` ruff·typecheck·maintained_scripts state=RAN exit=0 · `./scripts/run_suite.sh` VALID_SUITE_PASS.
+
+## 2026-10-08 — 마무리: avoid 원문 5건(조후 v0.3.3) · C6 gate_protect 1회 검증 후 종료 (데굴님 결정)
+
+- `johu_yongsin.json` 0.3.3: avoid 5건(+`avoid_note` 출처), 丙巳 戊 보류, 스냅샷·`JOHU_YONGSIN_VERSION` 0.3.3. 주석 전용(점수·판정 불변).
+- `luck_cycles`: `gate_protect` 모드(`SEWOON_DAEWOON_PROTECT_MIN=0.5`, 플래그 OFF 기본 불변) + 테스트 2건. replay 1회(동일 셸): 묻힘 26.9→15.6%,
+  악화 018/R·024/1 미해소, 개선 071/L·077/R 상실 → 보정 효과 부족, 튜닝 없이 종료·연구 결과 보존(SEWOON_DAEWOON_CONTEXT_C6 §8).
+- 검증: 집중 테스트 7건 통과, `gates.sh --quick` ruff·typecheck·maintained exit 0. 전체 스위트는 데굴님 지시로 반복하지 않음(직전 VALID_SUITE_PASS = ebe1f43).
