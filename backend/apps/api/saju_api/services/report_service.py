@@ -1771,8 +1771,14 @@ class _ReportData:
 
     # ── 구조 해석 블록(누출 안전) — 포맷은 structural_context 단일 소스에 위임. ──
     def wealth_capacity_block(self) -> list[str]:
-        """[원국 횡재 그릇] — structural_context.wealth_capacity_lines 위임(재물 섹션 전용)."""
-        return wealth_capacity_lines(self.wealth_capacity)
+        """[원국 횡재 그릇] — structural_context.wealth_capacity_lines 위임(재물 섹션 전용).
+
+        재성 오행의 용희기구한 역할을 병기한다(2026-10-08 — 기·구신 재성 미화 차단).
+        """
+        from saju_engines.event_scoring import favorability_map
+
+        role = favorability_map(self.result).get(self.wealth_capacity.wealth_element)
+        return wealth_capacity_lines(self.wealth_capacity, role)
 
     def activity_remedy_block(self) -> list[str]:
         """[활동 키워드]+[개운 행동] — 용신·희신/기신·구신·원국 신살 기준 결정론 선별.

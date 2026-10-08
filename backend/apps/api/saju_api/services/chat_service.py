@@ -3758,7 +3758,10 @@ def _structural_context(
     if general:
         out += era_energy_lines(result, today.year)  # 시대 기운 먼저(개인 앞 사회 맥락)
     if general or domain is Domain.WEALTH:
-        out += wealth_capacity_lines(analyze_wealth_capacity(result))
+        from saju_engines.event_scoring import favorability_map as _wc_fav
+
+        _wc = analyze_wealth_capacity(result)
+        out += wealth_capacity_lines(_wc, _wc_fav(result).get(_wc.wealth_element))
         # 재물 준비기(P3, 데굴님 확정 2026-07-12) — 발현 후보년·선행 준비년 서술 전용 맥락.
         # 점수·순위·시기·확신도 불변(inert). 세운 미보유 시 빈 목록(무언급).
         if result.luck_cycles is not None:

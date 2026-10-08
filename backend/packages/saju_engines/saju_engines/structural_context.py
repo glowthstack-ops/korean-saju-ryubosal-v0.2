@@ -459,18 +459,52 @@ def remedy_action_lines(
     ]
 
 
-def wealth_capacity_lines(wc: WealthCapacity) -> list[str]:
-    """[원국 횡재 그릇] — 운 분리 잠재구조(점수·영문 코드 비노출)."""
+_WEALTH_CAPACITY_CHECKS: tuple[tuple[str, str], ...] = (
+    ("신왕임재(재성 감당)", "body_can_hold"),
+    ("재성 천간 투출", "visible_wealth_stem"),
+    ("재성 지지 뿌리", "wealth_rooted"),
+    ("암장 식상(식상생재 통로)", "hidden_output"),
+    ("재성국 삼합 씨앗", "wealth_trine_seed"),
+    ("묘고 반복(충개고 잠재)", "storage_repeat"),
+)
+
+
+def wealth_capacity_lines(wc: WealthCapacity, wealth_role: str | None = None) -> list[str]:
+    """[원국 횡재 그릇] — 운 분리 잠재구조(점수·영문 코드 비노출).
+
+    2026-10-08 데굴님 지적: 로또 질문 답변이 "지장간에 숨은 식상생재의 통로"를 원국 특징처럼
+    서술했으나 엔진 판정은 암장 식상 통로 **미성립**이었다. LLM이 ①일반 '발동 조건' 문장의
+    '식상생재' ②준비기 블록의 '식상 동반(운 유입)' ③지장간 잠재 신호 블록을 합성한 결과. 그래서
+    구조별 성립/미성립을 모두 적고, 발동 조건은 '운의 사건'임을 못박으며, 미성립 구조를 숨은·잠재
+    통로로 서술하는 것을 금지한다. `wealth_role`(재성 오행의 용희기구한)을 받으면 병기해 기·구신
+    재성의 미화("타고난 재물 감각")를 막는다.
+    """
     band = _CAPACITY_BAND_KO.get(wc.capacity_band, wc.capacity_band)
-    flags = ", ".join(wc.flags) if wc.flags else "두드러진 횡재 구조 약함"
-    return [
+    present = ", ".join(wc.flags) if wc.flags else "두드러진 횡재 구조 약함"
+    absent = [name for name, attr in _WEALTH_CAPACITY_CHECKS if not getattr(wc, attr)]
+    head = f"재성 오행: {wc.wealth_element} · 종합 그릇: {band}"
+    if wealth_role:
+        head += f" · 재성 {wc.wealth_element}의 역할: {wealth_role}"
+    lines = [
         "[원국 횡재 그릇 — 운과 분리된 원국 자체의 재물 잠재구조(엔진 판정). '그릇이 있어도 운에서 "
         "발동해야 현실화'를 전제로 서술하고, 당첨·복권 단정과 번호 추천은 절대 금지]",
-        f"재성 오행: {wc.wealth_element} · 종합 그릇: {band}",
-        f"성립 구조: {flags}",
-        "발동 조건(운에서 일어나야 현실화): 재성국 완성(삼합)·묘고 충개고·식상생재. 원국에 "
-        "그릇이 없어도 운에서 이 완성이 일어나면 일부 발동하나, 그릇이 받쳐줄수록 크게 난다.",
+        head,
+        f"성립 구조: {present}",
+        "미성립 구조(원국에 없음 — '숨은·잠재 통로'로 서술 금지): "
+        + (", ".join(absent) or "없음"),
+        "발동 조건(운에서 일어나야 현실화): 재성국 완성(삼합)·묘고 충개고·식상생재 유입 — 모두 "
+        "운의 사건이며 위 원국 구조 목록이 아니다. 원국에 그릇이 없어도 운에서 이 완성이 일어나면 "
+        "일부 발동하나, 그릇이 받쳐줄수록 크게 난다.",
+        "서술 규칙: '성립 구조'에 없는 구조를 원국 특징으로 말하지 말 것(암장 식상 통로가 "
+        "미성립이면 '지장간에 숨은 식상생재' 같은 표현 금지). [표면 부족 오행의 잠재 신호] "
+        "블록과 합성해 새 구조를 만들지 말 것.",
     ]
+    if wealth_role in ("기신", "구신"):
+        lines.append(
+            f"재성이 {wealth_role}이므로 재물 유입을 '타고난 재물 감각·복'으로 미화하지 말고 "
+            "부담·지출·관리의 결로 서술할 것(용신과의 관계로 유불리를 말한다)."
+        )
+    return lines
 
 
 _PREP_GRADE_KO = {"strong": "강", "moderate": "중", "weak": "약"}
@@ -501,7 +535,9 @@ def preparation_context_lines(ctx: PreparationContext) -> list[str]:
             "천간 재성" if c.wealth_positions == ["stem"] else "지지 본기 재성"
         )
         out.append(f"발현 후보 {c.year}({c.ganji}) · 등급 {_PREP_GRADE_KO[c.grade]} — {pos}"
-                   + (" + 식상 동반(식상생재 유입)" if c.grade == "moderate" else ""))
+                   + (" + 그 해 운 천간에 식상 동반(운에서의 식상생재 유입 — 원국 구조 아님)"
+                      if c.grade == "moderate"
+                      else ""))
     for p in ctx.preparation_years:
         sig = "、".join(_PREP_SIGNAL_KO[s] for s in p.signals)
         tier = "주 준비기(직전 해)" if p.weight >= 1.0 else "약한 선행 준비기(2년 전)"

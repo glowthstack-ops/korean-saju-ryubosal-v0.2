@@ -11814,3 +11814,14 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
   합거 bind·away → mitigated / 그 외 None) + `_apply_luck_structure_flags` 후보별 분기(HAN_BAD 만 대체, 다른 극성은 공통 −0.2).
   serializer 라벨 2종. 테스트 7건. 문서 §10-2·스펙 표 8행.
 - 비겁 중복 아님(근거 상이)·구신→GI 의도적 분리·stem_mitigated 역할 조건 확인 기록.
+
+## 2026-10-08 — [원국 횡재 그릇] 블록 개편: 미성립 구조 명시·합성 금지·재성 역할 병기 (데굴님 지적·승인)
+
+- 실로그(로또 구매일 질문, 데굴 庚申 丁亥 己亥 戊辰): "지장간에 숨은 식상생재의 통로" 서술. 엔진 판정은 암장 식상 통로 **미성립**(庚 상관은
+  연간 투출·申 본기, hidden_output=False). dry-run 프롬프트에 해당 문장 없음 — LLM이 ①블록의 일반 '발동 조건' 문장(식상생재) ②준비기
+  '식상 동반(식상생재 유입)' ③[표면 부족 오행의 잠재 신호 — 지장간] 블록을 합성. 재성 水가 구신인데 "타고난 재물 감각"으로 미화한 자기모순도 동반.
+- `structural_context.wealth_capacity_lines(wc, wealth_role=None)`: 6구조 성립/미성립을 모두 적고(미성립 = '숨은·잠재 통로' 서술 금지),
+  발동 조건은 '운의 사건'으로 못박고, 합성 금지 서술 규칙 추가. 재성 오행의 용희기구한 병기 + 기·구신이면 미화 금지 문장. chat_service(재물·총운)
+  와 report_service(재물 섹션) 호출부가 `favorability_map` 역할 전달. `preparation_context_lines` 발현 후보 문구를 "그 해 운 천간에 식상 동반
+  (운에서의 식상생재 유입 — 원국 구조 아님)"으로.
+- 테스트 `test_wealth_capacity_lines.py` 3건. 재물 그릇 판정 로직(`analyze_wealth_capacity`) 자체는 불변.
