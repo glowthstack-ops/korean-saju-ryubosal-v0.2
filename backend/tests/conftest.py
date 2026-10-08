@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -193,12 +194,20 @@ def _isolate_test_db() -> Iterator[None]:
     test = _test_dsn(base)
     name = test.rsplit("/", 1)[-1].split("?", 1)[0]
     admin = base.rsplit("/", 1)[0] + "/postgres"
-    with psycopg.connect(admin, autocommit=True) as c:
-        if not c.execute("SELECT 1 FROM pg_database WHERE datname=%s", (name,)).fetchone():
-            c.execute(f'CREATE DATABASE "{name}"')
-    with psycopg.connect(test) as c:
-        for sql in sorted(_MIGRATIONS.glob("*.sql")):
-            c.execute(sql.read_text(encoding="utf-8"))
+    try:
+        with psycopg.connect(admin, autocommit=True) as c:
+            if not c.execute("SELECT 1 FROM pg_database WHERE datname=%s", (name,)).fetchone():
+                c.execute(f'CREATE DATABASE "{name}"')
+        with psycopg.connect(test) as c:
+            for sql in sorted(_MIGRATIONS.glob("*.sql")):
+                c.execute(sql.read_text(encoding="utf-8"))
+    except psycopg.OperationalError as exc:
+        # DSN 은 있는데 서버가 없는 환경(DB 미기동 CI 러너 등) — 격리를 포기하고 그대로 둔다.
+        # DB 통합 테스트는 각자 skipif/probe 로 빠지며, 여기서 세션 전체를 에러로 쓰러뜨리지
+        # 않는다(2026-10-08: 접속 실패 1건이 전 테스트 5,703건 ERROR 로 번진 사고).
+        warnings.warn(f"테스트 DB 격리 생략 — 접속 실패: {exc}", stacklevel=1)
+        yield
+        return
     os.environ["SAJU_V2_DATABASE_URL"] = test
     try:
         yield

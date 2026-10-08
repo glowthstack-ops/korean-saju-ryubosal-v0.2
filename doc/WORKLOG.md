@@ -11759,3 +11759,15 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 
 - 총운 job 4540fd5b(1978년생, RPT_FULL)가 `report_full_section: 입력 18247tok > 상한 18000tok`로 실패. 당일 1차 상향(15k→18k) 뒤 두 번째 초과.
 - `llm_guard.CALL_LIMITS` report_focus/full_section 20,000(출력 8,000·thinking 불변). docs/09 §8 표·주석 갱신. 세 번째 초과 시 명식 블록 압축 검토를 기록.
+
+## 2026-10-08 — CI 복구: production mypy 게이트 통일 · numpy 폴백 ignore · DB 없는 러너의 테스트 격리 (데굴님 승인, PR #1 main 머지 준비)
+
+- 상태: 이 브랜치 CI는 10-06부터, main은 08-04부터 상시 실패. 오늘 커밋과 무관한 기존 결함 3가지.
+- (1) ci.yml 이 `mypy packages apps scripts`·`mypy .` 를 blocking 으로 돌려 scripts 부채 289건으로 실패 → backend-ci.yml 과 같은
+  `../scripts/typecheck.sh`(범위 SSOT = pyproject packages) 한 단계로 통일(CLAUDE.md §6).
+- (2) production gate 4건 `Unused "type: ignore"` — saju_engines 4파일의 numpy 폴백 `np = None`. dev extras 에 numpy 가 없는 러너에서는
+  ignore 가 불필요해 warn_unused_ignores 에 걸림 → `type: ignore[assignment, unused-ignore]` 로 환경 무관화(로컬 production mypy gate clean 유지).
+- (3) pytest 5,703건 ERROR — `test_account_last_subject_api.py` 가 import 시점에 `SAJU_V2_DATABASE_URL` 을 로컬 15432 DSN 으로 무조건 setdefault
+  → conftest 세션 fixture `_isolate_test_db` 가 접속 시도 → DB 없는 러너에서 전 테스트 에러. 수정: 모듈은 DB probe 성공 시에만 env 를 심고(`_DB_UP`),
+  fixture 는 `psycopg.OperationalError` 시 경고 후 격리 생략(각 DB 테스트는 자체 skipif/probe 로 빠짐).
+- 검증: 로컬 DB 통합 3파일+단위 1파일 35건 통과, gates --quick exit 0. CI 결과는 푸시 후 확인.
