@@ -500,6 +500,8 @@ export function GeokgukPanel({ result }: { result: ManseResult }) {
   const e = g.evaluation as Record<string, unknown> | null | undefined;
   const candidates = (g.candidates as Array<Record<string, unknown>> | undefined) ?? [];
   const special = g.special_pattern as Record<string, unknown> | null | undefined;
+  // C1-c C안(2026-10-08): 종격 두 기준(격국 신호 vs 용신 검출)이 어긋난 명식에만 안내(판정 통일 아님).
+  const fc = g.follow_consistency as Record<string, unknown> | null | undefined;
   const aux = (g.auxiliary_structures as string[] | undefined) ?? [];
   // 파격은 코드 대신 한글 근거(evidence)+구제 여부로 표시.
   const failures = ((e?.failures as Array<Record<string, unknown>> | undefined) ?? []).filter((f) => f.active);
@@ -532,6 +534,15 @@ export function GeokgukPanel({ result }: { result: ManseResult }) {
             {String(special.reason)}
             {special.override ? ` — 정격(${String(special.jeonggyeok)})과 병행 해석` : " — 정격과 병행 검토"}
           </div>
+        </div>
+      )}
+      {fc && fc.status === "mismatch" && (
+        <div className="mt-1.5 rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+          <b>종격 판단이 기준에 따라 다릅니다.</b>
+          <div className="mt-0.5 text-amber-700">
+            격국 기준: {String(fc.geokguk_label)} · 용신 기준: {String(fc.yongsin_label)}
+          </div>
+          <div className="text-amber-600">{String(fc.note)}</div>
         </div>
       )}
       {e && (

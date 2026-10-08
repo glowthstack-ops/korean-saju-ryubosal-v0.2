@@ -14,6 +14,10 @@ from saju_shared_types.enums import Branch, Stem, TenGod
 from saju_shared_types.pillars import FourPillarsResult
 from saju_shared_types.structure import GeokgukEvaluation, StructureAnalysis
 
+# 종격 전제 점수 임계는 strength_score 가 SSOT(C1-c C안 2026-10-08: 사본 상수 제거, 판정 임계
+# 자체는 불변).
+from ..strength.strength_score import FOLLOW_MAX_SCORE
+
 # 십성 → 그룹(family) key.
 _GROUP_OF: dict[str, str] = {
     TenGod.BIGYEON.value: "peer", TenGod.GEOMJAE.value: "peer",
@@ -48,7 +52,6 @@ _GEOK_SANGSIN: dict[str, list[str]] = {
 _WEAK = {"태신약", "신약", "중화신약"}  # 7단계(2026-10-07): 극 밴드 제거
 _STRONG = {"중화신강", "신강", "태신강"}
 #: 옛 9단계 태신약 상한 — 종격 신호 전제를 밴드 이름 대신 점수로 보존(탐지 모집단 불변).
-_FOLLOW_MAX_SCORE = 34.0
 _GROUP_KO = {"peer": "비겁", "resource": "인성", "output": "식상",
              "wealth": "재성", "officer": "관성"}
 
@@ -472,7 +475,7 @@ def special_signal(force, pillars: FourPillarsResult) -> dict | None:
                 "reason": f"{strongest} {maxp}% 압도 + {band} → 전왕/일행득기 가능",
             }
     # 7단계(2026-10-07): 밴드 이름 대신 옛 태신약 상한 점수(≤34)로 종격 전제를 보존한다.
-    if float(force.strength.score) <= _FOLLOW_MAX_SCORE and root < 8.0:
+    if float(force.strength.score) <= FOLLOW_MAX_SCORE and root < 8.0:
         counts = _tg_counts(pillars)
         groups = _group_counts(counts)
         ext = {g: groups[g] for g in ("wealth", "officer", "output")}
@@ -481,7 +484,7 @@ def special_signal(force, pillars: FourPillarsResult) -> dict | None:
             "name": _FOLLOW_NAME.get(top, "종세격"),
             "type": "follow",
             "confidence": round(min(max((10 - root) / 10, 0.0), 0.9), 3),
-            "reason": f"극단 신약(점수≤{_FOLLOW_MAX_SCORE:.0f})+무근(root={root:.1f}) → 종격 가능",
+            "reason": f"극단 신약(점수≤{FOLLOW_MAX_SCORE:.0f})+무근(root={root:.1f}) → 종격 가능",
         }
     return None
 

@@ -60,3 +60,15 @@
 | E4 | B안 | 기각 | 구조 결함 미해소·확산 위험 |
 | E5 | 확인 사항: C3 기록 "C2 대비 063/L 역할 변경 1건"이 `subjects_c2.jsonl`(土/火/木/水/金 동일)과 맞지 않음 | 기록 정정 또는 산출물 재확인 | 기존 산출물 대조 |
 | E6 | root_score 의 인성 포함을 종격 판정용 "비겁 뿌리 점수"와 분리하는 설계(장기) | 별도 과제 | `special_cases.py:72-75` 주석이 지적한 결함의 근본 해소, 명리 규칙 변경이라 승인 사항 |
+
+## 6. C안 구현 기록 (2026-10-08 — **불일치 관리 완료**, 판정 통일 아님; c3 override 게이트는 보류 유지)
+
+| 조치 | 변경 | 검증 |
+|---|---|---|
+| c2 공통 상수 | `geokguk_eval._FOLLOW_MAX_SCORE` 사본 제거 → `strength_score.FOLLOW_MAX_SCORE` import(값 34 동일, 판정 임계 불변) | `test_follow_max_score_single_source` |
+| c1 정합 표기 | `GeokgukResult.follow_consistency: dict|None` 신설(`geokguk._follow_consistency`): 어느 한쪽이라도 종격을 보면 `{status: consistent|mismatch, geokguk_signal, geokguk_override, geokguk_label, yongsin_follow_kind, yongsin_label, note}` 기록. consistent = 격국 override 종격 ∧ 용신 진종. `main_structure`·`special_pattern`·점수·역할 불변(special_pattern 을 새로 만들지 않아 JONG 패턴 emit·운 특수격 플래그 등 하류 불변) | `test_mismatch_when_only_yongsin_detects_follow`(japan_tokyo: 식신격 유지·mismatch), `test_consistent_when_both_confirm`(jonggyeok_01), `test_none_when_neither_detects`(1980-11-22) |
+| c4 프론트 | `Panels.tsx` 격국 패널: `follow_consistency.status === "mismatch"` 인 명식에만 "종격 판단이 기준에 따라 다릅니다" + 격국/용신 기준 라벨 + 설명. 일치·해당 없음은 표시 없음 | `tsc --noEmit` exit 0, production build 성공 |
+| c3 JONG 패턴 override 게이트 | **미적용**(E2 — 영향 확인 후 별도 결정) | — |
+| 미변경 | 서로 다른 판정 임계값(격국 root<8·override root≤3 / 용신 세력비) 유지, C1-a 면제 조건(`special_confirmed`) 유지 | 회귀 골든 8건·용신·격국·shadow spec 테스트 통과 |
+
+E5 정정: C3 기록의 "C2 대비 063/L 역할 변경 1건"은 `subjects_c2.jsonl`과 현재 산출물의 063/L final 이 동일하고 C3 시점 산출물이 없어 **변경 확인 불가**로 계획서·C3 문서에 명시했다.

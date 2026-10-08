@@ -11668,3 +11668,15 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 
 - `doc/v2_2/FOLLOW_DETECTOR_UNIFICATION_C1C.md`: 경로 3종 비교, root_score 인성 포함 결함, 기준 3종·골든 8건·063/L 영향, 후보 A/B/C, 권고 C 즉시·A 보류, E1~E6 결정 요청.
   확인 사항: C3 기록의 "063/L 역할 변경 1건"이 subjects_c2 산출물과 불일치(E5).
+
+## 2026-10-08 — C1-c C안: 종격 두 기준 정합 표기·공통 상수·프론트 안내 (데굴님 결정: 판정 통일 아닌 불일치 관리) + E5 정정
+
+- `shared_types.structure.GeokgukResult.follow_consistency`(None 기본), `geokguk._follow_consistency`(용신 `detect_special_cases` 재사용), `geokguk_eval` 사본 상수 제거.
+  `frontend/components/manse/Panels.tsx` mismatch 사례만 안내. 테스트 `test_follow_consistency.py` 4건.
+- 불변 확인: 회귀 골든·용신·decision_trace·shadow spec·geokguk 테스트, `gates.sh --quick` exit 0, 프론트 `tsc`·production build 성공. C7·라벨 테스트·전체 replay 반복 없음(지시).
+- E5: C3 기록 063/L 변경은 c2·현재 산출물 동일·c3 산출물 부재 → '변경 확인 불가'로 계획서·STRENGTH_BAND_CALIBRATION_C3 정정.
+
+## 2026-10-08 — 화기격 재평가 공백 검토 문서 (데굴님 지시, 문서 단계)
+
+- `doc/v2_2/HWAGI_REEVALUATION_REVIEW.md`: 현황(판정원 2개·소비처·일간 고정)·고전 조건 대조·적용 조건 T0~T2·영향 범위(사례집 수기 8사례, 골든·기준·종격 0)·결정 F1~F6.
+  고전 출처 滴天髓 從化論 真/假(维基文库 滴天髓/07·08). 구현 없음.

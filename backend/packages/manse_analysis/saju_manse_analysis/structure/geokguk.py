@@ -31,6 +31,51 @@ _REASON_BY_REL = {
 _OVERRIDE_MIN = {"dominant": 0.60, "follow": 0.70}
 
 
+_GK_LABEL = {None: "신호 없음", False: "가능성(미확정)", True: "확정"}
+_YS_LABEL = {None: "없음", "real": "진종(眞從)", "pseudo": "가종(假從)"}
+
+
+def _follow_consistency(special: dict | None, force, structure: StructureAnalysis) -> dict | None:
+    """종격 두 기준(격국 신호 vs 용신 특수격 검출)의 판정과 일치 여부 — 표기 전용(C1-c C안).
+
+    격국은 root_score<8(override 는 root≤3)만 보고, 용신 검출기는 root 외에 비겁·인성 세력비로도
+    종격을 잡는다(root_score 가 인성 통근을 포함해 교과서 종격도 root≥8 이 되는 경우 대비). 두
+    기준의 임계는 그대로 두고, 어느 한쪽이라도 종격을 보면 결과를 나란히 적는다. 점수·역할·격국
+    불변.
+    """
+    from ..yongsin.special_cases import detect_special_cases
+
+    gk_type = str(special.get("type")) if special else None
+    gk_follow = special is not None and gk_type == "follow"
+    gk_override: bool | None = (
+        bool(special.get("override")) if special is not None and gk_follow else None
+    )
+    ys = detect_special_cases(force, structure).get("follow_structure")
+    ys_kind = str(ys.detail).split(":")[0] if ys is not None and ys.detected else None
+    if not gk_follow and ys_kind is None:
+        return None
+    consistent = gk_follow and gk_override is True and ys_kind == "real"
+    gk_label = _GK_LABEL[gk_override] if gk_follow else _GK_LABEL[None]
+    ys_label = _YS_LABEL.get(ys_kind, "없음")
+    if consistent:
+        note = "격국과 용신 기준이 모두 종격으로 확정 — 일치."
+    elif gk_follow and gk_override is False and ys_kind:
+        note = ("격국은 종격 가능성만 보고(무근 정도 부족) 용신 검출기는 종격으로 본다 — "
+                "용신은 종격 모델을 쓰지만 조후 역행 시 강등될 수 있다.")
+    elif not gk_follow and ys_kind:
+        note = ("격국 기준으로는 종격 신호가 없고(인성 통근이 root_score 에 포함) 용신 검출기는 "
+                "세력비로 종격을 본다 — 격국 표기는 정격, 용신은 종격 모델.")
+    else:
+        note = "격국은 종격 신호를 보지만 용신 검출기는 종격으로 보지 않는다."
+    return {
+        "status": "consistent" if consistent else "mismatch",
+        "geokguk_signal": gk_type, "geokguk_override": gk_override,
+        "geokguk_label": gk_label,
+        "yongsin_follow_kind": ys_kind, "yongsin_label": ys_label,
+        "note": note,
+    }
+
+
 def detect_geokguk(
     pillars: FourPillarsResult,
     day_master: Stem,
@@ -139,6 +184,9 @@ def detect_geokguk(
         if special["override"]:
             main_structure = special["name"]
             formation_level = "특수격"
+    follow_consistency = (
+        _follow_consistency(special, force, structure) if force is not None else None
+    )
 
     return GeokgukResult(
         main_structure=main_structure,
@@ -159,6 +207,7 @@ def detect_geokguk(
         auxiliary_structures=auxiliary,
         candidates=candidates_out,
         special_pattern=special,
+        follow_consistency=follow_consistency,
         evaluation=evaluation,
         warnings=(
             ["격국은 참고 레이어이며 단독 용신 확정 근거로 사용하지 않는다."]
