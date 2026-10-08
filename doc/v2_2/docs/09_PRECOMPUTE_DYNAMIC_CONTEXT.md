@@ -167,8 +167,8 @@ CREATE INDEX idx_lc_subject_level ON luck_composites (subject_id, level);
 | M01 | love_timing | 연애+시기, 재회 | natal + year/month (대상 기간) | events/relationship | 연애 이벤트 후보 시계열 + 상대 유형 신호 |
 | M02 | marriage | 결혼/이혼/재혼 | natal + daewoon + year | events/relationship | 결혼 적합 연/월 + 배우자궁 상태 |
 | M03 | personality_traits | 성격/취향 + **시기별 변화** | natal + daewoon + year | trait_mapping | 기본 성향 + 기간별 활성 십성 시프트 (5장) |
-| M04 | parents_fortune | 부모님운, 부모 관계 | natal(인성·년월주) + 부모 등록 시 그 사주 | relation_profiles | 육친 구조 + 기간 리스크/기회 |
-| M05 | children | 자녀운, 자녀 사주 | natal(식상·시주) + 자녀 subject | relation_profiles, events/education | 자녀 이벤트 + 부모-자녀 축 |
+| M04 | parents_fortune | 부모님운, 부모 관계 | natal 십성 축(인성=모친·편재=부친, C7 D1) + 부모 등록 시 그 사주. 궁위(년월주)는 점수 입력이 아니라 서술 보조(`_PALACE_ROLE`, C7 D4) | relation_profiles | 육친 구조 + 기간 리스크/기회 |
+| M05 | children | 자녀운, 자녀 사주 | natal 십성 축(남명=관살, 여명=식상, 성별 미상=식상은 호환용 기본값·확정 해석 아님, C7 D2) + 자녀 subject. 시주는 서술 보조 | relation_profiles, events/education | 자녀 이벤트 + 부모-자녀 축 |
 | M06 | workplace_relations | 직장 내 관계(상사/동료) | natal(관성·비겁) + month | relation_profiles | 갈등/협력 신호 시계열 |
 | M07 | career | 취업/이직/승진/퇴사 | natal + daewoon + year + month | events/career_change | 이벤트 후보 + 타임라인 단계 |
 | M08 | business | 창업/사업/동업 | natal + daewoon + year | events/wealth, relation_profiles | 사업 적합 구조 + 시기 |

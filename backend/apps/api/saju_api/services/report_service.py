@@ -472,7 +472,8 @@ _SECTION_GUIDES: dict[str, str] = {
     "결(대기업/중견·중소/스타트업 등)을 짚을 것 — 합격·승진 단정 금지.",
     "F-17": "연애·결혼의 구조와 흐름(만남·결혼 신호·안정기)을 서술할 것 — 부모·자녀는 별도 "
     "섹션 몫이므로 다루지 말 것. 결혼 단정·재촉·낙인 표현 금지.",
-    "F-17b": "부모·가족과의 관계 결, 부모의 건강을 챙기면 좋을 주의 시기(인성 동요 신호)와 "
+    "F-17b": "부모·가족과의 관계 결, 부모의 건강을 챙기면 좋을 주의 시기(부모성=인성(모친)·"
+    "편재(부친)와 부모궁(월주)을 운이 충·형으로 자극하는 신호, 위험 항목 가족 책임 부담)와 "
     "돌봄 방향을 서술할 것. 사망·사별 단정은 절대 금지 — '이별·상실 계열 신호가 강해지는 "
     "시기', '곁을 지키고 건강을 챙길 시기' 프레임만 쓰고, 수명 예측 표현을 쓰지 말 것.",
     "F-17c": "자녀 인연의 구조(시주·자녀성), 출생 가능성이 활성화되는 시기 후보, 자녀와의 "
@@ -2397,12 +2398,12 @@ def _topic_module_block(module_id: str, data: _ReportData, spec: ReportSpec) -> 
         elif module_id in ("M03", "M04", "M05", "M06"):
             if not data.natal_ten_god_dist:
                 return []
+            extras: dict[str, object] = {"natal_ten_god_dist": data.natal_ten_god_dist}
+            if module_id == "M05":
+                # C7 D2: 자녀성 성별 분기(남명 관살·여명/미상 식상) — M05 만 받는다.
+                extras["gender"] = getattr(data.marriage_resource, "gender", None)
             ctx = build_topic_context(
-                module_id,
-                spec.subjects,
-                period,
-                data.composites,
-                natal_ten_god_dist=data.natal_ten_god_dist,
+                module_id, spec.subjects, period, data.composites, **extras,
             )
         elif module_id == "M14":
             ctx = build_topic_context(

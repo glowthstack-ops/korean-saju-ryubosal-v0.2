@@ -11645,3 +11645,12 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - `doc/v2_2/YUKCHIN_ATTRIBUTION_C7.md`(대조표·결정 요청 D1~D6) + 부록 인벤토리. 滴天髓 六親論 원문 취득(维基文库), 사례집 귀속 4건(028·052·053·067)을
   일간 기준 십성으로 재계산해 통설 정합 확인(053 木=재성, 067 戌중 辛=정관). 엔진은 배우자 축만 성별 분기, 부친=편재·남명 자녀=관살은 점수 경로에 없음.
 - 구현 없음(결정 후). C6 종료·표현 정정은 6fa80ac.
+
+## 2026-10-08 — C7 D1·D2·D3·D4·D6 구현: 부모 축 편재·자녀 축 성별 분기·문구 정정·궁위 계약 테스트 (데굴님 승인)
+
+- `topic_builder`: M04 (편인·정인·편재) + `_AXIS_SUBAXES` 요약 분리(합산 1회), `_relation_axis_context(axis_ten_gods=)`, `build_children_context(gender=)` 남명 관살.
+  호출처 `report_service`/`chat_service` M05 에 gender 전달. childbirth 이벤트 불변.
+- 문구: `report_service` F-17b, docs/10 §3-4, docs/09 M04/M05 입력(궁위=서술 보조).
+- 테스트: `test_topic_modules_domain`(기존 1건 갱신 + 신규 4건), `test_palace_role_contract.py` 2건. 실시간 로그 테스트는 `.env` DB DSN 로드 시 통과(미설정 셸에서는 환경 실패).
+- 영향(사례집 175): M04 평균 +11.1p·편재 無 42건 불변, M05 남명 평균 −1.4p, 여명 불변. 검증: 집중 테스트·replay 1회·gates --quick(아래). 전체 스위트 생략(데굴님 지시).
+검증 기록(C7 구현): replay 1회(동일 셸) 180명식 이벤트·세운 0건 차이, 구조·역할 필드 59건 차이는 interactions 라벨 글자 나열 순서(집합 순회 비결정성, 기존 현상·C7 무관), final 5역할 변경 0 · `gates.sh --quick` ruff·typecheck·maintained_scripts exit 0 · 전체 스위트 생략(데굴님 지시).

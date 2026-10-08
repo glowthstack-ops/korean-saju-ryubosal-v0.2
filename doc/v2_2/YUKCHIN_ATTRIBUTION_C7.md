@@ -103,3 +103,19 @@
 ## 6. 구현 순서(승인 후)
 
 D3·D4·D6(문서·테스트, 점수 불변) → D1(M04 편재, replay 전/후 비교) → D2(M05 성별 분기, replay) → 각 단계 후 `test_topic_modules_domain`·골든·게이트.
+
+## 7. 구현 기록 (2026-10-08 데굴님 결정: D1·D2·D3·D4·D6 진행, D5 미구현 유지)
+
+| 결정 | 변경 | 검증 |
+|---|---|---|
+| D1 | `topic_builder._AXIS_TEN_GODS["M04"] = (편인, 정인, 편재)`. 부축 `_AXIS_SUBAXES` 로 finding 요약에 "모친·윗사람(인성) x% · 부친(편재) y%" 분리 표기. 합산은 십성별 1회(인성과 편재는 서로 다른 십성이라 중복 가산 없음). 기간 도메인 신호(relationship)는 불변 | `test_m04_parent_subaxes_no_double_count` + 기존 `test_relation_axis_modules` 갱신 |
+| D2 | `build_children_context(..., gender=None)`: 남명 `("편관","정관")`, 여명 `("식신","상관")`. 성별 미상의 식상은 확정 해석이 아니라 기존 호환용 기본값. 호출처 `report_service`(marriage_resource.gender)·`chat_service`(input_summary.gender)에서 M05 에만 gender 전달. **childbirth 이벤트 불변**(branching 식상 primary 그대로) | `test_m05_children_gender_axis[male/female/None]` |
+| D3 | `report_service` F-17b 가이드와 docs/10 §3-4 문구를 실제 신호(부모성 인성·편재 + 부모궁 월주 충·형, `REL_FAMILY_BURDEN`)로 정정 | 문구 |
+| D4 | docs/09 M04/M05 입력 규격: 궁위(년월주·시주)는 점수 입력이 아니라 서술 보조(`_PALACE_ROLE`)로 정정, 코드와 일치 | 문서 |
+| D6 | `tests/unit/test_palace_role_contract.py` — `_PALACE_ROLE` 매핑(월간 부친·월지 모친·일지 배우자·시 아들/딸)과 구조 블록 `pillar_details.palace_role` 노출 계약 2건(기존 테스트에 없던 것만) | 신규 2건 |
+
+사례집 175명식(날짜 보유) 축 점수 변화(의도한 변화 확인, 스크래치 `c7_axis_rows.json`):
+- M04 편재 추가: 평균 +11.1p, 중앙 +9p, 최대 +51p, 변화 0 42건, 음수 0건(편재가 없는 명식만 불변 — 설계대로). **이 상승은 축 입력 확장 효과이지 정확도 개선이 아니다**(데굴님 정정).
+- M05 남명(109) 관살 분기: 평균 −1.4p, 상승 46·하락 61·동일 2. 여명·성별 미상 66명식은 변화 0(현행 유지 확인).
+- 이벤트 불변: 동일 셸 환경 replay(`subjects_c7_20261008.jsonl`) ↔ 기준(`subjects_base_20261008.jsonl`) 비교 — 아래 추기.
+- **추기(replay 1회, 동일 셸 환경)**: `subjects_c7_20261008.jsonl` ↔ `subjects_base_20261008.jsonl` 180명식 — 이벤트·위험 0건, 세운 점수 0건 차이(childbirth 포함 이벤트 경로 불변). 구조·역할 필드 59명식 차이 → 조사 결과 전부 `structure.interactions` 라벨 안의 지지 글자 **나열 순서**(예: three_harmony:未卯亥 ↔ 未亥卯, half_harmony:卯未 ↔ 未卯)이며 final 5역할·신강약·격국 변경 0건. 프로세스별 문자열 해시 무작위화로 집합 순회 순서가 달라지는 기존 비결정성(C7 무관, 같은 기준 재생을 두 번 돌려도 생김). 재현 지문용으로 라벨 생성부 정렬이 바람직 — 별도 소규모 수정 후보로 기록(이번 범위 밖). 검증: 집중 테스트 32건(topic 26 + palace 2 + 실시간 로그는 .env 로드 시 통과) · `gates.sh --quick` ruff·typecheck·maintained exit 0 · 전체 스위트 생략(데굴님 지시).

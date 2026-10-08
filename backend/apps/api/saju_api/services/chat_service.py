@@ -2026,6 +2026,9 @@ def _topic_module_context(
             if not (tg and tg.distribution):
                 return []
             extras["natal_ten_god_dist"] = dict(tg.distribution)
+            if module_id == "M05":
+                # C7 D2: 자녀성 성별 분기(남명 관살·여명/미상 식상) — M05 만 받는다.
+                extras["gender"] = chart.input_summary.get("gender")
         ctx = build_topic_context(module_id, intent.subjects, period, composites, **extras)
     except Exception:  # noqa: BLE001 — 토픽 모듈 실패가 풀이를 막지 않도록(규칙11)
         return []

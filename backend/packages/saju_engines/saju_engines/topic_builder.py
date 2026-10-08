@@ -924,10 +924,19 @@ def build_bond_compare_context(
 
 
 # 육친 구조형 모듈(M04/M05/M06) — natal 십성 축 + relation_profiles + 기간 도메인 신호.
+# C7(2026-10-08 데굴님 승인, 滴天髓 六親論 "以財為父，以印為母… 依官星看子(남명)·食神清顯 子貴
+# (여명)"): M04 = 인성(모친) + 편재(부친) — 두 축은 서로 다른 십성이라 합산에 중복 가산이 없다
+# (각 십성 1회). M05 = 성별 분기: 남명 관살, 여명 식상. 성별 미상의 식상은 확정 해석이 아니라
+# 기존 호환용 기본값이다. childbirth 이벤트는 불변(식상 primary).
 _AXIS_TEN_GODS: dict[str, tuple[str, ...]] = {
-    "M04": ("편인", "정인"),  # 인성 — 부모·윗사람 자원
-    "M05": ("식신", "상관"),  # 식상 — 자녀·표현
+    "M04": ("편인", "정인", "편재"),  # 인성(모친) + 편재(부친)
+    "M05": ("식신", "상관"),  # 식상 — 자녀(여명·미상 기본)
     "M06": ("편관", "정관", "비견", "겁재"),  # 관성+비겁 — 직장 위계·경쟁
+}
+_M05_MALE_TEN_GODS: tuple[str, ...] = ("편관", "정관")  # 남명 자녀 = 관살
+# 부축(sub-axis) — finding 요약에 근거를 분리 표기(점수는 _AXIS_TEN_GODS 합산 1회).
+_AXIS_SUBAXES: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
+    "M04": (("모친·윗사람(인성)", ("편인", "정인")), ("부친(편재)", ("편재",))),
 }
 _AXIS_RELATION_TYPE = {"M04": "parent_child", "M05": "parent_child", "M06": "colleague"}
 _AXIS_DOMAINS: dict[str, set[str]] = {
@@ -968,20 +977,32 @@ def _relation_axis_context(
     *,
     natal_ten_god_dist: dict[str, float],
     dictionaries_dir: Path = _DICTS_DEFAULT,
+    axis_ten_gods: tuple[str, ...] | None = None,
 ) -> TopicContext:
-    """육친 구조형(M04/M05/M06) 공용 — natal 십성 축 세력 + relation_profiles + 기간 신호."""
-    tgs = _AXIS_TEN_GODS[module_id]
+    """육친 구조형(M04/M05/M06) 공용 — natal 십성 축 세력 + relation_profiles + 기간 신호.
+
+    axis_ten_gods 를 주면 모듈 기본 축 대신 쓴다(M05 남명 관살 분기용).
+    """
+    tgs = axis_ten_gods or _AXIS_TEN_GODS[module_id]
     label = _AXIS_LABEL[module_id]
     total = sum(natal_ten_god_dist.values())
-    axis_sum = sum(natal_ten_god_dist.get(tg, 0.0) for tg in tgs)
-    axis_score = max(0, min(100, round(axis_sum / total * 100))) if total > 0 else 0
+
+    def _pct(names: tuple[str, ...]) -> int:
+        s = sum(natal_ten_god_dist.get(tg, 0.0) for tg in names)
+        return max(0, min(100, round(s / total * 100))) if total > 0 else 0
+
+    axis_score = _pct(tgs)
     axes_ko = _relation_profile_axes(_AXIS_RELATION_TYPE[module_id], dictionaries_dir)
+    sub = " · ".join(
+        f"{name} {_pct(names)}%" for name, names in _AXIS_SUBAXES.get(module_id, ())
+    )
 
     findings = [Finding(
         key=f"natal_axis@{module_id}",
         summary=(
-            f"원국 {label} 축({'·'.join(tgs)}) 세력 {axis_score}% — "
-            f"구조 축: {', '.join(axes_ko)}"
+            f"원국 {label} 축({'·'.join(tgs)}) 세력 {axis_score}%"
+            + (f" [{sub}]" if sub else "")
+            + f" — 구조 축: {', '.join(axes_ko)}"
         ),
         score=axis_score, period_key="natal",
         signals=list(tgs),
@@ -1007,7 +1028,10 @@ def build_parents_context(
     subjects: list[SubjectRef], period: PeriodSpec, composites: list[LuckComposite],
     *, natal_ten_god_dist: dict[str, float], dictionaries_dir: Path = _DICTS_DEFAULT,
 ) -> TopicContext:
-    """M04 parents_fortune — 부모운 (docs/09 4장: natal 인성·년월주 + relation_profiles)."""
+    """M04 parents_fortune — 부모운 (docs/09 4장: natal 인성(모친)+편재(부친) + relation_profiles).
+
+    궁위(년월주)는 점수 입력이 아니라 서술 보조(chart_interpretation._PALACE_ROLE) — C7 D4.
+    """
     return _relation_axis_context(
         "M04", subjects, period, composites,
         natal_ten_god_dist=natal_ten_god_dist, dictionaries_dir=dictionaries_dir,
@@ -1017,11 +1041,19 @@ def build_parents_context(
 def build_children_context(
     subjects: list[SubjectRef], period: PeriodSpec, composites: list[LuckComposite],
     *, natal_ten_god_dist: dict[str, float], dictionaries_dir: Path = _DICTS_DEFAULT,
+    gender: str | None = None,
 ) -> TopicContext:
-    """M05 children — 자녀운·자녀 관계 (docs/09 4장: natal 식상·시주 + relation_profiles)."""
+    """M05 children — 자녀운·자녀 관계 (docs/09 4장: natal 자녀성 + relation_profiles).
+
+    자녀성은 성별 분기(C7 D2): 남명 관살, 여명 식상. gender 는 'male'/'female'/None 이며 None(성별
+    미상)의 식상은 확정 해석이 아니라 기존 호환용 기본값이다.
+    childbirth 이벤트 후보는 이 분기와 무관하게 식상 primary 그대로다.
+    """
+    axis = _M05_MALE_TEN_GODS if gender == "male" else None
     return _relation_axis_context(
         "M05", subjects, period, composites,
         natal_ten_god_dist=natal_ten_god_dist, dictionaries_dir=dictionaries_dir,
+        axis_ten_gods=axis,
     )
 
 
