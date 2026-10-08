@@ -14,6 +14,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
+from saju_shared_types.constants import hidden_stems_for, ten_god
+from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.event_engine import (
     TEN_GOD_GROUP,
     TEN_GOD_KO_TO_KEY,
@@ -25,6 +27,7 @@ from saju_shared_types.event_engine import (
 )
 from saju_shared_types.luck import LuckPillar
 
+from . import period_v2_config
 from .contribution_provenance import (
     EvaluatedEvidence,
     ProvenanceRecorder,
@@ -197,14 +200,24 @@ class TenGodEventBrancher:
 
     # ── 신호 수집 ─────────────────────────────────────────────────
 
+    # 지지 중기·여기 강도(2026-10-08 shadow, 실험용 채택 규칙): 본기 배율 × 원국 통근 비율
+    # (중기 0.6·여기 0.35 — manse_analysis._chart.ROOT_HIDDEN_WEIGHT 와 같은 값). HiddenStemType
+    # 값은 main/middle/residual.
+    _HIDDEN_RATIO = {"middle": 0.6, "residual": 0.35}
+    _HIDDEN_SOURCE = {"middle": "branch_mid", "residual": "branch_initial"}
+
     def collect_from_pillar(
         self, pillar: LuckPillar, layer: LuckLayer, is_target: bool = True,
+        day_master: str | None = None,
     ) -> list[TransitSignal]:
         """운 기둥의 천간·지지(본기) 십성을 강도(strength) 포함 신호로 변환한다.
 
         천간=1.0, 지지 본기=0.9. 천간·지지 본기가 같은 십성군이면(운 간여지동 — 丙午·壬子처럼
         정·편이 갈려도 계열이 같으면 성립) 두 신호 모두 동일계열 집중 배율(1.25)로 대체한다.
-        판정은 지지 본기만 사용하고 중기·여기로 확장하지 않는다(지장간은 후속 강도 보정).
+        판정은 지지 본기만 사용하고 중기·여기로 확장하지 않는다(기본). 플래그
+        `TRANSIT_HIDDEN_STEM_ENABLED`(shadow) 이고 day_master 가 주어지며 채점 대상 기둥이면
+        중기(0.9×0.6)·여기(0.9×0.35) 십성 신호를 더한다 — 천간·본기와 같은 십성군이면 제외(중복
+        가산 금지), 중·여기끼리 같은 군이면 큰 쪽(중기)만. 배경 운층은 본기 유지.
 
         동일계열 집중은 해당 운 기간 자체의 특성이므로 채점 대상 기둥(is_target)에만 적용한다.
         배경 운층(거버닝 스택의 상위 운, 예: 월운 채점 시의 세운·대운)에 적용하면 그 층의
@@ -248,7 +261,35 @@ class TenGodEventBrancher:
                 same_group=same_group, same_god=same_god,
                 occurrence=_occ("branch", pillar.branch),
             ))
+        if is_target and day_master and period_v2_config.TRANSIT_HIDDEN_STEM_ENABLED:
+            out.extend(self._hidden_stem_signals(pillar, layer, day_master, stem, branch, _occ))
         return out
+
+    def _hidden_stem_signals(
+        self, pillar: LuckPillar, layer: LuckLayer, day_master: str,
+        stem: TenGod | None, branch: TenGod | None, occ,
+    ) -> list[TransitSignal]:
+        """지지 중기·여기 십성 신호(shadow) — 같은 십성군은 1개만(max), 본기·천간과 겹치면 제외."""
+        taken = {TEN_GOD_GROUP[g] for g in (stem, branch) if g is not None}
+        picked: dict[TenGodGroup, tuple[TenGod, str, str, float]] = {}
+        dm = Stem(day_master)
+        for hstem, htype, _w in hidden_stems_for(Branch(pillar.branch)):
+            kind = str(getattr(htype, "value", htype))
+            if kind not in self._HIDDEN_RATIO:
+                continue  # 본기(primary)는 이미 branch_main
+            key = TEN_GOD_KO_TO_KEY.get(str(ten_god(dm, hstem)))
+            if key is None:
+                continue
+            grp = TEN_GOD_GROUP[key]
+            if grp in taken:
+                continue
+            strength = round(self._mult_branch * self._HIDDEN_RATIO[kind], 4)
+            if grp not in picked or strength > picked[grp][3]:
+                picked[grp] = (key, self._HIDDEN_SOURCE[kind], str(hstem), strength)
+        return [
+            TransitSignal(key, layer, source, strength=strength, occurrence=occ(source, glyph))
+            for key, source, glyph, strength in picked.values()
+        ]
 
     # ── 분기 ──────────────────────────────────────────────────────
 

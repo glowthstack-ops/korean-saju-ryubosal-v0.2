@@ -569,6 +569,8 @@ class EventEngineV2:
             for layer, pillar in stack
             for s in self._brancher.collect_from_pillar(
                 pillar, layer, is_target=layer is target_layer,
+                # 지장간 신호(shadow)는 채점 대상 기둥만
+                day_master=result.pillars.day_master if result.pillars else None,
             )
         ]
         # ── 위험 엔진 R0 shadow(RISK_ENGINE.md) — reducer·모디파이어 이전 원시 신호 소비 ──

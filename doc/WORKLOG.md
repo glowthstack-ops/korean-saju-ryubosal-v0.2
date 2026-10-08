@@ -11724,3 +11724,9 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
   `casebook_report.py` C 라벨에 '상위4 노출 기준' 명시(리포트 전용).
 - `TRANSIT_HIDDEN_STEM_REVIEW.md`(T1~T4), `JOHU_C2_DECISIONS_2026-10-08.md`(채택/기각/보류 분류). 구현 없음.
 - OFF 기능 승격 검토(`OFF_FEATURE_PROMOTION_REVIEW_2026-10-08.md`): 개별 승격 근거 충분한 기능 없음(MT4·MT5·Tier B·near_tie·이동 시기·P2 게이트 전부 보류). 메모 정정: MT1·2·3·6 운영 ON, P2 게이트는 grounding 노출만.
+
+## 2026-10-08 — 조후 v0.3.4 conditions 등재 · 운 기둥 지장간 shadow(미채택) · 풀이 상한 재검증 (데굴님 결정)
+
+- `johu_yongsin.json` 0.3.4(conditions 19건 등재, 미소비). `period_v2_config.TRANSIT_HIDDEN_STEM_ENABLED`(OFF), `ten_god_brancher._hidden_stem_signals`, 엔진 day_master 전달,
+  테스트 3건. 재생 1회(beta+ON): C 25→22·C' 23→19·상위4 집합 변경 45% → 미채택·OFF 보존. gates --quick exit 0.
+- 풀이 상한 재검증: 실패 작업(test1/데굴/RPT_YEAR 2027)과 같은 사양으로 1회 재실행 → job b10a27b7 completed 14/14(오류 없음). 섹션 입력 토큰 최대값은 llm_usage 로 확인(아래 보고).

@@ -350,3 +350,8 @@ C1 → C2 → (C3 ∥ C4) → C5 → C6. C1·C2는 용신 배정을 바꾸므로
 - `JOHU_C2_DECISIONS_2026-10-08.md`: 채택(현행 month_axis_graded, conditions 사전 등재, 3-B-1 검토) / 기각(규칙 B-2, axis_graded, 3-B-3) / 보류(규칙 B-1 — 042 재확인 후,
   conditions 소비, 3-B-2, 3-B-4, 丙巳 戊). 결정 대기 9 → 즉시 처리 2·재확인 1·보류 명시.
 - 풀이 섹션 토큰 상한 15,000→18,000(1ff0755, docs/09 §8).
+
+### 2026-10-08 — C2 확정 적용(v0.3.4 conditions 등재) · 운 기둥 지장간 shadow 결과(미채택) · 토큰 상한 재검증 (데굴님 결정)
+
+- 조후 사전 v0.3.4: conditions 17셀 19건 등재(엔진 미소비), month_axis_graded 유지, 3-B-1 변경 없음(5899c62).
+- 운 기둥 지장간 shadow(`TRANSIT_HIDDEN_STEM_REVIEW.md` §5): C 25→22(개선 0·악화 3), C' 23→19, 상위4 집합 변경 45% → **미채택, OFF 보존**. 추가 튜닝 없음.

@@ -64,6 +64,10 @@ HAP_MITIGATION_ENABLED: bool = _env_flag("SAJU_HAP_MITIGATION_ENABLED")
 # 필드만 채운다. luck_score·라벨·기존 소비자 불변. 계산은 saju_manse_analysis.luck.luck_cycles 가
 # 같은 환경변수를 따로 읽는다.
 SEWOON_DAEWOON_CONTEXT_ENABLED: bool = _env_flag("SAJU_SEWOON_DAEWOON_CONTEXT_ENABLED")
+# 운 기둥 지지 중기·여기 십성 신호(2026-10-08 데굴님 승인, shadow) — 채점 대상 기둥에만 중기
+# 0.9×0.6·여기 0.9×0.35(원국 통근 ROOT_HIDDEN_WEIGHT 비율 재사용), 같은 십성군은 max(중복 가산
+# 없음). **실험용 채택 규칙**(고전 수치 아님).
+TRANSIT_HIDDEN_STEM_ENABLED: bool = _env_flag("SAJU_TRANSIT_HIDDEN_STEM_ENABLED")
 # CALIBRATE: 관운 강화 favorability 가산(데굴님 승인 제안값, shadow 실측 후 조정).
 HAP_OFFICER_BOOST: float = 0.3
 # 관계 용어 층위 정리 v2(2026-09-18 데굴님 승인, 전문가 참고 기준) — 서술·표기 전용, 점수·판정 불변:
@@ -167,6 +171,7 @@ def active_versions() -> dict[str, str | bool]:
         "risk_aux_amplifier_enabled": RISK_AUX_AMPLIFIER_ENABLED,
         "health_window_channel_enabled": HEALTH_WINDOW_CHANNEL_ENABLED,
         "sewoon_daewoon_context_enabled": SEWOON_DAEWOON_CONTEXT_ENABLED,
+        "transit_hidden_stem_enabled": TRANSIT_HIDDEN_STEM_ENABLED,
         # LLM 재호출은 설계상 존재하지 않는다(요청당 1회 고정) — 계측 계약으로 못박는다.
         "llm_retry_policy": "none",
     }
