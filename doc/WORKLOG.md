@@ -11663,3 +11663,8 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 수정: 구성 글자는 **원국 자리 순(연→월→일→시, 첫 등장)** — 같은 함수의 삼형·자형·육합이 이미 쓰는 표기 규칙과 동일. 자형 순회는 12지 정의 순.
 - 검증(최소, 데굴님 지시): `tests/unit/test_relations_order_determinism.py` 2건(자리 순 불변식 + PYTHONHASHSEED 0/1/12345 하위 프로세스 동일),
   `test_relations.py`, 회귀 골든(`tests/regression`)·structure·yongsin 단위 테스트, `gates.sh --quick`. 전체 스위트·replay 반복 없음.
+
+## 2026-10-08 — C1-c 종격 검출기 통일 변경안 (데굴님 지시, 검토 단계·새 실행 없음)
+
+- `doc/v2_2/FOLLOW_DETECTOR_UNIFICATION_C1C.md`: 경로 3종 비교, root_score 인성 포함 결함, 기준 3종·골든 8건·063/L 영향, 후보 A/B/C, 권고 C 즉시·A 보류, E1~E6 결정 요청.
+  확인 사항: C3 기록의 "063/L 역할 변경 1건"이 subjects_c2 산출물과 불일치(E5).
