@@ -11697,3 +11697,10 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 상충 사례를 같은 기준으로 설명: 066/L 비겁 뿌리 9.2 → 종격 아님(전문가 인비 필요 일치), 063/L 인성 의지처 → 가종, japan 비겁 뿌리 11 → 종격 아님, 종격 3종·064/R 진종 양측 확정.
 - 검증: 집중 89건, gates --quick exit 0, 골든 0 변경, 재생 1회(아래 추기).
 검증 기록(종격 통합): 재생 1회 ↔ 직전 — 격국 3(025/R·064/R·082/3 종격 확정), 가종 신호 +9, final 6(043/3·046/L·063/L·064/R·066/L·082/3), 신강약 0, 골든·기준 0, 쌍 비교 31→33. 전부 한 기준으로 설명되나 063/L 壬戌 대운 +0.27→−0.27(발재 사건과 어긋남) — 상충 사례 보존.
+
+## 2026-10-08 — 격국 명확도 분기 통합(종격 공통 판정기로 완결) (데굴님 지시)
+
+- `geokguk_eval._clarity_level(confidence, sf_score, band, follow_kind)`: root<8 독자 판정 제거, confirmed/uncertain 라벨·정책 문구, `_CLARITY_MULT` confirmed=1.30.
+- 측정 222명식: 표시 변경 22(구 uncertain 8→confirmed, 신규 가종 11·진종 3), final_weight 14건 변동(0.325), 특수→일반 0. 테스트 +1, gates --quick. 재생·스위트 반복 없음.
+- 가중 분리(데굴님 지시): `_final_weight(level, base_level)` — 가종은 정격 가중 유지, 진종만 1.30. 소비 경로 = `_select_axis_weights`(중화·신강 분기)·프론트 문구뿐.
+  재측정 가중 변동 5건(진종 ↑3·가종 ↓2), 5건 final 불변. 성과 = 판정·표시 기준 통일. 검증: 집중 테스트(가중 분리 단언 포함)·gates --quick.

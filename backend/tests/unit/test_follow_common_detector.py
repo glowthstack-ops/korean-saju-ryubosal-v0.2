@@ -63,3 +63,21 @@ def test_no_follow_above_score_threshold() -> None:
     r = _calc("1980-11-22", "09:40")
     assert r.force_analysis.strength.score > 34
     assert detect_follow(r.force_analysis) is None
+
+
+def test_clarity_level_matches_common_follow_result() -> None:
+    """격국 명확도는 공통 판정과 표현이 일치한다: 진종=confirmed, 가종=uncertain, 비종=일반 라벨."""
+    real = _calc("1961-01-03", "00:30")            # shadow jonggyeok_01 — 진종
+    pseudo = _calc("1953-06-12", "16:00", "female")  # 063/L — 가종
+    none = _calc("1956-11-03", "14:30")             # 066/L — 비겁 뿌리 有, 비종
+    assert real.geokguk.evaluation.clarity_level == "special_pattern_confirmed"
+    assert pseudo.geokguk.evaluation.clarity_level == "special_pattern_uncertain"
+    assert none.geokguk.evaluation.clarity_level not in (
+        "special_pattern_confirmed", "special_pattern_uncertain",
+    )
+    assert "종격" in real.geokguk.evaluation.clarity_policy
+    assert "양쪽" in pseudo.geokguk.evaluation.clarity_policy
+    # 표시와 가중 분리: 진종은 옛 종격 의심 가중(0.25×1.30=0.325), 가종은 정격 평가 가중 그대로
+    # (라벨 변경으로 자동 상승하지 않음).
+    assert real.geokguk.evaluation.final_weight == 0.325
+    assert pseudo.geokguk.evaluation.final_weight < 0.325

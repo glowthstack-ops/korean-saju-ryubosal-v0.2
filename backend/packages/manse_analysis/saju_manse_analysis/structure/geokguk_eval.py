@@ -373,6 +373,7 @@ def _success_failure(
 _CLARITY_MULT = {
     "very_clear": 1.60, "clear_but_mixed": 1.20, "unclear": 0.80,
     "weak_gukguk_priority": 0.60, "special_pattern_uncertain": 1.30,
+    "special_pattern_confirmed": 1.30,  # 가중은 uncertain 과 동일(새 가중 구간을 만들지 않음)
 }
 _CLARITY_POLICY = {
     "very_clear": "격국 중심으로 해석한다.",
@@ -380,13 +381,26 @@ _CLARITY_POLICY = {
     "unclear": "격국 단정보다 억부·조후 용신 중심으로 해석한다.",
     "weak_gukguk_priority": "격국은 보조 설명으로만 사용한다.",
     "special_pattern_uncertain": "정격·종격 양쪽 가능성을 함께 비교한다.",
+    "special_pattern_confirmed": "종격(특수격)이 주격 — 정격은 병기 참고로만 본다.",
 }
 _BASE_WEIGHT = 0.25
 
 
-def _clarity_level(confidence: int, sf_score: float, band: str, root_score: float) -> str:
-    if band == "태신약" and root_score < 8.0:
-        return "special_pattern_uncertain"  # 종격 의심(7단계: 태신약이 옛 극신약을 흡수)
+def _clarity_level(
+    confidence: int, sf_score: float, band: str, follow_kind: str | None,
+) -> str:
+    # 종격 명확도(2026-10-08 데굴님 결정): 독자적 `태신약 ∧ root<8` 판정을 버리고 공통 판정기
+    # (follow_check.detect_follow)의 진종/가종/비종과 표현을 일치시킨다. **표시 전용** — 가중은
+    # _final_weight 가 따로 정한다(표시와 가중 분리, 데굴님 지시).
+    if follow_kind == "real":
+        return "special_pattern_confirmed"   # 진종 — 격국도 특수격으로 치환됨
+    if follow_kind == "pseudo":
+        return "special_pattern_uncertain"   # 가종 — 정격·종격 양쪽 비교
+    return _base_clarity_level(confidence, sf_score, band)
+
+
+def _base_clarity_level(confidence: int, sf_score: float, band: str) -> str:
+    """정격 평가 신뢰도·성패만으로 정한 일반 명확도(가중 산정의 기준)."""
     if confidence >= 80 and sf_score >= 40:
         return "very_clear"
     if confidence >= 60 and sf_score >= -10:
@@ -398,9 +412,14 @@ def _clarity_level(confidence: int, sf_score: float, band: str, root_score: floa
     return "unclear"
 
 
-def _final_weight(level: str) -> tuple[float, str]:
+def _final_weight(level: str, base_level: str | None = None) -> tuple[float, str]:
     # geokguk_master_v2 final_gukguk_application_formula 해석 구간.
-    raw = _BASE_WEIGHT * _CLARITY_MULT.get(level, 1.0)
+    # 표시와 가중 분리(2026-10-08 데굴님 지시): 가종(uncertain)은 종격 가능성을 **표시만** 하고
+    # 가중은 정격 평가(base_level)대로 둔다 — 라벨 변경이 해석 비중을 자동으로 올리지 않는다.
+    # 진종(confirmed)은 격국이 특수격으로 치환되므로 옛 종격 의심 가중(1.30)을 그대로 쓴다(기존
+    # 8건과 동일).
+    mult_level = base_level if (level == "special_pattern_uncertain" and base_level) else level
+    raw = _BASE_WEIGHT * _CLARITY_MULT.get(mult_level, 1.0)
     final = round(_clamp(raw, 0.10, 0.60), 3)
     if final >= 0.46:
         interp = "격국 또는 특수격의 핵심 기준으로 사용"
@@ -519,7 +538,6 @@ def evaluate_geokguk(
     groups = _group_counts(counts)
     month_void = pillars.month.branch in set(gongmang_branches)
     band = force.strength.band
-    root_score = float(force.strength.components.get("root_score", 0.0))
 
     failures = _detect_failures(
         counts, groups, band, _month_clashed(structure), month_void,
@@ -541,8 +559,11 @@ def evaluate_geokguk(
         pillars, cand, band, sangsin_groups, groups, failures, structure, clean
     )
 
-    level = _clarity_level(confidence, sf_score, band, root_score)
-    final_weight, fw_interp = _final_weight(level)
+    _fc = detect_follow(force)
+    level = _clarity_level(confidence, sf_score, band, _fc.kind if _fc else None)
+    final_weight, fw_interp = _final_weight(
+        level, _base_clarity_level(confidence, sf_score, band),
+    )
 
     expr = (
         "격국 무대(직업성·역할)가 매우 선명" if confidence >= 80 else

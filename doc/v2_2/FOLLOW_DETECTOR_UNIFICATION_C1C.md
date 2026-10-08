@@ -138,3 +138,27 @@ decision_trace·골든 8·기준 사주 6·shadow spec·F6 패턴 통과, `gates
 
 - §7-2 배선 전 측정은 **226명식**(사례집 175 + 골든 8 + 기준 6 + 종격 4 + shadow 33, 판정만), §8 영향 비교는 **사례집 180명식 재생**(점수·이벤트 포함). 두 수치를 섞어 읽지 않는다.
 - 임계값 4종은 **현행 채택값**으로 명시·유지한다: `PEER_ROOT_MAX=8.0`, `DOM_RATIO_REAL/PSEUDO=0.40/0.33`, `RESOURCE_RATIO_REAL/PSEUDO=0.12/0.28`(FOLLOW_MAX_SCORE 34 는 기존). 독립 사례나 구체적 오판 패턴이 확보됐을 때 재측정하며, 063/L 을 맞추기 위한 조정은 하지 않는다.
+
+## 9. 격국 명확도 분기 통합 (2026-10-08 — 잔여 분기 제거로 작업 완결)
+
+- `geokguk_eval._clarity_level`: 독자 판정 `태신약 ∧ root_score<8` 제거 → 공통 판정기 결과로 표현 일치: 진종 `special_pattern_confirmed`
+  ("종격(특수격)이 주격 — 정격은 병기 참고"), 가종 `special_pattern_uncertain`("정격·종격 양쪽 비교"), 비종은 기존 일반 라벨. `_CLARITY_MULT` 의
+  confirmed 가중은 uncertain 과 동일(1.30, 새 가중 구간 없음).
+- 측정(226명식 중 평가 있는 222, 판정·표시만, 재생 없음): 표시 변경 **22명식** — 구 uncertain 8건 전부 confirmed(진종)로, 신규 특수 14건
+  (가종 11 + 진종 3: 025/L·025/R·064/R). 특수→일반으로 빠진 명식 0. **final_weight(성패 가중 경로)는 신규 특수 14건에서 0.20~0.30 → 0.325 로
+  변동**(가중 자체는 기존 uncertain 값과 동일) — 점수 경로 변화를 명시하되 사건 지표에는 영향 없음(격국 가중은 리포트 해석 비중용).
+- 검증(집중): `test_clarity_level_matches_common_follow_result`(진종/가종/비종 ↔ confirmed/uncertain/일반), `test_geokguk_eval`·용신·골든·기준 통과,
+  `gates.sh --quick`. 전체 replay·스위트 반복 없음(데굴님 지시).
+- 이로써 종격 판정은 **격국 신호·격국 명확도·용신 특수격 세 곳이 모두 `strength.follow_check.detect_follow` 하나**를 쓴다. C안의 `follow_consistency` 는
+  투명성 필드로만 남는다.
+
+### 9-1. 표시와 가중의 분리 (2026-10-08 데굴님 지시: 라벨 변경으로 자동 상승한 가중은 분리)
+
+- 소비 경로 확인: `GeokgukEvaluation.final_weight` 를 읽는 운영 코드는 `yongsin/candidates._select_axis_weights`(:1819, 중화·신강 분기의 격국 축 가중)
+  하나이고, 신약·태신약(억부 분기)·special 분기에서는 읽지 않는다. LLM 프롬프트·context_reducer 는 `success_failure_label` 만 쓰며, 프론트는
+  `clarity_policy` 문구만 표시한다. 즉 **사건 지표 영향 없음** 이고, **최종 풀이 영향은 격국 패널 문구(clarity_policy·final_weight_interpretation)** 로 한정된다.
+- 변경: `_clarity_level` 은 표시 전용, `_final_weight(level, base_level)` 가 가중을 따로 정한다 — **가종(uncertain)은 정격 평가 가중(base_level) 그대로**
+  (종격 가능성은 표시만), **진종(confirmed)은 격국이 특수격으로 치환되므로 옛 종격 의심 가중 1.30 유지**(기존 8건과 같은 값, 근거 있는 변경).
+- 재측정(222명식): 가중 변동 **5건**뿐 — 진종 상승 3(025/L·025/R 0.30→0.325, 064/R 0.20→0.325: 격국이 종격으로 치환됨), 가종 하향 2(046/L·063/L 0.325→0.30:
+  옛 root<8 의심 가중이 사라지고 정격 가중으로). 5건 모두 용신 final·선택 모델 **불변**(재생 c9cc799 ↔ 현재). 나머지 가종 9건은 라벨만 바뀌고 가중 불변.
+- 성과 기록: **판정·표시 기준 통일**(격국 신호·명확도·용신 특수격 = 공통 판정기). 정확도 개선 판단과 063/L 상충 사례는 §8 대로 유지.
