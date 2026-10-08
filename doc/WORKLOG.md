@@ -11759,6 +11759,7 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 
 - 총운 job 4540fd5b(1978년생, RPT_FULL)가 `report_full_section: 입력 18247tok > 상한 18000tok`로 실패. 당일 1차 상향(15k→18k) 뒤 두 번째 초과.
 - `llm_guard.CALL_LIMITS` report_focus/full_section 20,000(출력 8,000·thinking 불변). docs/09 §8 표·주석 갱신. 세 번째 초과 시 명식 블록 압축 검토를 기록.
+- 실패한 job 4540fd5b(1978년생 총운)는 재실행하지 않는다 — 계획 없음(데굴님 결정, 2026-10-08). 상한 적용은 코드·재기동으로 확정.
 
 ## 2026-10-08 — CI 복구: production mypy 게이트 통일 · numpy 폴백 ignore · DB 없는 러너의 테스트 격리 (데굴님 승인, PR #1 main 머지 준비)
 
