@@ -11771,3 +11771,19 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
   → conftest 세션 fixture `_isolate_test_db` 가 접속 시도 → DB 없는 러너에서 전 테스트 에러. 수정: 모듈은 DB probe 성공 시에만 env 를 심고(`_DB_UP`),
   fixture 는 `psycopg.OperationalError` 시 경고 후 격리 생략(각 DB 테스트는 자체 skipif/probe 로 빠짐).
 - 검증: 로컬 DB 통합 3파일+단위 1파일 35건 통과, gates --quick exit 0. CI 결과는 푸시 후 확인.
+
+## 2026-10-08 — CI 복구 2차: Postgres 서비스 · gitignore 산출물 skip · 종격 통합 회귀 발견 (데굴님 승인 진행 중)
+
+- 1차 수정 후 CI pytest 가 처음 완주: 5,596 passed / 24 failed / 3 errors / 108 skipped. 실패 4묶음을 깨끗한 worktree(무시 파일 없음)에서 전부 재현.
+- (1) DB 묶음 13건(`ValueError: DB 접속 문자열 필요`, offer_continue 빈 프롬프트 포함) — 대화 스레드·사주 저장소를 쓰는 unit 테스트. 로컬은
+  `test_account_last_subject_api` 의 collection 시 env 주입에 기대 통과하던 것. 두 워크플로에 `pgvector/pgvector:pg16` 서비스(15432, 계정 동일)
+  + `SAJU_V2_DATABASE_URL` 추가 → conftest 가 `saju_v2_test` 생성·마이그레이션(로컬과 동일 조건).
+- (2) `test_oa10b_shared_migration` 7건 — gitignore 산출물 `compiled/oa10b_anchor_aggregates.json` 부재 → 모듈 skipif.
+- (3) `test_region_directional` 4건 — gitignore 원천 `doc/gis/region_units_compact_20230729.jsonl` 부재(빌드 rc=1) → 모듈 skipif.
+- (4) `test_yongsin_decision_provenance::test_canonical_origin_does_not_depend_on_competing` 1건 — **CI 환경 문제가 아니라 로컬 HEAD 에서도 실패하는
+  회귀**. bisect: 첫 실패 커밋 c9cc799(종격 공통 판정기 통합). 코호트 1983-04-17 23:40 남(丙일간, 癸亥 丙辰 丙子 戊子)이 통합 후 종살격으로
+  잡히는데 follow_structure 모델은 용신 水·기신 火(비겁)만 가진 부분맵이라 canonical 이 정적 생극(_classify_roles)으로 폴백 → heesin 金·gisin 土·
+  gusin 火·hansin 木. 모델 자체의 '비겁 기신'이 정적 폴백에서 土(식상)로 바뀌어 불변식(완비 모델맵/특수분기만) 위반. 스펙 표 8행(특수격/종격
+  부분맵 폴백 보호 필요)의 기존 공백. 종격 역할맵 완비 규칙은 명리 결정 사항이라 데굴님 판단 대기.
+- 교훈: ebe1f43 이후 "전체 스위트 반복하지 않음" 결정으로 c9cc799~HEAD 가 전체 스위트 없이 커밋돼 회귀가 CI 복구 때 드러났다.
+- 검증: 메인 트리 oa10b·region 실행 통과, worktree 에서 skip 확인, gates --quick exit 0.

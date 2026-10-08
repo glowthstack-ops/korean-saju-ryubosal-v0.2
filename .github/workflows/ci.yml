@@ -11,6 +11,23 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # 전용 DB(docker-compose.yml 의 saju-v2-db 와 동일 이미지·계정·호스트 포트) — backend-ci.yml 과 같다.
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: saju_v2
+          POSTGRES_PASSWORD: saju_v2
+          POSTGRES_DB: saju_v2
+        ports:
+          - "15432:5432"
+        options: >-
+          --health-cmd "pg_isready -U saju_v2 -d saju_v2"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      SAJU_V2_DATABASE_URL: postgresql://saju_v2:saju_v2@localhost:15432/saju_v2
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

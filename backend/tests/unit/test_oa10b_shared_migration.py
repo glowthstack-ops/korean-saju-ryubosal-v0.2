@@ -25,6 +25,15 @@ from saju_engines.daily_rolling_audit_public_adapter import (  # noqa: E402
 
 _ANCHORS = 3          # 회귀용 짧은 구간
 
+# 공식 경로는 gitignore 산출물 `compiled/oa10b_anchor_aggregates.json`(재생성:
+# `scripts/legacy_oa10b_aggregate.py`)을 읽는다. 신선한 체크아웃(CI)에는 없으므로 부재 시
+# skip — 산출물 없는 환경에서 FileNotFoundError 로 쓰러지던 결함(2026-10-08 CI 실측 7건).
+_AGGREGATES = Path(__file__).resolve().parents[2] / "compiled" / "oa10b_anchor_aggregates.json"
+pytestmark = pytest.mark.skipif(
+    not _AGGREGATES.exists(),
+    reason="gitignore 산출물 compiled/oa10b_anchor_aggregates.json 부재 — 재생성 후 실행",
+)
+
 
 @pytest.fixture()
 def counters(monkeypatch) -> dict[str, int]:
