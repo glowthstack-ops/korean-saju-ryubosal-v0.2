@@ -81,3 +81,63 @@
 | F6 | 화기격 파괴(운 역행)·가화의 운 취용 | 별도 과제 | luck_structure_flags·이벤트 엔진 연계, 이번 범위 밖 |
 
 구현 순서(승인 후): F1 → F2 → F3(라벨, 성패 보류) → F4(용신) → 각 단계 사례집 replay·골든·기준 사주 불변 확인. 종격 튜닝과 결합하지 않는다.
+
+## 7. 판정원·성립 조건 확정 (2026-10-08 — 데굴님 지시: 기록만 추가하고 보류하지 말 것)
+
+### 7-1. 재생 기록(H0, `subjects_hwa_20261008.jsonl`, 엔진값)
+
+| 지표 | 값 |
+|---|---|
+| 일간 천간합 기록 | 41행 / 37명식 |
+| ① hap_modes tier | none 27 · conditional 5 · **confirmed 9** |
+| chart_transform(① confirmed·일간·원국) | **9행 / 8사례**(080 은 L·R 2행) |
+| ① confirmed × ② TransformationCheck confirmed 행렬 | (F,F) 31 · **(T,F) 8** · (F,T) 1 · (T,T) 1 |
+| 진화(일간 무근) / 가화(유근) | **1(066/R) / 8** |
+| chart_transform 중 고전① 월·시 합 충족 | 9/9 |
+| chart_transform 중 고전③ 투간 인·겁·관 不遇 충족 | 2/9 (024/3, 066/R) |
+| 진화 ∧ 고전①③ | **1 (066/R 丙申 戊戌 甲戌 己巳, 甲己合土, 시간 합, 일간 무근, 투간 인겁관 없음)** |
+| 골든 8·기준 사주 6·종격 3종 | chart_transform **0**(엔진값; uk_london·us_newyork·2016-03-10 conditional, 1985-10-29 none) |
+
+② 만 confirmed 인 1건 = 051/L(甲己 월간 합, 쟁합 contend=True → ① conditional). ② 는 일간 무관·지지 충을 blocker 로 섞어 ① confirmed 9건 중
+1건만 잡고, 獨相作合 위반 사례를 confirmed 로 잡는다 → **정본 부적합**.
+
+### 7-2. 확정
+
+- **판정원 정본 = ① `hap_modes`**(`detect_hwagi`). ② TransformationCheck 는 성패(`_geoksin_combined_away`)·신강약 ±3 보조로 현행 유지.
+- **진화(眞化) = chart_transform ∧ 일간 무근 ∧ 합 상대 월·시간 ∧ 투간 인·겁·관 不遇(합 상대 제외)** — 滴天髓 從化論 조건을 그대로.
+- **가화(假化) = chart_transform 이되 위 셋 중 하나라도 어긋남** — 후보 표시만(격국 치환 없음·용신 보조 모델).
+- **규칙의 확실성 구분(데굴님 지시)**: 위 진화 조건은 고전(滴天髓 從化論) 직접 근거다. 아래 둘은 **엔진이 채택한 규칙**이며 고전의
+  확정 규칙이 아니다 — ① 격국 우선순위 화기격(진화) → 전왕 → 종격(리포 설계 codex_spec 10.6 의 검사 순서를 따름; 066/R 은 종재격 override
+  조건도 충족하나 이 순서로 화토격이 주격, 정격·종격 병기) ② 化神 역할 배정 용신=化神·희신=化神을 생하는 오행·기신=化神을 극하는 오행
+  (codex_spec 10.6 yongsin_rule 의 단순화; 滴天髓는 "既化矣 又論化神… 土遇陰寒 要火為印"처럼 化神의 한난·강약에 따라 달리 보라고 하므로
+  후속 조정 대상).
+- 신강약 일간 오행 치환 = 미채택(별도 근거 시 재논의).
+
+**성과 기록**: 화기격 판정원 통일(hap_modes 정본) 및 격국·용신 재평가 공백 해소. final 역할이 그대로여도 구조적 개선은 유효(데굴님).
+
+## 8. 구현 기록 (2026-10-08)
+
+| 영역 | 변경 | 검증 |
+|---|---|---|
+| 판정원 | `relations/hap_modes.detect_hwagi(pillars) -> HwagiCheck|None`(kind real/pseudo, 化神, 합 자리, dm_rooted, blocking_stems, reasons) | `test_hwagi_reevaluation` 4건, `test_hap_modes` 기존 통과 |
+| 용신 검출 | `special_cases.detect_special_cases(force, structure, pillars=None)`: `transformation_structure` 를 ② 에서 ① 로 교체(detail `real|pseudo:化神:화X격:pair:partner`) | 상동 |
+| 격국 | `geokguk_eval.special_signal`: 진화면 `{type: transform, name: 화X격, confidence .85}` 를 전왕·종격보다 먼저 반환. `geokguk._OVERRIDE_MIN["transform"]=0.60` → 진화는 주격 치환·`formation_level=특수격`. 가화는 `warnings` 에 "화기격 후보(가화)…"만. `follow_consistency` 는 transform 시 `superseded_by_transform` | 066/R 화토격, 080/L 식신격 유지·경고, 골든 8·기준 6 불변 |
+| 용신 | `candidates.build_yongsin`: 진화 → `transformation_structure` 모델(용신=化神, 희신=化神을 생하는 오행, 기신=化神을 극하는 오행) special 축 단독(`_AXIS_OF`·`special`·C1-c 안전장치 목록 포함). 가화 → `is_auxiliary` 보조 모델 병기 + 경고(final 불변) | 066/R final 土/火/木(모델 transformation_structure), 080/L final 불변·보조 모델 1건 |
+| 프론트 | `Panels.tsx` SPECIAL_TYPE_KO transform=화기격, `CalibrationPanel.tsx` 축 매핑 | tsc·production build |
+| 재생 기록 | `casebook_replay.py` `structure.hwa`(두 판정원·고전 조건·진/가), `structure.follow_consistency` | H0 재생 1회 |
+| 게이트 | ruff·production mypy·maintained scripts exit 0 | `gates.sh --quick` |
+
+영향 확정(구현 후 재생 1회 ↔ H0 재생 대조)은 §9 추기.
+
+## 9. 영향 확정 (구현 후 재생 1회 `subjects_hwa_impl_20261008.jsonl` ↔ H0 `subjects_hwa_20261008.jsonl`, 180명식 엔진값)
+
+| 항목 | 변경 |
+|---|---|
+| 격국·특수격 | **1건** — 066/R 종재격(특수격) → **화토격(transform, override)** |
+| 용신 final 5역할 | **0건 변경**(066/R 土/火/木/水/金 동일 — 선택 모델만 follow_structure → transformation_structure) |
+| 가화 8건(014/L·015/L·024/3·043/3·051/R·076/L·080/L·080/R) | 격국·final 불변, 경고·보조 모델만 추가 |
+| 신강약 밴드·점수 | 0건 |
+| 이벤트·위험·세운 점수 | 0건 |
+| 골든 8·기준 사주 6·종격 3종 | 0건(테스트 통과) |
+
+결론: 이번 사례집에서 재평가가 실제로 바꾼 것은 066/R 격명뿐이며 용신 방향은 같다. **정확도 개선으로 기록하지 않는다**(진화 사례 1건으로는 변별 불가) — 화기격 성립 명식이 더 확보되면 재측정. 새로운 위험은 발견되지 않아 반복 검증 없이 종료한다(데굴님 검증 방침).

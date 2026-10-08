@@ -8,9 +8,11 @@ from __future__ import annotations
 from saju_shared_types.analysis import ForceAnalysis
 from saju_shared_types.constants import CONTROLS, GENERATES
 from saju_shared_types.enums import Element
+from saju_shared_types.pillars import FourPillarsResult
 from saju_shared_types.structure import StructureAnalysis
 from saju_shared_types.yongsin import SpecialCaseCheck
 
+from ..relations.hap_modes import detect_hwagi
 from ..strength.strength_score import FOLLOW_MAX_SCORE
 from .operational_role_config import DOMINANT_CONTROLLER_PRESENT_PCT
 
@@ -18,6 +20,7 @@ from .operational_role_config import DOMINANT_CONTROLLER_PRESENT_PCT
 def detect_special_cases(
     force: ForceAnalysis,
     structure: StructureAnalysis,
+    pillars: FourPillarsResult | None = None,
 ) -> dict[str, SpecialCaseCheck]:
     # 전왕/오행 과다 판단은 월령 보정 세력 기준. 폴백도 보정이 섞인 effective 대신
     # '원점수' 환경 분포(일간 제외)를 쓴다(통근/투간/공망 중복 반영 방지).
@@ -26,13 +29,17 @@ def detect_special_cases(
     band = force.strength.band
     root_score = force.strength.components.get("root_score", 0.0)
 
-    # 합화/화기격: 구조작용에서 확정/가능 변환.
-    confirmed = [t for t in structure.transformed_candidates if t.confirmed]
-    any_conf = max((t.confidence for t in structure.transformed_candidates), default=0.0)
+    # 합화/화기격(2026-10-08 데굴님 결정): 정본은 hap_modes.detect_hwagi(일간 천간합 3단계 + 滴天髓
+    # 진화 조건). 구조작용의 TransformationCheck 는 성패·신강약 보조로만 남긴다.
+    hwagi = detect_hwagi(pillars) if pillars is not None else None
     transformation = SpecialCaseCheck(
-        detected=bool(confirmed),
-        confidence=round(max((t.confidence for t in confirmed), default=any_conf), 4),
-        detail=(", ".join("".join(t.members) for t in confirmed) or None),
+        detected=hwagi is not None,
+        confidence=(0.85 if hwagi.kind == "real" else 0.45) if hwagi else 0.0,
+        detail=(
+            f"{hwagi.kind}:{hwagi.target_element}:{hwagi.name}:pair={''.join(hwagi.pair)}"
+            f":partner={hwagi.partner_pos}"
+            if hwagi else None
+        ),
     )
 
     # 전왕/일행득기: 한 오행이 압도적이며 신강 계열.

@@ -11680,3 +11680,12 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 
 - `doc/v2_2/HWAGI_REEVALUATION_REVIEW.md`: 현황(판정원 2개·소비처·일간 고정)·고전 조건 대조·적용 조건 T0~T2·영향 범위(사례집 수기 8사례, 골든·기준·종격 0)·결정 F1~F6.
   고전 출처 滴天髓 從化論 真/假(维基文库 滴天髓/07·08). 구현 없음.
+
+## 2026-10-08 — 화기격(化氣格) 재평가 구현: 정본 확정 + 격국·용신 재평가 (데굴님 지시)
+
+- 재생 기록(H0, `casebook_replay.structure.hwa`)으로 정본 ① hap_modes 확정, 진화 = chart_transform ∧ 일간 무근 ∧ 월·시 합 ∧ 투간 인겁관 不遇(滴天髓 從化論).
+- `hap_modes.detect_hwagi`, `special_cases.transformation_structure` 교체(pillars 인자), `geokguk_eval.special_signal` transform 우선·`_OVERRIDE_MIN` 0.60·가화 경고·
+  `follow_consistency` superseded, `candidates` 化神 모델(special 축)·가화 보조 모델, 프론트 라벨. 테스트 `test_hwagi_reevaluation.py` 4건.
+- 영향(엔진값): 사례집 진화 1(066/R 종재격→화토격, 용신 土 유지·희 火·기 木)·가화 8(격국·final 불변), 골든·기준·종격 0. 신강약 일간 치환 미채택.
+- 검증: 집중 96건, gates --quick exit 0, tsc·build, 재생 1회(아래 추기). 종격 C안=임시 조치(통일 목표), C6 종료 유지.
+검증 기록(화기격 구현): 재생 1회 ↔ H0 대조 — 격국 변경 1(066/R 종재격→화토격), final 0, 가화 8 불변, 신강약·이벤트·세운 0. 정확도 개선으로 기록하지 않음.

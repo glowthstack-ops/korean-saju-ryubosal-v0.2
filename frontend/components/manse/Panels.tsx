@@ -493,7 +493,7 @@ const SF_BADGE: Record<string, string> = {
   severe_muddiness: "bg-red-100 text-red-600",
 };
 // 특수격 타입 → 한글(내부 코드 dominant/follow 숨김).
-const SPECIAL_TYPE_KO: Record<string, string> = { dominant: "전왕·일행득기", follow: "종격" };
+const SPECIAL_TYPE_KO: Record<string, string> = { dominant: "전왕·일행득기", follow: "종격", transform: "화기격" };
 
 export function GeokgukPanel({ result }: { result: ManseResult }) {
   const g = result.geokguk as Record<string, unknown>;

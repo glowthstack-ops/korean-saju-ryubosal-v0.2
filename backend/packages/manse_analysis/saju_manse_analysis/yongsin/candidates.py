@@ -92,6 +92,7 @@ _AXIS_OF: dict[str, str] = {
     "food_rescue": "eokbu",  # 화인통관(偏印奪食/印旺克食 구제) — 財損印과 같은 축에서 경쟁
     "johu": "johu", "pattern_sangsin": "pattern", "disease_remedy": "disease",
     "dominant_one_element": "special", "follow_structure": "special",
+    "transformation_structure": "special",
     "bridge_tonggwan": "bridge",
 }
 
@@ -1989,11 +1990,43 @@ def build_yongsin(
     band = strength.band
     month_branch = Branch(pillars.month.branch)
 
-    checks = detect_special_cases(force, structure)
+    checks = detect_special_cases(force, structure, pillars)
     models: list[YongsinCandidateModel] = []
     warnings: list[str] = []
     is_pseudo_follow = False
     pseudo_model: YongsinCandidateModel | None = None
+    # 화기격(化氣格, 2026-10-08 데굴님 결정) — 진화(眞化)면 化神 기준 용신이 special 축 단독.
+    # 역할 배정(용신=化神·희신=化神을 생하는 오행·기신=化神을 극하는 오행)은 codex_spec 10.6 을
+    # 단순화한 **엔진 채택 규칙**이며 고전 확정 규칙이 아니다(滴天髓 "既化矣 又論化神"은 化神의
+    # 한난·강약에 따라 달리 보라 함 — 후속 조정 대상). 가화(假化)는 보조
+    # 모델 병기(비집계·검증 위임). 격국 special_pattern(type=transform) 과 같은 판정원
+    # (detect_hwagi).
+    _tr = checks["transformation_structure"]
+    _tr_detail = str(_tr.detail or "")
+    is_real_transform = _tr.detected and _tr_detail.startswith("real:")
+    transform_model: YongsinCandidateModel | None = None
+    if _tr.detected:
+        _parts = _tr_detail.split(":")
+        _hwa_el = Element(_parts[1])
+        _hwa_name = _parts[2] if len(_parts) > 2 else "화기격"
+        _breaker = next(e for e in Element if CONTROLS[e] == _hwa_el)
+        _helper = next(e for e in Element if GENERATES[e] == _hwa_el)
+        transform_model = YongsinCandidateModel(
+            model_type="transformation_structure",
+            label=(f"화기격(化氣格)·{_hwa_name}" if is_real_transform
+                   else f"가화(假化)·{_hwa_name} 후보"),
+            yongsin=_e(_hwa_el), heesin=_e(_helper), gisin=_e(_breaker),
+            confidence=round(_tr.confidence, 4),
+            reasons=(
+                [f"일간 합화 성립 → 化神 {_hwa_el.value}을 따른다"
+                 "(용신=化神, 희신=化神을 돕는 오행)",
+                 f"합화를 깨는 {_breaker.value}은 기신"]
+                + ([] if is_real_transform
+                   else ["가화(假化): 일간 유근·연간 합·투간 인겁관 중 하나 — "
+                         "억부와 경쟁, 검증 필요"])
+            ),
+            is_auxiliary=not is_real_transform,
+        )
     # E(2026-10-01, 플래그): 압도 오행을 극하는 오행이 잔존하면 가전왕 — 억부와 경쟁(종격 pseudo
     # 패턴).
     dominant_pseudo = DOMINANT_REQUIRE_NO_CONTROLLER and str(
@@ -2009,8 +2042,10 @@ def build_yongsin(
     ):
         dominant_pseudo = True
 
-    # 특수격 우선
-    if checks["dominant_one_element"].detected and not dominant_pseudo:
+    # 특수격 우선 — 화기격(진화) → 전왕 → 종격(codex_spec 10.6 우선순위)
+    if is_real_transform and transform_model is not None:
+        models.append(transform_model)
+    elif checks["dominant_one_element"].detected and not dominant_pseudo:
         # 오행 과다/부족은 월령 보정 세력 기준. 폴백도 보정이 섞인 effective 대신
         # '원점수' 환경 분포(일간 제외)를 쓴다(통근/투간/공망 중복 반영 방지).
         fe = force.five_elements
@@ -2184,9 +2219,9 @@ def build_yongsin(
 
     # 동적 축 가중치(상황별) — 격국/조후/병약을 '보정 레이어'로 반영, 신약은 억부 우선.
     # 가종(pseudo)은 special 단독 주도가 아니라 억부와 경쟁시키므로 special 취급에서 제외.
-    special = (checks["dominant_one_element"].detected and not dominant_pseudo) or (
-        checks["follow_structure"].detected and not is_pseudo_follow
-    )
+    special = is_real_transform or (
+        checks["dominant_one_element"].detected and not dominant_pseudo
+    ) or (checks["follow_structure"].detected and not is_pseudo_follow)
     axis_weights = _select_axis_weights(
         band, month_branch, geokguk, special,
         bridge_required=checks["bridge_required"].detected,
@@ -2291,7 +2326,9 @@ def build_yongsin(
         if (
             _pen_el and _pen_el in useful
             and special and not special_confirmed
-            and useful[_pen_el][1] in ("dominant_one_element", "follow_structure")
+            and useful[_pen_el][1] in (
+                "dominant_one_element", "follow_structure", "transformation_structure",
+            )
         ):
             # 격국이 확정하지 않은 종격·전왕(용신 쪽만 진종)의 조후 역행은 기존대로 강등한다 —
             # special 축 가중치 1.0 이라 감점으로는 억부·조후 후보가 경쟁할 수 없다
@@ -2576,6 +2613,9 @@ def build_yongsin(
     # 가종(pseudo) 종격 모델은 집계에 넣지 않고 후보 목록에만 병기(억부 1차 결과는 유지).
     if pseudo_model is not None:
         models.append(pseudo_model)
+    if transform_model is not None and not is_real_transform:
+        models.append(transform_model)  # 가화 보조 모델(비집계·병기)
+        warnings.append("화기격 가화(假化) 후보 — 억부와 경쟁, 사용자 검증 필요")
 
     # 유통(流通) 흐름 점수 — 정보성. 신약이라도 상생 순환이 원활하면 완화 해석 메모.
     flow = _circulation(force)

@@ -27,8 +27,13 @@ _BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_BACKEND / "apps" / "api"))
 
 from saju_manse_analysis.force_analysis import analyze_chart  # noqa: E402
+from saju_manse_analysis.relations import hap_modes as _hm  # noqa: E402
 
 from saju_engines.event_engine_v2 import EventEngineV2  # noqa: E402
+
+# 화기격 기록(H0, 2026-10-08 데굴님 지시) — 두 판정원 결과와 고전 조건 충족 여부를 산출물에
+# 남긴다(판정·점수 불변).
+from saju_engines.event_scoring import favorability_map  # noqa: E402
 from saju_engines.lifetime_scan import lifetime_pillars, merge_yearly_luck  # noqa: E402
 from saju_manse_core.calendar.sexagenary_cycle import (  # noqa: E402
     day_ganzi,
@@ -38,9 +43,72 @@ from saju_manse_core.calendar.sexagenary_cycle import (  # noqa: E402
 from saju_manse_core.pillars.four_pillars import build_pillar  # noqa: E402
 from saju_manse_core.pillars.gongmang import gongmang_branches  # noqa: E402
 from saju_shared_types.birth_input import BirthInput, TimeCalculationOptions  # noqa: E402
-from saju_shared_types.enums import Branch, Stem  # noqa: E402
+from saju_shared_types.constants import STEM_ELEMENT, season_state, ten_god  # noqa: E402
+from saju_shared_types.enums import (  # noqa: E402
+    Branch,
+    Element,  # noqa: E402
+    Stem,
+)
 from saju_shared_types.ganji_calendar import GanjiLevel  # noqa: E402
 from saju_shared_types.pillars import FourPillarsResult  # noqa: E402
+
+_HWA_BLOCK_TG = {"비견", "겁재", "정인", "편인", "정관", "편관"}  # 滴天髓 "不遇 印·劫·官"
+
+
+def _hwa_record(r) -> dict[str, Any]:
+    """일간 천간합의 화기격 판정 기록 — ① hap_modes 3단계 ② TransformationCheck ③ 고전 조건.
+
+    고전(滴天髓 從化論－真): 합 상대가 월·시간(연간 제외) · 獨相作合(쟁합 없음) · 투간 인·겁·관
+    不遇 · 化神 월령 통함 · 化神 통근 · 일간 무근(진화)/유근(가화). 엔진 판정은 바꾸지 않고
+    기록만 한다.
+    """
+    p = r.pillars
+    dm = Stem(p.day_master)
+    try:
+        fav = favorability_map(r)
+    except Exception:  # noqa: BLE001
+        fav = {}
+    out: list[dict[str, Any]] = []
+    try:
+        res = _hm.resolve_stem_hap(p, fav)
+    except Exception as exc:  # noqa: BLE001
+        return {"error": str(exc), "haps": []}
+    tc_by_pair: dict[frozenset, Any] = {}
+    sa = r.structure_analysis
+    for t in (getattr(sa, "transformed_candidates", None) or []):
+        if len(t.members) == 2 and all(len(m) == 1 for m in t.members):
+            tc_by_pair[frozenset(t.members)] = t
+    stems_by_pos = {pos: Stem(getattr(p, pos).stem) for pos in ("year", "month", "day", "hour")
+                    if getattr(p, pos) is not None}
+    for x in res:
+        if "day" not in x.positions or x.luck_origin:
+            continue
+        partner_pos = x.positions[1] if x.positions[0] == "day" else x.positions[0]
+        target_el = Element(x.transform_element) if x.transform_element else None
+        others = [st for pos, st in stems_by_pos.items() if pos not in ("day", partner_pos)]
+        blocking = [f"{st}({ten_god(dm, st)})" for st in others
+                    if str(ten_god(dm, st)) in _HWA_BLOCK_TG]
+        tc = tc_by_pair.get(frozenset(x.pair))
+        out.append({
+            "pair": "".join(x.pair), "partner_pos": partner_pos,
+            "transform_element": x.transform_element,
+            "tier": x.transform_tier, "mode": x.hap_mode, "chart_transform": x.chart_transform,
+            "contend": x.contend, "blocked": x.blocked, "block_reason": x.block_reason,
+            "weakened": x.weakened,
+            "dm_rooted": _hm._rooted(STEM_ELEMENT[dm].value, p),
+            "target_rooted": (_hm._rooted(target_el.value, p) if target_el else None),
+            "target_season": (season_state(target_el, Branch(p.month.branch))
+                              if target_el else None),
+            "classic_month_or_hour": partner_pos in ("month", "hour"),
+            "classic_no_resource_peer_officer": not blocking,
+            "classic_blocking_stems": blocking,
+            "tc_confirmed": (t.confirmed if (t := tc) is not None else None),
+            "tc_possible": (tc.possible if tc is not None else None),
+            "tc_confidence": (tc.confidence if tc is not None else None),
+            "tc_blockers": (list(tc.blockers) if tc is not None else None),
+            "notes": [n for n in x.notes if "化" in n or "진화" in n or "가화" in n],
+        })
+    return {"haps": out}
 
 _CASES = _BACKEND / "tests" / "fixtures" / "comparison_casebook" / "cases.jsonl"
 _OUT_DIR = _BACKEND.parent / "var" / "casebook_replay"
@@ -223,6 +291,8 @@ def _structure(r) -> dict[str, Any]:
         "geokguk": getattr(gk, "main_structure", None) if gk else None,
         "geokguk_level": getattr(gk, "formation_level", None) if gk else None,
         "special_pattern": getattr(gk, "special_pattern", None) if gk else None,
+        "follow_consistency": getattr(gk, "follow_consistency", None) if gk else None,
+        "hwa": _hwa_record(r),
         "five_elements": (dict(fa.five_elements) if fa and fa.five_elements else {}),
         "ten_gods": tg,
         "interactions": inter,

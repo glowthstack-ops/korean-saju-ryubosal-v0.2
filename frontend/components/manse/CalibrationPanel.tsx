@@ -41,6 +41,7 @@ const axisOfModel: Record<string, string> = {
   eokbu_normal: "eokbu", wealth_breaks_resource: "eokbu", officer_controls_peer: "eokbu",
   resource_curbs_output: "eokbu", johu: "johu", pattern_sangsin: "pattern",
   disease_remedy: "disease", dominant_one_element: "special", follow_structure: "special",
+  transformation_structure: "special",
   bridge_tonggwan: "disease",
 };
 

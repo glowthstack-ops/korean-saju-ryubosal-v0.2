@@ -16,6 +16,7 @@ from saju_shared_types.structure import GeokgukEvaluation, StructureAnalysis
 
 # 종격 전제 점수 임계는 strength_score 가 SSOT(C1-c C안 2026-10-08: 사본 상수 제거, 판정 임계
 # 자체는 불변).
+from ..relations.hap_modes import detect_hwagi
 from ..strength.strength_score import FOLLOW_MAX_SCORE
 
 # 십성 → 그룹(family) key.
@@ -459,7 +460,24 @@ _FOLLOW_NAME = {"wealth": "종재격", "officer": "종살격", "output": "종아
 
 
 def special_signal(force, pillars: FourPillarsResult) -> dict | None:
-    """종격/전왕 신호(정격과 병행 검토용). 확정 아님 — 화면/용신 보조 가중치."""
+    """특수격 신호(정격과 병행 검토용). 확정 아님 — 화면/용신 보조 가중치.
+
+    우선순위 화기격(진화) → 전왕 → 종격은 **엔진 채택 규칙**(리포 설계 codex_spec 10.6 검사 순서,
+    2026-10-08 데굴님 결정)이지 고전의 확정 규칙이 아니다. 진화 성립 조건 자체는 고전(滴天髓
+    從化論) 근거. 화기격 가화는 신호를 내지 않는다(격국 치환 보류 — 경고만).
+    """
+    hwagi = detect_hwagi(pillars)
+    if hwagi is not None and hwagi.kind == "real":
+        return {
+            "name": hwagi.name,
+            "type": "transform",
+            "confidence": 0.85,
+            "reason": (
+                f"일간 {''.join(hwagi.pair)}합 化{hwagi.target_element} 진화(眞化) — "
+                + "; ".join(hwagi.reasons[1:])
+            ),
+            "transform_element": hwagi.target_element,
+        }
     band = force.strength.band
     root = float(force.strength.components.get("root_score", 0.0))
     fe = force.five_elements
