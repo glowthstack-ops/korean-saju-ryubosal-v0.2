@@ -11800,3 +11800,9 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
   `test_realtime_log_misses_20260911::test_parenthetical_birth_prefers_registered_companion_in_thread` 는 gitignore ONNX 모델(compiled/intent_onnx)
   + onnxruntime 이 없는 러너에서 규칙 폴백으로 라우팅이 갈라진 것(빈 프롬프트 / too_broad). `get_intent_classifier().available()` 거짓이면 skip.
   로컬(모델 있음)은 그대로 실행·통과.
+
+## 2026-10-08 — 종살 역할맵 정정: 길흉 역전 제거(기 식상·구 비겁·한 인성), 인성 강도는 미해결 명시 (데굴님 결정)
+
+- 1차안의 한신=식상이 운 점수에서 HAN_GOOD 로 뒤집히던 문제. `candidates.py` `_follow_full` 종살 행을 생극 순환으로 정정하고 모델 사유 교체.
+  종재 유지, 종아·전왕 제외. 테스트 `test_follow_role_map_completion.py` 2건(완비 승격 + 식상/비겁 운 GI·인성 HAN_BAD).
+- 미해결: 인성 조신 파격 강도가 '약한 흉'에 묶임(별도 검토). 문서 FOLLOW_DETECTOR_UNIFICATION_C1C.md §10-1, 스펙 표 8행.
