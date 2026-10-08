@@ -2123,10 +2123,22 @@ def build_yongsin(
         sp_follow = _strongest_pressure(groups)
         follow_el = g[sp_follow]
         subtype = _FOLLOW_SUBTYPE[sp_follow]
+        # 종재·종살 역할맵 완비(2026-10-08 데굴님 승인): 희신=용신을 生하는 십성군, 기신=비겁,
+        # 구신=인성(비겁을 生), 한신=나머지. 부분맵(용신·기신만)이면 canonical 이 정적 생극으로
+        # 폴백해 모델이 말한 '비겁 기신'이 식상으로 바뀌는 모순이 있었다(종격 통합 c9cc799 회귀,
+        # test_yongsin_decision_provenance). 종아격은 비겁이 용신(식상)을 生해 같은 규칙을 못 쓰므로
+        # 기존 부분맵 유지(결정 대기).
+        _follow_full: dict[str, str] = {
+            "officer": {"heesin": "wealth", "gusin": "resource", "hansin": "output"},
+            "wealth": {"heesin": "output", "gusin": "resource", "hansin": "officer"},
+        }.get(sp_follow, {})
         follow_model = YongsinCandidateModel(
             model_type="follow_structure",
             label=("가종격(假從)·" + subtype) if is_pseudo_follow else subtype,
             yongsin=_e(follow_el), gisin=_e(g["peer"]),
+            heesin=_e(g[_follow_full["heesin"]]) if "heesin" in _follow_full else None,
+            gusin=_e(g[_follow_full["gusin"]]) if "gusin" in _follow_full else None,
+            hansin=_e(g[_follow_full["hansin"]]) if "hansin" in _follow_full else None,
             confidence=round(checks["follow_structure"].confidence, 4),
             reasons=(
                 [

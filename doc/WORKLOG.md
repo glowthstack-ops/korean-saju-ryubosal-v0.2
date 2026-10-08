@@ -11787,3 +11787,9 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
   부분맵 폴백 보호 필요)의 기존 공백. 종격 역할맵 완비 규칙은 명리 결정 사항이라 데굴님 판단 대기.
 - 교훈: ebe1f43 이후 "전체 스위트 반복하지 않음" 결정으로 c9cc799~HEAD 가 전체 스위트 없이 커밋돼 회귀가 CI 복구 때 드러났다.
 - 검증: 메인 트리 oa10b·region 실행 통과, worktree 에서 skip 확인, gates --quick exit 0.
+
+## 2026-10-08 — 종재·종살 역할맵 완비(종격 통합 회귀 수정, 데굴님 승인 1안)
+
+- `candidates.py` follow_structure 모델에 종살(희 재·기 비겁·구 인성·한 식상)·종재(희 식상·기 비겁·구 인성·한 관살) 완비 규칙표. 종아격·전왕은
+  부분맵 유지(결정 대기). 1983-04-17 23:40 남: 水·金·火·木·土 로 승격, provenance 불변식 복원.
+- 문서: FOLLOW_DETECTOR_UNIFICATION_C1C.md §10, YONGSIN_OPERATIONAL_ROLE_SPEC 표 8행. 테스트 `test_follow_role_map_completion.py`.
