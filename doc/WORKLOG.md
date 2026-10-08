@@ -11689,3 +11689,11 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 영향(엔진값): 사례집 진화 1(066/R 종재격→화토격, 용신 土 유지·희 火·기 木)·가화 8(격국·final 불변), 골든·기준·종격 0. 신강약 일간 치환 미채택.
 - 검증: 집중 96건, gates --quick exit 0, tsc·build, 재생 1회(아래 추기). 종격 C안=임시 조치(통일 목표), C6 종료 유지.
 검증 기록(화기격 구현): 재생 1회 ↔ H0 대조 — 격국 변경 1(066/R 종재격→화토격), final 0, 가화 8 불변, 신강약·이벤트·세운 0. 정확도 개선으로 기록하지 않음.
+
+## 2026-10-08 — 종격 공통 판정기 통합: 격국·용신 같은 기준(비겁 뿌리·인비 세력·진종/가종) (데굴님 지시)
+
+- `strength/follow_check.py`(detect_follow), `rooting`/`force_analysis` peer_root_score·resource_root_score 노출, `geokguk_eval.special_signal` follow 분기 교체(root<8·개수 명칭 폐기),
+  `special_cases` follow 교체(세력비 분기 폐기). 테스트 `test_follow_common_detector.py` 4건·`test_follow_consistency.py` 갱신.
+- 상충 사례를 같은 기준으로 설명: 066/L 비겁 뿌리 9.2 → 종격 아님(전문가 인비 필요 일치), 063/L 인성 의지처 → 가종, japan 비겁 뿌리 11 → 종격 아님, 종격 3종·064/R 진종 양측 확정.
+- 검증: 집중 89건, gates --quick exit 0, 골든 0 변경, 재생 1회(아래 추기).
+검증 기록(종격 통합): 재생 1회 ↔ 직전 — 격국 3(025/R·064/R·082/3 종격 확정), 가종 신호 +9, final 6(043/3·046/L·063/L·064/R·066/L·082/3), 신강약 0, 골든·기준 0, 쌍 비교 31→33. 전부 한 기준으로 설명되나 063/L 壬戌 대운 +0.27→−0.27(발재 사건과 어긋남) — 상충 사례 보존.

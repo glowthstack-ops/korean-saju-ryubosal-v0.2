@@ -80,6 +80,8 @@ def compute_rooting(
 
     roots: list[dict] = []
     root_score = 0.0
+    peer_root_score = 0.0      # 비겁 뿌리(본기·동기)만 — 종격 공통 판정기 입력(2026-10-08)
+    resource_root_score = 0.0  # 인성 뿌리만
     for pos, branch in cv.branches:
         reliability = _root_reliability(branch, void, clashed)
         for hstem, htype, _w in hidden_stems_for(branch):
@@ -91,6 +93,10 @@ def compute_rooting(
                 ROOT_BRANCH_WEIGHT[pos] * ROOT_HIDDEN_WEIGHT[htype.value] * factor * reliability
             )
             root_score += contribution
+            if kind == "resource_root":
+                resource_root_score += contribution
+            else:
+                peer_root_score += contribution
             roots.append(
                 {
                     "position": pos,
@@ -126,6 +132,8 @@ def compute_rooting(
     return {
         "roots": roots,
         "root_score": root_score,
+        "peer_root_score": round(min(peer_root_score, 100.0), 4),
+        "resource_root_score": round(min(resource_root_score, 100.0), 4),
         "deukryeong": deukryeong,
         "deukji": deukji,
         "deukse": deukse,

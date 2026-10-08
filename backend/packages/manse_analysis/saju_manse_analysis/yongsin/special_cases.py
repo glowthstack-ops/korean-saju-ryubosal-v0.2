@@ -13,7 +13,7 @@ from saju_shared_types.structure import StructureAnalysis
 from saju_shared_types.yongsin import SpecialCaseCheck
 
 from ..relations.hap_modes import detect_hwagi
-from ..strength.strength_score import FOLLOW_MAX_SCORE
+from ..strength.follow_check import detect_follow
 from .operational_role_config import DOMINANT_CONTROLLER_PRESENT_PCT
 
 
@@ -65,35 +65,17 @@ def detect_special_cases(
         ),
     )
 
-    # 종격(從格): 비겁(同氣)이 무근이고 식·재·관 한 세력이 압도할 때 일간이 그 세력에 순응.
-    #   진종(眞從): 뿌리 자체가 거의 없음(root_score<8) — 강하게 성립(special 축 단독 주도).
-    #   가종(假從): 비겁 무근이나 약한 인성이 남아 의지처가 있음 — 진위 불확실(억부와 경쟁·검증).
-    # root_score는 비겁 통근 + 인성 생조를 합산하므로(인성만으로도 커짐) 종격 진위는
-    # root_score 단독이 아니라 비겁/인성 세력비로 판별한다.
-    tg = force.ten_gods.groups
-    g_total = sum(tg.values()) or 1.0
-    peer_ratio = tg.get("peer", 0.0) / g_total
-    resource_ratio = tg.get("resource", 0.0) / g_total
-    _pressure = {k: tg.get(k, 0.0) for k in ("output", "wealth", "officer")}
-    dom_grp = max(_pressure, key=lambda k: _pressure[k])
-    dom_ratio = _pressure[dom_grp] / g_total
-    follow_kind: str | None = None
-    # 7단계(2026-10-07): 옛 '극신약·태신약' 전제를 점수 임계(≤34)로 보존 — 탐지 모집단 불변.
-    if float(force.strength.score) <= FOLLOW_MAX_SCORE:
-        if root_score < 8.0:
-            follow_kind = "real"  # 무근 → 진종(종세 포함)
-        elif peer_ratio < 0.07 and dom_ratio >= 0.33:
-            if resource_ratio < 0.12 and dom_ratio >= 0.40:
-                follow_kind = "real"
-            elif resource_ratio < 0.28:
-                follow_kind = "pseudo"  # 약한 인성 의지처 → 가종
+    # 종격(從格) — 공통 판정기(strength.follow_check.detect_follow, 2026-10-08 데굴님 결정):
+    # 격국(special_signal)과 같은 기준(비겁 뿌리 무근·압도 세력·인성 의지처·진종/가종). 옛
+    # root_score<8 분기(인성 통근 포함)와 용신 전용 세력비 분기는 폐기.
+    fc = detect_follow(force)
     follow = SpecialCaseCheck(
-        detected=follow_kind is not None,
-        confidence=(0.85 if follow_kind == "real" else 0.5) if follow_kind else 0.0,
+        detected=fc is not None,
+        confidence=fc.confidence if fc else 0.0,
         detail=(
-            f"{follow_kind}:{dom_grp}:peer={round(peer_ratio, 3)}:res={round(resource_ratio, 3)}"
-            if follow_kind
-            else f"root_score={root_score}"
+            f"{fc.kind}:{fc.group}:peer_root={fc.peer_root}:peer={fc.peer_ratio}"
+            f":res={fc.resource_ratio}:dom={fc.dom_ratio}"
+            if fc else f"peer_root={force.strength.components.get('peer_root_score', root_score)}"
         ),
     )
 

@@ -17,7 +17,7 @@ from saju_shared_types.structure import GeokgukEvaluation, StructureAnalysis
 # 종격 전제 점수 임계는 strength_score 가 SSOT(C1-c C안 2026-10-08: 사본 상수 제거, 판정 임계
 # 자체는 불변).
 from ..relations.hap_modes import detect_hwagi
-from ..strength.strength_score import FOLLOW_MAX_SCORE
+from ..strength.follow_check import detect_follow
 
 # 십성 → 그룹(family) key.
 _GROUP_OF: dict[str, str] = {
@@ -479,7 +479,6 @@ def special_signal(force, pillars: FourPillarsResult) -> dict | None:
             "transform_element": hwagi.target_element,
         }
     band = force.strength.band
-    root = float(force.strength.components.get("root_score", 0.0))
     fe = force.five_elements
     pct = fe.season_adjusted_element_strength or fe.distribution_environment
     if pct:
@@ -492,17 +491,17 @@ def special_signal(force, pillars: FourPillarsResult) -> dict | None:
                 "confidence": round(min((maxp - 50) / 50, 0.95), 3),
                 "reason": f"{strongest} {maxp}% 압도 + {band} → 전왕/일행득기 가능",
             }
-    # 7단계(2026-10-07): 밴드 이름 대신 옛 태신약 상한 점수(≤34)로 종격 전제를 보존한다.
-    if float(force.strength.score) <= FOLLOW_MAX_SCORE and root < 8.0:
-        counts = _tg_counts(pillars)
-        groups = _group_counts(counts)
-        ext = {g: groups[g] for g in ("wealth", "officer", "output")}
-        top = max(ext, key=lambda g: ext[g]) if any(ext.values()) else ""
+    # 종격(2026-10-08 데굴님 결정): 격국·용신 공통 판정기. 진종 → conf 0.85(override 게이트 0.70
+    # 통과, 주격 치환), 가종 → conf 0.5(신호만). 옛 root_score<8·십성 개수 명칭 기준은 폐기(세력
+    # 기준 명칭).
+    fc = detect_follow(force)
+    if fc is not None:
         return {
-            "name": _FOLLOW_NAME.get(top, "종세격"),
+            "name": fc.name,
             "type": "follow",
-            "confidence": round(min(max((10 - root) / 10, 0.0), 0.9), 3),
-            "reason": f"극단 신약(점수≤{FOLLOW_MAX_SCORE:.0f})+무근(root={root:.1f}) → 종격 가능",
+            "confidence": fc.confidence,
+            "reason": " / ".join(fc.reasons),
+            "follow_kind": fc.kind,
         }
     return None
 

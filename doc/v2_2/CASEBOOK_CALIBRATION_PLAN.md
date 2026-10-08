@@ -313,3 +313,10 @@ C1 → C2 → (C3 ∥ C4) → C5 → C6. C1·C2는 용신 배정을 바꾸므로
   사례집 진화 1(066/R)·가화 8, 골든·기준·종격 0(엔진값).
 - 구현: `detect_hwagi` 정본, 격국 `type=transform` 주격 치환(화기격→전왕→종격), 용신 化神 모델(special 축), 가화는 경고·보조 모델만, 신강약 치환 미채택.
   검증: 집중 테스트 96건·gates --quick·프론트 build, 구현 후 재생 1회(§9 추기). C6 종료 유지. 종격 C안은 임시(통일 목표 유지).
+
+### 2026-10-08 — 종격 공통 판정기 통합 구현 (데굴님 지시: 기존 용신·격국 어느 쪽에도 종속시키지 않고 통근·인비 세력·진종/가종 공통 기준)
+
+- `strength/follow_check.detect_follow` 신설(비겁 뿌리<8·압도 세력·인성 의지처·진종/가종), `peer_root_score`/`resource_root_score` 노출. 격국 `special_signal`·용신
+  `detect_special_cases` 양측 배선, 옛 root<8·세력비·십성 개수 명칭 폐기. C안(불일치 관리)은 통합으로 대체(`follow_consistency` 투명성용 유지).
+- 배선 전 측정 226명식: 신규 가종 5·종격 해제 5(066/L·japan 등 비겁 뿌리 有)·격국 확정 추가 6(종격 3종·025/R·082/3·064/R)·real→가종 2(046/L·063/L). 골든 main_structure 0 변경.
+  검증: 집중 89건·gates --quick, 재생 1회(FOLLOW_DETECTOR_UNIFICATION_C1C §8).

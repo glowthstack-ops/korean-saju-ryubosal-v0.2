@@ -1,7 +1,8 @@
-"""C1-c C안 — 종격 두 기준 정합 표기(follow_consistency)와 FOLLOW_MAX_SCORE 단일 출처 (2026-10-08).
+"""종격 공통 판정기(strength.follow_check) 통합 후 정합 표기(follow_consistency) 계약 (2026-10-08).
 
-판정 통일이 아니라 불일치 관리: main_structure·special_pattern·점수·역할은 바뀌지 않고, 어느
-한쪽이라도 종격을 보면 두 기준의 판정을 나란히 적는다.
+C안(불일치 관리)에서 통합으로 전환: 격국 special_signal 과 용신 detect_special_cases 가 같은
+detect_follow 를 쓰므로 follow 의 mismatch 는 더 이상 생기지 않는다. 표기 필드는 투명성용으로
+남긴다.
 """
 
 from __future__ import annotations
@@ -9,7 +10,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from saju_manse_analysis.strength import strength_score
+from saju_manse_analysis.strength import follow_check, strength_score
 from saju_manse_analysis.structure import geokguk_eval
 
 from saju_api.services.manse_service import calculate
@@ -32,20 +33,24 @@ def _shadow_input(chart_id: str) -> BirthInput:
 
 
 def test_follow_max_score_single_source() -> None:
-    """격국 평가는 strength_score 의 FOLLOW_MAX_SCORE 를 그대로 쓴다(사본 상수 없음)."""
+    """종격 전제 점수 임계는 strength_score 하나(공통 판정기가 import, 격국에 사본 상수 없음)."""
     assert not hasattr(geokguk_eval, "_FOLLOW_MAX_SCORE")
-    assert geokguk_eval.FOLLOW_MAX_SCORE is strength_score.FOLLOW_MAX_SCORE
+    assert follow_check.FOLLOW_MAX_SCORE is strength_score.FOLLOW_MAX_SCORE
 
 
-def test_mismatch_when_only_yongsin_detects_follow() -> None:
-    """japan_tokyo 골든(乙丑己卯癸丑己未): 격국 식신격·신호 없음, 용신 종격 → mismatch."""
+def test_unified_detector_resolves_japan_tokyo() -> None:
+    """japan_tokyo 골든(乙丑己卯癸丑己未): 비겁 뿌리 11(丑 중기 癸×2) → 공통 기준상 종격 아님.
+
+    통합 전에는 용신만 종격(세력비)이라 mismatch 였다. 이제 격국 식신격 유지, 용신도 종격 모델을
+    쓰지 않으며 정합 표기는 None(양쪽 모두 종격 아님).
+    """
     r = calculate(_golden_input("japan_tokyo_standard"))
     g = r.geokguk
     assert g.main_structure == "식신격" and g.special_pattern is None
-    fc = g.follow_consistency
-    assert fc is not None and fc["status"] == "mismatch"
-    assert fc["geokguk_signal"] is None and fc["yongsin_follow_kind"] in ("real", "pseudo")
-    assert "종격" in fc["note"]
+    assert g.follow_consistency is None
+    assert r.force_analysis.strength.components["peer_root_score"] >= follow_check.PEER_ROOT_MAX
+    assert r.yongsin_analysis.final["selected_model"] != "follow_structure"
+    assert not r.yongsin_analysis.special_case_checks["follow_structure"].detected
 
 
 def test_consistent_when_both_confirm() -> None:
