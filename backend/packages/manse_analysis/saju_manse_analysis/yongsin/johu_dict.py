@@ -15,7 +15,7 @@ from pathlib import Path
 _BACKEND = Path(__file__).resolve().parents[4]
 _COMPILED_DEFAULT = _BACKEND / "compiled"
 _DICTS_DEFAULT = _BACKEND / "dictionaries"
-JOHU_YONGSIN_VERSION = "0.3.1"
+JOHU_YONGSIN_VERSION = "0.3.2"
 
 # 셀 구조(v0.3.0): {"primary": [천간], "secondary": [...], "avoid": [...], "climate_axis": str,
 #   "needs": [{"stem", "roles": [climate_*|source|drain|control|wealth|peer|pair],

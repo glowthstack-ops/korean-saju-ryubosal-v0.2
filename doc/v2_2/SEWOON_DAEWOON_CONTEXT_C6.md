@@ -209,3 +209,47 @@ luck_score = w_s·stem + w_b·branch + rel_mod
 6. 세운-대운 충/합 패턴은 불일치를 설명하지 않는다(단일 불일치 15건 중 충·육합 0). 대신 원국 충 편중(11 vs 2)과 "지지 용신인데 흉 결과" 9/15가 관찰된다.
 7. 권장: A 지표 보정(구간 사건은 세운 지표 제외) 선행 → B/C를 플래그 OFF·별도 필드(`daewoon_context_score`)로 구현해 재측정. 기존 luck_score·라벨은 불변 유지(samjae_quality·relations_engines·프론트 재계산과의 이중 반영 방지).
 8. 세운 luck_score 수치를 고정한 테스트는 없다(라벨은 대운만, 월운은 플래그 on/off 관계식만). 신규 필드는 기본값 None이어야 수동 LuckPillar 생성 테스트 5종이 깨지지 않는다.
+
+---
+
+## 6. 구현 (2026-10-08 데굴님 승인 — 후보 A 적용 후 B/C 착수, 플래그 OFF·별도 필드)
+
+- `saju_shared_types.luck.LuckPillar.daewoon_context_score: float | None = None` — 세운 전용 실험 필드. `luck_score`·라벨·`yongsin_alignment` 불변.
+- `saju_manse_analysis.luck.luck_cycles`: 환경변수 `SAJU_SEWOON_DAEWOON_CONTEXT_ENABLED`(기본 OFF) · `SAJU_SEWOON_DAEWOON_CONTEXT_MODE`
+  (`blend`|`gate`, 기본 blend) · `SAJU_SEWOON_DAEWOON_CONTEXT_W`(기본 0.5). `daewoon_context_score()` = blend `w·세운+(1−w)·대운` /
+  gate `|대운|≥0.3 이면 0.3·세운+0.7·대운, 아니면 세운`. 배선: 대운별 `sewoon`(소속 대운 점수), 기준 창 `yearly_luck`(연도→대운 매핑,
+  첫 대운 전 None), `yearly_luck_for_range(..., daewoon_table=None)` opt-in(기존 호출자 None 유지).
+- `period_v2_config.SEWOON_DAEWOON_CONTEXT_ENABLED` 등록(`active_versions`·/health 노출용, 계산은 luck_cycles 가 따로 읽음).
+- 이중 반영 가드: 기존 소비자(`samjae_quality` 0.45/0.25 합성, `relations_engines` 0.2, 프론트 `luck-calibration.ts` 재계산)는 `luck_score`만
+  읽으므로 플래그 ON 이어도 동작 불변. 새 필드를 읽는 운영 코드는 없다(실험 전용).
+- 테스트 `tests/unit/test_sewoon_daewoon_context.py` 5건: OFF→None·byte 불변, ON→원본 점수·라벨 불변+별도 필드 식, 첫 대운 전 None,
+  gate/blend 식, 범위 조회 opt-in.
+- 측정: `casebook_replay.py --out-name subjects_ctx_{blend,gate}.jsonl`(세운 행에 `dw`·`ctx` 기록, `sewoon_context_mode`),
+  `casebook_report.py --subjects … --tag …` 로 B1c/B2c·개선·악화·묻힘·대운 지배율 산출(§7).
+
+## 7. 측정 결과 (2026-10-08, 사례집 180명식 재생 — 플래그 ON, 원본 점수 불변 확인)
+
+재생 파일 `var/casebook_replay/subjects_ctx_{blend,gate}.jsonl`, 리포트 사본 `cases/comparison_casebook/REPLAY_REPORT_2026-10-08_ctx_{blend,gate}.md`.
+두 재생 모두 세운 17,500건의 `luck_score`·라벨과 180명식 역할표가 기준선과 **0건 차이**(별도 필드만 추가됨을 데이터로 확인).
+
+| 지표 | 세운 원본 | blend(w=0.5) | gate(|대운|≥0.3 → 0.3/0.7) |
+|---|---|---|---|
+| B1c. 단일 연도 극성 일치 (n=26) | 10 (38.5%) | 13 (50.0%) | **15 (57.7%)** |
+| B2c. 다년 구간 부호 연도 비율≥0.6 (n=18) | 2 (11.1%) | 7 (38.9%) | 6 (33.3%) |
+| 단일 개선 / 악화 | — | 5 / 2 | 6 / 1 |
+| 다년 개선 / 악화 | — | 6 / 1 | 5 / 1 |
+| 전 연도 묻힘(세운 부호가 뒤집힌 비율) | — | 25.4% | 26.9% |
+| 전 연도 대운 부호 일치율 | 42.4% | 66.1% | 72.0% |
+
+개선·악화 사례(단일 연도):
+- 공통 개선: 010/R 심장 수술, 034/L 오토바이 사고, 039/R 사망, 055/L 노숙, 071/R 아내 이탈 — 전부 세운 |점수|≤0.45 이고 대운이 뚜렷한 흉(−0.35~−0.87). gate 는 071/L(세운 +1.10, 대운 −0.62)까지 뒤집는다.
+- 공통 악화: **018/R 辛未년 사업 성장(+, 세운 +0.09 → blend −0.31 / gate −0.47)** — §F8 "잘 맞춘 지점" 목록의 사례. 대운 乙亥 −0.71 이 세운을 덮는다. blend 는 079/R(+0.10→+0.05, 중립대 진입)도 잃는다.
+- 다년 악화: 024/1 수감(세운 부호 비율 0.6 → blend 0.2 / gate 0.0) — 대운 丙子 +0.35 가 세운의 흉 부호를 지운다(§4 상실 목록과 동일).
+
+판단:
+1. **대운이 중복 반영되는가** — 아니다. 새 필드를 읽는 운영 코드가 없고(실험 전용), 기존 소비자(`samjae_quality`·`relations_engines`·프론트)는 `luck_score`만 읽는다. 데이터로도 원본 0건 차이.
+2. **세운의 독립 변화가 대운에 묻히는가** — 묻힌다. 전 연도의 약 1/4(blend 25.4%, gate 26.9%)에서 세운 부호가 뒤집히고, 대운 부호 일치율이 42%→66~72%로 오른다. 즉 맥락 점수는 "세운 신호"라기보다 "대운에 세운을 얹은 값"에 가깝다. 단일 연도 개선 5~6건은 모두 세운이 약한 신호(|≤0.45|)였던 건이고, 세운이 강하고 맞았던 018/R은 손실된다.
+3. **지표 상승은 실제 개선인가** — 단일 연도 10→13/15 는 내부 개선으로 기록할 수 있으나 44건 중 3~5건 차이(SE ±10%p)라 통계적 변별은 없다. 다년 구간 2→6~7 은 대운 부호를 복제한 효과다(§4 결론과 동일).
+4. **운영 승격** — 하지 않는다. 사례집 자체로 조정한 값이라 일반화 검증이 없고(Vol.3·실상담 필요), 묻힘 비율이 커 세운 단독 질문("올해 어떤가")에 쓰면 대운 서술과 중복된다. 쓴다면 **gate 모드를 "대운이 뚜렷할 때 세운 극성 완화" 보조 신호**로, 세운 원본과 나란히 제시하는 형태가 한계다.
+
+후속 후보(승인 사항): ① 묻힘을 줄이는 변형 — 세운 |점수|≥0.5 는 보호(원본 유지)하고 약한 세운만 대운에 기대는 "약신호 보정" ② 018/R·024/1 류(세운 맞음·대운 틀림)의 공통 특징 조사 ③ 운영 노출 없이 이벤트 엔진 fav 보조로만 시험.

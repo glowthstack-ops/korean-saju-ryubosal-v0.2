@@ -60,6 +60,10 @@ MONTH_COVERAGE_AUDIT_ENABLED: bool = _env_flag("SAJU_MONTH_COVERAGE_AUDIT_ENABLE
 # 관이면 관 계열 사건에 관운 강화 보정을 더한다. 점수·순위·사건 종류 불변. 월 등급 쪽은
 # saju_manse_analysis.luck.luck_cycles가 같은 환경변수를 따로 읽는다(패키지 의존 방향).
 HAP_MITIGATION_ENABLED: bool = _env_flag("SAJU_HAP_MITIGATION_ENABLED")
+# C6 B/C 세운-대운 맥락 실험(2026-10-08 데굴님 승인) — LuckPillar.daewoon_context_score 별도
+# 필드만 채운다. luck_score·라벨·기존 소비자 불변. 계산은 saju_manse_analysis.luck.luck_cycles 가
+# 같은 환경변수를 따로 읽는다.
+SEWOON_DAEWOON_CONTEXT_ENABLED: bool = _env_flag("SAJU_SEWOON_DAEWOON_CONTEXT_ENABLED")
 # CALIBRATE: 관운 강화 favorability 가산(데굴님 승인 제안값, shadow 실측 후 조정).
 HAP_OFFICER_BOOST: float = 0.3
 # 관계 용어 층위 정리 v2(2026-09-18 데굴님 승인, 전문가 참고 기준) — 서술·표기 전용, 점수·판정 불변:
@@ -162,6 +166,7 @@ def active_versions() -> dict[str, str | bool]:
         "opportunity_enabled": OPPORTUNITY_ENABLED,
         "risk_aux_amplifier_enabled": RISK_AUX_AMPLIFIER_ENABLED,
         "health_window_channel_enabled": HEALTH_WINDOW_CHANNEL_ENABLED,
+        "sewoon_daewoon_context_enabled": SEWOON_DAEWOON_CONTEXT_ENABLED,
         # LLM 재호출은 설계상 존재하지 않는다(요청당 1회 고정) — 계측 계약으로 못박는다.
         "llm_retry_policy": "none",
     }

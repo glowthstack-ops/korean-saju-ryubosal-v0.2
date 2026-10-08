@@ -11615,3 +11615,20 @@ shadow spec 은 의도 동작 명시 후 수정, C0 회귀 테스트 추가". �
 게이트·스위트 기록은 아래 검증 기록. 승인 대기: A-1 확정, 3-B 4건(§8 근거), avoid 6건, C6 B/C 구현(플래그 OFF·별도 필드).
 검증 기록(2026-10-08): `./scripts/gates.sh --quick` ruff·typecheck·maintained_scripts 전부 state=RAN exit=0 (production mypy gate clean ·
 maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(note 병합·스냅샷 재빌드 후) VALID_SUITE_PASS.
+
+## 2026-10-08 — A-1 적용(조후 v0.3.2) · avoid 변경안 replay · C6 B/C 세운-대운 맥락 점수 구현·측정 (데굴님 승인)
+
+### 배경
+기준선 커밋(67f181f) 후 데굴님 결정: A-1 적용(검증 미완료로 기록), 3-B 보류, avoid 는 변경안·replay 먼저, C6 B/C는 플래그 OFF·별도 필드로 착수하고
+세운 독립 변화의 묻힘·대운 중복 반영을 확인.
+
+### 해결
+- `johu_yongsin.json` 0.3.2(+壬未 癸), `JOHU_YONGSIN_VERSION` 0.3.2, 스냅샷. avoid 6건 replay → 주석 전용(§9), 미적용.
+- `LuckPillar.daewoon_context_score`(None 기본), `luck_cycles` 플래그 3종·`daewoon_context_score()`·`daewoon_score_by_year()`·배선(대운별 sewoon·
+  기준 창·범위 조회 opt-in), `period_v2_config` 등록, `casebook_replay`(dw/ctx/mode, `--out-name`), `casebook_report`(B1c/B2c·개선/악화·묻힘·
+  지배율, `--subjects/--tag`), `tests/unit/test_sewoon_daewoon_context.py` 5건.
+- 측정: blend 13/26·7/18, gate 15/26·6/18, 묻힘 25~27%, 원본 점수·역할 0건 차이. 판단: 운영 승격 안 함(SEWOON_DAEWOON_CONTEXT_C6 §7).
+
+### 결과
+검증 기록은 아래. 승인 대기: avoid 결정, C6 후속(약신호 보정 등), 3-B.
+검증 기록(2026-10-08 C6 B/C·A-1): `./scripts/gates.sh --quick` ruff·typecheck·maintained_scripts state=RAN exit=0 · `./scripts/run_suite.sh` VALID_SUITE_PASS.

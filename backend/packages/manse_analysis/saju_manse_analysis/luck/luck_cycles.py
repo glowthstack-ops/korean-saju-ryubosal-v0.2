@@ -109,6 +109,64 @@ STRUCTURE_BACKGROUND_ENABLED: bool = (
     in ("1", "true", "yes")
 )
 STRUCTURE_SUPPRESS_FACTOR = 0.85  # CALIBRATE
+# C6 B/C(2026-10-08 데굴님 승인) — 세운 luck_score 는 원국×60갑자 순환값이라 어느 대운에
+# 떨어져도 같다(SEWOON_DAEWOON_CONTEXT_C6.md §1). 실험으로 세운에 소속 대운 극성을 섞은
+# **별도 필드** LuckPillar.daewoon_context_score 를 채운다. luck_score·라벨·기존 소비자는
+# 불변(이중 반영 방지). 기본 OFF = 기존 byte. 환경변수는 period_v2_config 와 같은 이름을
+# 여기서 따로 읽는다(패키지 의존 방향).
+SEWOON_DAEWOON_CONTEXT_ENABLED: bool = (
+    os.environ.get("SAJU_SEWOON_DAEWOON_CONTEXT_ENABLED", "false").strip().lower()
+    in ("1", "true", "yes")
+)
+# blend: w·세운 + (1−w)·대운 / gate: |대운| ≥ GATE_MIN 일 때만 GATE_W·세운 + (1−GATE_W)·대운,
+# 아니면 세운 그대로.
+SEWOON_DAEWOON_CONTEXT_MODE: str = (
+    os.environ.get("SAJU_SEWOON_DAEWOON_CONTEXT_MODE", "blend").strip().lower() or "blend"
+)
+SEWOON_DAEWOON_CONTEXT_W: float = float(os.environ.get("SAJU_SEWOON_DAEWOON_CONTEXT_W", "0.5"))
+SEWOON_DAEWOON_GATE_MIN: float = 0.3  # CALIBRATE(C6 조사 §4 대운지배 게이트 임계)
+SEWOON_DAEWOON_GATE_W: float = 0.3  # CALIBRATE(게이트 통과 시 세운 가중)
+
+
+def daewoon_context_score(sewoon_score: float, daewoon_score: float) -> float:
+    """세운 점수에 소속 대운 점수를 섞은 실험값(C6 B/C). 모드는 모듈 상수가 결정한다.
+
+    Args:
+        sewoon_score: 해당 연도 세운 luck_score(불변 원본).
+        daewoon_score: 그 연도가 속한 대운의 luck_score.
+
+    Returns:
+        blend 모드 = w·세운 + (1−w)·대운, gate 모드 = |대운| ≥ 임계일 때만 블렌드
+        (아니면 세운 그대로).
+    """
+    if SEWOON_DAEWOON_CONTEXT_MODE == "gate":
+        if abs(daewoon_score) < SEWOON_DAEWOON_GATE_MIN:
+            return round(sewoon_score, 4)
+        w = SEWOON_DAEWOON_GATE_W
+        return round(w * sewoon_score + (1 - w) * daewoon_score, 4)
+    w = SEWOON_DAEWOON_CONTEXT_W
+    return round(w * sewoon_score + (1 - w) * daewoon_score, 4)
+
+
+def _attach_daewoon_context(sewoon: list[LuckPillar], daewoon_score: float | None) -> None:
+    """플래그 ON 이고 대운 점수가 있으면 세운 목록에 daewoon_context_score 를 채운다.
+
+    원본 luck_score·라벨은 건드리지 않는다.
+    """
+    if not SEWOON_DAEWOON_CONTEXT_ENABLED or daewoon_score is None:
+        return
+    for sp in sewoon:
+        sp.daewoon_context_score = daewoon_context_score(sp.luck_score, daewoon_score)
+
+
+def daewoon_score_by_year(daewoon: list[DaewoonItem]) -> dict[int, float]:
+    """연도 → 소속 대운 luck_score(정수 나이 기반 approx_start_date 기준, 10년 구간)."""
+    out: dict[int, float] = {}
+    for item in daewoon:
+        y0 = item.approx_start_date.year
+        for y in range(y0, y0 + 10):
+            out.setdefault(y, item.luck_score)
+    return out
 
 
 def _fav_map_from_sets(useful: set[str], unfavorable: set[str]) -> dict[str, str]:
@@ -545,6 +603,7 @@ def compute_luck_cycles(
         # 이 대운 10년의 세운(연동 표시용).
         sew_years = range(birth_date.year + age, birth_date.year + age + 10)
         sewoon = _yearly(pillars, dm, useful_elements, unfavorable_elements, sew_years)
+        _attach_daewoon_context(sewoon, eff["luck_score"])  # C6 B/C(플래그 OFF 면 no-op)
         daewoon.append(DaewoonItem(
             index=i, start_age=age, approx_start_date=sdate, approx_end_date=edate,
             ganji=f"{stem}{branch}", stem=str(stem), branch=str(branch),
@@ -596,6 +655,10 @@ def compute_luck_cycles(
             pillars, dm, useful_elements, unfavorable_elements,
             range(reference_date.year - 4, reference_date.year + 6),
         )
+        if SEWOON_DAEWOON_CONTEXT_ENABLED:
+            dw_by_year = daewoon_score_by_year(daewoon)
+            for sp in cycles.yearly_luck:
+                _attach_daewoon_context([sp], dw_by_year.get(int(sp.label)))
         cycles.monthly_luck = _monthly(
             pillars, dm, useful_elements, unfavorable_elements,
             reference_date.year, table, timezone
@@ -673,13 +736,21 @@ def yearly_luck_for_range(
     useful: set[str],
     unfavorable: set[str],
     years: list[int],
+    daewoon_table: list[DaewoonItem] | None = None,
 ) -> list[LuckPillar]:
     """주어진 연도 목록의 세운 — 기본 창(올해±5) 밖 연도를 온디맨드로 채울 때 쓴다.
 
     막연한 시점 질문의 '올해부터 10년' 연 단위 흐름처럼 기본 yearly_luck 창을 넘는
     구간을 조회하는 용도. 결정론적이라 차트 재계산 없이 세운 간지·점수만 만든다.
+    daewoon_table 을 주면(C6 B/C 플래그 ON 일 때) daewoon_context_score 도 채운다 — 기존 호출자는
+    생략하므로 None 유지.
     """
-    return _yearly(pillars, day_master, useful, unfavorable, years)
+    out = _yearly(pillars, day_master, useful, unfavorable, years)
+    if SEWOON_DAEWOON_CONTEXT_ENABLED and daewoon_table:
+        dw_by_year = daewoon_score_by_year(daewoon_table)
+        for sp in out:
+            _attach_daewoon_context([sp], dw_by_year.get(int(sp.label)))
+    return out
 
 
 def daily_luck_for_month(

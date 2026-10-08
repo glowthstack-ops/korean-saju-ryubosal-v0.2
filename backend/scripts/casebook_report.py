@@ -60,11 +60,11 @@ def _sep(n: int) -> str:
     return "|" + "---|" * n
 
 
-def _load() -> tuple[list[dict], dict[tuple[str, str], dict]]:
+def _load(subjects: Path | None = None) -> tuple[list[dict], dict[tuple[str, str], dict]]:
     case_lines = _CASES.read_text(encoding="utf-8").splitlines()
     cases = [json.loads(ln) for ln in case_lines if ln.strip()]
     subs: dict[tuple[str, str], dict] = {}
-    for ln in (_DIR / "subjects.jsonl").read_text(encoding="utf-8").splitlines():
+    for ln in (subjects or _DIR / "subjects.jsonl").read_text(encoding="utf-8").splitlines():
         if ln.strip():
             r = json.loads(ln)
             subs[(r["case_id"], r["key"])] = r
@@ -149,6 +149,7 @@ def _domain_hits(sub: dict, years: list[int], domain: str) -> dict[str, Any]:
     scores: list[float] = []
     fav: list[float] = []
     inc: list[int] = []
+    ctx_scores: list[float] = []
     for y in years:
         ys = str(y)
         matched = [e for e in top.get(ys, []) if e["ev"] in evs]
@@ -157,6 +158,8 @@ def _domain_hits(sub: dict, years: list[int], domain: str) -> dict[str, Any]:
             fav.extend(e["fav"] for e in matched)
         if ys in sew:
             scores.append(sew[ys]["score"])
+            if sew[ys].get("ctx") is not None:
+                ctx_scores.append(sew[ys]["ctx"])
         inc.append(_inc(ys))
     top_events = {
         str(y): [f"{e['ev']}({e['score']},{e['fav']:+.1f})" for e in top.get(str(y), [])[:3]]
@@ -166,6 +169,9 @@ def _domain_hits(sub: dict, years: list[int], domain: str) -> dict[str, Any]:
         "years": years,
         "sewoon_scores": scores,
         "sewoon_mean": round(statistics.mean(scores), 2) if scores else None,
+        # C6 B/C 실험값(재생이 플래그 ON 으로 돌았을 때만 채워짐).
+        "ctx_scores": ctx_scores,
+        "ctx_mean": round(statistics.mean(ctx_scores), 2) if ctx_scores else None,
         "event_hit_years": hit_years,
         "event_fav_mean": round(statistics.mean(fav), 2) if fav else None,
         "risk_inc_mean": round(statistics.mean(inc), 2) if inc else None,
@@ -207,6 +213,40 @@ def _structure_rows(
     return rows, lfi
 
 
+def _c6_track(
+    metrics: dict, span: str, c: dict, s: dict, o: dict, label: str,
+    before_ok: bool, after_ok: bool, before: Any, after: Any, dw_mean: float | None,
+) -> None:
+    """C6 B/C 개선·악화 사례 추적(세운 원본 판정 → 맥락 점수 판정)."""
+    if before_ok == after_ok:
+        return
+    key = "improved" if after_ok else "regressed"
+    metrics["c6_context"][span][key].append({
+        "case": c["case_id"], "key": s["key"], "text": o["text"], "pol": o["polarity"],
+        "when": label, "before": before, "after": after, "daewoon_mean": dw_mean,
+    })
+
+
+def _c6_year_stats(subs: dict, metrics: dict) -> None:
+    """C6 B/C 전 연도 통계 — 세운 독립 변화가 대운에 묻히는 비율·대운 지배율(원본 대비)."""
+    n = buried = dom_before = dom_after = 0
+    for sub in subs.values():
+        for row in ((sub.get("lifetime") or {}).get("sewoon") or {}).values():
+            if row.get("ctx") is None or row.get("dw") is None:
+                continue
+            n += 1
+            s_sign, c_sign, d_sign = _sign(row["score"]), _sign(row["ctx"]), _sign(row["dw"])
+            buried += int(s_sign != "0" and c_sign != s_sign)
+            dom_before += int(s_sign == d_sign)
+            dom_after += int(c_sign == d_sign)
+    if n:
+        metrics["c6_context"]["years"] = {
+            "n": n, "buried_share": round(buried / n, 3),
+            "daewoon_dominance_before": round(dom_before / n, 3),
+            "daewoon_dominance_after": round(dom_after / n, 3),
+        }
+
+
 def _outcome_rows(c: dict, subs: dict, metrics: dict) -> list[str]:
     rows = [_OUTCOME_HEADER, _sep(9)]
     for s in c["subjects"]:
@@ -242,16 +282,30 @@ def _outcome_rows(c: dict, subs: dict, metrics: dict) -> list[str]:
                 if dw_ok:
                     metrics["timed_daewoon_agree"] += 1
                 # C6-A: 단일 연도/다년 구간 분리 집계.
+                ctx_scores = h["ctx_scores"]
+                ctx_ok = h["ctx_mean"] is not None and _sign(h["ctx_mean"]) == pol
+                ctx_ratio = (
+                    round(sum(1 for v in ctx_scores if _sign(v) == pol) / len(ctx_scores), 2)
+                    if ctx_scores else None
+                )
                 if span == "single":
                     metrics["timed_single_total"] += 1
                     metrics["timed_single_sewoon_agree"] += int(sew_ok)
                     metrics["timed_single_daewoon_agree"] += int(dw_ok)
+                    if ctx_scores:
+                        metrics["timed_single_ctx_agree"] += int(ctx_ok)
+                        _c6_track(metrics, "single", c, s, o, label, sew_ok, ctx_ok,
+                                  h["sewoon_mean"], h["ctx_mean"], dw_mean)
                 else:
                     metrics["timed_multi_total"] += 1
                     metrics["timed_multi_daewoon_agree"] += int(dw_ok)
-                    metrics["timed_multi_sewoon_ratio_agree"] += int(
-                        sign_ratio is not None and sign_ratio >= 0.6
-                    )
+                    ratio_ok = sign_ratio is not None and sign_ratio >= 0.6
+                    metrics["timed_multi_sewoon_ratio_agree"] += int(ratio_ok)
+                    if ctx_scores:
+                        ctx_ratio_ok = ctx_ratio is not None and ctx_ratio >= 0.6
+                        metrics["timed_multi_ctx_ratio_agree"] += int(ctx_ratio_ok)
+                        _c6_track(metrics, "multi", c, s, o, label, ratio_ok, ctx_ratio_ok,
+                                  sign_ratio, ctx_ratio, dw_mean)
                 if h["event_hit_years"]:
                     metrics["timed_event_hit"] += 1
                 risk_up = (h["risk_inc_mean"] is not None
@@ -353,6 +407,28 @@ def _summary(metrics: dict, n_subs: int) -> list[str]:
                                ("B2'. 다년 구간 세운 부호 연도 비율≥0.6",
                                 "timed_multi_sewoon_ratio_agree")):
                 md.append(f"- {label}: {metrics[key]}/{mt} = {metrics[key] / mt * 100:.1f}%")
+        c6 = metrics["c6_context"]
+        if c6.get("years"):
+            y = c6["years"]
+            md.append("")
+            md.append(f"### C6 B/C 실험(daewoon_context_score, mode={c6.get('mode')})")
+            md.append(f"- B1c. 단일 연도 맥락 점수 극성 일치: "
+                      f"{metrics['timed_single_ctx_agree']}/{st}"
+                      f" (세운 원본 {metrics['timed_single_sewoon_agree']}/{st})")
+            md.append(f"- B2c. 다년 구간 맥락 부호 연도 비율≥0.6: "
+                      f"{metrics['timed_multi_ctx_ratio_agree']}/{mt}"
+                      f" (세운 원본 {metrics['timed_multi_sewoon_ratio_agree']}/{mt})")
+            md.append(f"- 전 연도 {y['n']}건: 세운 부호가 맥락에서 뒤집힌 비율(묻힘) "
+                      f"{y['buried_share']:.1%}, 대운 부호 일치율 원본 "
+                      f"{y['daewoon_dominance_before']:.1%} → 맥락 "
+                      f"{y['daewoon_dominance_after']:.1%}")
+            for span in ("single", "multi"):
+                for key, word in (("improved", "개선"), ("regressed", "악화")):
+                    items = c6[span][key]
+                    md.append(f"- {span} {word} {len(items)}건: " + ", ".join(
+                        f"{i['case']}/{i['key']} {i['text']}"
+                        f"({i['pol']}, {i['before']}→{i['after']})"
+                        for i in items) if items else f"- {span} {word} 0건")
     bydom: dict[str, Counter] = defaultdict(Counter)
     for r in metrics["timed_detail"]:
         d = bydom[r["domain"]]
@@ -375,7 +451,14 @@ def _summary(metrics: dict, n_subs: int) -> list[str]:
 
 
 def main() -> int:
-    cases, subs = _load()
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--subjects", default="",
+                    help="재생 결과 파일(기본 var/casebook_replay/subjects.jsonl)")
+    ap.add_argument("--tag", default="",
+                    help="출력 접미사 — report_{tag}.md / metrics_{tag}.json")
+    args = ap.parse_args()
+    cases, subs = _load(Path(args.subjects) if args.subjects else None)
     metrics: dict[str, Any] = {
         "pair_total": 0, "pair_agree": 0, "pair_detail": [],
         "timed_total": 0, "timed_sewoon_agree": 0, "timed_daewoon_agree": 0,
@@ -383,9 +466,19 @@ def main() -> int:
         "timed_single_total": 0, "timed_single_sewoon_agree": 0, "timed_single_daewoon_agree": 0,
         "timed_multi_total": 0, "timed_multi_daewoon_agree": 0,
         "timed_multi_sewoon_ratio_agree": 0,
+        # C6 B/C 실험(재생이 플래그 ON 일 때만 의미).
+        "timed_single_ctx_agree": 0, "timed_multi_ctx_ratio_agree": 0,
+        "c6_context": {"mode": None, "years": None,
+                       "single": {"improved": [], "regressed": []},
+                       "multi": {"improved": [], "regressed": []}},
         "structure_only": [], "pillars_mismatch": [],
     }
     sections = [_case_section(c, subs, metrics) for c in cases]
+    _c6_year_stats(subs, metrics)
+    metrics["c6_context"]["mode"] = next(
+        (r.get("sewoon_context_mode") for r in subs.values() if r.get("sewoon_context_mode")),
+        None,
+    )
     md: list[str] = [
         "# 사례집 전수 재생 대조 리포트 (자동 생성)", "",
         "생성: scripts/casebook_report.py · 원천: tests/fixtures/comparison_casebook/cases.jsonl "
@@ -393,8 +486,9 @@ def main() -> int:
     ]
     md.extend(_summary(metrics, len(subs)))
     md.extend(sections)
-    (_DIR / "report.md").write_text("\n".join(md), encoding="utf-8")
-    (_DIR / "metrics.json").write_text(
+    suffix = f"_{args.tag}" if args.tag else ""
+    (_DIR / f"report{suffix}.md").write_text("\n".join(md), encoding="utf-8")
+    (_DIR / f"metrics{suffix}.json").write_text(
         json.dumps(metrics, ensure_ascii=False, indent=1), encoding="utf-8")
     print("\n".join(md[:20]))
     return 0

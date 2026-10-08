@@ -254,3 +254,15 @@ C1 → C2 → (C3 ∥ C4) → C5 → C6. C1·C2는 용신 배정을 바꾸므로
 - **shadow spec**: `expect_role_shadow_neutral` 신설(shadow==legacy==0, 재승격 없음)로 관살태왕·살인상생 기대 교체, 재스캔으로
   `coverage_report.json` 갱신(expected_shadow true 복귀, charts.jsonl 불변).
 - **C0 회귀**: `tests/regression/test_comparison_casebook.py` 158건(형상 1 + 명식 157) 통과.
+
+### 2026-10-08 — 기준선 커밋(67f181f) 후: A-1 적용(v0.3.2) · avoid 변경안 · C6 B/C 구현·측정 (데굴님 결정)
+
+- **A-1 적용**: 壬未 癸[climate_cool/peer;alt] → `johu_yongsin.json` v0.3.2·스냅샷. 모집단 해당 명식 0이라 **정확도 개선 검증은 미완료**로 기록. §4-1 셀 10→9.
+- **avoid 6건**: 주석 전용 확인(코드+replay, 11명식 중 투간 1건 문구만) — `JOHU_NEED_REVIEW_2026-10-08.md` §9, 결정 대기(전부/원문 5건/보류).
+- **3-B 4건**: 보류 유지(근거·조건·결과 차이는 §8).
+- **C6 B/C**: `LuckPillar.daewoon_context_score` 별도 필드 + 플래그 OFF 구현(`SEWOON_DAEWOON_CONTEXT_C6.md` §6), 테스트 5건.
+  측정(§7): 단일 연도 10→13(blend)/15(gate) /26, 다년 2→7/6 /18, 묻힘 25~27%, 대운 일치율 42→66~72%. 악화 018/R·024/1.
+  판단: 중복 반영 없음(데이터 0건 차이), 묻힘 큼 → **내부 개선 기록, 운영 승격 안 함**. 후속 후보 ①약신호 보정 ②018/R 류 조사 ③fav 보조 시험.
+- 지표 주의: 이번 재생은 `.env.beta` 미로드 셸에서 돌아 C(이벤트 히트)가 25→22로 보이나 건강 채널 플래그(C5) 차이이며 세운·역할은 0건 차이. 동일 환경 기준 재생(`subjects_base_20261008.jsonl`)으로 재확인(아래 추기).
+- **추기(동일 환경 재확인)**: 같은 셸(.env.beta 미로드)에서 플래그 OFF 기준 재생(`subjects_base_20261008.jsonl`)을 돌린 결과 C=22 이고 두 실험
+  재생과 44행 전부(이벤트 히트·세운·대운·위험) 동일 → 25→22 는 환경 플래그(C5 건강 채널 등) 차이. 사례집 비교는 **같은 셸 환경끼리만** 한다.

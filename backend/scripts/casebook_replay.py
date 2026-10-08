@@ -269,7 +269,11 @@ def _lifetime_events(r, birth_year: int, engine: EventEngineV2) -> dict[str, Any
         for sp in dwi.sewoon:
             sewoon[sp.label] = {"ganji": sp.ganji, "align": sp.yongsin_alignment,
                                 "score": round(sp.luck_score, 2), "code": sp.luck_label_code,
-                                "rels": sp.relations_to_chart[:4]}
+                                "rels": sp.relations_to_chart[:4],
+                                # C6 B/C: 소속 대운 점수·맥락 점수(플래그 OFF 면 None).
+                                "dw": round(dwi.luck_score, 2),
+                                "ctx": (round(sp.daewoon_context_score, 2)
+                                        if sp.daewoon_context_score is not None else None)}
     return {"missing_years": missing, "top_by_year": top, "risks": dict(risks), "sewoon": sewoon}
 
 
@@ -320,6 +324,11 @@ def replay_subject(case: dict, subj: dict, engine: EventEngineV2) -> dict[str, A
     except Exception as exc:  # noqa: BLE001
         out["quality_shadow"] = {"error": str(exc)}
     out["luck_direction"] = r.luck_cycles.direction
+    # C6 B/C: 이 재생이 어떤 맥락 모드로 돌았는지(플래그 OFF 면 None).
+    from saju_manse_analysis.luck import luck_cycles as _lc
+    out["sewoon_context_mode"] = (
+        _lc.SEWOON_DAEWOON_CONTEXT_MODE if _lc.SEWOON_DAEWOON_CONTEXT_ENABLED else None
+    )
     out["luck_start_age"] = r.luck_cycles.start_age
     out["daewoon"] = _daewoon(r)
     out["lifetime"] = _lifetime_events(r, int(d[:4]), engine)
@@ -330,6 +339,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", action="append", default=[])
     ap.add_argument("--no-events", action="store_true")
+    ap.add_argument("--out-name", default="",
+                    help="subjects 출력 파일명(기본 subjects.jsonl; C6 실험 등 별도 보존용)")
     args = ap.parse_args()
     _OUT_DIR.mkdir(parents=True, exist_ok=True)
     lines = _CASES.read_text(encoding="utf-8").splitlines()
@@ -339,7 +350,7 @@ def main() -> int:
     engine = EventEngineV2(_DICTS, risk_mode="shadow")
     rows = []
     # --only 실행은 전수 결과를 덮어쓰지 않도록 별도 파일에 쓴다.
-    out_name = "subjects_only.jsonl" if args.only else "subjects.jsonl"
+    out_name = args.out_name or ("subjects_only.jsonl" if args.only else "subjects.jsonl")
     with (_OUT_DIR / out_name).open("w", encoding="utf-8") as f:
         for c in cases:
             for s in c["subjects"]:
