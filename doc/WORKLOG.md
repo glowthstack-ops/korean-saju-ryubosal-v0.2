@@ -11806,3 +11806,11 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 1차안의 한신=식상이 운 점수에서 HAN_GOOD 로 뒤집히던 문제. `candidates.py` `_follow_full` 종살 행을 생극 순환으로 정정하고 모델 사유 교체.
   종재 유지, 종아·전왕 제외. 테스트 `test_follow_role_map_completion.py` 2건(완비 승격 + 식상/비겁 운 GI·인성 HAN_BAD).
 - 미해결: 인성 조신 파격 강도가 '약한 흉'에 묶임(별도 검토). 문서 FOLLOW_DETECTOR_UNIFICATION_C1C.md §10-1, 스펙 표 8행.
+
+## 2026-10-08 — 종살 인성 운 감점 방식 정리: 한신 기준값 대체(−0.5)·합거 완화·범위 한정 (데굴님 결정)
+
+- 조사로 §10-1 진단 정정: 인성 운은 이미 특수격 역행(−0.2)으로 −0.5까지 내려감. 문제는 추가 감점 방식·완화 조건 부재.
+- `period_v2_config.JONGSAL_RESOURCE_BREACH_FAV=-0.5`, `event_engine_v2._jongsal_resource_breach_mode`(종살 override + 인성 천간 → replace /
+  합거 bind·away → mitigated / 그 외 None) + `_apply_luck_structure_flags` 후보별 분기(HAN_BAD 만 대체, 다른 극성은 공통 −0.2).
+  serializer 라벨 2종. 테스트 7건. 문서 §10-2·스펙 표 8행.
+- 비겁 중복 아님(근거 상이)·구신→GI 의도적 분리·stem_mitigated 역할 조건 확인 기록.
