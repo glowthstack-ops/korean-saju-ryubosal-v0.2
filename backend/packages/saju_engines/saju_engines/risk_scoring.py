@@ -86,6 +86,9 @@ _COMPOUND_PER_LINK = 0.10
 _TRANSITION_SENSITIVITY_COEF = {"none": 0.0, "low": 0.25, "medium": 0.6,
                                 "high": 1.0}
 _TRANSITION_MAX_BONUS = 0.20
+# family 단위 보조 증폭 상한(P2, 2026-09-18) — aux_bonus는 이 값을 넘지 못한다(포화형
+# 결합 1-Π(1-s)에 곱해 산출·클램프). CALIBRATE: shadow 실측 후 조정.
+_AUX_MAX_BONUS = 0.15
 # protection 하드 상한(감수 33차): 보호는 위험을 크게 완화할 수 있지만, 구조와
 # 현실 노출을 통과한 후보의 존재 자체를 삭제할 수 없다 — protection=1.0으로
 # rankable이 0이 되는 경로 차단(positive base + 최대 보호 → rankable > 0 fixture).
@@ -108,6 +111,9 @@ _CONF_BASE, _CONF_PER_EXTRA_CAUSE, _CONF_LAYER = 0.4, 0.2, 0.2
 #   stage:*     → ACTIVATION_OR_CONFIDENCE(12운성 시점 상태 — 작동 조건·강도
 #                 보조. occurrence source row 생성 금지, confidence 보조는 예약)
 #   polarity:*  → AMPLIFIER(방향 신호 — 진입 금지)
+#   aux:*       → AMPLIFIER(family 단위 보조 증폭 층 — 신살·구조·합 배경, P2 2026-09-18.
+#                 흉 극성 동반 시에만 붙는 배경 근거. 진입·원인·보호 어느 축에도 불개입,
+#                 aux_bonus(상한 _AUX_MAX_BONUS)로 rankable 우선도만 소폭 보정)
 # 미상 namespace는 조용한 과소/과대 dedup을 막기 위해 거부(fail-closed).
 _SEM_CAUSE = "cause"
 _SEM_CONDITIONAL = "conditional_cause"
@@ -115,7 +121,7 @@ _SEM_GATE = "gate_or_protection"
 _SEM_ACTIVATION = "activation_or_confidence"
 _SEM_AMPLIFIER = "amplifier"
 # cause 정규화 의미 버전 — registry 분류가 바뀌면 올린다(감수 hash 재료).
-CAUSE_SEMANTICS_VERSION = "cause-semantics-v3"
+CAUSE_SEMANTICS_VERSION = "cause-semantics-v4"
 
 
 def atom_semantics(atom: str) -> str:
@@ -129,6 +135,8 @@ def atom_semantics(atom: str) -> str:
     if atom.startswith("stage:"):
         return _SEM_ACTIVATION
     if atom.startswith("polarity:"):
+        return _SEM_AMPLIFIER
+    if atom.startswith("aux:"):
         return _SEM_AMPLIFIER
     raise ValueError(
         f"canonical cause 계약 위반 — 미상 namespace 원자: {atom!r} "
@@ -501,10 +509,16 @@ def effect_contiguous_runs(candidates: list[RiskCandidate]) -> dict[tuple, int]:
         period_sets.items(), key=lambda kv: repr(kv[0]))}
 
 
+def clamp_aux_bonus(value: float) -> float:
+    """aux_bonus를 [0, _AUX_MAX_BONUS]로 고정한다(호출부 값 신뢰 금지)."""
+    return min(_AUX_MAX_BONUS, max(0.0, float(value)))
+
+
 def risk_priority(
     components: RiskScoreComponents,
     *,
     transition_bonus: float = 0.0,
+    aux_bonus: float = 0.0,
 ) -> tuple[float, float]:
     """(raw, capped) rankable 우선도 — total은 여기서 마지막 한 번만 계산한다.
 
@@ -524,6 +538,7 @@ def risk_priority(
     """
     base = components.occurrence * components.impact
     timed_base = base * (1.0 + transition_bonus)  # 교운기 시점 modifier(감수 36차)
+    timed_base *= 1.0 + clamp_aux_bonus(aux_bonus)  # family 보조 증폭(P2 — 상한 고정)
     raw = (
         components.exposure * timed_base
         * (1.0 + components.persistence + components.compound)
@@ -536,6 +551,7 @@ def structural_priority(
     components: RiskScoreComponents,
     *,
     transition_bonus: float = 0.0,
+    aux_bonus: float = 0.0,
 ) -> float:
     """exposure 제외 구조 진단 우선도 — DENIED·미확인 후보의 counterfactual 진단.
 
@@ -548,6 +564,7 @@ def structural_priority(
     compound_family_links(exposable_only=False)를 별도로 쓴다.
     """
     base = components.occurrence * components.impact * (1.0 + transition_bonus)
+    base *= 1.0 + clamp_aux_bonus(aux_bonus)  # 구조 배경 신호도 구조 진단에 포함(P2)
     return round(
         base * (1.0 + components.persistence) * (1.0 - components.protection),
         6,
@@ -646,6 +663,13 @@ def scoring_config_hash() -> str:
         "protection_cap": _PROTECTION_CAP,
         "transition": "shadow_temporal scope 분리(감수 37차) —"
                       " transition_policy_hash 참조",
+        "auxiliary": {
+            "apply": "timed_base × (1 + aux_bonus) — family 단위 보조 증폭 층"
+                     "(P2 2026-09-18, 플래그 SAJU_RISK_AUX_AMPLIFIER_ENABLED OFF=0)",
+            "max_bonus": _AUX_MAX_BONUS,
+            "material": "aux:* AMPLIFIER evidence(신살·구조·합 배경 × 흉 극성 동반)"
+                        " — occurrence·cause·persistence·protection 불개입",
+        },
         "confidence": {"base": _CONF_BASE, "per_extra_cause": _CONF_PER_EXTRA_CAUSE,
                        "layer": _CONF_LAYER,
                        "context_confidence": "separate_diagnostic"},
@@ -692,6 +716,7 @@ def cause_semantics_hash() -> str:
             "relation:*": _SEM_CAUSE, "ten_god:*": _SEM_CAUSE,
             "void": _SEM_CONDITIONAL, "no_void": _SEM_GATE,
             "stage:*": _SEM_ACTIVATION, "polarity:*": _SEM_AMPLIFIER,
+            "aux:*": _SEM_AMPLIFIER,
             "unknown": "reject",
         },
         "cause_eligibility": "CAUSE 원자 동반 source만 occurrence 재료",

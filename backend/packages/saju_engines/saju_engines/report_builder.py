@@ -11,7 +11,7 @@ LLM 호출부는 함수 주입(generate_fn) — 테스트는 모의, 운영은 l
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from saju_shared_types.report import (
@@ -32,6 +32,8 @@ GenerateFn = Callable[[SectionPlan, SectionContext, int], tuple[str, int, int]]
 ContextBuilder = Callable[[SectionPlan, ReportSpec], SectionContext]
 # progress_fn(done, total) → None — 섹션 1개 완료마다 호출(잡 진행 업데이트용).
 ProgressFn = Callable[[int, int], None]
+# section_sink(result) → None — 섹션 1개 확정마다 호출(중단 시 부분 보존용, 2026-10-06).
+SectionSink = Callable[[SectionResult], None]
 
 _PRICES_PATH = Path(__file__).resolve().parents[3] / "config" / "model_prices.json"
 
@@ -89,24 +91,48 @@ class ReportBuilder:
         generate_fn: GenerateFn,
         dict_version: str = "1.0.0",
         progress_fn: ProgressFn | None = None,
+        plan_expander: Callable[[list[SectionPlan]], list[SectionPlan]] | None = None,
+        section_sink: SectionSink | None = None,
     ) -> None:
-        """LLM·컨텍스트 빌더 주입(사이드이펙트는 서비스 계층 책임)."""
+        """LLM·컨텍스트 빌더 주입(사이드이펙트는 서비스 계층 책임).
+
+        plan_expander: 고정 목차(build_section_plans)를 명식 데이터 기반으로 확장하는
+        훅(예: RPT_FULL 십년 풀이 하위 페이지 — docs/10 3-1, 잔여 대운 수는 spec만으로
+        알 수 없어 서비스 계층이 주입한다). None이면 고정 목차 그대로.
+        section_sink: 섹션 1개가 확정될 때마다 받는 훅. 생성 도중 LLM 서비스가 중단되면
+        호출 측이 여기 모인 통과 섹션을 저장했다가 재개 시 `prior_sections` 로 돌려준다.
+        """
         self._checker = ReportChecker(dictionaries_dir)
         self._build_context = context_builder
         self._generate = generate_fn
         self._dict_version = dict_version
         self._progress = progress_fn
+        self._plan_expander = plan_expander
+        self._section_sink = section_sink
 
-    def build(self, spec: ReportSpec, display_name: str = "회원") -> ReportResult:
+    def build(
+        self,
+        spec: ReportSpec,
+        display_name: str = "회원",
+        prior_sections: Mapping[str, SectionResult] | None = None,
+    ) -> ReportResult:
         """보고서 생성 — dependsOn 순서 보장, 실패 섹션만 재생성(≤2회).
 
         2회 재생성 실패 섹션이 있으면 status='on_hold'(관리자 알림 대상) —
         부분 산출물은 보존한다.
+
+        prior_sections: 이전 실행에서 **통과한** 섹션(section_id → SectionResult). 중단 재개
+        시 이 섹션들은 LLM을 다시 부르지 않고 그대로 채택한다(비용 중복 방지). 통과하지 못한
+        항목은 무시하고 새로 생성한다. 용신 확정 섹션이 재사용되면 컨텍스트만 다시 만들어
+        이후 섹션 검사 기준(용신)을 전파한다.
         """
         plans = build_section_plans(spec)
+        if self._plan_expander is not None:
+            plans = self._plan_expander(plans)
         done: dict[str, SectionResult] = {}
         cost = ReportCost()
         yongsin: str | None = None
+        prior = prior_sections or {}
 
         for plan in plans:
             # dependsOn — 선행 섹션 실패 시 본 섹션은 시도하지 않음(일관성 보호).
@@ -115,6 +141,15 @@ class ReportBuilder:
                     section_id=plan.section_id, title=plan.title,
                     violations=["선행 섹션 실패로 미생성"],
                 )
+                continue
+
+            reused = prior.get(plan.section_id)
+            if reused is not None and reused.passed:
+                # 재개 — 이미 통과한 섹션은 재생성하지 않는다.
+                done[plan.section_id] = reused
+                if plan.section_id in YONGSIN_SECTIONS:
+                    yongsin = self._build_context(plan, spec).yongsin_element or yongsin
+                self._notify(reused, len(done), len(plans))
                 continue
 
             context = self._build_context(plan, spec)
@@ -126,12 +161,7 @@ class ReportBuilder:
             done[plan.section_id] = result
             if plan.section_id in YONGSIN_SECTIONS and result.passed:
                 yongsin = context.yongsin_element
-            # 섹션 1개 완료 — 잡 진행 업데이트(실패해도 생성은 계속).
-            if self._progress is not None:
-                try:
-                    self._progress(len(done), len(plans))
-                except Exception:  # noqa: BLE001 — 진행 보고 실패가 생성을 막지 않도록
-                    pass
+            self._notify(result, len(done), len(plans))
 
         sections = [done[p.section_id] for p in plans]
         failed = [s.section_id for s in sections if not s.passed]
@@ -150,6 +180,19 @@ class ReportBuilder:
                 "subject_labels": [s.label for s in spec.subjects],
             },
         )
+
+    def _notify(self, result: SectionResult, done: int, total: int) -> None:
+        """섹션 1개 확정 — 부분 보존 sink·잡 진행 업데이트(둘 다 실패해도 생성은 계속)."""
+        if self._section_sink is not None:
+            try:
+                self._section_sink(result)
+            except Exception:  # noqa: BLE001 — 보존 훅 실패가 생성을 막지 않도록
+                pass
+        if self._progress is not None:
+            try:
+                self._progress(done, total)
+            except Exception:  # noqa: BLE001 — 진행 보고 실패가 생성을 막지 않도록
+                pass
 
     def _generate_with_retry(
         self,

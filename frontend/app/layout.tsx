@@ -14,7 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <Providers>
           <Gnb />
-          <main className="mx-auto max-w-4xl px-4 py-6">
+          <main className="mx-auto max-w-4xl px-4 pt-6 pb-20">
             {/* 광고 영역은 무료 사용 흐름 확정 후 재도입 — AdSlot 컴포넌트는 보존. */}
             {children}
           </main>

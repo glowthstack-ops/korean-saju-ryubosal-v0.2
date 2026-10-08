@@ -14,11 +14,16 @@ import {
   normalizeEventRating,
 } from "@/lib/calibration";
 import { getRealityCalibration, submitRealityCalibration } from "@/lib/subjects";
-import type { RealityCalibrationQuestionSet, RealityCalibrationYearAnswer } from "@/lib/types";
+import type {
+  RealityCalibrationQuestionSet,
+  RealityCalibrationSubmitResult,
+  RealityCalibrationYearAnswer,
+} from "@/lib/types";
 
 interface Props {
   subjectId: string;
-  onDone: () => void;
+  // 저장 결과(사용자용 요약)를 넘긴다 — 온보딩 위저드는 무시하고 다음 단계로, 전용 페이지는 표시.
+  onDone: (result?: RealityCalibrationSubmitResult) => void;
 }
 
 type Occ = { month: number | null; experience?: string; intensity?: number };
@@ -116,8 +121,8 @@ export function StepRealityCalibration({ subjectId, onDone }: Props) {
           })),
         };
       });
-      await submitRealityCalibration(subjectId, answers);
-      onDone();
+      const result = await submitRealityCalibration(subjectId, answers);
+      onDone(result);
     } catch (e: unknown) {
       setErr((e as Error)?.message ?? "저장에 실패했습니다.");
     } finally {
@@ -146,45 +151,19 @@ export function StepRealityCalibration({ subjectId, onDone }: Props) {
         return (
           <div key={y.year} className="space-y-2 rounded border p-3">
             <div className="font-medium">
-              {y.year}년 <span className="text-zinc-400">{y.ganji}</span>
+              {y.year}년{y.age != null ? `(만 ${y.age}세)` : ""}{" "}
+              <span className="text-zinc-400">{y.ganji}년</span>
+              {y.band_ko && <span className="ml-1 text-[11px] text-zinc-400">· {y.band_ko}</span>}
               {y.daewoon_transition && <span className="ml-1 text-amber-600">· 대운 교체기</span>}
             </div>
+            {y.hint && <p className="text-[11px] text-indigo-600">{y.hint}</p>}
 
-            {/* ① 그해 전체 체감 */}
-            <p className="text-[10px] font-medium text-zinc-400">그해 전체 체감</p>
-            <div className="flex flex-wrap gap-1">
-              {OVERALL_OPTIONS.map((o) => (
-                <button key={o.value} type="button" onClick={() => patchYear(y.year, { overall: o.value })}
-                  className={`rounded border px-2 py-0.5 text-[11px] ${
-                    ys.overall === o.value ? "border-zinc-800 bg-zinc-800 text-white" : "text-zinc-600"
-                  }`}>
-                  {o.label}
-                </button>
-              ))}
-            </div>
-
-            {/* ② 영역별 체감 — 라벨 아래에 버튼을 줄바꿈 배치(모바일 대응) */}
-            <p className="text-[10px] font-medium text-zinc-400">영역별 체감</p>
-            <div className="space-y-2">
-              {CALIB_DOMAINS.map((dom) => (
-                <div key={dom.key}>
-                  <span className="text-[12px] text-zinc-600">{dom.label}</span>
-                  <div className="mt-0.5 flex flex-wrap gap-1">
-                    {DOMAIN_OPTIONS.map((o) => (
-                      <button key={o.value} type="button" onClick={() => setDomain(y.year, dom.key, o.value)}
-                        className={`rounded border px-2 py-1 text-[11px] ${
-                          ys.domains[dom.key] === o.value ? "border-indigo-600 bg-indigo-600 text-white" : "text-zinc-500"
-                        }`}>
-                        {o.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* ③ 실제 사건 + 결과/강도 */}
-            <p className="text-[10px] font-medium text-zinc-400">실제 있었던 일</p>
+            {/* ① 실제 있었던 일 — 이 단계의 본 목적이라 맨 앞(CAL-R1). 결과/월은 체크한 사건에만 */}
+            <p className="text-[10px] font-medium text-zinc-400">실제 있었던 일(모두 체크)</p>
+            <p className="text-[10px] text-zinc-400">
+              체크한 일에만 &lsquo;몇 월쯤·결과가 어땠나&rsquo;를 추가로 물어요. 결과: 좋았다/힘들었다 =
+              그 일의 결과 기준 · 아직 판단 어렵다 = 기억이 흐림
+            </p>
             <div className="space-y-2">
               {y.events.map((ev) => {
                 const occ = ys.occurred[ev.event_key];
@@ -231,9 +210,45 @@ export function StepRealityCalibration({ subjectId, onDone }: Props) {
               })}
               <label className="flex items-center gap-1.5 text-zinc-500">
                 <input type="checkbox" checked={ys.none} onChange={() => toggleNone(y.year)} />
-                해당 없음
+                해당 없음 — 위 일들이 그 해에 하나도 없었어요
               </label>
             </div>
+
+            {/* ② 그해 체감·영역별 — 선택 입력(접힘, CAL-R1): 용신 검증 보조 축 */}
+            <details>
+              <summary className="cursor-pointer text-[11px] text-zinc-500">
+                더 자세히 답하기 — 그해 전체 체감·영역별(선택)
+              </summary>
+              <p className="mt-1 text-[10px] font-medium text-zinc-400">그해 전체 체감</p>
+              <div className="flex flex-wrap gap-1">
+                {OVERALL_OPTIONS.map((o) => (
+                  <button key={o.value} type="button" onClick={() => patchYear(y.year, { overall: o.value })}
+                    className={`rounded border px-2 py-0.5 text-[11px] ${
+                      ys.overall === o.value ? "border-zinc-800 bg-zinc-800 text-white" : "text-zinc-600"
+                    }`}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-[10px] font-medium text-zinc-400">영역별 체감</p>
+              <div className="space-y-2">
+                {CALIB_DOMAINS.map((dom) => (
+                  <div key={dom.key}>
+                    <span className="text-[12px] text-zinc-600">{dom.label}</span>
+                    <div className="mt-0.5 flex flex-wrap gap-1">
+                      {DOMAIN_OPTIONS.map((o) => (
+                        <button key={o.value} type="button" onClick={() => setDomain(y.year, dom.key, o.value)}
+                          className={`rounded border px-2 py-1 text-[11px] ${
+                            ys.domains[dom.key] === o.value ? "border-indigo-600 bg-indigo-600 text-white" : "text-zinc-500"
+                          }`}>
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </details>
           </div>
         );
       })}

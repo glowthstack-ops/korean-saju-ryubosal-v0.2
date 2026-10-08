@@ -44,7 +44,12 @@ interface LlmInput {
 
   birthChartSummary: {
     dayMaster: Stem;
-    pillars: { year: string; month: string; day: string; hour: string };  // '庚申' 형태
+    pillars: { year: string; month: string; day: string; hour?: string };  // '庚申' 형태. 시주 미상이면 hour 생략
+    // 시주 미상(2026-10-06, HOUR_UNKNOWN_POLICY.md): 3기둥 기준. 12시진 후보가 갈리는 항목은
+    // strength/geokguk 에 '미확정(시주 미상 — 후보 …)'로 표기하고 usefulGods 는 비운다(길흉·처방 금지).
+    hourUnknown?: boolean;
+    hourUnknownItems?: ('strength_band' | 'geokguk' | 'useful_gods')[];
+    hourUnknownNote?: string;              // 엔진 생성 1회 고지 문구
     voidBranches: Branch[];
     strength: string;                    // '중화신강'
     usefulGods: { yongsin: Element[]; gisin: Element[] };
@@ -86,6 +91,11 @@ interface LlmInput {
     timeline?: EventTimeline;            // progress 이벤트
     realizationScore?: number;           // Manifestation 결과
     likelyForms?: string[];
+    incomingNote?: string;               // '해석' — 운 천간 십성 유입 1문장(행동 권유의 결)
+    stageNote?: string;                  // '결(12운성)' — 12운성 유입 1문장(흐름·결과 서술의 결)
+                                         // 둘 다 표현 결 층(2026-09-10, docs/17 §23 이식) — 문체 전용,
+                                         // 점수·판정·간지 사실 불변. 리포트는 기간 클러스터의
+                                         // '운 결(문체 전용): 행동=… / 흐름=…' 줄로 같은 정보를 싣는다.
   }[];
 
   evidence: {
@@ -102,6 +112,9 @@ interface LlmInput {
     toneGuide: string;                   // 점수→표현 강도 가이드
     llmInstruction: string;              // 예: "이직 가능성이 높다고 표현하되 확정 금지.
                                          //      환경 변화 압박과 선택 가능성을 구분해 설명할 것."
+                                         // + 표현 결 지시(TONE_LAYER_DIRECTIVE, 2026-09-10): 해석=행동 결,
+                                         //   결(12운성)=흐름 결. stageNote 가 하나라도 있을 때 chat 에 부착,
+                                         //   report 는 전 섹션 공통 prefix 에 부착.
   };
 
   outputFormat?: { type: 'report' | 'ranked_dates' | 'timeline' | 'slots'; slots?: string[] };

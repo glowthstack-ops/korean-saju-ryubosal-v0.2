@@ -74,8 +74,8 @@ def run() -> _Run:
     out = _Run()
     orig_act, orig_bok = E._activations, E._bokeum_activations
 
-    def spy_act(hits: Any, layer: Any) -> Any:
-        acts = orig_act(hits, layer)
+    def spy_act(hits: Any, layer: Any, result: Any) -> Any:
+        acts = orig_act(hits, layer, result)
         out.activations.extend(acts)
         return acts
 

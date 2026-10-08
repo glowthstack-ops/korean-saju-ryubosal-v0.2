@@ -126,6 +126,15 @@ export function applyCalibrationToLuckPillars(
       luck_label: ko,
       luck_summary: `${summary} · 검증 확정 용희신 기준`,
       yongsin_alignment: coarse(code),
+      // 삼재 quality·근거는 서버가 보정 전 운 라벨로 판정한 값이라 보정 뷰에서는 단계만 남긴다
+      // (배지 '악삼재' 근거가 카드 라벨 '용신운'과 모순되지 않도록).
+      samjae: p.samjae
+        ? {
+            ...p.samjae,
+            quality: null, quality_label: null, strength_label: null,
+            stage_quality_phrase: null, evidence: [], overlap_label: p.samjae.overlap_label ?? null,
+          }
+        : p.samjae,
     };
   });
 }

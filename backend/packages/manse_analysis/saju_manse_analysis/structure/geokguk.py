@@ -12,6 +12,7 @@ from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.pillars import FourPillarsResult
 from saju_shared_types.structure import GeokgukResult, StructureAnalysis
 
+from ..relations.hap_modes import detect_hwagi
 from .geokguk_eval import (
     build_candidates,
     candidate_dict,
@@ -28,7 +29,58 @@ _REASON_BY_REL = {
 # 특수격 주격 치환 임계값(타입별, 보수적). 미만이면 정격 유지 + '병행 검토' 신호만.
 #   dominant 0.60 ≈ 압도 오행 80%+, follow 0.70 ≈ root_score ≤ 3(거의 무근).
 #   → 가전왕/가종격(경계)은 치환하지 않고 병행 표기해 오확정을 막는다.
-_OVERRIDE_MIN = {"dominant": 0.60, "follow": 0.70}
+_OVERRIDE_MIN = {"dominant": 0.60, "follow": 0.70, "transform": 0.60}
+
+
+_GK_LABEL = {None: "신호 없음", False: "가능성(미확정)", True: "확정"}
+_YS_LABEL = {None: "없음", "real": "진종(眞從)", "pseudo": "가종(假從)"}
+
+
+def _follow_consistency(special: dict | None, force, structure: StructureAnalysis) -> dict | None:
+    """종격 두 기준(격국 신호 vs 용신 특수격 검출)의 판정과 일치 여부 — 표기 전용(C1-c C안).
+
+    격국은 root_score<8(override 는 root≤3)만 보고, 용신 검출기는 root 외에 비겁·인성 세력비로도
+    종격을 잡는다(root_score 가 인성 통근을 포함해 교과서 종격도 root≥8 이 되는 경우 대비). 두
+    기준의 임계는 그대로 두고, 어느 한쪽이라도 종격을 보면 결과를 나란히 적는다. 점수·역할·격국
+    불변.
+    """
+    from ..yongsin.special_cases import detect_special_cases
+
+    gk_type = str(special.get("type")) if special else None
+    if gk_type == "transform":
+        # 화기격(진화)이 주격을 치환하면 종격 두 기준 비교는 무의미 — 화기격 우선(codex 10.6).
+        return {"status": "superseded_by_transform", "geokguk_signal": gk_type,
+                "geokguk_override": bool(special.get("override")) if special else None,
+                "geokguk_label": "화기격 우선", "yongsin_follow_kind": None,
+                "yongsin_label": "-", "note": "화기격(진화) 성립 — 종격 판정은 적용하지 않는다."}
+    gk_follow = special is not None and gk_type == "follow"
+    gk_override: bool | None = (
+        bool(special.get("override")) if special is not None and gk_follow else None
+    )
+    ys = detect_special_cases(force, structure).get("follow_structure")
+    ys_kind = str(ys.detail).split(":")[0] if ys is not None and ys.detected else None
+    if not gk_follow and ys_kind is None:
+        return None
+    consistent = gk_follow and gk_override is True and ys_kind == "real"
+    gk_label = _GK_LABEL[gk_override] if gk_follow else _GK_LABEL[None]
+    ys_label = _YS_LABEL.get(ys_kind, "없음")
+    if consistent:
+        note = "격국과 용신 기준이 모두 종격으로 확정 — 일치."
+    elif gk_follow and gk_override is False and ys_kind:
+        note = ("격국은 종격 가능성만 보고(무근 정도 부족) 용신 검출기는 종격으로 본다 — "
+                "용신은 종격 모델을 쓰지만 조후 역행 시 강등될 수 있다.")
+    elif not gk_follow and ys_kind:
+        note = ("격국 기준으로는 종격 신호가 없고(인성 통근이 root_score 에 포함) 용신 검출기는 "
+                "세력비로 종격을 본다 — 격국 표기는 정격, 용신은 종격 모델.")
+    else:
+        note = "격국은 종격 신호를 보지만 용신 검출기는 종격으로 보지 않는다."
+    return {
+        "status": "consistent" if consistent else "mismatch",
+        "geokguk_signal": gk_type, "geokguk_override": gk_override,
+        "geokguk_label": gk_label,
+        "yongsin_follow_kind": ys_kind, "yongsin_label": ys_label,
+        "note": note,
+    }
 
 
 def detect_geokguk(
@@ -106,7 +158,7 @@ def detect_geokguk(
 
     # 4) 보조 구조: 월지 외 천간 십성의 발현(보조격 표현 금지 → "발현").
     auxiliary: list[str] = []
-    for pos, label in (("year", "년주"), ("month", "월간"), ("hour", "시주")):
+    for pos, label in (("year", "연주"), ("month", "월간"), ("hour", "시주")):
         p = getattr(pillars, pos)
         if p is None:
             continue
@@ -139,6 +191,18 @@ def detect_geokguk(
         if special["override"]:
             main_structure = special["name"]
             formation_level = "특수격"
+    follow_consistency = (
+        _follow_consistency(special, force, structure) if force is not None else None
+    )
+    # 화기격 가화(假化) 후보는 주격을 치환하지 않고 경고로만 남긴다(2026-10-08 데굴님 결정:
+    # 가화 확정 라벨 변경 보류).
+    hwagi_warnings: list[str] = []
+    _hw = detect_hwagi(pillars)
+    if _hw is not None and _hw.kind == "pseudo":
+        hwagi_warnings.append(
+            f"화기격 후보(가화): {''.join(_hw.pair)}합 化{_hw.target_element} — "
+            + "; ".join(_hw.reasons[1:]) + " (주격 치환 없음)"
+        )
 
     return GeokgukResult(
         main_structure=main_structure,
@@ -159,10 +223,12 @@ def detect_geokguk(
         auxiliary_structures=auxiliary,
         candidates=candidates_out,
         special_pattern=special,
+        follow_consistency=follow_consistency,
         evaluation=evaluation,
         warnings=(
             ["격국은 참고 레이어이며 단독 용신 확정 근거로 사용하지 않는다."]
-            + (["특수격(종격/전왕) 신호가 있어 정격과 병행 검토한다."] if special else [])
+            + (["특수격(종격/전왕/화기격) 신호가 있어 정격과 병행 검토한다."] if special else [])
+            + hwagi_warnings
         ),
         explanation=[
             f"월지 {month_branch} {selected.hidden_type} {main_stem}({main_ten_god.value}) 정격 "

@@ -96,8 +96,18 @@ def daewoon_transition_boost(
 
 
 def favorability_map(result: ManseV2Result) -> dict[str, str]:
-    """용신 분석 final → 오행(한자) → 역할(용신/희신/기신/구신/한신) 매핑."""
+    """용신 분석 final → 오행(한자) → 역할(용신/희신/기신/구신/한신) 매핑.
+
+    출생시간 미상으로 12시진 후보 간 용희신이 갈리면(hour_unknown.unconfirmed 에 useful_gods)
+    **빈 매핑**을 돌려준다 — 사건 점수·위험·기회·관계 엔진 전부가 극성을 중립으로 본다(2026-10-06
+    데굴님 원칙: 불완전 정보는 확정이 아니므로 풀이에 적극 활용하지 않는다). 사용자가 검증으로
+    확정한 용신은 호출부가 fav_override 로 따로 넘기므로 영향받지 않는다.
+    """
     if result.yongsin_analysis is None:
+        return {}
+    # duck-typed 호출(테스트 fake 등)을 위해 속성 부재는 '시간 있음'으로 본다.
+    hu = getattr(result, "hour_unknown", None)
+    if hu is not None and hu.is_unconfirmed("useful_gods"):
         return {}
     final = result.yongsin_analysis.final
     out: dict[str, str] = {}

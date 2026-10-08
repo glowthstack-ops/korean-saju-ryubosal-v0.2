@@ -1,9 +1,15 @@
 # saju_v2 전용 인프라 — v1(saju-db-1:5432, saju-redis-1:6379)과 완전 분리.
-# 별도 컨테이너 이름 / 별도 호스트 포트(5433) / 별도 볼륨을 사용해 v1 운영에 영향 없음.
+# 별도 컨테이너 이름 / 별도 호스트 포트(15432·16379) / 별도 볼륨을 사용해 v1 운영에 영향 없음.
+#
+# restart 정책(2026-08-04): 재부팅으로 v2 컨테이너만 내려가고 v1(restart:always)만 살아나
+# "v1 DB만 노출"된 사고가 있었다. unless-stopped = 부팅·데몬 재시작 시 자동 복구, 단
+# `docker compose stop` 으로 의도적으로 내린 경우는 그대로 둔다(always와의 차이).
+# 정책은 컨테이너 삭제까지 막지 못한다 — 그건 명명 볼륨이 담보하고, 복구는 `docker compose up -d`.
 services:
   db:
     image: pgvector/pgvector:pg16
     container_name: saju-v2-db
+    restart: unless-stopped
     environment:
       POSTGRES_USER: saju_v2
       POSTGRES_PASSWORD: saju_v2
@@ -18,12 +24,33 @@ services:
       timeout: 3s
       retries: 10
 
-  # 일주별 오늘의 운세 휘발성 TTL 캐시 — v1 redis(6379)와 분리. 영속 볼륨 불필요(휘발성 콘텐츠).
+  # 일주별 오늘의 운세 휘발성 TTL 캐시 — v1 redis(6379)와 분리.
+  #
+  # 볼륨을 붙인다(2026-08-06). 내용을 영속하려는 것이 아니라 **"이미 생성했다"는 기록**을
+  # 재기동 너머로 남기기 위해서다. 이 캐시가 유일한 존재 판정 근거인데, 볼륨이 없으면
+  # 컨테이너 recreate 마다 기록이 사라져 같은 날짜 보드를 다시 만들고 LLM 교정을 다시
+  # 호출한다. llm_usage 실측: 25회 중 10회(40%, $0.18)가 이 재생성이었고, 매일 06시 전후
+  # 기동 흔적으로 남아 있었다(07-24·07-25·07-27·07-28·07-30·08-04·08-05).
+  # TTL(운세일 익일 03:00)은 그대로라 과거 본문은 여전히 남지 않는다 — 휘발성 원칙 유지.
+  #
+  # AOF 를 켜는 이유: 볼륨만으로는 부족하다. 기본 RDB 저장 조건은 `3600 1`(1시간에 1건)
+  # 이라 21시 생성 직후 1시간 안에 recreate·재부팅이 나면 그 기록이 디스크에 닿지 못한
+  # 채 사라진다 — 우리가 막으려는 창이 바로 거기다. AOF(everysec)면 노출이 1초로 준다.
+  # 하루 40KB 한 건이라 비용은 무시할 수준이다.
+  #
+  # 주의: 이미 데이터가 있는 서버에 AOF 를 켤 때는 **런타임에 먼저** 켜야 한다
+  # (`redis-cli CONFIG SET appendonly yes` → 메모리에서 AOF 재작성). 이 플래그만 넣고
+  # 재기동하면 비어 있는 AOF 를 로드해 기존 보드가 사라진다(2026-08-06 적용 시 이 순서를
+  # 지켜 8/6 보드를 보존했다).
   redis:
     image: redis:7-alpine
     container_name: saju-v2-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "16379:6379"
+    volumes:
+      - saju-v2-redisdata:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -32,3 +59,4 @@ services:
 
 volumes:
   saju-v2-pgdata:
+  saju-v2-redisdata:

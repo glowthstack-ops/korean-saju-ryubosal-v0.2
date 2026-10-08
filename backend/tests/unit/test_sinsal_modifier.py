@@ -181,18 +181,18 @@ def test_pruning_domain_unmatched_capped_to_one() -> None:
 
 
 def test_pruning_year_background_capped_and_only_year() -> None:
-    # dm=False 배경은 년주만 허용, 최대 1.
+    # dm=False 배경은 연주만 허용, 최대 1.
     mods = [
         _mod("yb1", "year", "positive", False, "background", 0.4),
         _mod("yb2", "year", "caution", False, "background", 0.3),
-        _mod("hb", "hour", "neutral", False, "background", 0.5),  # 비년주 배경 → 제외
+        _mod("hb", "hour", "neutral", False, "background", 0.5),  # 비연주 배경 → 제외
     ]
     out = select_llm_sinsal_modifiers(mods)
-    assert all(m.position == "year" for m in out)  # 비년주 배경 제외
+    assert all(m.position == "year" for m in out)  # 비연주 배경 제외
     assert len(out) <= cfg.SINSAL_PAYLOAD_MAX_YEAR_BACKGROUND == 1
 
 
 def test_pruning_excludes_nonyear_domain_unmatched_background() -> None:
     mods = [_mod("hb", "hour", "neutral", False, "background", 0.9)]
     out = select_llm_sinsal_modifiers(mods)
-    assert out == []  # dm=False·비년주·배경 → 노출 안 함
+    assert out == []  # dm=False·비연주·배경 → 노출 안 함

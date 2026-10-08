@@ -22,25 +22,44 @@ from saju_shared_types.yongsin import (
     ElementCandidate,
     ElementRole,
     YongsinCandidateModel,
+    YongsinDecisionTrace,
 )
 
 from ..relations.hap_modes import resolve_stem_hap
+from ..strength.strength_score import EXTREME_STRONG_SCORE
 from .johu_dict import load_johu_table
 from .operational_role_config import (
+    CLIMATE_DEMOTE_REQUIRE_SEVERE,
     CLIMATE_HARMFUL_REASON,
+    CLIMATE_PENALTY_MILD,
+    CLIMATE_PENALTY_MODE,
+    CLIMATE_PENALTY_SEVERE,
+    COLLATERAL_PENALTY,
+    COLLATERAL_REASON,
+    COLLATERAL_SCORE_ENABLED,
     CONDITION_TEMPLATES,
+    DOMINANT_REQUIRE_NO_CONTROLLER,
+    DOMINANT_SPECIAL_REQUIRE_OVERRIDE,
     GYEOKGAK_ALLOWLIST,
+    HEESIN_FUNCTION_KO,
+    JOHU_CLIMATE_ROLE_ONLY,
+    MODEL_HEESIN_FUNCTION,
+    MODEL_LABEL_HEESIN_FUNCTION,
     OFFICER_HAP_REASON,
     OPERABILITY_PENALTY,
     OPERABILITY_REASON,
     OPERATIONAL_ROLE_CLASS,
+    PARTIAL_MAP_ADOPT_AGGREGATED_UNFAVORABLE,
+    SPECIAL_SKIP_CLIMATE_DEMOTE,
     TEN_GOD_HAP_MODE_PHRASE,
     TEN_GOD_HAP_REASON,
+    YONGSIN_STEM_DAMAGE_ENABLED,
 )
 from .role_realization import (
     _ROLE_KEYS,
     _WEAK,
     RoleRealizationChartContext,
+    RoleRealizationOrigin,
     _e,
     resolve_realized_roles,
 )
@@ -61,7 +80,7 @@ _ROLE_KO = {
 }
 
 _NEUTRAL = {"중화", "중화신강"}
-_STRONG = {"신강", "태신강", "극신강"}
+_STRONG = {"신강", "태신강"}  # 7단계(2026-10-07): 극신강 제거
 _COLD_MONTHS = {Branch.HAE, Branch.JA, Branch.CHUK}
 _HOT_MONTHS = {Branch.SA, Branch.O, Branch.MI}
 
@@ -74,6 +93,7 @@ _AXIS_OF: dict[str, str] = {
     "food_rescue": "eokbu",  # 화인통관(偏印奪食/印旺克食 구제) — 財損印과 같은 축에서 경쟁
     "johu": "johu", "pattern_sangsin": "pattern", "disease_remedy": "disease",
     "dominant_one_element": "special", "follow_structure": "special",
+    "transformation_structure": "special",
     "bridge_tonggwan": "bridge",
 }
 
@@ -699,6 +719,58 @@ def _yongsin_bound_factor(
     return False
 
 
+_STEM_CLASH_PAIRS = {  # 天干四沖
+    frozenset({"甲", "庚"}), frozenset({"乙", "辛"}),
+    frozenset({"丙", "壬"}), frozenset({"丁", "癸"}),
+}
+
+
+def _yongsin_stem_damage_factors(
+    yongsin_el: str, pillars: FourPillarsResult, bound_applied: bool,
+) -> list[tuple[str, float]]:
+    """#6c 투출 천간 자리 손상(2026-10-08 데굴님 승인, shadow) — 원국 투출 자리만.
+
+    자리마다 ①인접 천간충 ②인접 극(같은 인접 천간이 충이면 충만) ③좌하 공망(비통근 좌하)
+    ④좌하 六沖(비통근 좌하)을 독립 평가하고, 인자별 가중 = penalty × (손상 자리 수 / 투출 자리 수).
+    좌하 지지가 용신 통근이면 #6a(yongsin_void/clash) 담당이라 ③④ 미적용. 합반(#6b-2)이 이미
+    적용됐으면 천간 관계 인자(①②)는 적용하지 않는다(동일 층 1개만). 운 천간은 제외.
+    """
+    ps = _pillar_list(pillars)
+    seats = [(i, p) for i, p in enumerate(ps) if p.stem_element == yongsin_el]
+    if not seats:
+        return []
+    hits = {"yongsin_stem_clash": 0, "yongsin_stem_controlled": 0,
+            "yongsin_seat_void": 0, "yongsin_seat_clash": 0}
+    for i, p in seats:
+        seat_rooted = any(hs.element == yongsin_el for hs in p.hidden_stems)
+        if not seat_rooted:
+            if p.gongmang_hit:
+                hits["yongsin_seat_void"] += 1
+            if any(
+                frozenset({Branch(p.branch), Branch(q.branch)}) in BRANCH_CLASHES
+                for q in ps if q is not p
+            ):
+                hits["yongsin_seat_clash"] += 1
+        if bound_applied:
+            continue
+        clash = controlled = False
+        for j in (i - 1, i + 1):
+            if 0 <= j < len(ps):
+                q = ps[j]
+                if frozenset({q.stem, p.stem}) in _STEM_CLASH_PAIRS:
+                    clash = True
+                elif CONTROLS[Element(q.stem_element)] == Element(yongsin_el):
+                    controlled = True
+        if clash:
+            hits["yongsin_stem_clash"] += 1
+        elif controlled:
+            hits["yongsin_stem_controlled"] += 1
+    n = len(seats)
+    return [
+        (k, round(OPERABILITY_PENALTY[k] * c / n, 4)) for k, c in hits.items() if c
+    ]
+
+
 def _compute_yongsin_operability(
     yongsin_el: str,
     pillars: FourPillarsResult,
@@ -748,6 +820,13 @@ def _compute_yongsin_operability(
         op *= 1.0 - OPERABILITY_PENALTY["yongsin_bound"]
         factors.append("yongsin_bound")
         reasons.append(OPERABILITY_REASON["yongsin_bound"])
+    if YONGSIN_STEM_DAMAGE_ENABLED:  # #6c(shadow, 기본 OFF)
+        for factor, weight in _yongsin_stem_damage_factors(
+            yongsin_el, pillars, "yongsin_bound" in factors,
+        ):
+            op *= 1.0 - weight
+            factors.append(factor)
+            reasons.append(OPERABILITY_REASON[factor])
     return round(op, 4), factors, reasons
 
 
@@ -908,6 +987,10 @@ def _classify_bridge_roles(
         source = detail.split("|", 1)[0].split("→", 1)[0]
         if source in elements and source != yongsin_el:
             gisin = source
+            if heesin == gisin:
+                # 과다 출발축(병)이 다른 모델의 희신 제안과 같은 오행이면 병이 우선 — 희신은
+                # 폴백으로 다시 뽑는다(5역할 분할 불변식; 2026-10-07 7단계 전환 중 080/R 실측 충돌).
+                heesin = None
     if gisin is None:
         # sorted 순회 필수: set 순서는 프로세스 해시 시드에 따라 달라 max() 동점 시 결과가
         # 흔들린다(실측 — 1953-01-15 희신 火/木 플립). 결정적 순서로 고정한다.
@@ -1079,8 +1162,9 @@ def _mediator_promotion_veto(
          한습월(亥子丑) 水 mediator(한기 심화).
     차단해도 병 감지 자체는 유효 — 財損印 등 다른 치료 후보가 경쟁을 이어받는다.
     """
-    if band == "극신강":
-        return "극신강 — 비겁 mediator 승격은 신강 악화(strength_aggravation)"
+    # 7단계(2026-10-07): '극신강' 밴드가 없어졌으므로 옛 극신강 상한(점수>75)으로 판정을 보존한다.
+    if float(force.strength.score) > EXTREME_STRONG_SCORE:
+        return "극단 신강(점수>75) — 비겁 mediator 승격은 신강 악화(strength_aggravation)"
     fe = force.five_elements
     dist = fe.season_adjusted_element_strength or fe.distribution_environment
     total = sum(dist.values()) or 1.0
@@ -1179,9 +1263,10 @@ def _wealth_standalone_operability(
         mult *= 0.9
         notes.append("재성 실령(월령이 재성의 극 대상 — 제어에 소모)")
     dm_controls_wealth = CONTROLS[g["peer"]] == g["wealth"]
-    if dm_controls_wealth and pillars.hour is not None and (
-        pillars.hour.stem_element == wealth or pillars.year.stem_element == wealth
-    ):
+    # 시주가 없어도 연간 투간은 독립적으로 본다(2026-10-06 — 종전 괄호 구조가 시주 미상이면
+    # 연간 판정까지 건너뛰었다).
+    hour_wealth = pillars.hour is not None and pillars.hour.stem_element == wealth
+    if dm_controls_wealth and (hour_wealth or pillars.year.stem_element == wealth):
         mult *= 0.9
         notes.append("투간 재성이 왕한 일간 계열의 극에 노출")
     notes.append("土 생조·통근을 얻는 운에서 실질 작동(운 판정 참고)")
@@ -1505,9 +1590,28 @@ def _johu_model(
     primary_stems = _stems("primary")
     secondary_stems = _stems("secondary")
     avoid_stems = _stems("avoid")
-    if not primary_stems:
-        return None
-    ordered = primary_stems + secondary_stems
+    needs_raw = cell.get("needs")
+    needs = [n for n in needs_raw if isinstance(n, dict)] if isinstance(needs_raw, list) else []
+    climate_needs = [
+        n for n in needs
+        if any(str(r).startswith("climate_") for r in (n.get("roles") or []))
+    ]
+    support_needs = [n for n in needs if n not in climate_needs]
+    if JOHU_CLIMATE_ROLE_ONLY and needs:
+        # 결정 A(2026-10-07): 조후 후보는 climate_* 역할 천간만. 없으면 후보 없음(경고는 호출부).
+        if not climate_needs:
+            return None
+        _rank = {"priority": 0, "alternative": 1, "pair": 2}
+        climate_needs = sorted(
+            climate_needs, key=lambda n: _rank.get(str(n.get("relation")), 9)
+        )
+        ordered = [str(n["stem"]) for n in climate_needs if n.get("stem")]
+        if not ordered:
+            return None
+    else:
+        if not primary_stems:
+            return None
+        ordered = primary_stems + secondary_stems
     extreme = month_branch in (_COLD_MONTHS | _HOT_MONTHS)
     natal = [
         p for p in (pillars.year, pillars.month, pillars.day, pillars.hour)
@@ -1523,13 +1627,32 @@ def _johu_model(
 
     reasons = [
         f"궁통보감 조후: {month_branch}월 {day_stem}일간 → {'·'.join(ordered)}"
-        f" (최우선 {primary_stems[0]})",
+        f" (최우선 {ordered[0]})",
         f"기후 축: 한난={axes['temperature_axis']} 조습={axes['moisture_axis']}"
         f" → primary={primary_axis}",
         "조후는 단독 확정 금지, 억부와 함께 검증",
     ]
+    if JOHU_CLIMATE_ROLE_ONLY and needs:
+        # 결정 D: 필요(need)와 원국 존재(present/absent)를 분리해 적는다 — 부재해도 필요는 유지.
+        present = [
+            f"{s}({'투간' if s in transparent else '장간'})"
+            for s in ordered if s in transparent or s in hidden
+        ]
+        absent = [s for s in ordered if s not in transparent and s not in hidden]
+        reasons.append(
+            f"조후 역할 글자 need={'·'.join(ordered)} / present={'·'.join(present) or '없음'}"
+            f" / absent={'·'.join(absent) or '없음'}"
+        )
+        if support_needs:
+            reasons.append(
+                "궁통보감 배합·구조 글자(점수 제외): " + " ".join(
+                    f"{n.get('stem')}[{'/'.join(str(r) for r in (n.get('roles') or []))}]"
+                    for n in support_needs
+                )
+            )
     conf = 0.4 if extreme else 0.35
-    yong_el = STEM_ELEMENT[Stem(primary_stems[0])]
+    # 결정 A: climate 역할 순서의 첫 글자 — 오행 환원은 후보 오행을 만드는 이 한 곳에서만.
+    yong_el = STEM_ELEMENT[Stem(ordered[0])]
 
     # severe 축 + 셀 내 직접 교정 천간 → emergency 평가(부재 시에만 가산).
     if severe and corrective_el is not None:
@@ -1603,6 +1726,44 @@ def _johu_model(
     )
 
 
+def _johu_no_candidate_warning(
+    month_branch: Branch,
+    day_stem: Stem,
+    pillars: FourPillarsResult,
+    force: ForceAnalysis,
+) -> str | None:
+    """결정 A: 사전 셀에 climate 역할 천간이 없는 한난 월 — 보조 후보 대신 경고만.
+
+    기후 축이 mild 이상일 때만 경고를 낸다(neutral 이면 조용). 교정 필요 오행과 궁통보감 취용 글자를
+    함께 적어 억부·생조 판단의 참고가 되게 한다.
+    """
+    if not JOHU_CLIMATE_ROLE_ONLY:
+        return None
+    table = load_johu_table()
+    if table is None:
+        return None
+    cell = table.get(str(day_stem), {}).get(str(month_branch))
+    if not isinstance(cell, dict):
+        return None
+    needs_raw = cell.get("needs")
+    needs = [n for n in needs_raw if isinstance(n, dict)] if isinstance(needs_raw, list) else []
+    if not needs or any(
+        any(str(r).startswith("climate_") for r in (n.get("roles") or [])) for n in needs
+    ):
+        return None
+    axes = _climate_axes(pillars, force)
+    primary_axis = str(axes["primary_climate_axis"])
+    if primary_axis == "neutral":
+        return None
+    corrective = _AXIS_CORRECTIVE.get(primary_axis.removeprefix("severe_"))
+    take_use = "·".join(str(n.get("stem")) for n in needs if n.get("stem"))
+    return (
+        f"조후 교정 필요({_e(corrective) if corrective else '?'}, 축={primary_axis}) — "
+        f"사전 {day_stem}×{month_branch} 셀에 조후 역할 천간 없음(궁통보감 취용 {take_use}); "
+        "보조 후보 생성 안 함, 억부·생조 판단 참고"
+    )
+
+
 def _pattern_model(geokguk: GeokgukResult, g: dict[str, Element]) -> YongsinCandidateModel | None:
     """격국용신형: 성격(成格) 시 상신 그룹을 용신 후보로(보정 레이어). 패격이면 병약이 담당."""
     ev = geokguk.evaluation
@@ -1624,6 +1785,26 @@ def _pattern_model(geokguk: GeokgukResult, g: dict[str, Element]) -> YongsinCand
     )
 
 
+# 파격 유형별 **완비 역할맵**(2026-10-01 데굴님 승인, 문헌 근거 한정) — 子平真詮 論食神取運:
+# "食神帶印，而透財以解，運喜財旺，食傷亦吉，印與官煞皆忌矣" → 偏印倒食의 약신은 財, 食傷 吉,
+# 印·官煞 忌, 比劫은 언급 없음(중립=한신). 論食神 "更有印來奪食，透財以解". 比劫 통관(화인통관)을
+# 1차 치료로 삼는 근거는 고전에 없어(滴天髓 通關장에 日主·比劫 통관 언급 없음) 밴드 독립화는 하지
+# 않는다 — 신강 전용 food_rescue 모델(2026-07-13 감수)은 그대로 둔다.
+_DAMAGE_ROLE_MAP: dict[str, dict[str, str]] = {
+    "pyeonin_dosik": {
+        "yongsin": "wealth", "heesin": "output", "gisin": "resource", "gusin": "officer",
+        "hansin": "peer",
+    },
+}
+_FINAL_MAP_ONLY_LABEL = "병약용신형(약신·문헌맵)"
+_DAMAGE_ROLE_REASON: dict[str, tuple[str, ...]] = {
+    "pyeonin_dosik": (
+        "印奪食은 透財以解(子平真詮 論食神) — 재성이 편인을 제어해 식신을 보호",
+        "取運: 財旺·食傷 吉, 印·官煞 忌, 比劫 중립(한신)",
+    ),
+}
+
+
 def _disease_models(
     geokguk: GeokgukResult, g: dict[str, Element]
 ) -> list[YongsinCandidateModel]:
@@ -1638,6 +1819,26 @@ def _disease_models(
         if grp is None or grp in seen:
             continue
         seen.add(grp)
+        # 완비맵은 子平真詮 論食神(食神格)의 명문이므로 **식신격에만** 적용한다 — 건록격 등 다른
+        # 격의
+        # 편인도식(1980-02-15 골든: 比劫 土가 克財라 기신)은 기존 정적 생극 폴백을 유지한다.
+        role_map = (
+            _DAMAGE_ROLE_MAP.get(dmg) if geokguk.main_structure == "식신격" else None
+        )
+        if role_map is not None:
+            # 문헌 완비맵(2026-10-01) — 부분맵이면 final 이 정적 생극 폴백(克용신=기신)으로 채워져
+            # 偏印倒食 치료(財)에서 比劫이 기신으로 반전되는 결함이 있었다(중화권 2015-03-01
+            # 반사실).
+            out.append(YongsinCandidateModel(
+                model_type=f"disease_remedy:{dmg}", label="병약용신형(약신·문헌맵)",
+                yongsin=_e(g[role_map["yongsin"]]), heesin=_e(g[role_map["heesin"]]),
+                gisin=_e(g[role_map["gisin"]]), gusin=_e(g[role_map["gusin"]]),
+                hansin=_e(g[role_map["hansin"]]),
+                confidence=0.5,
+                reasons=[f"파격({dmg}) 제거 약신", *_DAMAGE_ROLE_REASON.get(dmg, ())],
+                is_auxiliary=True,
+            ))
+            continue
         out.append(YongsinCandidateModel(
             model_type=f"disease_remedy:{dmg}", label="병약용신형(약신)",
             yongsin=_e(g[grp]),
@@ -1755,6 +1956,86 @@ def _circulation(force: ForceAnalysis) -> dict:
     }
 
 
+_GROUP_KO = {
+    "peer": "비겁", "resource": "인성", "output": "식상", "wealth": "재성", "officer": "관살",
+}
+_CLIMATE_KO = {
+    "severe_cold": "극한(寒)", "cold": "한(寒)", "severe_heat": "극열(熱)", "heat": "열(熱)",
+    "severe_dry": "극조(燥)", "dry": "조(燥)", "severe_damp": "극습(濕)", "damp": "습(濕)",
+}
+
+
+def _heesin_function_of(model: YongsinCandidateModel | None) -> str | None:
+    """모델의 희신 기능 key(C, 2026-10-01) — 모델 자체 표기 > 라벨 override > 모델 유형 표."""
+    if model is None:
+        return None
+    if model.heesin_function:
+        return model.heesin_function
+    if model.label in MODEL_LABEL_HEESIN_FUNCTION:
+        return MODEL_LABEL_HEESIN_FUNCTION[model.label]
+    base = model.model_type.split(":", 1)[0]
+    return MODEL_HEESIN_FUNCTION.get(base)
+
+
+def _collateral_effects(
+    el: str,
+    role_ko: str,
+    groups: dict[str, float],
+    g: dict[str, Element],
+    needed: dict[str, str],
+) -> list[tuple[str, str]]:
+    """후보 오행의 부작용(A1, 2026-10-01) — 설명 전용 주석.
+
+    한 오행은 여러 방향으로 작용한다(金은 木을 극하면서 水를 생). ①후보가 생하는 오행이 원국 과다·병
+    오행이면 feeds_excess ②후보가 극하는 오행이 필요 기운(용신·조후 필요신)이면 controls_needed.
+    후보 자신이 과다인 경우는 기존 '조건부 희신/병' 라벨이 담당하므로 여기서 다루지 않는다.
+
+    Args:
+        el: 후보 오행(한자). role_ko: 후보의 역할 표기(용신/희신). groups: 십성군 세력.
+        g: 일간 기준 십성군→오행. needed: {오행: 필요 사유 라벨} (용신·조후 필요신).
+    """
+    out: list[tuple[str, str]] = []
+    over_el = _overloaded_element(groups, g)
+    e = Element(el)
+    gen_target = _e(GENERATES[e])
+    if over_el is not None and gen_target == over_el and over_el != el:
+        out.append(("feeds_excess", COLLATERAL_REASON["feeds_excess"].format(
+            el=el, role=role_ko, target=over_el,
+        )))
+    ctrl_target = _e(CONTROLS[e])
+    if ctrl_target in needed and ctrl_target != el:
+        out.append(("controls_needed", COLLATERAL_REASON["controls_needed"].format(
+            el=el, role=role_ko, target=ctrl_target, target_role=needed[ctrl_target],
+        )))
+    return out
+
+
+def _problem_statement(
+    band: str,
+    groups: dict[str, float],
+    g: dict[str, Element],
+    climate_primary: str,
+    checks: dict,
+) -> str:
+    """명국의 핵심 문제 한 줄(D) — 신강약 + 과다 십성 + 기후 축 + 특수 구조. 결정론 문자열."""
+    parts = [band]
+    over_el = _overloaded_element(groups, g)
+    if over_el is not None:
+        grp = next((k for k, v in g.items() if _e(v) == over_el), None)
+        parts.append(f"{_GROUP_KO.get(grp or '', grp)} 과다({over_el})")
+    if climate_primary in _CLIMATE_KO:
+        parts.append(_CLIMATE_KO[climate_primary])
+    if checks.get("follow_structure") is not None and checks["follow_structure"].detected:
+        parts.append("종격 성립" if str(checks["follow_structure"].detail or "").startswith("real")
+                     else "가종(假從)")
+    if checks.get("dominant_one_element") is not None and checks["dominant_one_element"].detected:
+        parts.append("가전왕(극 오행 잔존)" if str(checks["dominant_one_element"].detail or "")
+                     .startswith("pseudo") else "전왕/일행득기")
+    if checks.get("bridge_required") is not None and checks["bridge_required"].detected:
+        parts.append("상극 대치(통관 필요)")
+    return " + ".join(parts)
+
+
 def build_yongsin(
     pillars: FourPillarsResult,
     force: ForceAnalysis,
@@ -1769,14 +2050,62 @@ def build_yongsin(
     band = strength.band
     month_branch = Branch(pillars.month.branch)
 
-    checks = detect_special_cases(force, structure)
+    checks = detect_special_cases(force, structure, pillars)
     models: list[YongsinCandidateModel] = []
     warnings: list[str] = []
     is_pseudo_follow = False
     pseudo_model: YongsinCandidateModel | None = None
+    # 화기격(化氣格, 2026-10-08 데굴님 결정) — 진화(眞化)면 化神 기준 용신이 special 축 단독.
+    # 역할 배정(용신=化神·희신=化神을 생하는 오행·기신=化神을 극하는 오행)은 codex_spec 10.6 을
+    # 단순화한 **엔진 채택 규칙**이며 고전 확정 규칙이 아니다(滴天髓 "既化矣 又論化神"은 化神의
+    # 한난·강약에 따라 달리 보라 함 — 후속 조정 대상). 가화(假化)는 보조
+    # 모델 병기(비집계·검증 위임). 격국 special_pattern(type=transform) 과 같은 판정원
+    # (detect_hwagi).
+    _tr = checks["transformation_structure"]
+    _tr_detail = str(_tr.detail or "")
+    is_real_transform = _tr.detected and _tr_detail.startswith("real:")
+    transform_model: YongsinCandidateModel | None = None
+    if _tr.detected:
+        _parts = _tr_detail.split(":")
+        _hwa_el = Element(_parts[1])
+        _hwa_name = _parts[2] if len(_parts) > 2 else "화기격"
+        _breaker = next(e for e in Element if CONTROLS[e] == _hwa_el)
+        _helper = next(e for e in Element if GENERATES[e] == _hwa_el)
+        transform_model = YongsinCandidateModel(
+            model_type="transformation_structure",
+            label=(f"화기격(化氣格)·{_hwa_name}" if is_real_transform
+                   else f"가화(假化)·{_hwa_name} 후보"),
+            yongsin=_e(_hwa_el), heesin=_e(_helper), gisin=_e(_breaker),
+            confidence=round(_tr.confidence, 4),
+            reasons=(
+                [f"일간 합화 성립 → 化神 {_hwa_el.value}을 따른다"
+                 "(용신=化神, 희신=化神을 돕는 오행)",
+                 f"합화를 깨는 {_breaker.value}은 기신"]
+                + ([] if is_real_transform
+                   else ["가화(假化): 일간 유근·연간 합·투간 인겁관 중 하나 — "
+                         "억부와 경쟁, 검증 필요"])
+            ),
+            is_auxiliary=not is_real_transform,
+        )
+    # E(2026-10-01, 플래그): 압도 오행을 극하는 오행이 잔존하면 가전왕 — 억부와 경쟁(종격 pseudo
+    # 패턴).
+    dominant_pseudo = DOMINANT_REQUIRE_NO_CONTROLLER and str(
+        checks["dominant_one_element"].detail or ""
+    ).startswith("pseudo:")
+    # C1-b(2026-10-07 데굴님 승인): 격국이 전왕으로 주격을 치환하지 않았으면(override=False,
+    # 압도 <80%) 용신도 전왕 단독 주도가 아니라 가전왕(억부 경쟁)으로 다룬다 — 격국·용신 정합.
+    _sp = geokguk.special_pattern or {}
+    if (
+        DOMINANT_SPECIAL_REQUIRE_OVERRIDE
+        and checks["dominant_one_element"].detected
+        and not (_sp.get("type") == "dominant" and _sp.get("override"))
+    ):
+        dominant_pseudo = True
 
-    # 특수격 우선
-    if checks["dominant_one_element"].detected:
+    # 특수격 우선 — 화기격(진화) → 전왕 → 종격(codex_spec 10.6 우선순위)
+    if is_real_transform and transform_model is not None:
+        models.append(transform_model)
+    elif checks["dominant_one_element"].detected and not dominant_pseudo:
         # 오행 과다/부족은 월령 보정 세력 기준. 폴백도 보정이 섞인 effective 대신
         # '원점수' 환경 분포(일간 제외)를 쓴다(통근/투간/공망 중복 반영 방지).
         fe = force.five_elements
@@ -1794,13 +2123,28 @@ def build_yongsin(
         sp_follow = _strongest_pressure(groups)
         follow_el = g[sp_follow]
         subtype = _FOLLOW_SUBTYPE[sp_follow]
+        # 종재·종살 역할맵 완비(2026-10-08 데굴님 승인): 희신=용신을 生하는 십성군, 기신=비겁,
+        # 구신=인성(비겁을 生), 한신=나머지. 부분맵(용신·기신만)이면 canonical 이 정적 생극으로
+        # 폴백해 모델이 말한 '비겁 기신'이 식상으로 바뀌는 모순이 있었다(종격 통합 c9cc799 회귀,
+        # test_yongsin_decision_provenance). 종아격은 비겁이 용신(식상)을 生해 같은 규칙을 못 쓰므로
+        # 기존 부분맵 유지(결정 대기).
+        _follow_full: dict[str, str] = {
+            "officer": {"heesin": "wealth", "gusin": "resource", "hansin": "output"},
+            "wealth": {"heesin": "output", "gusin": "resource", "hansin": "officer"},
+        }.get(sp_follow, {})
         follow_model = YongsinCandidateModel(
             model_type="follow_structure",
             label=("가종격(假從)·" + subtype) if is_pseudo_follow else subtype,
             yongsin=_e(follow_el), gisin=_e(g["peer"]),
+            heesin=_e(g[_follow_full["heesin"]]) if "heesin" in _follow_full else None,
+            gusin=_e(g[_follow_full["gusin"]]) if "gusin" in _follow_full else None,
+            hansin=_e(g[_follow_full["hansin"]]) if "hansin" in _follow_full else None,
             confidence=round(checks["follow_structure"].confidence, 4),
             reasons=(
-                [f"극신약·무근 → 가장 강한 세력({subtype})에 순응", "억지로 돕는 비겁/인성은 기신"]
+                [
+                    f"극단 신약·무근 → 가장 강한 세력({subtype})에 순응",
+                    "억지로 돕는 비겁/인성은 기신",
+                ]
                 + (
                     ["인성이 약하게 남아 가종(假從) — 운에서 비겁·인성 입운 시 파격, 검증 필요"]
                     if is_pseudo_follow else []
@@ -1890,11 +2234,27 @@ def build_yongsin(
                     )
         warnings.append("중화 구간: 경쟁 모델 동시 제시, 사용자 검증 필요")
 
+    if dominant_pseudo:
+        fe = force.five_elements
+        sas = fe.season_adjusted_element_strength or fe.distribution_environment
+        strongest = max(sas, key=lambda e: sas[e])
+        pseudo_model = YongsinCandidateModel(
+            model_type="dominant_one_element", label="가전왕(假專旺)·억부 경쟁",
+            yongsin=strongest, heesin=_e(g["output"]),
+            confidence=round(checks["dominant_one_element"].confidence * 0.6, 4),
+            reasons=["특정 오행이 압도적이나 극하는 오행이 잔존 — 진전왕 미성립",
+                     "순행(전왕)과 억부가 경쟁 — 사용자 검증 필요"],
+        )
+        warnings.append("가전왕(假專旺): 극 오행 잔존 — 순행과 억부가 경쟁, 사용자 검증 필요")
     # 조후: _johu_model이 한습(亥子丑)·조열(巳午未)만 모델을 내므로(辰·戌은 None) 그대로 사용.
     # (丑=한겨울·未=한여름은 土월이라도 조후가 핵심 — 월령오행으로 걸러내면 안 됨.)
     johu = _johu_model(month_branch, dm, pillars, force)
     if johu is not None:
         models.append(johu)
+    else:
+        _johu_warn = _johu_no_candidate_warning(month_branch, dm, pillars, force)
+        if _johu_warn:
+            warnings.append(_johu_warn)
     # 격국(상신)·병약(약신) 보정 축 — 용신을 단독 확정하지 않고 후보 우선순위만 조정.
     pattern = _pattern_model(geokguk, g)
     if pattern is not None:
@@ -1923,11 +2283,17 @@ def build_yongsin(
     if checks["isolation_health"].detected:
         warnings.append(f"고립/병약 리스크: {checks['isolation_health'].detail} (건강 레이어)")
 
+    # C(2026-10-01): 모델별 희신 기능 태그(설명 전용) — 희신은 '2등 후보'가 아니라 역할이 있어야
+    # 한다.
+    for _m in models:
+        if _m.heesin_function is None:
+            _m.heesin_function = _heesin_function_of(_m)
+
     # 동적 축 가중치(상황별) — 격국/조후/병약을 '보정 레이어'로 반영, 신약은 억부 우선.
     # 가종(pseudo)은 special 단독 주도가 아니라 억부와 경쟁시키므로 special 취급에서 제외.
-    special = checks["dominant_one_element"].detected or (
-        checks["follow_structure"].detected and not is_pseudo_follow
-    )
+    special = is_real_transform or (
+        checks["dominant_one_element"].detected and not dominant_pseudo
+    ) or (checks["follow_structure"].detected and not is_pseudo_follow)
     axis_weights = _select_axis_weights(
         band, month_branch, geokguk, special,
         bridge_required=checks["bridge_required"].detected,
@@ -1948,9 +2314,25 @@ def build_yongsin(
     for m in models:
         w = _w(m.model_type)
         _put(useful, m.yongsin, m.confidence * w, m.model_type, "yongsin")
+        if m.label == _FINAL_MAP_ONLY_LABEL:
+            # 문헌 완비맵 보조 모델(14-3): 희·기·구는 final 역할표 전용 — 후보 집계에 섞으면 다른
+            # 모델의 용신 후보 역할이 heesin 으로 덮여 선택이 흔들린다(그리드 2004-12-15 실측).
+            continue
         _put(useful, m.heesin, m.confidence * w * 0.85, m.model_type, "heesin")
         _put(unfavorable, m.gisin, m.confidence * w, m.model_type, "gisin")
         _put(unfavorable, m.gusin, m.confidence * w * 0.9, m.model_type, "gusin")
+
+    # A2(플래그, 기본 OFF): 생하는 오행이 원국 과다·병 오행인 후보는 점수에 계수(부작용
+    # feeds_excess).
+    # ON 전 672 그리드 재스캔 보고 필수 — 점수식 원문(위 _put 줄)은 바꾸지 않고 사후 계수로
+    # 적용한다.
+    if COLLATERAL_SCORE_ENABLED:
+        _over_for_coll = _overloaded_element(groups, g)
+        if _over_for_coll is not None:
+            for _el in list(useful):
+                if _e(GENERATES[Element(_el)]) == _over_for_coll:
+                    _sc, _mdl, _role = useful[_el]
+                    useful[_el] = (_sc * COLLATERAL_PENALTY, _mdl, _role)
 
     # 축별 기여 요약(어느 축이 어떤 오행을 얼마로 밀었는가).
     axes_summary: list[dict] = []
@@ -1967,14 +2349,78 @@ def build_yongsin(
             })
     axes_summary.sort(key=lambda a: a["score"], reverse=True)  # 기여 점수 내림차순
 
-    # 부적격 원소 강등(용·희 → 불리).
+    # 부적격 원소 강등(용·희 → 불리). 강등 내역은 선정 추적(D)의 rejected 로 남긴다.
+    demoted: list[dict] = []
+
     def _demote(el: str | None, tag: str) -> None:
         if el and el in useful:
             sc = useful.pop(el)
+            demoted.append({"element": el, "model": sc[1], "score": round(sc[0], 4), "reason": tag})
             _put(unfavorable, el, sc[0] * 0.9, sc[1], tag)
 
     # ① 조후 역행(한습 水 / 조열 火)은 용·희 부적격.
-    _demote(_climate_harmful(month_branch, force), "climate_demote")
+    #    B(2026-10-01, 플래그): severe 기후 축일 때만 강등 — 그 외에는 후보를 남기고 축 충돌로 보고.
+    _climate_axes_now = _climate_axes(pillars, force)
+    _climate_primary = str(_climate_axes_now["primary_climate_axis"])
+    _climate_el = _climate_harmful(month_branch, force)
+    # C1-a 면제는 용신 쪽 진종·진전왕 판정과 격국 쪽 특수격 치환(override)이 합의한 때만 —
+    # 격국 종격 신호(root_score 기준)는 용신 쪽(세력군 기준)보다 약해 단독 SSOT 로 쓰지 않는다.
+    special_confirmed = special and bool(_sp.get("override"))
+    if (
+        SPECIAL_SKIP_CLIMATE_DEMOTE and special_confirmed
+        and _climate_el and _climate_el in useful
+    ):
+        # C1-a(2026-10-07 데굴님 승인): 진종·진전왕은 순응이 우선 — 종격 용신을 조후 역행으로
+        # 강등하지 않는다. 한난 보완은 운 서술 레이어에서 다룬다.
+        warnings.append(
+            f"조후 역행({_climate_el}) 경고: 특수격 순응 우선으로 강등하지 않음 — "
+            "운에서 한난 보완 검토"
+        )
+    elif CLIMATE_PENALTY_MODE in ("axis_graded", "month_axis_graded"):
+        # 결정 C(2026-10-07 데굴님): 강등 대신 **감점**(후보 유지, 자동 강등 없음). mild=약한 감점,
+        # severe=강한 감점. 두 게이트:
+        #   axis_graded       — 한난 축(계산)이 mild 이상일 때만, 월지와 무관.
+        #   month_axis_graded — 한난 월(亥子丑/巳午未)을 필요조건으로 두고 축으로 강도만
+        #                       매긴다(축 neutral 이어도 레거시 분포 임계면 약한 감점). 기준
+        #                       사주 창원 2018(丑月, 축 neutral)이 axis_graded 에서는 火 용신을
+        #                       잃어 이 모드를 둔다.
+        _t_axis = str(_climate_axes_now["temperature_axis"])
+        _axis_el = (
+            _e(Element.WATER) if _t_axis.endswith("cold")
+            else _e(Element.FIRE) if _t_axis.endswith("heat") else None
+        )
+        if CLIMATE_PENALTY_MODE == "axis_graded":
+            _pen_el = _axis_el
+        else:
+            _pen_el = _climate_el if _climate_el and (
+                _axis_el in (None, _climate_el)
+            ) else None
+        if (
+            _pen_el and _pen_el in useful
+            and special and not special_confirmed
+            and useful[_pen_el][1] in (
+                "dominant_one_element", "follow_structure", "transformation_structure",
+            )
+        ):
+            # 격국이 확정하지 않은 종격·전왕(용신 쪽만 진종)의 조후 역행은 기존대로 강등한다 —
+            # special 축 가중치 1.0 이라 감점으로는 억부·조후 후보가 경쟁할 수 없다
+            # (C1-c 보류 중 안전장치).
+            _demote(_pen_el, "climate_demote")
+        elif _pen_el and _pen_el in useful:
+            _severe = _t_axis.startswith("severe_") and _axis_el == _pen_el
+            _factor = CLIMATE_PENALTY_SEVERE if _severe else CLIMATE_PENALTY_MILD
+            _sc, _mdl, _role = useful[_pen_el]
+            useful[_pen_el] = (_sc * _factor, _mdl, _role)
+            _tag = "severe" if _severe else "mild"
+            demoted.append({
+                "element": _pen_el, "model": _mdl, "score": round(_sc, 4),
+                "reason": f"climate_penalty:{_tag}(×{_factor})",
+            })
+            warnings.append(
+                f"조후 역행 감점: {_pen_el}({_mdl}) 한난 축 {_t_axis} → ×{_factor} (후보 유지)"
+            )
+    elif not CLIMATE_DEMOTE_REQUIRE_SEVERE or _climate_primary.startswith("severe_"):
+        _demote(_climate_el, "climate_demote")
     # ② 극파 무력: 용/희 원소가 그것을 극하는 그룹에게 압도(>3배·최강군)당하면 강등
     #    (재다→인성, 군겁→재성, 인성과다→식상, 상관견관→관성 등 일괄).
     #    단 비겁(일간 동기·방조 유효)·조후 필요 원소(한습 火/조열 水)는 보존.
@@ -2073,6 +2519,30 @@ def build_yongsin(
     realized = realization.result
     warnings.extend(realized.warnings)  # 통관 동점 타이브레이크 사유 — 순서 유지
     roles = realized.final_role_map.as_dict()
+    # C1-d(2026-10-07 데굴님 승인): 부분맵 모델(조후·상신 등) 선택 시 기·구신은 정적 생극이 아니라
+    # 집계된 불리 후보(억부 맥락)를 채택하고 한신은 나머지 오행. 특수분기·완비 모델맵은 그대로.
+    if (
+        PARTIAL_MAP_ADOPT_AGGREGATED_UNFAVORABLE
+        and realized.realization_origin is RoleRealizationOrigin.STATIC_FALLBACK_ROLE_MAP
+        and len(unfavorable_candidates) >= 2
+    ):
+        _y_el, _h_el = roles.get("yongsin"), roles.get("heesin")
+        _gi, _gu = unfavorable_candidates[0].element, unfavorable_candidates[1].element
+        # 정적 기신이 집계 불리 집합 안에 있으면 그 순서를 지킨다(기존 기준 사주 1980-戊 등 보존).
+        if roles.get("gisin") == _gu:
+            _gi, _gu = _gu, _gi
+        if _y_el and _h_el and len({_y_el, _h_el, _gi, _gu}) == 4:
+            _rest = [
+                _e(el) for el in Element
+                if _e(el) not in (_y_el, _h_el, _gi, _gu)
+            ]
+            roles = {
+                "yongsin": _y_el, "heesin": _h_el,
+                "gisin": _gi, "gusin": _gu, "hansin": _rest[0],
+            }
+            warnings.append(
+                "부분맵 모델: 기·구신을 집계 불리 후보로 배정(정적 생극 순환 대신) — 한신은 나머지"
+            )
     top_model = realized.top_model_type
     selected_model = realization.selected_model_ref  # 읽기 전용 참조
     model_complete = realized.model_complete
@@ -2137,9 +2607,87 @@ def build_yongsin(
             for r in operational_roles
         ]
 
+    # ── D·C·A1(2026-10-01): 선정 근거 추적 — 설명 전용(final·점수 불변) ──
+    _axis_top = {a["axis"]: a["top_element"] for a in axes_summary}
+    axis_conflict: dict | None = None
+    if (
+        _axis_top.get("eokbu") and _axis_top.get("johu")
+        and _axis_top["eokbu"] != _axis_top["johu"]
+    ):
+        _chosen_axis = _axis_of(top_model) if top_model else None
+        resolution = (
+            "조후 우선" if _chosen_axis == "johu"
+            else "억부 우선" if _chosen_axis == "eokbu"
+            else f"{_chosen_axis or '기타'} 축 우선"
+        )
+        if _climate_primary.startswith("severe_"):
+            resolution += f"({_CLIMATE_KO.get(_climate_primary, _climate_primary)})"
+        # 기후 축이 중립이면 조후 후보는 사전 기본값(base 신뢰도)일 뿐 — 데이터로만 남기고
+        # 경고·프리픽스
+        # 노출은 축이 성립(≥mild)한 명식에 한정한다(719명식 중 70%가 형식상 불일치라 소음).
+        significant = _climate_primary != "neutral"
+        axis_conflict = {
+            "eokbu": _axis_top["eokbu"], "johu": _axis_top["johu"], "resolution": resolution,
+            "significant": significant,
+        }
+        if significant:
+            warnings.append(
+                f"억부·조후 축 충돌: 억부 {_axis_top['eokbu']} / 조후 {_axis_top['johu']}"
+                f" — {resolution}"
+            )
+    heesin_fn: str | None
+    if top_model == "bridge_tonggwan":
+        heesin_fn = "bridge_support"
+    elif model_map_adopted:
+        heesin_fn = _heesin_function_of(selected_model)
+    else:
+        heesin_fn = "generate_yongsin"  # 정적 생극 폴백·특수분기 — 生용신
+    rejected: list[dict] = [
+        {"element": e, "model": mdl, "score": round(sc, 4),
+         "reason": "경쟁 후보(점수 차 " + f"{round(useful_sorted[0][1][0] - sc, 4)})"}
+        for e, (sc, mdl, _role) in useful_sorted[1:]
+        if e != roles.get("heesin")  # 채택된 희신은 '기각'이 아니다
+    ] + demoted
+    needed: dict[str, str] = {}
+    if yongsin_el:
+        needed[yongsin_el] = "용신"
+    if _johu_need and _johu_need != yongsin_el:
+        needed[_johu_need] = "조후 필요신"
+    collateral_lines: list[str] = []
+    collateral_by_el: dict[str, list[str]] = {}
+    for _cel, _role_ko in ((yongsin_el, "용신"), (roles.get("heesin"), "희신")):
+        if not _cel:
+            continue
+        for _code, _text in _collateral_effects(_cel, _role_ko, groups, g, needed):
+            collateral_lines.append(_text)
+            collateral_by_el.setdefault(_cel, []).append(_text)
+    if collateral_by_el:
+        operational_roles = [
+            r.model_copy(update={
+                "note": " | ".join([*( [r.note] if r.note else []), *collateral_by_el[r.element]]),
+            }) if r.element in collateral_by_el else r
+            for r in operational_roles
+        ]
+    decision_trace = YongsinDecisionTrace(
+        problem=_problem_statement(band, groups, g, _climate_primary, checks),
+        chosen_path=(
+            f"{selected_model.label} — {selected_model.reasons[0]}"
+            if selected_model is not None and selected_model.reasons
+            else (selected_model.label if selected_model is not None else (top_model or "미정"))
+        ),
+        heesin_function=heesin_fn,
+        heesin_function_ko=HEESIN_FUNCTION_KO.get(heesin_fn or "", None),
+        rejected=rejected,
+        axis_conflict=axis_conflict,
+        collateral=collateral_lines,
+    )
+
     # 가종(pseudo) 종격 모델은 집계에 넣지 않고 후보 목록에만 병기(억부 1차 결과는 유지).
     if pseudo_model is not None:
         models.append(pseudo_model)
+    if transform_model is not None and not is_real_transform:
+        models.append(transform_model)  # 가화 보조 모델(비집계·병기)
+        warnings.append("화기격 가화(假化) 후보 — 억부와 경쟁, 사용자 검증 필요")
 
     # 유통(流通) 흐름 점수 — 정보성. 신약이라도 상생 순환이 원활하면 완화 해석 메모.
     flow = _circulation(force)
@@ -2163,4 +2711,5 @@ def build_yongsin(
         flow_circulation=flow,
         requires_validation=True,
         warnings=warnings,
+        decision_trace=decision_trace,
     )

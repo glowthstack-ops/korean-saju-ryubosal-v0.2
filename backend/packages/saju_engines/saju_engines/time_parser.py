@@ -13,6 +13,7 @@ from datetime import date, timedelta
 
 from saju_manse_analysis.luck.luck_calendar import shift_month_label
 
+from saju_manse_core.calendar.lunar_solar_converter import lunar_to_solar
 from saju_shared_types.intent import (
     AgeRange,
     AnchorDate,
@@ -26,14 +27,79 @@ from saju_shared_types.intent import (
 
 # C3 일 단위 상대어 — 글피(+3일)까지 사전 등재(docs/08 C3).
 _DAY_WORDS = {"오늘": 0, "내일": 1, "모레": 2, "글피": 3}
+#: 같은 어휘를 서술 쪽(프롬프트의 날짜 지칭)에서도 쓴다 — 파싱과 서술이 다른 말을 쓰면
+#: 사용자가 '모레'라고 물었는데 답은 '2일 뒤'라고 부르는 어긋남이 생긴다(2026-08-06).
+DAY_WORD_OFFSETS: dict[str, int] = _DAY_WORDS
 # C3.5 요일 — Python weekday()(월=0 … 일=6). '다음주 월요일'은 특정 일운(주 전체 아님).
 _WEEKDAYS = {"월": 0, "화": 1, "수": 2, "목": 3, "금": 4, "토": 5, "일": 6}
-# C13 인생 단계 어휘.
+# C13 인생 단계 어휘. '청년'은 인구통계 용법("청년 대출") 오탐이 잦아 단계 문맥
+# 접미(기/때/시절/에)가 붙을 때만 인정한다(_YOUTH_STAGE_RE).
 _LIFE_STAGES = {
     "초년": "초년", "중년": "중년", "말년": "말년", "노후": "말년",
     "평생": "평생", "일생": "평생",
 }
+_YOUTH_STAGE_RE = re.compile(r"청년\s*(?:기|때|시절|에)")
+#: 단계별 (시작나이, 끝나이) — 근묘화실(연주=초년·월주=청년·일주=중년·시주=말년)
+#: 4분법을 100세 시대 기준으로 재조정한 현대 명리 통용 경계(2026-08-07 데굴님 확정).
+#: '평생'=출생~100세. chat의 전 생애 스캔 창·100세 상한이 이 표를 공유한다.
+LIFE_STAGE_AGE_RANGES: dict[str, tuple[int, int]] = {
+    "초년": (0, 25), "청년": (26, 50), "중년": (51, 75), "말년": (76, 100),
+    "평생": (0, 100),
+}
 _HALF = {"상반기": ("01", "06"), "하반기": ("07", "12")}
+# C7b 계절 — 절기 기준 석 달(寅卯辰=봄·巳午未=여름·申酉戌=가을·亥子丑=겨울). 월 라벨이
+# 절기 월운(YYYY-MM)이라 양력 통념(겨울=12~2월)이 아니라 절기 월로 잡는다(2026-09-23 데굴님
+# 승인 — '올 겨울 작업 수주가 잘될까?'가 시점 미파싱→too_broad로 바운스되던 결함).
+# 값 = 계절 첫 절기월 숫자(라벨 기준). 겨울은 11월 시작이라 익년 1월까지 연도를 넘는다.
+_SEASON_START_MONTH = {"봄": 2, "여름": 5, "가을": 8, "겨울": 11}
+# 수식어(올/이번/내년/작년/지난/다음/오는/다가오는) + 계절어. '봄'은 동사 명사형('사주 봄')과
+# 동형이라 수식어 없이 단독이면 조사·접미(철/에/엔/은/는/까지/부터/동안/쯤)가 붙을 때만 인정.
+_SEASON_RE = re.compile(
+    r"(올해|올|이번|금년|내년|작년|지난|다가오는|오는|다음)?\s*(봄|여름|가을|겨울)"
+    r"(철|에|엔|은|는|까지|부터|동안|쯤|경|이|의)?"
+)
+
+
+def _season_range(text: str, this_month: str) -> tuple[str, str] | None:
+    """계절어를 절기 월 라벨 구간(start, end)으로 푼다(C7b). 없으면 None.
+
+    연도 결정은 오늘의 절기 달(this_month) 기준으로, 그 해 계절이 '이전/진행/종료' 어느
+    상태인지 본다. 겨울은 11·12·익년 1월이라 1월이면 진행 중인 겨울의 시작 연도는 전년.
+    올/이번/금년=그 해 계절(지났어도 회고), 내년=+1, 작년=−1, 지난=가장 최근에 끝난 계절,
+    다음/오는/다가오는·무수식=아직 오지 않았거나 진행 중이면 그 해, 끝났으면 다음 해.
+    """
+    m = _SEASON_RE.search(text)
+    if m is None:
+        return None
+    qualifier, season, suffix = m.group(1), m.group(2), m.group(3)
+    if season == "봄" and qualifier is None and suffix is None:
+        return None
+    # 특정 월('겨울 12월에')이 함께 있으면 더 좁은 월 규칙(C5)에 양보한다.
+    if re.search(r"(?<![\d/\-])\d{1,2}\s*월", text):
+        return None
+    cy, cm = int(this_month[:4]), int(this_month[5:7])
+    first = _SEASON_START_MONTH[season]
+    if season == "겨울":
+        base = cy - 1 if cm == 1 else cy
+        state = "in" if cm in (11, 12, 1) else "before"
+    else:
+        base = cy
+        last = first + 2
+        state = "before" if cm < first else ("in" if cm <= last else "after")
+    if qualifier in ("올해", "올", "이번", "금년"):
+        year = base
+    elif qualifier == "내년":
+        year = base + 1
+    elif qualifier == "작년":
+        year = base - 1
+    elif qualifier == "지난":
+        year = base if state == "after" else base - 1
+    elif qualifier in ("다음", "오는", "다가오는"):
+        year = base if state == "before" else base + 1
+    else:
+        year = base + 1 if state == "after" else base
+    start = f"{year}-{first:02d}"
+    return start, shift_month_label(start, 2)
 # C5b 슬래시/대시 날짜 — "6/17", "6-17", "2026-06-17"(선택 연도). 뒤에 숫자·구분자가
 # 이어지거나(긴 수열) 기간·범위 단위(월/년/주/개월/시간/살/분/초/%)가 붙으면 제외해
 # "8-10월"(월 범위)·"3-4년" 등 오인을 막는다. 일(日)·'에'·'이후/부터'는 허용.
@@ -44,7 +110,294 @@ _SLASH_DATE_RE = re.compile(
 )
 # 과거시제 표지 — 있으면 연도 미지정 과거 날짜를 '내년 택일'로 밀지 않고 그 해(과거)로 둔다
 # ("6/17에 계약했는데" → 2026-06-17). 미래 택일("7월 4일 이사하려고")은 표지가 없어 영향 없음.
-_PAST_TENSE_RE = re.compile(r"했|찍었|샀|봤|갔|왔|였|었[어은는을다나]|지났|끝났|난\s*뒤")
+# 과거 관형형 서술('넣은 건 6월 17일이야'·'계약한 게 5월 3일')도 과거로 본다(2026-09-06).
+_PAST_TENSE_RE = re.compile(
+    r"했|찍었|샀|봤|갔|왔|였|었[어은는을다나]|지났|끝났|난\s*뒤|[가-힣][은ㄴ]\s*(?:건|게|거)\b"
+)
+
+
+# ── C5d 복수 명시 일자 · 일 범위(2026-10-02 데굴님 승인) ─────────────────────────────
+# 실답 결함: 택일 답 뒤 "10월 7일과 9일은 어때?"가 C5b 첫 매치(10-07) 하나로만 파싱되어 9일이
+# 입력에서 통째로 사라지고, LLM 이 "9일 세부 정보는 제공되지 않았다"고 답했다. 다중 월
+# ("8월과 10월")은 min~max 스팬 선례가 있는데 다중 일은 없었다.
+#   ① 목록형: "10월 7일과 9일", "10월 7일, 9일", "7일이랑 9일", "8월 31일 … 9월 30일", "10/7과 10/9"
+#      → TimeRange(start=min, end=max, dates=[…])  — 사이 날은 대상이 아니다.
+#   ② 범위형: "10월 7일부터 9일까지", "7일~9일", "10월 7일에서 9일 사이"
+#      → TimeRange(start=d1, end=d2) — dates 는 비움(연속 창).
+# 월 생략 날의 달은 직전 명시 달을 잇고, 전부 생략이면 C5c 와 같은 규칙(이번 달/다음 달 접두,
+# 아니면 가장 가까운 유효 미래 달)로 푼다. 연도 생략은 C5b 와 같다(지난 날짜면 내년, 과거시제면
+# 그대로). 2개 미만이면 None 을 돌려 C5b/C5c 가 그대로 처리한다.
+_MD_FULL_RE = re.compile(r"(?:(20\d{2})\s*년\s*)?(?<!\d)(\d{1,2})\s*월\s*(\d{1,2})\s*일")
+_DAY_LIST_SEP = r"(?:과|와|이랑|랑|하고|및|그리고|,|·)"
+_DAY_RANGE_SEP = r"(?:부터|에서|~|∼|-|—)"
+_BARE_DAY_CONT_RE = re.compile(
+    r"\s*" + _DAY_LIST_SEP + r"\s*(?:(\d{1,2})\s*월\s*)?(?<!\d)(\d{1,2})\s*일"
+    r"(?!\s*(?:동안|간|씩|마다|내|후|전|째|이내|안에))"
+)
+_DAY_RANGE_TAIL_RE = re.compile(
+    r"\s*" + _DAY_RANGE_SEP + r"\s*(?:(\d{1,2})\s*월\s*)?(?<!\d)(\d{1,2})\s*일\s*(?:까지|사이)?"
+)
+_BARE_DAY_HEAD_RE = re.compile(
+    r"(?:(이번\s*달|이달|다음\s*달|오는)\s*)?(?<!\d)(\d{1,2})\s*일(?=\s*(?:" + _DAY_LIST_SEP
+    + r"|" + _DAY_RANGE_SEP + r")\s*(?:\d{1,2}\s*월\s*)?\d{1,2}\s*일)"
+)
+_MULTI_DAY_MAX = 4
+
+
+def _nearest_month_day(dy: int, today: date, prefix: str, past_ok: bool) -> date | None:
+    """월 생략 날(C5c 규칙) — 접두(이번 달/다음 달) 고정, 아니면 가장 가까운 유효 미래 달."""
+    if prefix in ("이번달", "이달"):
+        offsets = [0]
+    elif prefix == "다음달":
+        offsets = [1]
+    else:
+        offsets = [0, 1, 2]
+    for off in offsets:
+        yy = today.year + (today.month - 1 + off) // 12
+        mm = (today.month - 1 + off) % 12 + 1
+        try:
+            cand = date(yy, mm, dy)
+        except ValueError:
+            continue
+        if past_ok or prefix in ("이번달", "이달") or cand >= today:
+            return cand
+    return None
+
+
+def _roll_future(d: date, today: date, year_explicit: bool, text: str) -> date:
+    """연도 미지정 지난 날짜는 내년으로(C5b 규칙) — 명시 연도·'내년'·과거시제면 그대로."""
+    if year_explicit or "내년" in text or d >= today or _PAST_TENSE_RE.search(text):
+        return d
+    try:
+        return date(d.year + 1, d.month, d.day)
+    except ValueError:
+        return d
+
+
+def parse_multi_day(
+    text: str, today: date, hour_level: bool = False, urgency: str | None = None
+) -> tuple[TimeRange, TimeScope] | None:
+    """C5d — 복수 명시 일자(목록) 또는 일 범위를 파싱한다. 해당 없음·날짜 2개 미만이면 None.
+
+    Args:
+        text: 사용자 발화 원문.
+        today: 기준일.
+        hour_level: C17 시간대 요청 동반 여부(granularity HOUR).
+        urgency: C16 즉시성.
+
+    Returns:
+        (TimeRange, TimeScope) 또는 None. 목록형은 ``dates`` 에 날짜 전부(최대 4), 범위형은
+        start~end 만.
+    """
+    base_year = today.year + (1 if "내년" in text else 0)
+    gran = Granularity.HOUR if hour_level else Granularity.DAY
+
+    def _mk(d_list: list[date], is_range: bool) -> tuple[TimeRange, TimeScope]:
+        ds = sorted(set(d_list))
+        return TimeRange(
+            type="absolute", granularity=gran,
+            start=ds[0].isoformat(), end=ds[-1].isoformat(),
+            dates=[] if is_range else [d.isoformat() for d in ds[:_MULTI_DAY_MAX]],
+            urgency=urgency,
+        ), TimeScope.SHORT_TERM
+
+    # ① 'N월 D일' 명시 매치 전부 + 각 매치 뒤의 월 생략 연속('과 9일', ', 11일') / 범위 꼬리.
+    fulls = list(_MD_FULL_RE.finditer(text))
+    if fulls:
+        found: list[date] = []
+        year_explicit = any(m.group(1) for m in fulls)
+        range_pair: tuple[date, date] | None = None
+        for m in fulls:
+            yr = int(m.group(1)) if m.group(1) else base_year
+            mo = int(m.group(2))
+            try:
+                head = date(yr, mo, int(m.group(3)))
+            except ValueError:
+                continue
+            found.append(head)
+            pos = m.end()
+            rt = _DAY_RANGE_TAIL_RE.match(text, pos)
+            if rt and range_pair is None and len(fulls) == 1:
+                mo2 = int(rt.group(1)) if rt.group(1) else mo
+                tail: date | None
+                try:
+                    tail = date(yr, mo2, int(rt.group(2)))
+                except ValueError:
+                    tail = None
+                if tail is not None and tail > head:
+                    range_pair = (head, tail)
+                    break
+            cur_mo = mo
+            while True:
+                ct = _BARE_DAY_CONT_RE.match(text, pos)
+                if not ct:
+                    break
+                if ct.group(1):  # 'N월 D일'이 이어지면 다음 full 매치가 처리한다
+                    break
+                try:
+                    found.append(date(yr, cur_mo, int(ct.group(2))))
+                except ValueError:
+                    pass
+                pos = ct.end()
+        if range_pair is not None:
+            a, b = range_pair
+            a2 = _roll_future(a, today, year_explicit, text)
+            delta = (b - a).days
+            return _mk([a2, a2 + timedelta(days=delta)], is_range=True)
+        uniq = sorted(set(found))
+        if len(uniq) >= 2:
+            # 가장 이른 날이 지났고 연도 미지정이면 전부 한 해 뒤로(한 질문의 날짜는 같은 해 의도).
+            shifted = _roll_future(uniq[0], today, year_explicit, text)
+            if shifted != uniq[0]:
+                uniq = [_roll_future(d, today, year_explicit, text) for d in uniq]
+            return _mk(uniq, is_range=False)
+        return None
+
+    # ② 슬래시 날짜 복수("10/7과 10/9").
+    slashes = [m for m in _SLASH_DATE_RE.finditer(text)]
+    if len(slashes) >= 2:
+        found = []
+        year_explicit = any(m.group(1) for m in slashes)
+        for m in slashes:
+            yr = int(m.group(1)) if m.group(1) else base_year
+            try:
+                found.append(date(yr, int(m.group(2)), int(m.group(3))))
+            except ValueError:
+                continue
+        uniq = sorted(set(found))
+        if len(uniq) >= 2:
+            if _roll_future(uniq[0], today, year_explicit, text) != uniq[0]:
+                uniq = [_roll_future(d, today, year_explicit, text) for d in uniq]
+            return _mk(uniq, is_range=False)
+        return None
+
+    # ③ 월 전부 생략 — "7일이랑 9일은", "7일부터 9일까지"(C5c 달 규칙).
+    hm = _BARE_DAY_HEAD_RE.search(text)
+    if not hm:
+        return None
+    prefix = (hm.group(1) or "").replace(" ", "")
+    past_ok = bool(_PAST_TENSE_RE.search(text))
+    bare_head = _nearest_month_day(int(hm.group(2)), today, prefix, past_ok)
+    if bare_head is None:
+        return None
+    pos = hm.end()
+    rt = _DAY_RANGE_TAIL_RE.match(text, pos)
+    if rt and not rt.group(1):
+        try:
+            bare_tail = date(bare_head.year, bare_head.month, int(rt.group(2)))
+        except ValueError:
+            return None
+        if bare_tail > bare_head:
+            return _mk([bare_head, bare_tail], is_range=True)
+        return None
+    found = [bare_head]
+    while True:
+        ct = _BARE_DAY_CONT_RE.match(text, pos)
+        if not ct or ct.group(1):
+            break
+        try:
+            found.append(date(bare_head.year, bare_head.month, int(ct.group(2))))
+        except ValueError:
+            pass
+        pos = ct.end()
+    uniq = sorted(set(found))
+    return _mk(uniq, is_range=False) if len(uniq) >= 2 else None
+
+
+#: 주 틀 식별자 — 일요일~토요일(로또 판매 회차·사용자 지정).
+WEEK_FRAME_SUN_SAT = "sun_sat"
+_SUNDAY = 6  # Python weekday()
+# 로또 — 일요일~토요일 저녁 판매분을 토요일 저녁에 추첨한다. 주 단위 표현은 이 회차 단위로 읽는다.
+# 연금복권 등 다른 복권은 추첨 요일이 달라 대상이 아니다.
+_LOTTO_RE = re.compile(r"로또")
+_WEEKDAY_RANGE_RE = re.compile(
+    r"([월화수목금토일])요일\s*(?:부터|에서|~|-|–)\s*([월화수목금토일])요일(?:\s*까지)?"
+    # 줄임 표기 '일~토'·'월-금' — 기호 구분자만, 앞이 숫자·한글이면 제외('7일~토', '3월~5월').
+    r"|(?<![0-9가-힣])([월화수목금토일])\s*[~\-–]\s*([월화수목금토일])(?=\s|로|까지|요일|$)"
+)
+
+
+def _weekday_range_match(text: str) -> tuple[int, int] | None:
+    """요일 범위 표현의 (시작 요일, 끝 요일) — 정식('일요일부터 토요일')·줄임('일~토') 공용."""
+    m = _WEEKDAY_RANGE_RE.search(text)
+    if m is None:
+        return None
+    first, second = (m.group(1), m.group(2)) if m.group(1) else (m.group(3), m.group(4))
+    return _WEEKDAYS[first], _WEEKDAYS[second]
+
+
+def _week_word(text: str) -> tuple[int, str] | None:
+    """주 지정어 → (일 오프셋, 호칭). '다다음 주'를 '다음 주'보다 먼저 본다(한 주 어긋남 방지)."""
+    if re.search(r"다다음\s*주", text):
+        return 14, "다다음 주"
+    if re.search(r"다음\s*주", text):
+        return 7, "다음 주"
+    if re.search(r"이번\s*주|금주", text):
+        return 0, "이번 주"
+    return None
+
+
+def _week_start(day: date, start_weekday: int) -> date:
+    """``day`` 가 속한 주의 시작일 — ``start_weekday``(월=0 … 일=6) 시작 기준."""
+    return day - timedelta(days=(day.weekday() - start_weekday) % 7)
+
+
+def week_frame_start_weekday(text: str) -> int | None:
+    """발화가 **주 틀 정의**('일요일부터 토요일까지' — 7일을 꽉 채우는 요일 범위)면 시작 요일.
+
+    Returns:
+        시작 요일(월=0 … 일=6). 요일 범위가 없거나 7일 미만 구간이면 None.
+    """
+    pair = _weekday_range_match(text)
+    if pair is None:
+        return None
+    a, b = pair
+    return a if (b - a) % 7 == 6 else None
+
+
+def reframe_week(anchor: date, start_weekday: int) -> tuple[date, date]:
+    """``anchor`` 가 속한 주를 ``start_weekday`` 시작 7일 창으로 다시 잡는다."""
+    start = _week_start(anchor, start_weekday)
+    return start, start + timedelta(days=6)
+
+
+def parse_weekday_range(
+    text: str, today: date, urgency: str | None = None,
+) -> tuple[TimeRange, TimeScope] | None:
+    """요일 범위('일요일부터 토요일까지'·'월요일~수요일')를 일 단위 창으로 파싱한다(C3.4).
+
+    7일을 꽉 채우는 범위는 주 틀 정의다 — 오늘이 속한 그 틀의 주('다음 주' 동반 시 +7일)를
+    돌려주고, 일~토면 ``week_frame`` 을 표시한다. 7일 미만은 이번 주(월요일 기준) 안의 구간이며,
+    주 지정어 없이 이미 끝난 구간이면 다음 주로 넘긴다.
+
+    Returns:
+        (TimeRange, TimeScope) 또는 요일 범위가 없으면 None.
+    """
+    pair = _weekday_range_match(text)
+    if pair is None:
+        return None
+    a, b = pair
+    span = (b - a) % 7
+    word = _week_word(text)
+    has_week_word = word is not None
+    week_offset = word[0] if word else 0
+    if span == 6:
+        start = _week_start(today, a) + timedelta(days=week_offset)
+        return TimeRange(
+            type="relative", granularity=Granularity.DAY,
+            start=start.isoformat(), end=(start + timedelta(days=6)).isoformat(),
+            urgency=urgency,
+            week_frame=WEEK_FRAME_SUN_SAT if a == _SUNDAY else None,
+            week_label=word[1] if word else None,
+        ), TimeScope.SHORT_TERM
+    start = _week_start(today, 0) + timedelta(days=a + week_offset)
+    end = start + timedelta(days=span)
+    if not has_week_word and end < today:
+        start, end = start + timedelta(days=7), end + timedelta(days=7)
+    return TimeRange(
+        type="relative", granularity=Granularity.DAY,
+        start=start.isoformat(), end=end.isoformat(), urgency=urgency,
+    ), TimeScope.SHORT_TERM
 
 
 def parse_time(
@@ -52,6 +405,7 @@ def parse_time(
     today: date,
     birth_year: int | None = None,
     current_month_label: str | None = None,
+    sunday_week: bool = False,
 ) -> tuple[TimeRange | None, TimeScope]:
     """텍스트에서 시점 표현을 파싱한다 (C1~C18).
 
@@ -62,6 +416,8 @@ def parse_time(
         current_month_label: 오늘이 속한 절기 월운 라벨(YYYY-MM). 주입 시 '이번 달'·
             '다음 달'·미래/과거 롤링 창의 기준 달을 절기 기준으로 잡는다. 미주입 시
             양력 ``today.month`` 폴백(절기 경계 직전 구간에서 한 달 어긋날 수 있음).
+        sunday_week: 주 단위 표현을 일요일~토요일 틀로 잡는다(직전 턴이 로또 회차 틀이었던
+            후속 '다음 주는?' 승계용). 발화에 '로또'가 있으면 이 값과 무관하게 일~토 틀이다.
 
     Returns:
         (TimeRange | None, TimeScope). 무시점(C1)이면 (None, TIMELESS) —
@@ -69,6 +425,8 @@ def parse_time(
     """
     # 절기 기준 '당월' 라벨 — 주입 없으면 양력 폴백(경계 직전 한 달 어긋남 감수).
     this_month = current_month_label or f"{today.year}-{today.month:02d}"
+    # 로또 주 = 판매 회차(일요일~토요일 저녁 판매분을 토요일 저녁 추첨, 2026-10-04 데굴님 지적).
+    sunday_week = sunday_week or bool(_LOTTO_RE.search(text))
     # C16 즉시성 수식 — 다른 패턴과 결합 가능하므로 먼저 추출.
     urgency = "asap" if re.search(r"빠를\s*수록|최대한\s*빨리|빨리\s*좋", text) else None
 
@@ -189,13 +547,25 @@ def parse_time(
                 start=start, end=end, urgency=urgency,
             ), TimeScope.LIFE_STAGE
 
-    # C13 인생 단계.
-    for word, stage in _LIFE_STAGES.items():
-        if word in text:
-            return TimeRange(
-                type="relative", granularity=Granularity.DAEWOON,
-                life_stage=stage, urgency=urgency,
-            ), TimeScope.LIFE_STAGE
+    # C13 인생 단계 — birth_year가 있으면 단계 경계 나이(LIFE_STAGE_AGE_RANGES)를
+    # 연도로 환산해 start/end를 채운다. C12 나이 표현과의 비대칭('88세쯤'은 연도가
+    # 잡히는데 '말년에'는 안 잡혀 올해 창으로 오답하던 결함) 보완(2026-08-07).
+    # '7일생·1980년 10월 8일생'(출생일 접미)의 '일생'은 생애가 아니다(2026-09-11 실로그 #1791:
+    # 즉석 출생일 2건이 '평생' 창(출생~100세)으로 잡혀 궁합 비교가 생애 지평으로 풀리던 결함).
+    stage_text = re.sub(r"\d\s*일생", "", text)
+    stage_hit = next((s for w, s in _LIFE_STAGES.items() if w in stage_text), None)
+    if stage_hit is None and _YOUTH_STAGE_RE.search(text):
+        stage_hit = "청년"
+    if stage_hit is not None:
+        lo_age, hi_age = LIFE_STAGE_AGE_RANGES[stage_hit]
+        start = end = None
+        if birth_year is not None:
+            start = str(birth_year + lo_age)
+            end = str(birth_year + hi_age)
+        return TimeRange(
+            type="relative", granularity=Granularity.DAEWOON,
+            life_stage=stage_hit, start=start, end=end, urgency=urgency,
+        ), TimeScope.LIFE_STAGE
 
     # C14 대운 단위.
     if re.search(r"(다음|이번|현재)\s*대운|대운\s*교운", text):
@@ -278,14 +648,42 @@ def parse_time(
                 start=target.isoformat(), end=target.isoformat(), urgency=urgency,
             ), TimeScope.DATE_LEVEL
 
+    # C3.4 요일 범위 — '일요일부터 토요일까지'·'월요일~수요일'. 단일 요일(C3.5)로 읽으면 첫
+    #     요일 하루로 축소된다(2026-10-04 실로그: '한주를 일요일부터 토요일까지로 잡고'가
+    #     오늘 하루로 떨어짐). 7일을 꽉 채우면 주 틀 정의로 본다.
+    wr = parse_weekday_range(text, today, urgency=urgency)
+    if wr is not None:
+        return wr
+
     # C3.5 요일 — '다음주 월요일'·'이번주 금요일'·'월요일'은 단일 일운(주 전체 아님).
-    wd = re.search(r"(?:(이번|다음|금)\s*주\s*)?([월화수목금토일])요일", text)
+    wd = re.search(
+        r"(?:(이번|다다음|다음|금|지난|저번)\s*주\s*|(지난|저번)\s*)?([월화수목금토일])요일", text
+    )
+    if wd and wd.group(2):
+        # '지난 일요일' — 오늘 이전의 가장 가까운 그 요일(2026-10-04: '지난'이 무시돼 다가오는
+        # 요일로 잡히던 결함). 오늘과 같은 요일이면 7일 전.
+        back = (today.weekday() - _WEEKDAYS[wd.group(3)]) % 7 or 7
+        target = today - timedelta(days=back)
+        return TimeRange(
+            type="relative", granularity=Granularity.DAY,
+            start=target.isoformat(), end=target.isoformat(), urgency=urgency,
+        ), TimeScope.DATE_LEVEL
     if wd:
-        week_word, day_ch = wd.group(1), wd.group(2)
-        monday = today - timedelta(days=today.weekday())
-        if week_word == "다음":
-            monday += timedelta(days=7)
-        target = monday + timedelta(days=_WEEKDAYS[day_ch])
+        week_word, day_ch = wd.group(1), wd.group(3)
+        if sunday_week:
+            # 일~토 틀 — 주 시작이 일요일이므로 요일 오프셋도 일요일 기준으로 센다.
+            monday = _week_start(today, _SUNDAY)
+            day_offset = (_WEEKDAYS[day_ch] - _SUNDAY) % 7
+        else:
+            monday = today - timedelta(days=today.weekday())
+            day_offset = _WEEKDAYS[day_ch]
+        monday += timedelta(
+            days={"다음": 7, "다다음": 14, "지난": -7, "저번": -7}.get(week_word or "", 0)
+        )
+        target = monday + timedelta(days=day_offset)
+        # 일~토 틀에서 '이번주 일요일'이 이미 지났으면 다가오는 일요일로(구어 관행 유지).
+        if sunday_week and week_word in (None, "이번", "금") and target < today:
+            target += timedelta(days=7)
         # 주 지정어 없이 지난 요일이면 다가오는 같은 요일로(예: 오늘이 화요일인데 '월요일').
         if week_word is None and target < today:
             target += timedelta(days=7)
@@ -307,15 +705,42 @@ def parse_time(
             urgency=urgency,
         ), TimeScope.SHORT_TERM
 
+    # C4a 주말 — '이번 주말'·'다음 주말'·'이번주 주말'은 그 주의 토·일 이틀(2026-10-04: C4 가
+    #     '이번\s*주'로 잡아 주 전체가 되던 결함). 주 지정어가 있을 때만 — 지정어 없는 '주말만'은
+    #     현실 제약(_detect_constraints)이지 시점이 아니다. 주말은 월~일 주의 토·일로 센다
+    #     (로또도 동일 — 토요일은 이번 회차, 일요일은 다음 회차라는 안내는 지시문이 맡는다).
+    wk_end = re.search(r"(이번|다다음|다음|금)\s*(?:주\s*)?주말", text)
+    if wk_end:
+        end_offset = {"다음": 7, "다다음": 14}.get(wk_end.group(1), 0)
+        saturday = _week_start(today, 0) + timedelta(days=5 + end_offset)
+        return TimeRange(
+            type="relative", granularity=Granularity.DAY,
+            start=saturday.isoformat(), end=(saturday + timedelta(days=1)).isoformat(),
+            urgency=urgency,
+        ), TimeScope.SHORT_TERM
+
     # C4 주 단위.
-    if re.search(r"이번\s*주|다음\s*주|금주", text):
-        offset = 7 if re.search(r"다음\s*주", text) else 0
-        monday = today - timedelta(days=today.weekday()) + timedelta(days=offset)
+    week_word_c4 = _week_word(text)
+    if week_word_c4 is not None:
+        offset, week_label = week_word_c4
+        # 기본은 월~일 캘린더 주. 로또(판매 회차)·일~토 틀 승계면 일요일~토요일.
+        week_base = _week_start(today, _SUNDAY if sunday_week else 0)
+        monday = week_base + timedelta(days=offset)
         return TimeRange(
             type="relative", granularity=Granularity.DAY,
             start=monday.isoformat(), end=(monday + timedelta(days=6)).isoformat(),
             urgency=urgency,
+            week_frame=WEEK_FRAME_SUN_SAT if sunday_week else None,
+            week_label=week_label,
         ), TimeScope.SHORT_TERM
+
+    # C7b 계절 — "올 겨울", "이번 봄에", "내년 여름", "지난 가을"(절기 석 달, 반기와 같은 형).
+    season = _season_range(text, this_month)
+    if season is not None:
+        return TimeRange(
+            type="absolute", granularity=Granularity.MONTH,
+            start=season[0], end=season[1], urgency=urgency,
+        ), TimeScope.MID_TERM
 
     # C7 반기 (특정월보다 먼저 — "하반기"가 월 표현과 혼동되지 않게).
     for word, (m1, m2) in _HALF.items():
@@ -326,6 +751,12 @@ def parse_time(
                 type="absolute", granularity=Granularity.MONTH,
                 start=f"{year}-{m1}", end=f"{year}-{m2}", urgency=urgency,
             ), TimeScope.MID_TERM
+
+    # C5d 복수 명시 일자·일 범위 — "10월 7일과 9일", "7일부터 9일까지"(2026-10-02). C5b 보다 먼저
+    # 본다(C5b 는 첫 매치 하나로 반환). 2개 미만이면 None → 기존 규칙 그대로.
+    multi = parse_multi_day(text, today, hour_level=hour_level, urgency=urgency)
+    if multi is not None:
+        return multi
 
     # C5b 특정 일자(+이후/부터) — "7월 4일 이후(로)", "8월 1일부터", "2026년 7월 4일 이후".
     # 택일(E10)의 시작 앵커. '이후/부터'면 개방형(end=None — 호출 측이 탐색 윈도우 결정),
@@ -368,7 +799,8 @@ def parse_time(
     #     상대 일수만 잡는다(2026-07-01 데굴님 지적: '이후 10일 내에 로또 좋은 날'이 시점 미파싱으로
     #     직전 하루를 과승계해 택일이 하루만 잡히던 결함). '열흘'(10) 한글수도 허용.
     md = re.search(r"(?:이후|앞으로|향후|다가오는)\s*(\d{1,3})\s*일", text) or re.search(
-        r"(\d{1,3})\s*일\s*(?:내에|안에|이내|이내에|안으로)", text
+        # '3일내'(띄어쓰기·조사 없음)도 받는다(2026-09-11 실로그 #1315). '내내'는 제외.
+        r"(\d{1,3})\s*일\s*(?:내에|안에|이내|이내에|안으로|내(?!내))", text
     )
     n_days = int(md.group(1)) if md else 0
     if not n_days and re.search(
@@ -381,6 +813,52 @@ def parse_time(
             start=today.isoformat(), end=(today + timedelta(days=n_days)).isoformat(),
             urgency=urgency,
         ), TimeScope.DATE_LEVEL if n_days <= 31 else TimeScope.SHORT_TERM
+
+    # C5c 월 생략 단일 날짜 — "28일 오전에 시험", "이번 달 28일에", "다음 달 3일부터".
+    # 임박한 특정일을 대화에서 가장 흔하게 지칭하는 형태인데 규칙이 없어 시점이 통째로
+    # 소실되던 결함 수정(2026-08-14 데굴님 지적: '28일 오전 필기 시험'이 TIMELESS로
+    # 떨어져 내년 상반기 전망으로 답함). 오탐을 막기 위해 날짜 지칭 문맥(조사 에/날/은/
+    # 이/부터 또는 오전/오후/아침/저녁)이 뒤따를 때만 잡고, 기간·빈도 용법("3일 동안",
+    # "3일에 한 번", "100일 남았어")은 제외한다. 'N월 N일'(C5b)·'N일 내에'(C8b)는
+    # 앞서 반환되므로 여기 도달하지 않는다. 연도 미지정 이월 규칙은 C5b와 동일: 이미
+    # 지난 날짜면 미래로(과거시제 표지 시 그대로), '이번 달' 명시는 그 달 고정.
+    m = re.search(
+        r"(?:(이번\s*달|이달|다음\s*달|오는)\s*)?(?<!\d)(\d{1,2})\s*일"
+        r"(?=\s*(?:오전|오후|아침|저녁|날|부터"
+        r"|에(?!\s*(?:한\s*번|\d+\s*번|번씩|꼴))"
+        r"|이(?![내후])|은))",
+        text,
+    )
+    if m:
+        prefix = (m.group(1) or "").replace(" ", "")
+        dy = int(m.group(2))
+        if 1 <= dy <= 31:
+            past_ok = bool(_PAST_TENSE_RE.search(text))
+            if prefix in ("이번달", "이달"):
+                offsets = [0]  # 명시된 이번 달 고정(지난 날짜여도 그 달)
+            elif prefix == "다음달":
+                offsets = [1]
+            else:
+                offsets = [0, 1, 2]  # 가장 가까운 유효 날짜(31일 등 짧은 달 건너뜀)
+            anchor_d = None
+            for off in offsets:
+                yy = today.year + (today.month - 1 + off) // 12
+                mm = (today.month - 1 + off) % 12 + 1
+                try:
+                    cand = date(yy, mm, dy)
+                except ValueError:  # 그 달에 없는 날(9월 31일 등)은 다음 달로
+                    continue
+                if past_ok or prefix in ("이번달", "이달") or cand >= today:
+                    anchor_d = cand
+                    break
+            if anchor_d is not None:
+                return TimeRange(
+                    type="absolute",
+                    granularity=Granularity.HOUR if hour_level else Granularity.DAY,
+                    start=anchor_d.isoformat(),
+                    end=anchor_d.isoformat(),
+                    urgency=urgency,
+                ), TimeScope.SHORT_TERM
 
     # C5 월 단위 — "5월", "이번달", "다음 달". 당해 연도 기준(실로그 B2 "5월은 어때?"가
     # 6월 발화에서도 같은 해 5월과의 비교 맥락) — "내년" 명시 시에만 +1.
@@ -448,6 +926,20 @@ def parse_time(
         ), TimeScope.MID_TERM
     if "내후년" in text:
         year_key = str(today.year + 2)
+        return TimeRange(
+            type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
+            urgency=urgency,
+        ), TimeScope.MID_TERM
+    # 과거 연 단위 — '재작년'이 '작년'을 포함하므로 먼저 본다. chat의 회고 키워드에는
+    # 있었으나 파서에 없어 '작년에 왜 그랬을까'가 시점 없음→too_broad로 빠졌다(2026-09-06).
+    if "재작년" in text:
+        year_key = str(today.year - 2)
+        return TimeRange(
+            type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
+            urgency=urgency,
+        ), TimeScope.MID_TERM
+    if "작년" in text:
+        year_key = str(today.year - 1)
         return TimeRange(
             type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
             urgency=urgency,
@@ -562,7 +1054,12 @@ _COMPARE_MARK_RE = re.compile(r"비교|둘\s*중|중\s*(?:언제|어디|뭐|누�
 # 가정 신호 — 그룹 직후 어미('2030년이라면').
 _HYPO_TAIL_RE = re.compile(r"^\s*(?:이?라면|이면)")
 # 연도 그룹 내부 구분자 — 이것만으로 이어지면 같은 그룹("2026년 27년", "2026, 2027년").
-_YEAR_SEP_RE = re.compile(r"^[\s,·~\-과와랑년및]*(?:이랑)?[\s,·~\-과와랑년및]*$")
+_YEAR_SEP_RE = re.compile(r"^[\s,·~\-—∼과와랑년및]*(?:이랑)?[\s,·~\-—∼과와랑년및]*$")
+# 범위 연결 짝 — 'A년부터 B년까지'·'A년에서 B년 사이/동안'만 한 그룹(스팬 A~B)으로 묶는다
+# (2026-09-20 데굴님 지적: '부터'가 그룹을 끊어 끝 연도만 대상이 되던 결함). 짝이 없는
+# '에서'('2027년에서 2028년으로 미뤄도')·'그리고'(비교 나열)는 종전대로 그룹을 끊는다.
+_YEAR_RANGE_OPEN_RE = re.compile(r"^\s*년?\s*(?:부터|에서)(?:는|라도|만)?\s*$")
+_YEAR_RANGE_CLOSE_RE = re.compile(r"^\s*년?\s*(?:까지|사이|동안)")
 # 상대 연도 어휘 — 배제/정정 구문에 흔한 '올해 말고 내년' 지원.
 _REL_YEAR_WORDS = {"올해": 0, "금년": 0, "내년": 1, "내후년": 2}
 
@@ -620,7 +1117,10 @@ def extract_time_constraints(text: str, today: date) -> list[TimeConstraintItem]
     groups: list[list[tuple[int, int, int]]] = [[mentions[0]]]
     for cur in mentions[1:]:
         prev_end = groups[-1][-1][2]
-        if _YEAR_SEP_RE.match(text[prev_end:cur[1]]):
+        between = text[prev_end:cur[1]]
+        if _YEAR_SEP_RE.match(between) or (
+            _YEAR_RANGE_OPEN_RE.match(between) and _YEAR_RANGE_CLOSE_RE.match(text[cur[2]:])
+        ):
             groups[-1].append(cur)
         else:
             groups.append([cur])
@@ -716,11 +1216,70 @@ _TODAY_DATE_STATEMENT_RE = re.compile(
 )
 
 
+# 명절 앵커(2026-09-17 실로그: "추석 전에 들어올까 아니면 추석 후에" — 추석이 시점으로 파싱되지
+# 않아 월운으로만 답했다). 음력 명절은 음력→양력 변환(캘린더 규칙, 명리 계산 아님). '설'은
+# '설명·설득' 오탐을 막기 위해 명절 문맥 접미가 있을 때만 잡는다.
+_HOLIDAY_RES: tuple[tuple[re.Pattern[str], str, str, int, int], ...] = (
+    (re.compile(r"추석|한가위"), "추석", "lunar", 8, 15),
+    (
+        re.compile(r"설날|구정|음력\s*설|설\s*(?:연휴|명절|전에|후에|전후|때|지나)"),
+        "설날", "lunar", 1, 1,
+    ),
+    (re.compile(r"신정"), "신정", "solar", 1, 1),
+    (re.compile(r"크리스마스|성탄절"), "크리스마스", "solar", 12, 25),
+)
+# 이만큼 지난 명절까지는 '올해 것'(회고·직후 질문), 그보다 지나면 내년.
+_HOLIDAY_PAST_GRACE_DAYS = 45
+
+
+def _holiday_date(kind: str, month: int, day: int, year: int) -> date:
+    if kind == "lunar":
+        return lunar_to_solar(date(year, month, day), False)
+    return date(year, month, day)
+
+
+def holiday_anchor(text: str, today: date) -> AnchorDate | None:
+    """텍스트의 명절 표현 → 가장 가까운 해당 명절 양력 날짜 앵커(없으면 None)."""
+    for pat, label, kind, month, day in _HOLIDAY_RES:
+        if not pat.search(text):
+            continue
+        try:
+            this_year = _holiday_date(kind, month, day, today.year)
+            target = (
+                this_year
+                if (today - this_year).days <= _HOLIDAY_PAST_GRACE_DAYS
+                else _holiday_date(kind, month, day, today.year + 1)
+            )
+        except (ValueError, KeyError, IndexError):
+            return None
+        return AnchorDate(label=label, date=target.isoformat())
+    return None
+
+
+def _attach_holiday_anchor(
+    text: str, today: date, tr: TimeRange | None, scope: TimeScope
+) -> tuple[TimeRange | None, TimeScope]:
+    """명절 앵커를 시점 결과에 붙인다 — 시점이 없으면 그 명절이 든 달(단일 달)로 세운다."""
+    anchor = holiday_anchor(text, today)
+    if anchor is None:
+        return tr, scope
+    if tr is None:
+        ym = anchor.date[:7]
+        return TimeRange(
+            type="absolute", granularity=Granularity.MONTH, start=ym, end=ym,
+            anchor_dates=[anchor],
+        ), TimeScope.SHORT_TERM
+    if any(a.date == anchor.date for a in tr.anchor_dates):
+        return tr, scope
+    return tr.model_copy(update={"anchor_dates": [*tr.anchor_dates, anchor]}), scope
+
+
 def parse_time_with_constraints(
     text: str,
     today: date,
     birth_year: int | None = None,
     current_month_label: str | None = None,
+    sunday_week: bool = False,
 ) -> tuple[TimeRange | None, TimeScope, list[TimeConstraintItem]]:
     """parse_time + 연 단위 제약 해소 — 배제 연도가 시점으로 뽑히는 것을 교정한다.
 
@@ -737,7 +1296,8 @@ def parse_time_with_constraints(
     # '7월 22일'이 explicit 시점으로 채택돼 미래 이사 질문이 오늘 일운으로 앵커됨).
     # 진술 절만 제거하므로 "오늘 운세 봐줘"류 순수 '오늘' 요청은 영향 없다.
     text = _TODAY_DATE_STATEMENT_RE.sub(" ", text)
-    tr, scope = parse_time(text, today, birth_year, current_month_label)
+    tr, scope = parse_time(text, today, birth_year, current_month_label, sunday_week)
+    tr, scope = _attach_holiday_anchor(text, today, tr, scope)
     items = extract_time_constraints(text, today)
     if not items:
         return tr, scope, items

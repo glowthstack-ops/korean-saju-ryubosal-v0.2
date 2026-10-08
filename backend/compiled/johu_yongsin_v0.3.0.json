@@ -1,0 +1,4586 @@
+{
+ "version": "0.3.0",
+ "source": "궁통보감(난강망) 조후용신표 — 서락오 정리본 기준 감수 확정 2026-07-13",
+ "note": "일간×월지의 canonical climate need(본질 조후 필요 '천간', primary[0]=최우선). reviewed:true 의 의미는 'canonical 필요기운의 전문가 검토 완료'로 한정한다 — 최종 용신 자동 확정/원국 작동 가능/억부·격국·통관 대비 상시 우선/시지·원국 반영을 의미하지 않는다(데굴님 감수). 시지 보정·조습 엄중도·operability 는 계산 레이어 담당. 무근·무투간·원국 전무 → operability 하락이지 canonical_need 삭제·대체가 아니다. v0.3.0(2026-10-07 C2 초안): 셀마다 needs[] — 천간별 역할 태그(조후 직접 교정 vs 생조·설기·제어·재·방조·배합)·relation(priority/pair/alternative)·tag_source. 조후 축 점수는 climate_* 역할 천간만 쓴다(억부 등과 중복 가산 금지). conditions[]는 시기·원국 조건 슬롯(초안은 비움). primary/secondary/avoid 는 v0.2 호환 유지.",
+ "reviewed": false,
+ "entries": {
+  "甲": {
+   "寅": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm",
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "卯": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "丙",
+     "丁",
+     "戊",
+     "己"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "庚",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丁",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "戊",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "己",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "辰": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "丁",
+     "壬"
+    ],
+    "avoid": [],
+    "climate_axis": "damp",
+    "needs": [
+     {
+      "stem": "庚",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丁",
+      "roles": [
+       "climate_dry",
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "壬",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "巳": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丁",
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool",
+       "source"
+      ],
+      "relation": "priority",
+      "note": "癸水 조후 겸 생조",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丁",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "丁火 설기",
+      "tag_source": "override"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "庚金 제어",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "午": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丁",
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool",
+       "source"
+      ],
+      "relation": "priority",
+      "note": "癸水 조후 겸 생조",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丁",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "丁火 설기",
+      "tag_source": "override"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "庚金 제어",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "未": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丁",
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool",
+       "source"
+      ],
+      "relation": "priority",
+      "note": "癸水 조후 겸 생조",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丁",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "丁火 설기",
+      "tag_source": "override"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "庚金 제어",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "申": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "丁",
+     "壬"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "庚",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丁",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "壬",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "酉": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "丙",
+     "丁"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "庚",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丁",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "戌": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "甲",
+     "丁",
+     "壬",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "dry",
+    "needs": [
+     {
+      "stem": "庚",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "peer"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丁",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "壬",
+      "roles": [
+       "climate_moisten",
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_moisten",
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "亥": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "丁",
+     "丙",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "庚",
+      "roles": [
+       "control",
+       "pair"
+      ],
+      "relation": "pair",
+      "note": "庚劈甲引丁 — 丁과 배합, 단독 조후 아님",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丁",
+      "roles": [
+       "climate_warm",
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "丁火 조후(겸 설기)",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "alternative",
+      "note": "丁 부재 시 온난 대체",
+      "tag_source": "override"
+     },
+     {
+      "stem": "戊",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "亥 왕수 제수(戊制水)",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "子": {
+    "primary": [
+     "丁"
+    ],
+    "secondary": [
+     "庚",
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丁",
+      "roles": [
+       "climate_warm",
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "丁火 조후(겸 설기)",
+      "tag_source": "override"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "control",
+       "pair"
+      ],
+      "relation": "pair",
+      "note": "庚劈甲引丁 — 丁과 배합, 단독 조후 아님",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "alternative",
+      "note": "丁 부재 시 온난 대체",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "丑": {
+    "primary": [
+     "丁"
+    ],
+    "secondary": [
+     "庚",
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丁",
+      "roles": [
+       "climate_warm",
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "丁火 조후(겸 설기)",
+      "tag_source": "override"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "control",
+       "pair"
+      ],
+      "relation": "pair",
+      "note": "庚劈甲引丁 — 丁과 배합, 단독 조후 아님",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "alternative",
+      "note": "丁 부재 시 온난 대체",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   }
+  },
+  "乙": {
+   "寅": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm",
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "卯": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "辰": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丙",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "damp",
+    "needs": [
+     {
+      "stem": "癸",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_dry",
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "戊",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "巳": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool",
+       "source"
+      ],
+      "relation": "priority",
+      "note": "癸水 조후 겸 생조",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "午": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool",
+       "source"
+      ],
+      "relation": "priority",
+      "note": "癸水 조후 겸 생조",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "丙火 설기(상관)",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "未": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool",
+       "source"
+      ],
+      "relation": "priority",
+      "note": "癸水 조후 겸 생조",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "丙火 설기(상관)",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "申": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "癸",
+     "己"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "己",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "酉": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丙",
+     "丁"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "癸",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丁",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "戌": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "辛"
+    ],
+    "avoid": [],
+    "climate_axis": "dry",
+    "needs": [
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_moisten",
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "辛",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "亥": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "priority",
+      "note": "丙火 온난",
+      "tag_source": "override"
+     },
+     {
+      "stem": "戊",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "戊土 제수",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "子": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "priority",
+      "note": "丙火 온난",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "丑": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "priority",
+      "note": "丙火 온난",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   }
+  },
+  "丙": {
+   "寅": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [
+     "癸"
+    ],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "卯": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "己"
+    ],
+    "avoid": [
+     "癸"
+    ],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "己",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "辰": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [
+     "癸"
+    ],
+    "climate_axis": "damp",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "巳": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "庚",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "climate_cool",
+       "control"
+      ],
+      "relation": "priority",
+      "note": "壬水 조후 겸 제어",
+      "tag_source": "override"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "庚金 생壬",
+      "tag_source": "override"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool"
+      ],
+      "relation": "alternative",
+      "note": "癸水 조후 대체",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "午": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "climate_cool",
+       "control"
+      ],
+      "relation": "priority",
+      "note": "壬水 조후 겸 제어",
+      "tag_source": "override"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "庚金 생壬",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "未": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "climate_cool",
+       "control"
+      ],
+      "relation": "priority",
+      "note": "壬水 조후 겸 제어",
+      "tag_source": "override"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "庚金 생壬",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "申": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "戊",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "酉": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "戌": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "壬"
+    ],
+    "avoid": [],
+    "climate_axis": "dry",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "壬",
+      "roles": [
+       "climate_moisten",
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "亥": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "戊",
+     "庚",
+     "壬"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "甲木 생조(겨울 丙 약)",
+      "tag_source": "override"
+     },
+     {
+      "stem": "戊",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "戊土 制壬",
+      "tag_source": "override"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "庚金 생壬",
+      "tag_source": "override"
+     },
+     {
+      "stem": "壬",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "壬水 輝映 — 조후 아님",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "子": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "戊",
+     "己"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "壬水 輝映 — 조후 아님",
+      "tag_source": "override"
+     },
+     {
+      "stem": "戊",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "戊土 制壬",
+      "tag_source": "override"
+     },
+     {
+      "stem": "己",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "己土 制壬",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "丑": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "壬水 輝映 — 조후 아님",
+      "tag_source": "override"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "甲木 생조(겨울 丙 약)",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   }
+  },
+  "丁": {
+   "寅": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "卯": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "庚",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "辰": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "damp",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "巳": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "甲木 생조",
+      "tag_source": "override"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "庚金 劈甲",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "午": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "庚",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "climate_cool",
+       "control"
+      ],
+      "relation": "priority",
+      "note": "壬水 조후 겸 제어",
+      "tag_source": "override"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "庚金 劈甲",
+      "tag_source": "override"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool"
+      ],
+      "relation": "alternative",
+      "note": "癸水 조후 대체",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "未": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "壬",
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "甲木 생조",
+      "tag_source": "override"
+     },
+     {
+      "stem": "壬",
+      "roles": [
+       "climate_cool",
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "壬水 조후",
+      "tag_source": "override"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "庚金 劈甲",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "申": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚",
+     "丙",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "peer"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "戊",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "酉": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚",
+     "丙",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "peer"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "戊",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "戌": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "dry",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "戊",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "亥": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "甲木 引丁(생조)",
+      "tag_source": "override"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "wealth",
+       "pair"
+      ],
+      "relation": "pair",
+      "note": "庚劈甲 배합",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "子": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "甲木 引丁(생조)",
+      "tag_source": "override"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "wealth",
+       "pair"
+      ],
+      "relation": "pair",
+      "note": "庚劈甲 배합",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "丑": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "甲木 引丁(생조)",
+      "tag_source": "override"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "wealth",
+       "pair"
+      ],
+      "relation": "pair",
+      "note": "庚劈甲 배합",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   }
+  },
+  "戊": {
+   "寅": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "甲",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm",
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "卯": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "甲",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "辰": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "丙",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "damp",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_dry",
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "巳": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "丙",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "甲木 소토",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "丙火 생조(여름엔 과열 주의)",
+      "tag_source": "override"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool",
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "癸水 조후 겸 재",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "午": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "甲",
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "climate_cool",
+       "wealth"
+      ],
+      "relation": "priority",
+      "note": "壬水 조후 겸 재",
+      "tag_source": "override"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "甲木 소토",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "丙火 생조(여름엔 과열 주의)",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "未": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丙",
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool",
+       "wealth"
+      ],
+      "relation": "priority",
+      "note": "癸水 조후 겸 재",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "丙火 생조(여름엔 과열 주의)",
+      "tag_source": "override"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "甲木 소토",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "申": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "癸",
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "酉": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "戌": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "丙",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "dry",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_moisten",
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "亥": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "甲木 소토",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "priority",
+      "note": "丙火 온난",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "子": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "priority",
+      "note": "丙火 온난",
+      "tag_source": "override"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "甲木 소토",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "丑": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "priority",
+      "note": "丙火 온난",
+      "tag_source": "override"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "甲木 소토",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   }
+  },
+  "己": {
+   "寅": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "庚",
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm",
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "卯": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "癸",
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "辰": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "癸",
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "damp",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_dry",
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "巳": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool",
+       "wealth"
+      ],
+      "relation": "priority",
+      "note": "癸水 조후 겸 재",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "丙火 생조",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "午": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool",
+       "wealth"
+      ],
+      "relation": "priority",
+      "note": "癸水 조후 겸 재",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "丙火 생조",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "未": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool",
+       "wealth"
+      ],
+      "relation": "priority",
+      "note": "癸水 조후 겸 재",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "丙火 생조",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "申": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "酉": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "戌": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "丙",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "dry",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_moisten",
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "亥": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "甲",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "priority",
+      "note": "丙火 온난",
+      "tag_source": "override"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "甲木 소토",
+      "tag_source": "override"
+     },
+     {
+      "stem": "戊",
+      "roles": [
+       "peer"
+      ],
+      "relation": "alternative",
+      "note": "戊土 방조(제수)",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "子": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "甲",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "priority",
+      "note": "丙火 온난",
+      "tag_source": "override"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "甲木 소토",
+      "tag_source": "override"
+     },
+     {
+      "stem": "戊",
+      "roles": [
+       "peer"
+      ],
+      "relation": "alternative",
+      "note": "戊土 방조(제수)",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "丑": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "甲",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "priority",
+      "note": "丙火 온난",
+      "tag_source": "override"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "甲木 소토",
+      "tag_source": "override"
+     },
+     {
+      "stem": "戊",
+      "roles": [
+       "peer"
+      ],
+      "relation": "alternative",
+      "note": "戊土 방조(제수)",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   }
+  },
+  "庚": {
+   "寅": {
+    "primary": [
+     "戊"
+    ],
+    "secondary": [
+     "甲",
+     "壬",
+     "丙",
+     "丁"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "戊",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "壬",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm",
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丁",
+      "roles": [
+       "climate_warm",
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "卯": {
+    "primary": [
+     "丁"
+    ],
+    "secondary": [
+     "甲",
+     "庚",
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "丁",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "peer"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "辰": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "丁",
+     "壬",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "damp",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丁",
+      "roles": [
+       "climate_dry",
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "壬",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "巳": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "戊",
+     "丙",
+     "丁"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "climate_cool",
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "壬水 조후 겸 설기",
+      "tag_source": "override"
+     },
+     {
+      "stem": "戊",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "戊土 생조",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "丙火 제어",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丁",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "丁火 제련",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "午": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "climate_cool",
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "壬水 조후 겸 설기",
+      "tag_source": "override"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool"
+      ],
+      "relation": "alternative",
+      "note": "癸水 조후 대체",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "未": {
+    "primary": [
+     "丁"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "丁",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "丁火 제련",
+      "tag_source": "override"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "wealth",
+       "pair"
+      ],
+      "relation": "pair",
+      "note": "甲木 引丁",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "申": {
+    "primary": [
+     "丁"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "丁",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "酉": {
+    "primary": [
+     "丁"
+    ],
+    "secondary": [
+     "甲",
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "丁",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "戌": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "壬"
+    ],
+    "avoid": [],
+    "climate_axis": "dry",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "壬",
+      "roles": [
+       "climate_moisten",
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "亥": {
+    "primary": [
+     "丁"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丁",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "丁火 제련 — 온난 아님(궁통보감 冬庚 丁甲爲用)",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "priority",
+      "note": "丙火 온난(取暖)",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "子": {
+    "primary": [
+     "丁"
+    ],
+    "secondary": [
+     "甲",
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丁",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "丁火 제련 — 온난 아님(궁통보감 冬庚 丁甲爲用)",
+      "tag_source": "override"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "pair"
+      ],
+      "relation": "pair",
+      "note": "甲木 引丁 배합",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "priority",
+      "note": "丙火 온난(取暖)",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "丑": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "丁",
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "priority",
+      "note": "丙火 온난(取暖)",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丁",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "丁火 제련 — 온난 아님(궁통보감 冬庚 丁甲爲用)",
+      "tag_source": "override"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "pair"
+      ],
+      "relation": "pair",
+      "note": "甲木 引丁 배합",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   }
+  },
+  "辛": {
+   "寅": {
+    "primary": [
+     "己"
+    ],
+    "secondary": [
+     "壬",
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "己",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "壬",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "peer"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "卯": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "辰": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "damp",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "巳": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "甲",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "climate_cool",
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "壬水 조후 겸 淘洗",
+      "tag_source": "override"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "甲木 재",
+      "tag_source": "override"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool"
+      ],
+      "relation": "alternative",
+      "note": "癸水 조후 대체",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "午": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "己",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "climate_cool",
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "壬水 조후 겸 淘洗",
+      "tag_source": "override"
+     },
+     {
+      "stem": "己",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "己土 생조",
+      "tag_source": "override"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool"
+      ],
+      "relation": "alternative",
+      "note": "癸水 조후 대체",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "未": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "庚",
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "climate_cool",
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "壬水 조후 겸 淘洗",
+      "tag_source": "override"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "peer"
+      ],
+      "relation": "alternative",
+      "note": "庚金 방조",
+      "tag_source": "override"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "甲木 재",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "申": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "甲",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "戊",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "酉": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "戌": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "dry",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "climate_moisten",
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "亥": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "壬水 淘洗 — 조후 아님",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "alternative",
+      "note": "丙火 온난",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "子": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "戊",
+     "壬",
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "priority",
+      "note": "丙火 온난",
+      "tag_source": "override"
+     },
+     {
+      "stem": "戊",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "戊土 생조(제수)",
+      "tag_source": "override"
+     },
+     {
+      "stem": "壬",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "壬水 淘洗",
+      "tag_source": "override"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "甲木 재",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "丑": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "壬",
+     "戊",
+     "己"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "priority",
+      "note": "丙火 온난",
+      "tag_source": "override"
+     },
+     {
+      "stem": "壬",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "壬水 淘洗",
+      "tag_source": "override"
+     },
+     {
+      "stem": "戊",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "戊土 생조(제수)",
+      "tag_source": "override"
+     },
+     {
+      "stem": "己",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "己土 생조",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   }
+  },
+  "壬": {
+   "寅": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "丙",
+     "戊"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "庚",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm",
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "戊",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "卯": {
+    "primary": [
+     "戊"
+    ],
+    "secondary": [
+     "辛",
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "戊",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "辛",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "辰": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "damp",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "巳": {
+    "primary": [
+     "壬"
+    ],
+    "secondary": [
+     "辛",
+     "庚",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "壬",
+      "roles": [
+       "climate_cool",
+       "peer"
+      ],
+      "relation": "priority",
+      "note": "壬水 방조 겸 조후",
+      "tag_source": "override"
+     },
+     {
+      "stem": "辛",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "辛金 생원",
+      "tag_source": "override"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "庚金 생원",
+      "tag_source": "override"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool",
+       "peer"
+      ],
+      "relation": "alternative",
+      "note": "癸水",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "午": {
+    "primary": [
+     "癸"
+    ],
+    "secondary": [
+     "庚",
+     "辛"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool",
+       "peer"
+      ],
+      "relation": "priority",
+      "note": "癸水 방조 겸 조후",
+      "tag_source": "override"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "庚金 생원",
+      "tag_source": "override"
+     },
+     {
+      "stem": "辛",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "辛金 생원",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "未": {
+    "primary": [
+     "辛"
+    ],
+    "secondary": [
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "辛",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "辛金 생원",
+      "tag_source": "override"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "甲木 설기(소토)",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "申": {
+    "primary": [
+     "戊"
+    ],
+    "secondary": [
+     "丁"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "戊",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丁",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "酉": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "戌": {
+    "primary": [
+     "甲"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "dry",
+    "needs": [
+     {
+      "stem": "甲",
+      "roles": [
+       "drain"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "亥": {
+    "primary": [
+     "戊"
+    ],
+    "secondary": [
+     "丙",
+     "庚"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "戊",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "戊土 제수(왕수)",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "priority",
+      "note": "丙火 온난",
+      "tag_source": "override"
+     },
+     {
+      "stem": "庚",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "庚金 생조",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "子": {
+    "primary": [
+     "戊"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "戊",
+      "roles": [
+       "control"
+      ],
+      "relation": "priority",
+      "note": "戊土 제수(왕수)",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "priority",
+      "note": "丙火 온난",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "丑": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "丁",
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "priority",
+      "note": "丙火 온난",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丁",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "alternative",
+      "note": "丁火 온난 대체",
+      "tag_source": "override"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "甲木 설기",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   }
+  },
+  "癸": {
+   "寅": {
+    "primary": [
+     "辛"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "辛",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm",
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "卯": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "辛"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "庚",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "辛",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "辰": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "辛",
+     "甲"
+    ],
+    "avoid": [],
+    "climate_axis": "damp",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_dry",
+       "wealth"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "辛",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "巳": {
+    "primary": [
+     "辛"
+    ],
+    "secondary": [],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "辛",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "辛金 생원",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "午": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "辛",
+     "壬",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "庚",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "庚金 생원",
+      "tag_source": "override"
+     },
+     {
+      "stem": "辛",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "辛金 생원",
+      "tag_source": "override"
+     },
+     {
+      "stem": "壬",
+      "roles": [
+       "climate_cool",
+       "peer"
+      ],
+      "relation": "alternative",
+      "note": "壬水 방조 겸 조후",
+      "tag_source": "override"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool",
+       "peer"
+      ],
+      "relation": "alternative",
+      "note": "癸水 방조 겸 조후",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "未": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "辛",
+     "壬",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "heat",
+    "needs": [
+     {
+      "stem": "庚",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "庚金 생원",
+      "tag_source": "override"
+     },
+     {
+      "stem": "辛",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "辛金 생원",
+      "tag_source": "override"
+     },
+     {
+      "stem": "壬",
+      "roles": [
+       "climate_cool",
+       "peer"
+      ],
+      "relation": "alternative",
+      "note": "壬水 방조 겸 조후",
+      "tag_source": "override"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_cool",
+       "peer"
+      ],
+      "relation": "alternative",
+      "note": "癸水 방조 겸 조후",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "申": {
+    "primary": [
+     "丁"
+    ],
+    "secondary": [],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "丁",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "酉": {
+    "primary": [
+     "辛"
+    ],
+    "secondary": [
+     "丙"
+    ],
+    "avoid": [],
+    "climate_axis": "neutral",
+    "needs": [
+     {
+      "stem": "辛",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "丙",
+      "roles": [
+       "wealth"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "戌": {
+    "primary": [
+     "辛"
+    ],
+    "secondary": [
+     "甲",
+     "壬",
+     "癸"
+    ],
+    "avoid": [],
+    "climate_axis": "dry",
+    "needs": [
+     {
+      "stem": "辛",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "甲",
+      "roles": [
+       "drain"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "壬",
+      "roles": [
+       "climate_moisten",
+       "peer"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     },
+     {
+      "stem": "癸",
+      "roles": [
+       "climate_moisten",
+       "peer"
+      ],
+      "relation": "alternative",
+      "note": "",
+      "tag_source": "mechanical"
+     }
+    ],
+    "conditions": []
+   },
+   "亥": {
+    "primary": [
+     "庚"
+    ],
+    "secondary": [
+     "辛",
+     "戊",
+     "丁"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "庚",
+      "roles": [
+       "source"
+      ],
+      "relation": "priority",
+      "note": "庚金 생수원",
+      "tag_source": "override"
+     },
+     {
+      "stem": "辛",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "辛金 생수원",
+      "tag_source": "override"
+     },
+     {
+      "stem": "戊",
+      "roles": [
+       "control"
+      ],
+      "relation": "alternative",
+      "note": "戊土 제수",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丁",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "alternative",
+      "note": "丁火 온난",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "子": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "辛"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "priority",
+      "note": "丙火 온난",
+      "tag_source": "override"
+     },
+     {
+      "stem": "辛",
+      "roles": [
+       "source"
+      ],
+      "relation": "alternative",
+      "note": "辛金 생원",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   },
+   "丑": {
+    "primary": [
+     "丙"
+    ],
+    "secondary": [
+     "丁"
+    ],
+    "avoid": [],
+    "climate_axis": "cold",
+    "needs": [
+     {
+      "stem": "丙",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "priority",
+      "note": "丙火 온난",
+      "tag_source": "override"
+     },
+     {
+      "stem": "丁",
+      "roles": [
+       "climate_warm"
+      ],
+      "relation": "alternative",
+      "note": "丁火 온난 대체",
+      "tag_source": "override"
+     }
+    ],
+    "conditions": []
+   }
+  }
+ },
+ "review_status": {
+  "needs_tags": "draft_adopted_pending_review(2026-10-07 데굴님: 초안 채택, 확정·배포는 감수 후)",
+  "conditions": "unreviewed(미작성=무조건 적용이 아닌 미검토 상태)"
+ }
+}

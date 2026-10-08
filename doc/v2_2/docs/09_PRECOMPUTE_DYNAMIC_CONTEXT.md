@@ -167,8 +167,8 @@ CREATE INDEX idx_lc_subject_level ON luck_composites (subject_id, level);
 | M01 | love_timing | 연애+시기, 재회 | natal + year/month (대상 기간) | events/relationship | 연애 이벤트 후보 시계열 + 상대 유형 신호 |
 | M02 | marriage | 결혼/이혼/재혼 | natal + daewoon + year | events/relationship | 결혼 적합 연/월 + 배우자궁 상태 |
 | M03 | personality_traits | 성격/취향 + **시기별 변화** | natal + daewoon + year | trait_mapping | 기본 성향 + 기간별 활성 십성 시프트 (5장) |
-| M04 | parents_fortune | 부모님운, 부모 관계 | natal(인성·년월주) + 부모 등록 시 그 사주 | relation_profiles | 육친 구조 + 기간 리스크/기회 |
-| M05 | children | 자녀운, 자녀 사주 | natal(식상·시주) + 자녀 subject | relation_profiles, events/education | 자녀 이벤트 + 부모-자녀 축 |
+| M04 | parents_fortune | 부모님운, 부모 관계 | natal 십성 축(인성=모친·편재=부친, C7 D1) + 부모 등록 시 그 사주. 궁위(년월주)는 점수 입력이 아니라 서술 보조(`_PALACE_ROLE`, C7 D4) | relation_profiles | 육친 구조 + 기간 리스크/기회 |
+| M05 | children | 자녀운, 자녀 사주 | natal 십성 축(남명=관살, 여명=식상, 성별 미상=식상은 호환용 기본값·확정 해석 아님, C7 D2) + 자녀 subject. 시주는 서술 보조 | relation_profiles, events/education | 자녀 이벤트 + 부모-자녀 축 |
 | M06 | workplace_relations | 직장 내 관계(상사/동료) | natal(관성·비겁) + month | relation_profiles | 갈등/협력 신호 시계열 |
 | M07 | career | 취업/이직/승진/퇴사 | natal + daewoon + year + month | events/career_change | 이벤트 후보 + 타임라인 단계 |
 | M08 | business | 창업/사업/동업 | natal + daewoon + year | events/wealth, relation_profiles | 사업 적합 구조 + 시기 |
@@ -323,11 +323,11 @@ LLM에는 `RelocationResult` + 압축 간지만 전달한다. **LLM이 받는 �
 
 | 호출 유형 | LLM 입력 상한 | LLM 출력 상한(thinking+가시) | 가시 답변 길이 | thinking |
 |---|---|---|---|---|
-| 대화형 단건 응답 | 20,000 tok (고정 prefix ~5k 포함) | 5,000 tok | 1,500자 | **low 이하** |
-| 대화형 — 동반자 비교 | 20,000 tok | 5,500 tok | 2,400자 | low 이하 |
+| 대화형 단건 응답 | 28,000 tok (고정 prefix ~5k 포함) | 5,000 tok | 1,500자 | **low 이하** |
+| 대화형 — 동반자 비교 | 28,000 tok | 5,500 tok | 2,400자 | low 이하 |
 | Query Parser (경량 모델) | 2,000 tok | 300 tok | — | **비활성** (분류 작업) |
-| 집중 풀이 섹션 1개 | 15,000 tok | 8,000 tok | 4,500자 | low 이하 |
-| 총운 풀이 섹션 1개 | 15,000 tok | 8,000 tok | 4,500자 | low 이하 |
+| 집중 풀이 섹션 1개 | 20,000 tok | 8,000 tok | 4,500자 | low 이하 |
+| 총운 풀이 섹션 1개 | 20,000 tok | 8,000 tok | 4,500자 | low 이하 |
 | 정합성 검사 LLM 패스(선택) | 8,000 tok | 500 tok | — | 비활성 |
 
 > **풀이 섹션 상한 15,000 상향 (2026-06-27, 사용자 승인)**: 다년 테마풀이(예: 직업운 5.5년)에서 '월별 흐름' 섹션이 예측 창 전체(7개 해×12개월)를 담으면 10,000을 초과해 실패하던 문제. 월별 흐름을 축소 없이 보존하기 위해 집중·총운 섹션 입력 상한을 15,000으로 올린다. 15,000마저 넘는 극단 입력은 report 경로 Context Reduction(월별→★주목 달, 연도별→★주목 해, `report_service`)이 단계적으로 흡수한다.
@@ -335,6 +335,18 @@ LLM에는 `RelocationResult` + 압축 간지만 전달한다. **LLM이 받는 �
 > **대화형 입력 상한 20,000 상향 (2026-06-30, 사용자 승인)**: Marriage Production Readiness v1 — 관계 도메인 질문에 MT 결혼 단계 라인·출력 가드 directive가 더해지면서 대화형 단건(12,000)·동반자 비교(14,000)가 일부 초과. 두 호출을 20,000으로 올린다(MT 답변 콘텐츠는 관계 도메인 질문에만 렌더해 일반 질문은 영향 없음). 초과분은 기존대로 Context Reduction이 흡수.
 
 가드 구현: LLM 호출 래퍼가 입력 토큰을 측정해 상한 초과 시 **호출 전 예외** → Context Reduction 재실행. 상한을 늘리는 코드 수정은 금지(사용자 승인 필요 — 본 v2.2.1 상향 및 2026-06-27 풀이 섹션 상향은 승인 완료). 모든 호출의 입출력 토큰을 로깅해 상품별 원가 대시보드에 집계하며, **캐시 적중 토큰을 별도 집계**해 실비용을 추적한다.
+
+> **풀이 섹션 입력 상한 18,000 상향 (2026-10-08, 데굴님 승인 — "제한 토큰 상한을 통해 해결")**: 집중 풀이에서 `report_focus_section` 입력이
+> 15,156tok 으로 상한(15,000)을 156tok 넘어 Context Reduction 재실행 후에도 실패했다. 같은 날 반영된 격국 정합 표기(`follow_consistency`)·화기격
+> 가화 경고·용신 작동성 #6c 사유가 명식 블록에 더해진 영향이다. 재료를 잘라내지 않고 상한을 15,000→18,000 으로 올린다(출력 상한 8,000·thinking low 불변).
+> **2차 상향 18,000→20,000 (같은 날, 데굴님 승인)**: 총운 `report_full_section`(1978년생, job 4540fd5b)이 18,247tok 으로 다시 초과했다.
+> 같은 원칙으로 재료는 유지하고 상한만 20,000 으로 올린다(출력 상한·thinking 불변). 세 번째 초과가 나오면 상한이 아니라 명식 블록
+> 압축(정합 표기·#6c 사유의 요약 표기)을 검토할 시점이다.
+
+> **대화형 입력 상한 28,000 상향 (2026-09-21, 데굴님 승인)**: 22,000(2026-07-22 사실 원장 상향분) 기준에서 방향 질문
+> (12신살 방위 수동 블록 + 목적 16종 표 + 피할 방향 + 민속 흉방 고지, docs/19)이 시스템 프롬프트·후행 지시문 예약분과 합쳐
+> 상한을 넘어 Tier 0 트림에서 민속 고지가 빠졌다(실측 payload 20.6k + 예약 ~4k). 재료를 잘라내지 않고 상한을 올린다.
+> 불필요 항목 점검 결과(같은 날 데굴님 승인): 방향 질문(Q10+direction_question)은 구조 질문과 같이 사건 후보·월별 요약·유력 달·상담 계약·답변 지평·근거 경로와 도메인 토픽·건강 취약 블록을 싣지 않는다(약 8.8k 절감, docs/19 §6).
 
 > **입력 상한 = 실제 총 입력 기준 (2026-06-18 회계 보정)**: 상한은 직렬화 payload뿐 아니라 그 뒤에 덧붙는 **시스템 프롬프트 + 후행 지시문(범위·이사·취업 등)** 까지 합산한 총 입력에 적용한다. 축소(`serialize_with_guard`)는 이 오버헤드를 `reserve_tokens`로 예약받아 payload를 줄이므로, 직렬화 통과 후 지시문·시스템이 더해져 `generate_reading` 재검사에서 초과하는 회계 불일치가 없다(과거 결함: 10년 이사 질문이 payload 단독 검사만 통과 후 총 12,098tok로 초과 → 일반 오류로 마감). 상한 상수(12,000 등)는 불변.
 

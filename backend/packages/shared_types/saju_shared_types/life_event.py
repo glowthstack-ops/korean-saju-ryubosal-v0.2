@@ -82,6 +82,10 @@ class RealityCalibrationYear(BaseModel):
     salience: float          # 연도 선정 점수(높을수록 신호 강함)
     daewoon_transition: bool = False  # 대운 교운 인접 연도
     events: list[RealityCalibrationEvent] = Field(default_factory=list)
+    # CAL-R1(2026-09-21) — 사용자용 표시: 만 나이·생애 구간 라벨·이 해를 묻는 이유.
+    age: int | None = None
+    band_ko: str = ""
+    hint: str = ""
 
 
 class OccurredEvent(BaseModel):
@@ -123,11 +127,22 @@ class RealityCalibrationQuestionSet(BaseModel):
     subject_id: str | None = None
     years: list[RealityCalibrationYear] = Field(default_factory=list)
     note: str = (
-        "각 연도에 실제로 있었던 일을 모두 선택하세요. 없었으면 '해당 없음'을 선택하면 됩니다. "
-        "선택은 풀이 정확도를 높이는 데만 쓰이며 언제든 비워둘 수 있습니다."
+        "각 해에 실제로 있었던 일만 체크하세요. 하나도 없었으면 '해당 없음'을 고르면 되고, "
+        "기억이 흐린 해는 비워 두셔도 됩니다(비운 해는 기록되지 않아요). "
+        "체감(좋았다/힘들었다)은 선택 사항이에요."
     )
     # 이전 제출 답변(수정 모드 프리필) — 없으면 빈 목록(신규 입력). subject_signature로 복원.
     prior: list[RealityCalibrationYearAnswer] = Field(default_factory=list)
+
+
+class RealityCalibrationSubmitResult(BaseModel):
+    """제출 결과 — 적재 행 수 + 사용자용 요약(CAL-R1). 요약은 템플릿 문장만."""
+
+    stored: int
+    confirmed: int = 0
+    not_happened: int = 0
+    years_answered: int = 0
+    summary: list[str] = Field(default_factory=list)
 
 
 class RealityCalibrationSubmission(BaseModel):

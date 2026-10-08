@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from typing import Annotated
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from saju_engines.error_store import ErrorStore
@@ -24,6 +24,7 @@ from ..deps import (
     get_usage_store,
     require_admin,
 )
+from ..services import llm_resume_service
 
 router = APIRouter(prefix="/api/v2/admin", tags=["admin"])
 
@@ -198,3 +199,42 @@ def resolve_errors(body: ResolveIn, _admin: Admin, errors: Errors) -> dict:
     """에러 해결 처리(id 목록 또는 fingerprint 단위) — 처리 건수 반환."""
     n = errors.resolve(ids=body.ids, fingerprint=body.fingerprint)
     return {"ok": True, "resolved": n}
+
+
+# ── LLM 서비스 중단/재개 (비용 소진 — doc/v2_2/LLM_SERVICE_SUSPENSION.md) ──────────
+
+
+class SuspendIn(BaseModel):
+    """수동 중단 요청(점검용)."""
+
+    reason: str = Field(default="manual", max_length=60)
+
+
+@router.get("/llm/state")
+def llm_state(_admin: Admin, jobs: Jobs) -> dict:
+    """중단 상태 전체 스냅샷(공급자별 소진·쿨다운, 마지막 프로브) + 재개 대기 작업 수."""
+    return llm_resume_service.state_overview(jobs)
+
+
+@router.post("/llm/resume")
+def llm_resume(admin: Admin, jobs: Jobs, errors: Errors, background: BackgroundTasks) -> dict:
+    """결제 후 재개 — 공급자 프로브(소액 실호출) → 상태 전이 → 보류 작업 재개(백그라운드).
+
+    프로브를 통과한 공급자가 하나도 없으면 409 로 거부하고 상태를 유지한다(불필요한 반복
+    재개 방지). 일부만 통과하면 그 공급자로 재개하고 나머지는 쿨다운으로 남긴다.
+    이미 active 면 프로브만 갱신하고 no-op(200).
+    """
+    try:
+        outcome = llm_resume_service.probe_and_resume(admin, jobs, errors)
+    except llm_resume_service.ResumeRejected as exc:
+        raise HTTPException(status_code=409, detail=exc.payload) from exc
+    if outcome.get("claimed_jobs") or outcome.get("daily_polish_scheduled"):
+        background.add_task(llm_resume_service.run_resume_work, outcome["claimed_jobs"])
+    outcome.pop("claimed_jobs", None)
+    return outcome
+
+
+@router.post("/llm/suspend")
+def llm_suspend(body: SuspendIn, admin: Admin) -> dict:
+    """수동 일시 중단(점검·비용 통제용) — 이후 모든 LLM 호출은 호출 없이 단락된다."""
+    return llm_resume_service.manual_suspend(admin, body.reason)

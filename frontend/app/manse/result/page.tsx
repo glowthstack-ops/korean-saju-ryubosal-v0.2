@@ -15,13 +15,17 @@ import {
   StructurePanel,
   TrueSolarTimeCard,
 } from "@/components/manse/Panels";
+import { HourUnknownBanner } from "@/components/manse/HourUnknown";
+import { HourNarrowPanel } from "@/components/manse/HourNarrowPanel";
 import { PillarBoard } from "@/components/manse/PillarBoard";
 import { calculateManse, todayISO } from "@/lib/api";
 import {
-  clearProfile, loadCalibration, loadEotPreference, loadProfile, profileSig,
-  saveCalibration, saveEotPreference,
+  clearProfile, loadCalibration, loadEotPreference, loadJaHourRulePreference, loadProfile,
+  profileSig, saveCalibration, saveEotPreference, saveJaHourRulePreference, saveProfile,
 } from "@/lib/storage";
-import { subjectEotPreference, summaryToProfile } from "@/lib/subject-mapping";
+import {
+  buildTimeOptions, subjectEotPreference, subjectJaHourRule, summaryToProfile,
+} from "@/lib/subject-mapping";
 import {
   getSubject,
   getSubjectYongsin,
@@ -29,8 +33,10 @@ import {
   setSubjectYongsin,
   updateSubject,
 } from "@/lib/subjects";
-import type {
-  CalibrationResult, ManseResult, Profile, SubjectSummary,
+import {
+  DEFAULT_JA_HOUR_RULE,
+  type ApproxBand, type CalibrationResult, type JaHourRule, type ManseResult, type Profile,
+  type SubjectSummary,
 } from "@/lib/types";
 
 // ?subject=<id>(로그인 사주) 우선, 없으면 IndexedDB 1회성 프로필을 로드한다.
@@ -87,6 +93,9 @@ export default function ManseResultPage() {
   // 로그인 사주 = 사주별 속성(birth.time_options, DB 영속 — 챗·리포트·간지달력 동일 기준),
   // 비로그인 = 기기 로컬 속성(localStorage). 데굴님 확정 2026-07-13.
   const [applyEoT, setApplyEoT] = useState(true);
+  // 자시(子時) 처리 규칙 — 균시차와 같은 사주별/기기별 속성. 기본 정자시(23시부터 다음 날).
+  // 23시대 출생은 이 규칙에 따라 일주가 바뀐다(데굴님 확정 2026-09-15).
+  const [jaHourRule, setJaHourRule] = useState<JaHourRule>(DEFAULT_JA_HOUR_RULE);
   // 로그인 사주의 원본 레코드 — 토글 영속(updateSubject) 시 나머지 필드를 보존해 재전송.
   const [subjectSummary, setSubjectSummary] = useState<SubjectSummary | null>(null);
   // 질문 생성/피드백 채점에 동일 기준일을 쓰도록 마운트 시 한 번 고정(자정·연 경계 안전).
@@ -117,12 +126,16 @@ export default function ManseResultPage() {
       const p = resolved.profile;
       setProfile(p);
       setSubjectSummary(resolved.summary);
-      // 초기 균시차: 로그인 사주는 저장된 사주별 속성, 비로그인은 기기 토글.
+      // 초기 균시차·자시 규칙: 로그인 사주는 저장된 사주별 속성, 비로그인은 기기 설정.
       const eot = resolved.summary
         ? subjectEotPreference(resolved.summary)
         : loadEotPreference();
+      const ja = resolved.summary
+        ? subjectJaHourRule(resolved.summary)
+        : loadJaHourRulePreference();
       setApplyEoT(eot);
-      calculateManse(p, referenceDate, { apply_equation_of_time: eot })
+      setJaHourRule(ja);
+      calculateManse(p, referenceDate, buildTimeOptions(eot, ja))
         .then(async (r) => {
           setResult(r);
           // 로컬(IndexedDB) 복원은 폴백이다 — 서버(getSubjectYongsin)가 값을 넣었으면 덮지 않고,
@@ -144,16 +157,19 @@ export default function ManseResultPage() {
     router.replace("/manse");
   };
 
-  // 균시차 토글: 즉시 재계산(진태양시·시주가 바뀔 수 있음). 미지정 옵션은 백엔드 기본값 유지.
-  // 로그인 사주는 DB(birth.time_options)에 영속 — 챗·리포트가 같은 시주 기준을 쓴다.
-  const toggleEoT = (value: boolean) => {
-    setApplyEoT(value);
+  // 시간 옵션(균시차·자시 규칙) 변경: 즉시 재계산(진태양시·시주·일주가 바뀔 수 있음).
+  // 미지정 옵션은 백엔드 기본값 유지. 로그인 사주는 DB(birth.time_options)에 영속 —
+  // 챗·리포트·간지달력·오늘의 운세가 같은 명식을 쓴다. 비로그인은 기기 로컬 속성.
+  const applyTimeOptions = (eot: boolean, ja: JaHourRule) => {
+    setApplyEoT(eot);
+    setJaHourRule(ja);
+    const timeOptions = buildTimeOptions(eot, ja);
     if (subjectSummary && subjectId) {
       const birth = {
         ...subjectSummary.birth,
         time_options: {
           ...(subjectSummary.birth.time_options ?? {}),
-          apply_equation_of_time: value,
+          ...timeOptions,
         },
       };
       setSubjectSummary({ ...subjectSummary, birth });
@@ -170,13 +186,53 @@ export default function ManseResultPage() {
         /* 영속 실패해도 화면 재계산은 유지 — 다음 토글/저장에서 재시도 */
       });
     } else {
-      saveEotPreference(value); // 비로그인: 기기 로컬 속성
+      saveEotPreference(eot); // 비로그인: 기기 로컬 속성
+      saveJaHourRulePreference(ja);
     }
     if (!profile) return;
-    calculateManse(profile, referenceDate, { apply_equation_of_time: value })
+    calculateManse(profile, referenceDate, timeOptions)
       .then(setResult)
       .catch((e) => setError(e instanceof Error ? e.message : "계산 실패"));
   };
+  const toggleEoT = (value: boolean) => applyTimeOptions(value, jaHourRule);
+
+  // 시주 후보 좁히기 적용(2026-10-06): 대략 시간대·성향 추정 시진을 프로필에 반영하고 재계산한다.
+  // 추정은 확정이 아니다 — birth_time 은 그대로 null(시간 미상 모드 유지). 로그인 사주는 DB 영속.
+  const applyHourNarrowing = (
+    timeApprox: ApproxBand | null, hourHint: string | null,
+    hourCandidates: string[] | null = profile?.hourCandidates ?? null,
+  ) => {
+    if (!profile) return;
+    const next: Profile = { ...profile, timeApprox, hourHint, hourCandidates };
+    setProfile(next);
+    if (subjectSummary && subjectId) {
+      const birth = {
+        ...subjectSummary.birth,
+        birth_time_approx: timeApprox,
+        hour_branch_hint: hourHint,
+        hour_branch_candidates: hourCandidates,
+      };
+      setSubjectSummary({ ...subjectSummary, birth });
+      void updateSubject(subjectId, {
+        kind: subjectSummary.kind,
+        label: subjectSummary.label,
+        birth,
+        gender: subjectSummary.gender,
+        relation_to_user: subjectSummary.relation_to_user,
+        aliases: subjectSummary.aliases,
+        is_minor: subjectSummary.is_minor,
+        subscribed: subjectSummary.subscribed,
+      }).catch(() => {
+        /* 영속 실패해도 화면 재계산은 유지 */
+      });
+    } else {
+      void saveProfile(next);
+    }
+    calculateManse(next, referenceDate, buildTimeOptions(applyEoT, jaHourRule))
+      .then(setResult)
+      .catch((e) => setError(e instanceof Error ? e.message : "계산 실패"));
+  };
+  const changeJaHourRule = (value: JaHourRule) => applyTimeOptions(applyEoT, value);
 
   // 검증 제출 시: 화면 반영 + localStorage 저장(reload 후에도 유지).
   const onCalibrationResult = (res: CalibrationResult, answers: AnswerMap) => {
@@ -217,15 +273,26 @@ export default function ManseResultPage() {
       </div>
 
       <BirthSummaryBar result={result} />
+      <HourUnknownBanner result={result} />
+      {result.pillars.hour === null && (
+        <HourNarrowPanel profile={profile} referenceDate={referenceDate} onApply={applyHourNarrowing} />
+      )}
       <div id="sec-truesolar" className="scroll-mt-4">
         <TrueSolarTimeCard
           result={result}
           applyEquationOfTime={applyEoT}
           onToggleEquationOfTime={toggleEoT}
+          jaHourRule={jaHourRule}
+          onChangeJaHourRule={changeJaHourRule}
         />
       </div>
       <div id="sec-pillar" className="scroll-mt-4">
-        <PillarBoard result={result} />
+        <PillarBoard
+          result={result}
+          applyEquationOfTime={applyEoT}
+          // 경계 당일 변형 선택 — 추정 시진은 해제(변형과 충돌 방지), 시간대는 유지.
+          onSelectVariant={(hours) => applyHourNarrowing(profile.timeApprox ?? null, null, hours)}
+        />
       </div>
       <div id="sec-structure" className="scroll-mt-4">
         <StructurePanel result={result} />
@@ -262,7 +329,7 @@ export default function ManseResultPage() {
           result={result}
           profile={profile}
           referenceDate={referenceDate}
-          timeOptions={{ apply_equation_of_time: applyEoT }}
+          timeOptions={buildTimeOptions(applyEoT, jaHourRule)}
           onResult={onCalibrationResult}
           initialAnswers={savedAnswers}
           submitted={calibration !== null}
@@ -274,7 +341,7 @@ export default function ManseResultPage() {
         <LuckPanel
           result={result}
           profile={profile}
-          timeOptions={{ apply_equation_of_time: applyEoT }}
+          timeOptions={buildTimeOptions(applyEoT, jaHourRule)}
           calibration={calibration}
         />
       </div>

@@ -11,11 +11,20 @@ import csv
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 from saju_engines.region_geo_stubs import DirectionalFeatureAdapter
 from saju_shared_types.region_element import RegionDirectionalSummarySnapshot
 
 _BACKEND = Path(__file__).resolve().parents[2]
 _BUILD = _BACKEND / "scripts" / "build_region_directional_summary.py"
+# 빌드 입력인 행정구역 원천(doc/gis/region_units_compact_*.jsonl)은 gitignore 대용량 파일 —
+# 신선한 체크아웃(CI)에는 없어 빌드 rc=1 로 쓰러졌다(2026-10-08 CI 실측 4건). 부재 시 skip.
+_REGION_UNITS = _BACKEND.parent / "doc" / "gis" / "region_units_compact_20230729.jsonl"
+pytestmark = pytest.mark.skipif(
+    not _REGION_UNITS.exists(),
+    reason="gitignore 원천 doc/gis/region_units_compact_20230729.jsonl 부재 — 지형 빌드 불가",
+)
 # 청운동 anchor(실측, region_units_compact) — 합성 feature를 이 기준으로 배치한다.
 _ANCHOR_X, _ANCHOR_Y = 953188.52, 1954537.22
 _REGION = "11110101"
@@ -61,7 +70,7 @@ def _build(tmp_path: Path) -> RegionDirectionalSummarySnapshot:
     out_dir = tmp_path / "compiled"
     main = _load_build_main()
     rc = main(["x", str(features),
-               str(_BACKEND.parent / "doc" / "gis" / "region_units_compact_20230729.jsonl"),
+               str(_REGION_UNITS),
                str(out_dir)])
     assert rc == 0
     return RegionDirectionalSummarySnapshot.model_validate_json(
@@ -113,7 +122,7 @@ def test_no_features_skips_build(tmp_path: Path) -> None:
     out_dir = tmp_path / "compiled"
     main = _load_build_main()
     rc = main(["x", str(empty),
-               str(_BACKEND.parent / "doc" / "gis" / "region_units_compact_20230729.jsonl"),
+               str(_REGION_UNITS),
                str(out_dir)])
     assert rc == 0
     assert not (out_dir / "region_directional_summary_v1.json").exists()

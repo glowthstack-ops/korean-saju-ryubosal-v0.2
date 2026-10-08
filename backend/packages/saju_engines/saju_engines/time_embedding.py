@@ -25,7 +25,7 @@ try:  # 선택적 런타임 의존성(pip install .[intent]) — 없으면 분�
 
     _AVAILABLE = True
 except ImportError:  # pragma: no cover - 의존성 미설치 환경
-    np = None  # type: ignore[assignment]
+    np = None  # type: ignore[assignment, unused-ignore]  # numpy 미설치 환경(CI)은 ignore 불요
     ort = None
     Tokenizer = None
     _AVAILABLE = False

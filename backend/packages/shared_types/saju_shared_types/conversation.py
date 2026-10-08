@@ -116,6 +116,23 @@ class UserFact(BaseModel):
     superseded_quote: str | None = None  # 같은 key 단수 슬롯이 정정된 경우 이전 인용(이력)
 
 
+class AssistantCommitment(BaseModel):
+    """시스템 발언 원장 1건 — 답변에서 추출한 추천·판정 문장(2026-10-01, 데굴님 승인).
+
+    "시스템이 무엇을 말했는가"의 증거이며 그 내용이 옳다는 증거는 아니다. 이의 턴에서 사용자
+    발화와 어휘가 겹치는 문장을 찾아 `[이전 발언 원문]`으로 되돌려 주고, 같은 대상에 반대 극성의
+    새 발언이 오면 이전 건을 superseded 로 남겨 번복 이력을 보존한다(요약 메모리에 '초록은
+    나쁨'만 남기지 않기 위해). 추출은 rules-first(수행 표지 문장), LLM 미사용.
+    """
+
+    quote: str  # 답변 문장 원문(길이 캡)
+    source_turn: int
+    polarity: str = "recommend"  # 'recommend' | 'avoid' | 'judgment'
+    status: str = "active"  # 'active' | 'superseded'
+    superseded_by_turn: int | None = None
+    topic: str | None = None  # 발언 당시 활성 도메인(Domain value)
+
+
 class ConversationState(BaseModel):
     """현재 대화가 무엇을 다루는지 (docs/03 A1 ConversationState)."""
 
@@ -156,3 +173,10 @@ class ConversationState(BaseModel):
     # 파생(derive_relationship_overview). default라 과거 payload 역직렬화 안전.
     # topic reset에도 유지한다(주제 전환이 배우자 사실을 지우면 안 됨 — C-3 §10).
     relationship_states: RelationshipStateStore = Field(default_factory=RelationshipStateStore)
+    # 시스템 발언 원장(2026-10-01) — 답변마다 추천·판정 문장을 추출해 축적(캡은 모듈 상수).
+    # 이의·선택지 확인 턴에서 어휘 중첩으로 검색해 원문을 주입한다. default라 과거 payload 안전.
+    assistant_commitments: list[AssistantCommitment] = Field(default_factory=list)
+    # 이번 턴의 정정 감사 맥락(2026-10-01) — 프롬프트 구성 시점에 확정: {'challenge': bool,
+    # 'matched': [원장 인용…], 'excluded': [배제 조건 인용…]}. 답변 확정 후(동기·비동기 경로 공통)
+    # commitment_audit 가 읽어 shadow 로그를 남긴다. 다음 턴 프롬프트 구성에서 덮어쓴다.
+    last_challenge_context: dict = Field(default_factory=dict)

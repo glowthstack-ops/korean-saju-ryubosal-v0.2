@@ -44,11 +44,20 @@ class CallLimit:
 # ([사용자 제공 정보] 블록, 캡 10건)과 특정일 일운·세대주 분리 디렉티브가 대화 입력에 더해지는
 # 분을 흡수 — 대화 연속성(사실 상속) 개선 건.
 CALL_LIMITS: dict[str, CallLimit] = {
-    "chat_single": CallLimit(22_000, 5_000, max_output_chars=1_500),
-    "chat_compare": CallLimit(22_000, 5_500, max_output_chars=2_400),
+    # 2026-09-21 데굴님 결정: 22,000→28,000. 방향 질문(방위 활용 수동 블록+목적 16종 표+민속 고지)이
+    # 후행 지시문·시스템 프롬프트 예약분과 합쳐 22k를 넘어 Tier 0 트림에서 민속 고지가 잘렸다 —
+    # 재료를 잘라내는 대신 상한을 올린다(불필요 항목 점검은 별도, docs/09 §8).
+    "chat_single": CallLimit(28_000, 5_000, max_output_chars=1_500),
+    "chat_compare": CallLimit(28_000, 5_500, max_output_chars=2_400),
     "query_parser": CallLimit(2_000, 300),
-    "report_focus_section": CallLimit(15_000, 8_000, max_output_chars=4_500),
-    "report_full_section": CallLimit(15_000, 8_000, max_output_chars=4_500),
+    # 2026-10-08 데굴님 승인: 풀이 섹션 입력 상한 15,000 → 18,000. 실측 15,156tok(report_focus_
+    # section) 초과 실패 — 같은 날 추가된 격국 정합 표기·화기격 경고·용신 작동성 사유(#6c)로 명식
+    # 블록이 커졌다.
+    # 선례(docs/09 §8)대로 재료를 잘라내지 않고 상한을 올린다(출력 상한·thinking 정책 불변).
+    # 2026-10-08 2차 상향 18,000 → 20,000(데굴님 승인): 총운(report_full_section) 1978년생 명식이
+    # 18,247tok 로 다시 초과 실패(job 4540fd5b).
+    "report_focus_section": CallLimit(20_000, 8_000, max_output_chars=4_500),
+    "report_full_section": CallLimit(20_000, 8_000, max_output_chars=4_500),
     "consistency_check": CallLimit(8_000, 500),
     # 일주별 오늘의 운세 60건 배치 문장 교정(JSONL, 하루 1회) — 2026-07-23 계획 승인분.
     # 출력 예산: 60건 × 레코드 상한(헤드라인 120자·장소 60자·로또 80자 + JSON 구조) 실측

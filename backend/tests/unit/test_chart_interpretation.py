@@ -120,7 +120,7 @@ def test_luck_amhap_in_prompt_as_auxiliary() -> None:
         assert "암합이 건드린 궁성" in text  # 지시문에 보조·궁성 안내
 
 
-# ── 신살 실위치 앵커(2026-07-21 데굴님 실로그) — 년주 천을귀인이 '월주에 있는 천을귀인'으로
+# ── 신살 실위치 앵커(2026-07-21 데굴님 실로그) — 연주 천을귀인이 '월주에 있는 천을귀인'으로
 # 옮겨 서술되던 오독 차단: '위치별: 년·월에 있으면…' 일반론에 실위치 앵커를 동반한다 ──
 def test_sinsal_excerpt_anchors_actual_palace() -> None:
     ci = build_chart_interpretation(calculate(_BIRTH))
@@ -128,7 +128,7 @@ def test_sinsal_excerpt_anchors_actual_palace() -> None:
     sin = [e for e in ci.excerpts if e.kind == "sinsal" and e.key == "천을귀인"]
     assert sin, "천을귀인 발췌가 존재해야 한다(연주 신살)"
     text = sin[0].text
-    assert "실제 위치 년주 한정" in text  # 월주로 옮겨 말할 수 없게 실위치 명시
+    assert "실제 위치 연주 한정" in text  # 월주로 옮겨 말할 수 없게 실위치 명시
     assert "옮겨 말하지 말 것" in text
 
 

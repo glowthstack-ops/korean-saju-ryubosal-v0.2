@@ -5,7 +5,10 @@
     "birth_date": "1980-11-22",
     "birth_time": "23:30",
     "birth_place_name": "서울",
-    "gender": "male"
+    "gender": "male",
+    "time_options": {
+      "apply_equation_of_time": true
+    }
   },
   "expected": {
     "year_pillar": "庚申",

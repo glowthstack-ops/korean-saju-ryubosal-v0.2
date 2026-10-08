@@ -8,9 +8,20 @@ from __future__ import annotations
 
 from datetime import date
 
+import pytest
+
 from saju_api.services import chat_service
 from saju_api.services.chat_service import _extract_offer
+from saju_engines.intent_embedding import get_intent_classifier
 from saju_shared_types.birth_input import BirthInput
+
+# '그래 봐줘' 류 긍정 후속은 ONNX 의도 임베딩(gitignore compiled/intent_onnx + onnxruntime)이 있어야
+# 이어보기로 라우팅된다. 모델·의존성 없는 환경(CI)은 규칙 폴백이라 프롬프트가 비어 실패했다
+# (2026-10-08 CI 실측) — 분류기 비가용이면 skip.
+_needs_intent_model = pytest.mark.skipif(
+    not get_intent_classifier().available(),
+    reason="의도 임베딩 모델(compiled/intent_onnx)·onnxruntime 부재 — 규칙 폴백 라우팅",
+)
 
 _T = date(2026, 6, 25)
 _B = BirthInput(
@@ -39,6 +50,7 @@ def test_extract_offer_empty_without_markers() -> None:
     assert _extract_offer("") == ""
 
 
+@_needs_intent_model
 def test_affirm_continue_injects_prior_offer() -> None:
     t = _prompt("그래 봐줘", _PRIOR)
     assert _MARK in t  # 이어보기 지시문

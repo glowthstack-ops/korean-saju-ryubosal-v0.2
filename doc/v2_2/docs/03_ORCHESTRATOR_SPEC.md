@@ -60,8 +60,18 @@ interface ConversationState {
   lastIntent: IntentJson | null;
   lastResults: ResultSummaryRef[];     // 직전 답변에서 제시한 이벤트/시기/명리 판정 요약
   repeatCount: number;                 // 동일 질문 반복 감지 (F7) — 2회 이상이면 다른 각도 제시
+  assistantCommitments: AssistantCommitment[]; // 시스템 발언 원장(2026-10-01) — 답변의 추천·비권장·판정 문장 원문
+                                       // {quote, sourceTurn, polarity, status: active|superseded, supersededByTurn}
+  lastChallengeContext: Record<string, unknown>; // 이번 턴 정정 감사 맥락 {challenge, matched[], excluded[]}
 }
 ```
+
+**시스템 발언 원장(assistantCommitments, 2026-10-01 데굴님 승인)** — 사용자 제공 사실 원장(user_facts)과 대칭.
+"시스템이 무엇을 말했는가"의 증거이며 옳다는 증거는 아니다. 답변 확정 시(동기·비동기 경로 공통) 추천·비권장·판정
+수행 표지 문장을 rules-first 로 추출해 축적(캡 24)하고, 같은 대상어(색 범주 정규화 포함)에 반대 극성 발언이 오면 이전 건을
+**삭제하지 않고 superseded 로 남긴다**(요약 메모리에 '초록은 나쁨'만 남으면 "네가 추천했잖아"에 답할 수 없다). 이의 턴·선택지
+확인 턴에서 사용자 발화와 어휘가 겹치는 문장을 `[이전 발언 원문]`(턴·극성·상태 라벨)으로 주입한다. 구현
+`saju_engines/assistant_commitments.py`, 감사 `commitment_audit.py`(shadow 로그 — 재생성·교체 없음, 실로그 web-mup4m82l 계기).
 
 ### A2. Entity Tracking Engine
 
@@ -104,9 +114,17 @@ interface LinkResult {
 ```
 
 판별 규칙(우선순위):
+0. **이의·인용 반문은 최우선 challenge**(2026-10-01) — 2인칭 지칭+인용·수행 표지("니가 … 추천해줬잖아", "네가 좋다고 했잖아")
+   또는 시점 참조+발화 동사("아까는 9월이 좋다고 말했잖아") → `challenge`(Q12). offer-slot/offer-answer(되물음 답) 판정보다
+   **앞**에 둔다 — 실로그에서 이의가 직전 되물음의 '답'으로 링크돼 LLM이 자기 발언을 부인했다. 1인칭 주어·과거 사실 절
+   ("내가 아까 말한", "3년 전에 이사했잖아")은 제외. 규칙 SSOT `saju_engines/challenge_detect.py`(파서 Q12와 공유).
+   요청·의문형 후속("다른 색을 추천해줘", "녹색을 추가해도 돼?")에도 되물음 답 지시를 붙이지 않는다.
+0b. **선택지 확인 후속** — 발화가 원장(assistantCommitments)에서 추천·비권장한 대상어를 언급하고 새 도메인·새 풀이 요청이
+   없으면 `constraint_add` 로 잇는다("녹색을 추가해도 돼?"가 NEW 로 끊기던 결함).
 1. 명시적 참조어/판정 인용 존재 → follow-up 확정, Entity Tracking으로 해석
 2. 단답(10자 이하 — 실측 11%)이고 시점·도메인·대상 중 1개 슬롯만 존재 → 해당 슬롯만 교체, 나머지 전부 상속. "내일운세 → 모레는? → 글피는?" 체인 포함 (B2/B3)
 3. 도메인/시간 슬롯이 비어 있고 직전 intent와 의미 연결("그럼 준비는 언제부터?") → 슬롯 상속
+   - 시점 슬롯 예외: '언제'류 시점-탐색 후속은 직전 시점 창을 잇지 않는다(스스로 탐색). 단 **직전이 택일(유계 창)이고 최상급·선택 표지("그럼 가장 좋은 날은 언제야?", "그중 제일 좋은 하루")가 붙은 후속**은 직전 답의 후보 중 하나를 고르는 질문이라 택일 유형·사건·시점 창을 그대로 잇는다(`_BEST_PICK_RE`, 2026-09-30 실로그: 로또 택일 뒤 최상급 후속이 10년 창 timing_search로 열려 계약·문서 답으로 이탈). 새 도메인·사건이 붙으면 예외 아님.
 4. 완전히 새로운 도메인+대상 명시 → 새 스레드 생성
 5. 애매하면 LLM 분류기 1회 호출 (경량 모델, JSON 출력 강제)
 
@@ -128,10 +146,10 @@ interface LinkResult {
 | Q2 | domain_analysis | "재물운 풀이해줘" | 분야 점수/강약점/주요 시기 |
 | Q3 | timing_search | "언제 결혼할까", "문창귀인이 언제 들어와?" | 후보 연/월 + 가능성 |
 | Q4 | date_recommendation | "이사가기 좋은 날", "로또 사기 좋은 날과 방향" | 추천 날짜 랭킹 (+방위/시간대) |
-| Q5 | event_explanation | "내 초년운은 왜 힘들었을까", "언제인지 맞춰봐" | 과거 사건 원인 + 역검증 |
+| Q5 | event_explanation | "내 초년운은 왜 힘들었을까", "언제인지 맞춰봐", "내가 그때 왜 그랬을까" | 과거 사건 원인 + 역검증 + 과거 행동 회고(2026-09-06) |
 | Q6 | comparison | 하위 3종: ⓐ compatibility "남편이랑 내 궁합" ⓑ competition "둘 중 누가 당선될까" ⓒ ranking "5명 중 나랑 합이 좋은 사람은 누구야" | 적합도 / 상대 우열 / 순위 |
 | Q7 | decision_support | "회사 생활 vs 자영업 어떤 게 맞아?", "분양에 도전해?" | 선택지별 장단/위험/추천 |
-| Q8 | chart_analysis | "내 용신이 뭐야", "나를 mbti로 설명하면?" | 명식 구조/특징 |
+| Q8 | chart_analysis | "내 용신이 뭐야", "나를 mbti로 설명하면?", "나는 왜 끝에 가면 항상 이렇게 하나" | 명식 구조/특징 + 반복 행동 패턴(2026-09-06) |
 | Q9 | relationship_analysis | "남편과의 사이는 어때?", "부모복 아내복 자식복" | 관계 패턴/개선점 |
 | Q10 | remedy | "조심해야 할 부분 있어?", "공망 보완할 방법은", "맞는 음식", "잘 맞는 절 추천" | 회피 시기/주의 행동/오행 보완 |
 | Q11 | terminology_education | "월주 공망이 무슨 뜻이야", "용신 희신 구신 기신은 뭐야?" | 용어 설명 (+본인 사주 적용 예) — 풀이 파이프라인 미진입 가능 |
@@ -174,6 +192,7 @@ interface IntentJson {
   domains?: Domain[];                  // 결합 질문 ("이직운과 재물운") — 주 domain + 부가
   eventKey?: EventKey;
   eventKeys?: EventKey[];              // "이직 관련 운과 재혼운, 재혼 후 자녀" 류
+  careerField?: boolean;               // 직업 분야·직종·적성 질문(docs/08 career, 2026-09-10) — 원국 십성 기능 축, 시점 미승계
 
   // ── 시점 (docs/08 C차원 18패턴 수용) ──
   timeScope: 'long_term' | 'mid_term' | 'short_term' | 'date_level' | 'hour_level'
@@ -187,6 +206,11 @@ interface IntentJson {
     age?: { from?: number; to?: number };          // "20살 전까지" (C12)
     anchorDates?: { label: string; date: string }[]; // "투표일 6/3, 개표 6/4" (C11)
     ranges?: { label: string; start: string; end: string }[]; // "26-27 / 28-30 / 31-33년" (C10)
+    dates?: string[];                  // "10월 7일과 9일" — 낱낱이 지목한 날(ISO, 최대 4). start/end 는 min~max 스팬이며
+                                       // 사이 날은 대상이 아니다. 연속 범위("7일부터 9일까지")는 start/end 만 쓰고 비운다 (C5d, 2026-10-02)
+    weekFrame?: 'sun_sat' | null;      // 주 단위 창의 요일 경계. 'sun_sat' = 일요일~토요일(로또 판매 회차·사용자 지정
+                                       // "일요일부터 토요일까지"). null = 기본 월~일 또는 주 단위 아님 (C4·C3.4, 2026-10-04)
+    weekLabel?: '이번 주' | '다음 주' | '다다음 주' | null; // 사용자가 쓴 주 호칭 — 택일 블록 '기간 기준' 줄에 실어 답이 호칭을 바꿔 부르지 않게 한다
     lifeStage?: '초년' | '청년' | '중년' | '말년' | '평생';   // (C13)
     granularity: 'daewoon' | 'year' | 'month' | 'day' | 'hour';
     urgency?: 'asap' | null;           // "빠를수록 좋아" (C16)
@@ -261,6 +285,7 @@ too_broad 응답 형식:
 
 핵심: 질문을 거절하는 게 아니라 **실행 가능한 형태로 바꿔 제안**한다.
 예외: 단답 후속(docs/08 B2 — 실측 11%)은 슬롯 상속으로 대부분 해결되므로 too_broad 판정 전에 Question Linking을 먼저 거친다 — "3개월 이내에?"는 too_broad가 아니다.
+예외 2 (사건 서술형, 2026-08-11 확정): **과거 사건 서술절 + 우려 표현 + 막연 미래 질의**가 모두 있으면("그간 집안 자랑을 했었는데 그게 발목을 잡을 것 같아. 앞으로 어떻게 될까?") 시점·분야가 없어도 되묻지 않고 실행한다 — 상황을 서술한 사용자에게 범위를 되물으면 서술이 통째로 무시된다(실사용 3연속 바운스 보고). 서술 범위는 답변 지평 정책(docs/16)이 잡는다. 무맥락 광질문("앞으로 내 운세 알려줘")은 3신호 미충족으로 기존대로 좁힌다.
 
 ### B4. Execution Planner
 
@@ -284,6 +309,18 @@ Q4 date_recommendation (instant/hybrid):
 Q5 event_explanation (past):
   과거 간지달력 → Event Scoring(역방향) → evidence path → LLM
   "맞춰봐" 신호(C15) → Past Validation 모드: 후보 제시 후 사용자 확인 유도
+  중립 회고("그때 왜 그랬을까", 2026-09-06) — 고정 시점에 대한 후회·평가 질문(흐름표 불요):
+    후속 턴이면 대화 상태에서 시점·도메인 승계(time_shift) → 그 시기 대운·세운 = 배경 신호
+    승계 맥락 없음 → 구조 답변(시점 창·후보·흐름표 없음) + 시점·사건 확인 질문
+    + RETRO_BEHAVIOR_DIRECTIVE(3층 분리 — 원국·궁위=성향 구조 / 대운·세운=당시 배경·압력
+      (원인 아님, 인과 확정 금지) / 실제 행동·결과=별도 사실, 미서술 시 사건 창작 금지)
+
+Q8 chart_analysis (structural, 시점·이벤트 데이터 불요):
+  원국 구조(십성 세력·격국·신강약·용신) + 명식 해석 자료(궁위별 십성·12운성) + 구조 블록 → LLM
+  반복 행동 패턴("왜 항상 이렇게 하나", 2026-09-06) → BEHAVIOR_PATTERN_DIRECTIVE
+    (3층 분리 + 관리 프레임. 궁위→행동 단계 연결은 정통 규칙이 아닌 **서사화용 해석 규칙**이며
+     보조 단서 — 시주=후반·결과·표출 자리라 마무리 단계와 연결 가능, '천간=마음/지지=행동/
+     운성=태도' 고정 등식 금지)
 
 Q6 comparison:
   ⓐ compatibility: 대상별 ChartAnalysis → Compatibility Engine(E13) → 관계 유형별 풀이
@@ -303,6 +340,11 @@ Q11 terminology_education:
 
 Q12 feedback_correction:
   claim 엔티티 조회 → 엔진 재검산 → 일치: 근거 재설명 / 불일치: 정정 + 오류 인정
+  (2026-10-01) 시스템 발언 원장 검색 → [이전 발언 원문] 주입 → **정정 답 계약**(`_CHALLENGE_DIRECTIVE`):
+    ①이전 발언 확인(원문 있으면 인정, 없으면 '드리지 않았다') ②모순 분류 — (a)같은 정보로 번복→철회 (b)새 조건으로
+    변경→이유 (c)조건 달라 양립 (d)판단 불가→확인 ③유지·철회 범위(설명 보완 아닌 추천 수정) ④배제 조건·사용자 해석
+    반영 후속. 새 월별 흐름·성격 서사 생성 금지. 답변 후 shadow 감사(no_acknowledgment / excluded_reoffered /
+    effect_assertion) 로그만.
   사실 피드백("실제로는 11월이었어") → cases.jsonl 적재 + Confidence Calibration 갱신
   내부 개선책(CoT/RAG/프롬프트 수정안)은 사용자에게 노출하지 않음
 
@@ -350,3 +392,6 @@ LLM 입력 직전 최종 필터. 규칙:
 | wealth | 재성, 식상생재, 비겁(탈재), 문서 |
 | education | 인성, 문서, 관성, 시험 신호 |
 | health | 일간 오행 충극, 형, 12운성 쇠약 단계 |
+
+
+**총운 조망 선별의 fan-out 캡 (2026-09-10 사용자 승인 — daily 클론 감사 이식).** `reduce_overview_candidates` 는 의미 클러스터(사건×길흉 방향×지배 신호) 다변화(2026-07-14 확정) 위에 **같은 (시기, 지배 신호)에서 갈라진 사건 상한 2**(`OVERVIEW_FANOUT_CAP`)를 둔다. 세 패스(co-top→커버리지→충원)를 top_n 의 3배 예산으로 돌린 뒤 캡을 적용하고 top_n 으로 자른다(재충원). 접힌 사건은 대표 후보의 메타("같은 시기·같은 신호에서 갈라진 사건(접힘): …")로 남겨 LLM 이 별개 사건으로 나열하지 않고 한 흐름의 다른 얼굴로 서술하게 한다. 리포트 부록 점수표(`select_table_candidates`)도 같은 캡을 쓴다. 40명식 shadow: 채팅 클론 쌍 2.05→1.23/명식, 시기 3.48→3.77, 도메인 3.20→3.33 / 리포트 클론 9.03→4.45, 시기당 최대 행 3.77→2.00. 판정·점수 불변(선별만). 반대 방향 동시 노출(같은 시기·같은 도메인·반대 방향)은 실측 0건이며 `test_selection_contradiction_guard.py` 가 고정한다.

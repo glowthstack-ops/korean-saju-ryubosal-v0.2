@@ -185,9 +185,15 @@ def test_1959_non_climate_primary_no_emergency_boost(make_pillars) -> None:
         (Stem.SIN, Branch.CHUK), (Stem.GAP, Branch.O), Stem.SIN,
     )).yongsin
     johu = next(m for m in y.candidate_models if m.model_type == "johu")
-    assert johu.yongsin == "水"          # 궁통보감 canonical need(壬)
+    # C2 결정 A(2026-10-07): 궁통보감 1순위 壬은 淘洗(drain) 역할이라 조후 후보가 아니다 —
+    # climate 역할 글자 丙(온난, alternative)이 조후 후보 오행 火를 만든다. 壬은 설명에만 남는다.
+    assert johu.yongsin == "火"
     assert johu.confidence == 0.4        # 극단월 base — emergency 가산 없음
-    assert y.final["selected_model"] != "johu"
+    assert any("배합·구조 글자(점수 제외)" in r and "壬" in r for r in johu.reasons)
+    # 데굴님 판정 수용(2026-10-07): 중화·한난 월 축 가중치(조후 0.40 > 억부 0.25)에서 丙火 온난이
+    # 억부 金을 근소하게 이긴다 — 용 火·희 木·한 土. 이전 계약(억부 金)은 壬 강등의 부산물이었다.
+    assert y.final["selected_model"] == "johu"
+    assert y.final["yongsin"] == "火" and y.final["heesin"] == "木"
 
 
 def test_1953_tied_heesin_semantic_tiebreak(make_pillars) -> None:

@@ -80,6 +80,7 @@ class StemHapResolution:
     block_reason: str | None = None  # '간격극' | None
     weakened: bool = False           # 隔位(비인접) 약화
     contend: bool = False            # 쟁합·투합
+    contested_stem: str | None = None  # 쟁합 대상 글자(제3자가 함께 합하려는 쪽)
     chart_transform: bool = False    # 일간 화기격(化氣格) 후보 — 일간이 化神으로 化
     strength: float = 1.0            # 합력(약화 반영, 0~1) — CALIBRATE
     affected: list[AffectedGod] = field(default_factory=list)
@@ -188,13 +189,17 @@ def resolve_stem_hap(
             and abs(_ORDER.index(pa) - _ORDER.index(pb)) >= 2
         )
         # 쟁합·투합: 이 쌍(i,j) 밖의 제3 천간이 sa·sb 중 하나와 또 합하는가(위치 기준).
-        contend = any(
-            k not in (i, j) and (
-                frozenset({sa, sk}) in STEM_COMBINATIONS
-                or frozenset({sb, sk}) in STEM_COMBINATIONS
-            )
-            for k, (_, sk) in enumerate(all_pos)
-        )
+        contested: Stem | None = None
+        for k, (_, sk) in enumerate(all_pos):
+            if k in (i, j):
+                continue
+            if frozenset({sa, sk}) in STEM_COMBINATIONS:
+                contested = sa
+                break
+            if frozenset({sb, sk}) in STEM_COMBINATIONS:
+                contested = sb
+                break
+        contend = contested is not None
         strength = 1.0
         if weakened:
             strength *= w["geokwi_strength"]
@@ -272,6 +277,7 @@ def resolve_stem_hap(
             block_reason=block_reason,
             weakened=weakened,
             contend=contend,
+            contested_stem=contested.value if contested is not None else None,
             chart_transform=chart_transform,
             strength=round(strength, 4),
             affected=affected,
@@ -436,3 +442,76 @@ def resolve_branch_hap(
             notes=["방합 — 기존 오행 강화(변화 아님)"],
         ))
     return out
+
+
+# ── 화기격(化氣格) 성립 판정 — 정본(2026-10-08 데굴님 결정) ──────────────────────────────
+# 판정원은 이 모듈의 천간합 3단계(resolve_stem_hap)다. structure_analysis.TransformationCheck(가중
+# 점수)는 일간 무관·지지 충 blocker 를 섞어 사례집 재생에서 ① confirmed 9건 중 1건만 잡고 쟁합
+# 사례(獨相作合 위반)를 confirmed 로 잡아 정본으로 쓰지 않는다(HWAGI_REEVALUATION_REVIEW §7).
+# 성립 조건(滴天髓 從化論－真): ① 일간 천간합 confirmed(化神 월령 왕·상 ∧ 통근 ∧ 쟁합·간격극 없음)
+# ② 원국 합(운 제외) ③ 합 상대가 월간·시간(연간 제외) ④ 투간 인·겁·관 不遇(합 상대 제외) ⑤ 일간 무근
+# → 진화(眞化). ①②는 충족하나 ③④⑤ 중 하나라도 어긋나면 가화(假化) 후보(격국 치환·용신 단독 없음).
+_HWAGI_BLOCK_TG = frozenset({"비견", "겁재", "정인", "편인", "정관", "편관"})
+_HWAGI_NAME = {"木": "화목격", "火": "화화격", "土": "화토격", "金": "화금격", "水": "화수격"}
+
+
+@dataclass
+class HwagiCheck:
+    """일간 화기격 판정 1건(원국 전용)."""
+
+    kind: str                        # 'real'(진화) | 'pseudo'(가화)
+    target_element: str              # 化神 오행(한자)
+    name: str                        # 화토격 등
+    pair: tuple[str, str]
+    partner_pos: str                 # month/hour(진화 조건) 또는 year
+    dm_rooted: bool
+    month_or_hour: bool
+    blocking_stems: list[str]        # 투간 인·겁·관(합 상대 제외) — "己(편인)" 형식
+    reasons: list[str] = field(default_factory=list)
+
+
+def detect_hwagi(pillars: FourPillarsResult) -> HwagiCheck | None:
+    """일간 본신지합의 화기격 성립 판정(정본). 없으면 None, 있으면 진화/가화.
+
+    chart_transform(일간 참여·confirmed·化神 통근)인 원국 합 중 첫 건만 본다(獨相作合 — 두 건이면
+    쟁합이라 confirmed 가 될 수 없다).
+    """
+    day_master = Stem(pillars.day_master)
+    stems_by_pos = {
+        pos: Stem(getattr(pillars, pos).stem)
+        for pos in ("year", "month", "day", "hour") if getattr(pillars, pos) is not None
+    }
+    for r in resolve_stem_hap(pillars, {}):
+        if r.luck_origin or not r.chart_transform or not r.transform_element:
+            continue
+        if "day" not in r.positions:
+            continue
+        partner_pos = r.positions[1] if r.positions[0] == "day" else r.positions[0]
+        dm_rooted = _rooted(STEM_ELEMENT[day_master].value, pillars)
+        month_or_hour = partner_pos in ("month", "hour")
+        blocking = [
+            f"{st}({ten_god(day_master, st)})"
+            for pos, st in stems_by_pos.items()
+            if pos not in ("day", partner_pos) and str(ten_god(day_master, st)) in _HWAGI_BLOCK_TG
+        ]
+        reasons = [f"일간 {day_master.value}+{''.join(r.pair).replace(day_master.value, '')} 합 "
+                   f"confirmed → 化神 {r.transform_element}(월령·통근·쟁합 없음)"]
+        kind = "real"
+        if dm_rooted:
+            kind = "pseudo"
+            reasons.append("일간 유근 — 가화(假化)")
+        if not month_or_hour:
+            kind = "pseudo"
+            reasons.append(f"합 상대가 {partner_pos}(연간) — 월·시 합이 아니라 가화")
+        if blocking:
+            kind = "pseudo"
+            reasons.append("투간 인·겁·관 " + "·".join(blocking) + " — 不遇 조건 위반, 가화")
+        if kind == "real":
+            reasons.append("일간 무근·월/시 합·투간 인겁관 없음 — 진화(眞化)")
+        return HwagiCheck(
+            kind=kind, target_element=r.transform_element,
+            name=_HWAGI_NAME.get(r.transform_element, "화기격"), pair=r.pair,
+            partner_pos=partner_pos, dm_rooted=dm_rooted, month_or_hour=month_or_hour,
+            blocking_stems=blocking, reasons=reasons,
+        )
+    return None

@@ -15,8 +15,18 @@ export interface Profile {
   birthDate: string; // YYYY-MM-DD
   birthTime: string | null; // HH:MM
   timeUnknown: boolean;
+  // 시간 모름 보조(2026-10-06): 대략 시간대·성향 문항으로 좁힌 추정 시진(확정 아님 — 미상 모드 유지)
+  timeApprox?: ApproxBand | null;
+  hourHint?: string | null; // 子~亥
+  hourCandidates?: string[] | null; // 경계 당일 명식 변형 선택(그 변형의 시진들) — 보기 선택, 확정 아님
   place: SajuLocation;
 }
+
+export type ApproxBand = "새벽" | "아침" | "낮" | "저녁" | "밤";
+export const APPROX_BANDS: ApproxBand[] = ["새벽", "아침", "낮", "저녁", "밤"];
+export const APPROX_BAND_HOURS: Record<ApproxBand, string> = {
+  새벽: "03~07시", 아침: "07~11시", 낮: "11~15시", 저녁: "15~19시", 밤: "19~03시",
+};
 
 // ── 백엔드 DTO (snake_case, /api/v2 응답·요청과 1:1) ─────────────
 
@@ -27,15 +37,35 @@ export interface BirthInputDTO {
   birth_date: string; // YYYY-MM-DD
   birth_time?: string | null; // HH:MM[:SS]
   birth_time_unknown?: boolean;
+  birth_time_approx?: ApproxBand | null;
+  hour_branch_hint?: string | null;
+  hour_branch_candidates?: string[] | null;
   birth_place_name: string;
   latitude?: number | null;
   longitude?: number | null;
   timezone?: string | null;
   gender?: "male" | "female" | "unknown" | null;
   // 시간 보정 옵션(부분 지정) — 미지정 필드는 백엔드 기본값(모두 적용)을 따른다.
-  // 저장된 사주는 챗·리포트 풀이가 이 값을 그대로 쓰므로, 등록 시점의 균시차 기준이 영속된다.
+  // 저장된 사주는 챗·리포트 풀이가 이 값을 그대로 쓰므로, 등록 시점의 균시차·자시 규칙이 영속된다.
   time_options?: Record<string, unknown> | null;
 }
+
+/** 자시(子時) 처리 규칙 — 백엔드 TimeCalculationOptions.ja_hour_rule 중 UI에 노출하는 값.
+  - standard_zi: 정자시. 23시부터 다음 날 일주(자시 전체를 익일로). 백엔드·스펙 기본값.
+  - early_late_zi: 야자시·조자시 구분. 23시대(야자시)는 당일 일주 유지, 0시대(조자시)는 그날 일주.
+    시주 천간은 두 규칙 모두 일주 천간 기준 둔시법(2026-09-15 데굴님 확정).
+  백엔드의 "none"은 standard_zi와 동작이 완전히 같아 UI에 노출하지 않는다. */
+export type JaHourRule = "standard_zi" | "early_late_zi";
+export const DEFAULT_JA_HOUR_RULE: JaHourRule = "standard_zi";
+/** 자시 규칙 표시 라벨 — 진태양시 카드 체크박스와 명식 카드 배지가 같은 문구를 쓴다. */
+export const JA_HOUR_RULE_LABEL: Record<JaHourRule, string> = {
+  standard_zi: "정자시",
+  early_late_zi: "야자시·조자시 구분",
+};
+export const JA_HOUR_RULE_DESC: Record<JaHourRule, string> = {
+  standard_zi: "23시부터 다음 날 일주",
+  early_late_zi: "자정까지 당일 일주",
+};
 
 // 계정(ID+PIN) 인증
 export interface AuthToken {
@@ -221,12 +251,23 @@ export interface ReportSpec {
 }
 
 // 내 풀이 내역 1건(목록) — report 라우터 GET /jobs.
+export interface ReportJobSubject {
+  label: string;
+  kind: string;
+  relation_type: string | null;
+  relation_label: string; // '본인' | 관계 한글 | '동반자'
+}
+
 export interface ReportJobSummary {
   job_id: string;
   status: "queued" | "running" | "completed" | "on_hold" | "failed";
-  product_code: "RPT_FULL" | "RPT_FOCUS";
+  product_code: "RPT_FULL" | "RPT_FOCUS" | "RPT_YEAR";
   topic: string | null;
   subject_labels: string[];
+  // 2026-10-08: 내역에서 연도·대상·관계를 구분할 수 있도록 선택값을 함께 싣는다.
+  subjects?: ReportJobSubject[];
+  period_start?: string | null; // 'YYYY-MM'
+  period_end?: string | null;
   sections_done: number;
   sections_total: number;
   created_at: string | null;
@@ -239,6 +280,8 @@ export interface ReportJobStatus {
   sections_total: number;
   result?: unknown | null;
   error?: string | null;
+  /** 작성 시점(ISO) — PDF 저장 파일명 등 내용 식별용. */
+  created_at?: string | null;
 }
 
 export interface HiddenStem {
@@ -315,6 +358,15 @@ export interface YongsinAnalysis {
   final: Record<string, string | number | null>;
   requires_validation: boolean;
   warnings: string[];
+  decision_trace?: {
+    problem: string;
+    chosen_path: string;
+    heesin_function?: string | null;
+    heesin_function_ko?: string | null;
+    rejected: Array<{ element: string; model: string; score: number; reason: string }>;
+    axis_conflict?: { eokbu: string; johu: string; resolution: string } | null;
+    collateral: string[];
+  } | null;
 }
 
 export interface LuckPolarity {
@@ -334,6 +386,44 @@ export interface LuckPolarity {
 export interface LuckSinsal {
   name: string;
   polarity: string; // positive(길신) / caution(흉성) / neutral(신살)
+}
+
+/** 삼재 단계(세운 전용) — 연지 삼합 기준 역마/육해/화개 세운. 흉운 점수가 아니라 3년 흐름 라벨. */
+export interface SamjaeEvidence {
+  signal: string;
+  effect: "positive" | "negative" | "neutral";
+  note: string;
+}
+
+export interface SamjaeInfo {
+  stage: "enter" | "stay" | "exit";
+  label_ko: string; // 들삼재 / 눌삼재 / 날삼재
+  sinsal: string;
+  sequence_index: number;
+  theme_ko: string;
+  basis: string;
+  // quality(복/평/악) — 원국·대운·세운 작용 판정(docs/18 §4-2). 미평가면 null.
+  quality?: "bok" | "normal" | "ak" | null;
+  quality_label?: string | null; // 복삼재 / 평삼재 / 악삼재
+  strength_label?: string | null; // 약 / 중 / 강
+  stage_quality_phrase?: string | null;
+  evidence?: SamjaeEvidence[];
+  overlap_label?: string | null; // 대운 겹삼재 · 일지 겹삼재
+}
+
+// 민속 흉방(docs/19 §5) — 그해 지지 기준(개인 사주 무관한 공통 금기, 삼재와 별개).
+// 2026-09-22: 세운 카드 배지는 이사 판정층(MOVE: 삼살·대장군)만 받는다 — 태세·세파는 동토·좌향 참고층.
+export interface FolkTabooHit {
+  key: string; // samsal | daejanggun | taese | sepa | son
+  name_ko: string;
+  direction: "동" | "남" | "서" | "북";
+  branches: string[];
+  reason_ko: string;
+  period: "year" | "year3" | "day";
+  basis_ko: string;
+  tier?: "MOVE" | "GROUND";
+  mitigation_ko?: string; // 좌향 완화 문구(三煞可向不可坐 등)
+  span_ko?: string; // 대장군방 3년 고정 구간('2025~2027')
 }
 
 export interface DaewoonItem {
@@ -378,6 +468,8 @@ export interface LuckPillar {
   luck_summary?: string;
   solar_term_range?: string | null;
   luck_sinsal?: LuckSinsal[];
+  samjae?: SamjaeInfo | null; // 세운(period_type=year)에만 채워진다
+  folk_taboos?: FolkTabooHit[]; // 세운 전용 — 그해 이사 판정층 흉방(삼살·대장군, 추가 정보, 점수 무관)
 }
 
 export interface LuckCycles {
@@ -424,6 +516,7 @@ export interface CalibrationQuestion {
   period_label: string;
   period_range?: string;
   question_text: string;
+  hint?: string; // 이 해를 묻는 이유(사용자용 부제, CAL-P3)
   ask_domains: string[];
   options: string[];
   events?: CalibrationEventItem[];
@@ -447,7 +540,82 @@ export interface CalibrationResult {
   evidence_count: number;
   match_rate: number;
   selected_model: string | null;
-  explanation: string[];
+  explanation: string[]; // 내부 진단(개발·감수용) — 화면에는 user_summary를 쓴다
+  user_summary?: string[]; // 사용자용 결과 설명(근거 한 줄·역할 의미·다음 행동, CAL-P3)
+}
+
+// 출생시간 미상 분석(12시진 후보 비교) — 시간이 있으면 null/미포함(2026-10-06).
+export interface HourUnknownConsensus {
+  status: "agree" | "differ";
+  base: string;
+  values: string[];
+}
+
+export interface HourPillarVariant {
+  year_ganji: string;
+  month_ganji: string;
+  day_ganji: string;
+  hour_branches: string[];
+  is_base: boolean;
+  day_master: string;
+  strength_bands: string[];
+  geokguks: string[];
+  useful_gods: string[];
+  daewoon_directions: string[];
+}
+
+export interface HourUnknownAnalysis {
+  basis: string; // 'all12' | 'band:아침' | 'variant:酉戌亥' | 'hint:子'
+  approx_band: string | null;
+  hint_branch: string | null;
+  variant_choice: string[] | null;
+  pillar_variants: HourPillarVariant[];
+  candidates: Array<{
+    hour_branch: string;
+    ganji: string;
+    strength_band: string;
+    geokguk: string;
+    useful_gods: string;
+    yongsin: string;
+    daewoon_start_exact: number | null;
+  }>;
+  strength_band: HourUnknownConsensus;
+  geokguk: HourUnknownConsensus;
+  useful_gods: HourUnknownConsensus;
+  unconfirmed: string[];
+  daewoon_start_range: [number, number] | null;
+  boundary_warnings: string[];
+  notice: string;
+}
+
+// 시주 후보 성향 문항(POST /manse/hour-traits) · 좁히기(POST /manse/hour-narrow) — 2026-10-06
+export interface HourTraitStatement {
+  id: string;
+  source: "stem" | "branch" | "stage";
+  label: string;
+  text: string;
+}
+export interface HourTraitCandidate {
+  hour_branch: string;
+  ganji: string;
+  time_range: string;
+  stem_ten_god: string;
+  branch_ten_god: string;
+  twelve_stage: string;
+  statements: HourTraitStatement[];
+}
+export interface HourTraitsResponse {
+  basis: string;
+  candidates: HourTraitCandidate[];
+  note: string;
+}
+export interface HourNarrowResponse {
+  ranking: Array<{
+    hour_branch: string; ganji: string; time_range: string; matched: number; total: number; share: number;
+  }>;
+  recommended: string | null;
+  confidence: "none" | "low" | "medium";
+  note: string;
 }
 
 export interface ManseResult {
@@ -515,6 +683,7 @@ export interface ManseResult {
   yongsin_analysis: YongsinAnalysis;
   luck_cycles: LuckCycles | null;
   calibration: { status: string; questions: CalibrationQuestion[]; note?: string } | null;
+  hour_unknown?: HourUnknownAnalysis | null;
   traditional_extras: {
     sinsal: {
       full_list: SinsalItem[];
@@ -559,6 +728,13 @@ export interface ChatThreadSummary {
   pending?: boolean; // 생성 중인 답변 존재
 }
 
+// LLM 서비스 상태(비용 소진 일시 중단) — GET /api/v2/service/status
+export interface LlmServiceStatus {
+  state: "active" | "suspended";
+  reason: string | null;
+  suspended_at: string | null;
+}
+
 // 저장된 대화 메시지(열람·이어가기)
 export interface ChatMessageDTO {
   role: "user" | "assistant";
@@ -571,7 +747,8 @@ export interface ChatMessageDTO {
 
 // 대화형 통변 (v2.2 — /api/v2/chat)
 export interface ChatApiResponse {
-  status: "answered" | "pending" | "dry_run" | "policy" | "too_broad" | "need_subject";
+  // 'suspended' = LLM 비용 소진 일시 중단(즉시 안내, 2026-10-06)
+  status: "answered" | "pending" | "dry_run" | "policy" | "too_broad" | "need_subject" | "suspended";
   answer: string | null;
   // 'pending' 응답 — 백그라운드 생성 중인 답변 메시지 id(폴링 키)
   message_id?: number | null;
@@ -598,6 +775,16 @@ export interface RealityCalibrationYear {
   salience: number;
   daewoon_transition: boolean;
   events: RealityCalibrationEvent[];
+  age?: number | null; // 만 나이(CAL-R1)
+  band_ko?: string; // 생애 구간 라벨(사회초년기 등)
+  hint?: string; // 이 해를 묻는 이유
+}
+export interface RealityCalibrationSubmitResult {
+  stored: number;
+  confirmed: number;
+  not_happened: number;
+  years_answered: number;
+  summary: string[]; // 사용자용 요약(템플릿 문장)
 }
 export interface RealityCalibrationQuestionSet {
   subject_id: string | null;

@@ -93,6 +93,11 @@ class GeokgukResult(BaseModel):
     candidates: list[dict] = Field(default_factory=list)
     # 종격/전왕 등 특수격 신호(있으면 정격과 병행 검토). 없으면 None.
     special_pattern: dict | None = None
+    # C1-c C안(2026-10-08): 종격 판정은 격국 신호(root<8·override root≤3)와 용신 특수격 검출(세력비
+    # 포함) 두 기준이 따로 있다 — **판정 통일이 아니라 불일치 관리**. 어느 한쪽이라도 종격을 보면
+    # 두 기준의 판정과 일치 여부를 적는다(표기 전용, main_structure·special_pattern·점수·역할 불변).
+    # 없으면 None.
+    follow_consistency: dict | None = None
     evaluation: GeokgukEvaluation | None = None
     warnings: list[str] = Field(default_factory=list)
     explanation: list[str] = Field(default_factory=list)

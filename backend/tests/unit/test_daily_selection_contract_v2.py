@@ -193,7 +193,12 @@ def test_shadow_does_not_touch_live_selection(dicts) -> None:
 
 
 def test_legacy_frozen_contract_matches_v19_baseline(dicts) -> None:
-    """v2 shadow를 추가해도 라이브(v1)는 배포 시점 결과 그대로다."""
+    """v2 shadow를 추가해도 라이브(v1)는 배포 시점 결과 그대로다.
+
+    라이브는 **날짜가 사전을 고른다**(`load_daily_dicts_for`). 2026-09-10 §22-7 확장으로
+    현재 사전(v1.13)은 사건 후보가 달라 7월 보드와 같을 수 없으므로, 비교 대상은 그 날짜의
+    계약 사전이다 — 그것이 실제 서빙 경로다.
+    """
     from saju_engines.daily_fortune_snapshot import load_snapshot
 
     old = load_snapshot("dict.v1.9")
@@ -202,9 +207,10 @@ def test_legacy_frozen_contract_matches_v19_baseline(dicts) -> None:
         catalog=old["catalog"], templates=old["templates"], places=old["places"]
     )
     for day in range(3):
-        ctx = M.build_day_context(dt.date(2026, 7, 1) + dt.timedelta(days=day))
+        d = dt.date(2026, 7, 1) + dt.timedelta(days=day)
+        ctx = M.build_day_context(d)
         base = M.compute_board(ctx, old_d)
-        now = M.compute_board(ctx, dicts)
+        now = M.compute_board(ctx, M.load_daily_dicts_for(d))
         assert [str(f.headline_event_key) for f in base.fortunes] == [
             str(f.headline_event_key) for f in now.fortunes
         ]

@@ -12,11 +12,36 @@ import type { ReportJobStatus } from "@/lib/types";
 
 const POLL_MS = 3000;
 
+/** PDF 저장 파일명 — 내용 식별용: 테마·대상·작성시점·짧은 코드 (2026-08-24 사용자 요청). */
+function reportFileName(
+  heading: string,
+  who: string | undefined,
+  createdAt: string | null | undefined,
+  jobId: string,
+): string {
+  const dt = createdAt ? new Date(createdAt) : new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  const stamp = `${String(dt.getFullYear()).slice(2)}${p(dt.getMonth() + 1)}${p(
+    dt.getDate(),
+  )}-${p(dt.getHours())}${p(dt.getMinutes())}`;
+  const code = jobId.replace(/-/g, "").slice(0, 6).toUpperCase();
+  return ["테마사주", heading, who, stamp, code]
+    .filter(Boolean)
+    .join("_")
+    .replace(/[\\/:*?"<>|]/g, "")
+    .replace(/\s+/g, "");
+}
+
 interface ReportResultLike {
   sections?: ReportSection[];
   status?: string;
   meta?: Record<string, unknown>;
-  spec?: { product_code?: string; topic?: string | null; subjects?: { label?: string }[] };
+  spec?: {
+    product_code?: string;
+    topic?: string | null;
+    subjects?: { label?: string }[];
+    period?: { start?: string; end?: string };
+  };
 }
 
 export default function ReportJobPage() {
@@ -46,6 +71,15 @@ export default function ReportJobPage() {
     };
   }, [jobId]);
 
+  // 완료 시 탭 제목 = 파일명 — 버튼 없이 Ctrl+P 로 저장해도 같은 이름이 되게 한다.
+  useEffect(() => {
+    if (job?.status !== "completed") return;
+    const r = (job.result ?? {}) as ReportResultLike;
+    const h = r.spec ? themeLabel(r.spec.product_code ?? "", r.spec.topic ?? null) : "풀이 결과";
+    const w = r.spec?.subjects?.map((s) => s.label).filter(Boolean).join(",");
+    document.title = reportFileName(h, w, job.created_at, jobId);
+  }, [job, jobId]);
+
   if (error) return <p className="text-sm text-red-500">{error}</p>;
   if (!job) return <p className="text-sm text-gray-500">불러오는 중…</p>;
 
@@ -72,6 +106,11 @@ export default function ReportJobPage() {
           {job.status === "queued" ? "대기 중" : "작성 중"} · {job.sections_done}/
           {job.sections_total} 장
         </p>
+        {job.error === "LLM_SUSPENDED" && (
+          <p className="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            서비스 일시 중단으로 잠시 멈춰 있어요. 재개되면 작성한 부분부터 이어서 완성돼요.
+          </p>
+        )}
         <div className="mt-3 h-2 w-full overflow-hidden rounded bg-gray-100">
           <div className="h-full bg-gray-800 transition-all" style={{ width: `${pct}%` }} />
         </div>
@@ -88,6 +127,8 @@ export default function ReportJobPage() {
   const spec = result.spec;
   const heading = spec ? themeLabel(spec.product_code ?? "", spec.topic ?? null) : "풀이 결과";
   const who = spec?.subjects?.map((s) => s.label).filter(Boolean).join(", ");
+  // 한해풀이 선택 연도 — 섹션 제목·설명의 '올해'를 그 연도로 표기(2026-10-08).
+  const year = spec?.product_code === "RPT_YEAR" ? spec.period?.start?.slice(0, 4) : undefined;
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between print:hidden">
@@ -97,14 +138,14 @@ export default function ReportJobPage() {
             {who && <span className="ml-2 text-sm font-normal text-gray-500">· {who}</span>}
           </h1>
         </div>
-        <PdfExportButton />
+        <PdfExportButton filename={reportFileName(heading, who, job.created_at, jobId)} />
       </div>
       {result.status === "on_hold" && (
         <p className="rounded bg-amber-50 p-2 text-xs text-amber-700">
           현재 준비 중인 내용이 있어 일부만 표시됩니다. 곧 완성된 풀이로 업데이트돼요.
         </p>
       )}
-      <ReportPager sections={sections} title="테마사주 풀이" />
+      <ReportPager sections={sections} title="테마사주 풀이" year={year} />
     </div>
   );
 }

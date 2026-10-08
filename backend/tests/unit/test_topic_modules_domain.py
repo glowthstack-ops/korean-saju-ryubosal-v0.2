@@ -156,7 +156,7 @@ def test_m14_past_validation_reverse_engine() -> None:
 
 @pytest.mark.parametrize(
     ("mid", "axis_tgs", "label"),
-    [("M04", ("편인", "정인"), "부모"), ("M05", ("식신", "상관"), "자녀"),
+    [("M04", ("편인", "정인", "편재"), "부모"), ("M05", ("식신", "상관"), "자녀"),
      ("M06", ("편관", "정관", "비견", "겁재"), "직장")],
 )
 def test_relation_axis_modules(mid: str, axis_tgs: tuple, label: str) -> None:
@@ -168,6 +168,29 @@ def test_relation_axis_modules(mid: str, axis_tgs: tuple, label: str) -> None:
     natal = next(f for f in ctx.findings if f.period_key == "natal")
     assert set(axis_tgs) == set(natal.signals)  # 축 십성이 신호로
     assert natal.score > 0  # 세력 비율 산출
+
+
+def test_m04_parent_subaxes_no_double_count() -> None:
+    """C7 D1: M04 = 인성(모친)+편재(부친) 합산 1회, 요약에 부축 근거 분리 표기."""
+    dist = {"편인": 0.1, "정인": 0.1, "편재": 0.2, "정재": 0.3, "비견": 0.3}
+    ctx = build_topic_context("M04", [], _PERIOD, [], natal_ten_god_dist=dist)
+    natal = next(f for f in ctx.findings if f.period_key == "natal")
+    assert natal.score == 40  # (0.1+0.1+0.2)/1.0 — 편재는 한 번만 더해진다
+    assert "모친·윗사람(인성) 20%" in natal.summary and "부친(편재) 20%" in natal.summary
+    assert "정재" not in natal.signals  # 정재(처)는 부모 축이 아니다
+
+
+@pytest.mark.parametrize(
+    ("gender", "expected"),
+    [("male", {"편관", "정관"}), ("female", {"식신", "상관"}), (None, {"식신", "상관"})],
+)
+def test_m05_children_gender_axis(gender: str | None, expected: set[str]) -> None:
+    """C7 D2: 남명 자녀=관살, 여명·성별 미상=식상(현행). 축 외 십성은 신호에 없다."""
+    dist = {"편관": 0.2, "정관": 0.1, "식신": 0.2, "상관": 0.1, "정재": 0.4}
+    ctx = build_topic_context("M05", [], _PERIOD, [], natal_ten_god_dist=dist, gender=gender)
+    natal = next(f for f in ctx.findings if f.period_key == "natal")
+    assert set(natal.signals) == expected
+    assert natal.score == 30
 
 
 def test_m13_bond_compare_two_subjects() -> None:

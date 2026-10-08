@@ -31,10 +31,19 @@ _T = date(2026, 7, 22)
         "집 계약 순서가 어떻게 돼?",
         "이것도 상담 가능해?",
         "궁합도 볼 줄 알아?",
+        "지역오행도 볼 수 있어?",  # 2026-09-11 실로그 — 서비스 기능 탐문
+        "지역 오행은 봐줄 수 있나요?",
     ],
 )
 def test_probe_and_procedure_routed(q: str) -> None:
     assert build_capability_answer(q) is not None
+
+
+def test_feature_probe_region_element_is_fixed_answer() -> None:
+    """지역오행 기능 탐문 — 고정 즉답(검수 전 초안·단정 금지 톤), 시기 질문은 분석 경로 유지."""
+    ans = build_capability_answer("지역오행도 볼 수 있어?")
+    assert ans is not None and "볼 수 있어요" in ans and "검수 전 초안" in ans
+    assert build_capability_answer("창원 성산구 지역오행이 나랑 맞아? 언제 이사가 좋아") is None
 
 
 @pytest.mark.parametrize(

@@ -94,6 +94,7 @@
 - [ ] T7.5 Lifestyle Fortune Engine + format_slots 템플릿
 - [ ] T7.6 windfall/speculation 표현 제한 검증 테스트 (로또 번호 거부 케이스 포함 — docs/08 G6)
 - [ ] T7.7 방위/시진/체인 스케줄링 확장 (docs/02 E10 보강)
+- [x] T7.8 12신살 방위 활용 계층 + 삼재 (docs/18, 2026-09-20) — 공용 12신살 표 SSOT, 사전·엔진·채팅(수동/능동)·리포트(F-20b/Y-11b/테마)·세운 카드 삼재 배지
 
 ## Phase 8.5. 사용자 프로필 & 페르소나 (docs/11) (2~4일)
 

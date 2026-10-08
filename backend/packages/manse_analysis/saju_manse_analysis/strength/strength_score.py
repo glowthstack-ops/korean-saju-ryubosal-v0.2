@@ -1,4 +1,4 @@
-"""신강/신약 9단계 점수 + 신왕/신강 분리 게이트 (strength_9_band spec).
+"""신강/신약 7단계 점수 + 신왕/신강 분리 게이트 (strength_9_band spec → 2026-10-07 7단계 개정).
 
 통합형: 우리 분포/통근/구조 값을 그대로 합산한다.
   score = clamp(0.35·season + 0.35·root + 0.30·side + structure_modifier, 0, 100)
@@ -25,13 +25,24 @@ from saju_shared_types.pillars import FourPillarsResult
 
 from .._chart import view
 
-# 9단계 밴드 경계(0~100, 상한 inclusive). 태신약/태신강 포함(geokguk _WEAK/_STRONG와 정합).
+# 7단계 밴드 경계(0~100, 상한 inclusive) — 2026-10-07 데굴님 결정(C3): 극신약·극신강 제거.
+# 경계는 무작위 그리드 3,000명식 분위수(p17·p37·p45·p55·p63·p83)로 잡아 양끝 '태' 밴드가 각 17%,
+# 신강·신약 각 20%, 중화 3밴드 합 26%가 되게 했다(이전 9단계는 극·태 4밴드에 49~57%가 몰렸다).
+# 종격·전왕 탐지, mediator 금지처럼 옛 '극' 밴드에 묶여 있던 판정은 점수 임계(EXTREME_*_SCORE)로
+# 보존한다 — 밴드는 라벨이고 판정 모집단은 바꾸지 않는다.
+# 중화신약 상한은 분위수 p45(=45)가 아니라 옛 경계 47을 유지한다 — 45~47 구간(그리드 4%)의
+# 기존 테스트 차트(1985-02-03, 46.4: 인성 용신)와 사례집 4명식의 억부 분기가 바뀌는 것을 막는다
+# (2026-10-07).
 _BAND_BOUNDS = [
-    (28, "극신약"), (34, "태신약"), (42, "신약"), (47, "중화신약"), (53, "중화"),
-    (58, "중화신강"), (66, "신강"), (75, "태신강"), (100, "극신강"),
+    (30, "태신약"), (40, "신약"), (47, "중화신약"), (51, "중화"),
+    (57, "중화신강"), (71, "신강"), (100, "태신강"),
 ]
-_BOUNDARY_POINTS = [28, 34, 42, 47, 53, 58, 66, 75]
-_BAND_RANK = {name: i for i, (_u, name) in enumerate(_BAND_BOUNDS)}  # 극신약0 … 극신강8
+_BOUNDARY_POINTS = [30, 40, 47, 51, 57, 71]
+_BAND_RANK = {name: i for i, (_u, name) in enumerate(_BAND_BOUNDS)}  # 태신약0 … 태신강6
+#: 옛 9단계의 극신약 상한(28)·태신약 상한(34)·태신강 상한(75) — 판정 임계 보존용.
+EXTREME_WEAK_SCORE = 28.0
+FOLLOW_MAX_SCORE = 34.0
+EXTREME_STRONG_SCORE = 75.0
 _ALLY_GROUPS = {TenGod.BIGYEON, TenGod.GEOMJAE, TenGod.JEONGIN, TenGod.PYEONIN}
 _NEUTRAL_BANDS = {"중화신약", "중화", "중화신강"}
 _IMBALANCE_NEUTRAL_MAX = 3.0  # 중화권이어도 이 이상 편중이면 '중화이나 편중'
@@ -41,7 +52,7 @@ def classify_band(score: float) -> str:
     for upper, name in _BAND_BOUNDS:
         if score <= upper:
             return name
-    return "극신강"
+    return "태신강"
 
 
 def is_borderline(score: float) -> bool:

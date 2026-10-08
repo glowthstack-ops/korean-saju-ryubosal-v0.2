@@ -15,6 +15,25 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # 전용 DB(docker-compose.yml 의 saju-v2-db 와 같은 이미지·계정·호스트 포트) — 2026-10-08 데굴님
+    # 승인. 대화 스레드·사주 저장소 등 DB 를 쓰는 테스트가 로컬과 같은 조건으로 돈다
+    # (conftest._isolate_test_db 가 '<db>_test' 를 만들고 migrations/ 를 적용).
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: saju_v2
+          POSTGRES_PASSWORD: saju_v2
+          POSTGRES_DB: saju_v2
+        ports:
+          - "15432:5432"
+        options: >-
+          --health-cmd "pg_isready -U saju_v2 -d saju_v2"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      SAJU_V2_DATABASE_URL: postgresql://saju_v2:saju_v2@localhost:15432/saju_v2
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

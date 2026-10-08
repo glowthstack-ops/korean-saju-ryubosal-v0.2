@@ -8,13 +8,19 @@ from __future__ import annotations
 from saju_shared_types.analysis import ForceAnalysis
 from saju_shared_types.constants import CONTROLS, GENERATES
 from saju_shared_types.enums import Element
+from saju_shared_types.pillars import FourPillarsResult
 from saju_shared_types.structure import StructureAnalysis
 from saju_shared_types.yongsin import SpecialCaseCheck
+
+from ..relations.hap_modes import detect_hwagi
+from ..strength.follow_check import detect_follow
+from .operational_role_config import DOMINANT_CONTROLLER_PRESENT_PCT
 
 
 def detect_special_cases(
     force: ForceAnalysis,
     structure: StructureAnalysis,
+    pillars: FourPillarsResult | None = None,
 ) -> dict[str, SpecialCaseCheck]:
     # 전왕/오행 과다 판단은 월령 보정 세력 기준. 폴백도 보정이 섞인 effective 대신
     # '원점수' 환경 분포(일간 제외)를 쓴다(통근/투간/공망 중복 반영 방지).
@@ -23,52 +29,53 @@ def detect_special_cases(
     band = force.strength.band
     root_score = force.strength.components.get("root_score", 0.0)
 
-    # 합화/화기격: 구조작용에서 확정/가능 변환.
-    confirmed = [t for t in structure.transformed_candidates if t.confirmed]
-    any_conf = max((t.confidence for t in structure.transformed_candidates), default=0.0)
+    # 합화/화기격(2026-10-08 데굴님 결정): 정본은 hap_modes.detect_hwagi(일간 천간합 3단계 + 滴天髓
+    # 진화 조건). 구조작용의 TransformationCheck 는 성패·신강약 보조로만 남긴다.
+    hwagi = detect_hwagi(pillars) if pillars is not None else None
     transformation = SpecialCaseCheck(
-        detected=bool(confirmed),
-        confidence=round(max((t.confidence for t in confirmed), default=any_conf), 4),
-        detail=(", ".join("".join(t.members) for t in confirmed) or None),
+        detected=hwagi is not None,
+        confidence=(0.85 if hwagi.kind == "real" else 0.45) if hwagi else 0.0,
+        detail=(
+            f"{hwagi.kind}:{hwagi.target_element}:{hwagi.name}:pair={''.join(hwagi.pair)}"
+            f":partner={hwagi.partner_pos}"
+            if hwagi else None
+        ),
     )
 
     # 전왕/일행득기: 한 오행이 압도적이며 신강 계열.
     strongest_el = max(pct, key=lambda e: pct[e])
     maxpct = pct[strongest_el]
+    dominant_detected = maxpct >= 60.0 and band in ("신강", "태신강")  # 7단계(2026-10-07)
+    # E(2026-10-01): 압도 오행을 극하는 오행이 분포 임계 이상 남아 있으면 기세 집중이 깨져 진전왕이
+    # 아니다 → detail 을 'pseudo:'로 표기(플래그 ON 시 build_yongsin 이 억부와 경쟁시킨다). 플래그
+    # OFF 면 detail 표기만 바뀌고 판정은 기존과 같다.
+    controller = next(e for e in Element if CONTROLS[e] == Element(strongest_el))
+    ctrl_pct = pct.get(controller, 0.0)
+    dominant_kind = (
+        None if not dominant_detected
+        else "pseudo" if ctrl_pct >= DOMINANT_CONTROLLER_PRESENT_PCT
+        else "real"
+    )
     dominant = SpecialCaseCheck(
-        detected=maxpct >= 60.0 and band in ("신강", "태신강", "극신강"),
+        detected=dominant_detected,
         confidence=round(min(max((maxpct - 50) / 50, 0.0), 0.95), 4),
-        detail=f"{strongest_el} {maxpct}%",
+        detail=(
+            f"{dominant_kind}:{strongest_el} {maxpct}%:ctrl={controller} {round(ctrl_pct, 1)}%"
+            if dominant_kind else f"{strongest_el} {maxpct}%"
+        ),
     )
 
-    # 종격(從格): 비겁(同氣)이 무근이고 식·재·관 한 세력이 압도할 때 일간이 그 세력에 순응.
-    #   진종(眞從): 뿌리 자체가 거의 없음(root_score<8) — 강하게 성립(special 축 단독 주도).
-    #   가종(假從): 비겁 무근이나 약한 인성이 남아 의지처가 있음 — 진위 불확실(억부와 경쟁·검증).
-    # root_score는 비겁 통근 + 인성 생조를 합산하므로(인성만으로도 커짐) 종격 진위는
-    # root_score 단독이 아니라 비겁/인성 세력비로 판별한다.
-    tg = force.ten_gods.groups
-    g_total = sum(tg.values()) or 1.0
-    peer_ratio = tg.get("peer", 0.0) / g_total
-    resource_ratio = tg.get("resource", 0.0) / g_total
-    _pressure = {k: tg.get(k, 0.0) for k in ("output", "wealth", "officer")}
-    dom_grp = max(_pressure, key=lambda k: _pressure[k])
-    dom_ratio = _pressure[dom_grp] / g_total
-    follow_kind: str | None = None
-    if band in ("극신약", "태신약"):
-        if root_score < 8.0:
-            follow_kind = "real"  # 무근 → 진종(종세 포함)
-        elif peer_ratio < 0.07 and dom_ratio >= 0.33:
-            if resource_ratio < 0.12 and dom_ratio >= 0.40:
-                follow_kind = "real"
-            elif resource_ratio < 0.28:
-                follow_kind = "pseudo"  # 약한 인성 의지처 → 가종
+    # 종격(從格) — 공통 판정기(strength.follow_check.detect_follow, 2026-10-08 데굴님 결정):
+    # 격국(special_signal)과 같은 기준(비겁 뿌리 무근·압도 세력·인성 의지처·진종/가종). 옛
+    # root_score<8 분기(인성 통근 포함)와 용신 전용 세력비 분기는 폐기.
+    fc = detect_follow(force)
     follow = SpecialCaseCheck(
-        detected=follow_kind is not None,
-        confidence=(0.85 if follow_kind == "real" else 0.5) if follow_kind else 0.0,
+        detected=fc is not None,
+        confidence=fc.confidence if fc else 0.0,
         detail=(
-            f"{follow_kind}:{dom_grp}:peer={round(peer_ratio, 3)}:res={round(resource_ratio, 3)}"
-            if follow_kind
-            else f"root_score={root_score}"
+            f"{fc.kind}:{fc.group}:peer_root={fc.peer_root}:peer={fc.peer_ratio}"
+            f":res={fc.resource_ratio}:dom={fc.dom_ratio}"
+            if fc else f"peer_root={force.strength.components.get('peer_root_score', root_score)}"
         ),
     )
 

@@ -10,7 +10,9 @@ from datetime import date
 
 from pydantic import BaseModel, Field
 
+from saju_shared_types.folk_direction import FolkTabooHit
 from saju_shared_types.sinsal import LuckSinsal
+from saju_shared_types.twelve_sinsal import SamjaeInfo
 
 
 class LuckPolarity(BaseModel):
@@ -55,6 +57,18 @@ class LuckPillar(BaseModel):
     solar_term_range: str | None = None
     # 이 운이 불러오는 신살/길신/흉성 — 카드 하단(십이운성 아래) 표시용.
     luck_sinsal: list[LuckSinsal] = Field(default_factory=list)
+    # 삼재 단계(세운 전용, period_type=year) — 연지 삼합 기준 역마/육해/화개 세운(입춘 경계).
+    # 흉운 점수가 아니라 3년 흐름 라벨(들/눌/날)이며 luck_score·라벨에 관여하지 않는다(docs/18 §4).
+    samjae: SamjaeInfo | None = None
+    # 민속 흉방(세운 전용, docs/19 §5) — 그해 지지 기준 삼살·대장군·태세·세파 4종(개인 사주 무관한
+    # 공통 금기, 삼재와 별개). 카드 배지·추가 정보 전용이며 luck_score·라벨에 관여하지 않는다.
+    folk_taboos: list[FolkTabooHit] = Field(default_factory=list)
+    # C6 B/C 실험값(2026-10-08 데굴님 승인, 플래그 SAJU_SEWOON_DAEWOON_CONTEXT_ENABLED 기본 OFF) —
+    # 세운(period_type=year) 점수에 소속 대운 극성을 섞은 별도 점수. luck_score·라벨은 불변이며
+    # 소비자는 opt-in 으로만 읽는다(samjae_quality·relations_engines·프론트 luck-calibration 이
+    # 이미 대운을 따로 섞으므로 in-place 블렌드는 이중 반영). 첫 대운 전·대운 미상·플래그 OFF 는
+    # None.
+    daewoon_context_score: float | None = None
 
 
 class DaewoonItem(BaseModel):

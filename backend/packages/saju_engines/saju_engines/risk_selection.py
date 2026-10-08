@@ -216,7 +216,8 @@ def _representative(group: list[RiskCandidate]) -> RiskCandidate | None:
         # 정렬은 raw(감수 38차 preflight): capped는 표시·상한 진단 전용 —
         # cap을 넘긴 후보들이 1.0 동점으로 뭉치면 분별력이 사라진다.
         # 자격 게이트(>0)는 raw/capped 어느 쪽이든 동치(capped=max(0,raw) 하한).
-        raw, capped = risk_priority(comp, transition_bonus=c.transition_bonus)
+        raw, capped = risk_priority(comp, transition_bonus=c.transition_bonus,
+                                    aux_bonus=c.aux_bonus)
         if capped <= 0:
             continue
         eligible.append((c, raw))
@@ -363,7 +364,8 @@ def select_episodes(
         # budget 정렬도 raw(감수 38차 preflight) — capped는 표시 전용.
         # temporal로 cap을 넘긴 후보들이 selection 동점을 만들지 않는다.
         return risk_priority(rep.score_components,
-                             transition_bonus=rep.transition_bonus)[0]
+                             transition_bonus=rep.transition_bonus,
+                             aux_bonus=rep.aux_bonus)[0]
 
     qualified = [ep for ep in episodes
                  if ep.representative_candidate_id is not None]

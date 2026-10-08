@@ -16,6 +16,7 @@ import {
 } from "@/lib/calibration";
 import { elementLabel, elementStyle } from "@/lib/elements";
 import type { CalibrationResult, ManseResult, Profile } from "@/lib/types";
+import { ConsensusBadge, GhostOverlay, hourUnknownOf } from "./HourUnknown";
 
 const ALL_ELEMENTS = ["木", "火", "土", "金", "水"];
 
@@ -40,6 +41,7 @@ const axisOfModel: Record<string, string> = {
   eokbu_normal: "eokbu", wealth_breaks_resource: "eokbu", officer_controls_peer: "eokbu",
   resource_curbs_output: "eokbu", johu: "johu", pattern_sangsin: "pattern",
   disease_remedy: "disease", dominant_one_element: "special", follow_structure: "special",
+  transformation_structure: "special",
   bridge_tonggwan: "disease",
 };
 
@@ -72,23 +74,46 @@ export function YongsinPanel({
   // 한신 = 용/희/기/구에 배정되지 않은 나머지 한 오행.
   const assigned = [yongsin, heesin, gisin, gusin].filter(Boolean) as string[];
   const hansin = ALL_ELEMENTS.find((e) => !assigned.includes(e)) ?? null;
+  // 시주 미상 — 12시진 후보에 따라 용희신이 갈리면 '미확정'으로 가린다(사용자가 검증·등록으로
+  // 확정한 용신이 있으면 그 값은 유지). 전부 일치하면 뱃지만 붙인다.
+  const hu = hourUnknownOf(result);
+  const ugUnconfirmed = (hu?.unconfirmed.includes("useful_gods") ?? false) && !calibration && !registered;
+  const boxes = (
+    <div className="mt-2 grid grid-cols-5 gap-1.5 text-xs">
+      <Box label="용신" v={yongsin} />
+      <Box label="희신" v={heesin} />
+      <Box label="기신" v={gisin} />
+      <Box label="구신" v={gusin} />
+      <Box label="한신" v={hansin} />
+    </div>
+  );
   return (
     <section className="rounded-lg border bg-white p-4">
       <h2 className="mb-2 flex items-center text-sm font-semibold">
         용신 후보
         <InfoTooltip text="사주의 균형을 잡아 주는, 가장 필요한 핵심 기운입니다. 먼저 후보로 제시하고 과거 경험과 맞춰 본 뒤 확정합니다. 부족한 오행이 곧 용신은 아닙니다." />
       </h2>
-      <p className="text-sm">
-        상태:{" "}
-        <b>{registered ? "확정(등록됨)" : (statusKo[calibration?.status ?? y.status] ?? y.status)}</b>
+      <p className="flex flex-wrap items-center gap-2 text-sm">
+        <span>
+          상태:{" "}
+          <b>
+            {ugUnconfirmed
+              ? "미확정(시주 미상)"
+              : registered ? "확정(등록됨)" : (statusKo[calibration?.status ?? y.status] ?? y.status)}
+          </b>
+        </span>
+        {!calibration && !registered && <ConsensusBadge hu={hu} item="useful_gods" />}
       </p>
-      <div className="mt-2 grid grid-cols-5 gap-1.5 text-xs">
-        <Box label="용신" v={yongsin} />
-        <Box label="희신" v={heesin} />
-        <Box label="기신" v={gisin} />
-        <Box label="구신" v={gusin} />
-        <Box label="한신" v={hansin} />
-      </div>
+      {ugUnconfirmed ? (
+        <GhostOverlay
+          label="미확정 · 시주 미상"
+          sub={`출생시각에 따라 용희신이 달라져요 — 후보 ${hu!.useful_gods.values.join(" / ")}. 풀이에서는 길흉·보완 색·방향 판단에 쓰지 않아요.`}
+        >
+          {boxes}
+        </GhostOverlay>
+      ) : (
+        boxes
+      )}
       <p className="mt-2 text-[11px] text-gray-500">
         후보 모델: {y.candidate_models.map((m) => `${m.label}${m.is_auxiliary ? "(보조)" : ""}`).join(" · ")}
       </p>
@@ -97,12 +122,46 @@ export function YongsinPanel({
           판단 축(가중치): {y.axes.map((a) => `${axisKo[a.axis] ?? a.axis} ${a.weight}→${a.top_element}`).join(" · ")}
         </p>
       )}
+      {calibration?.user_summary && calibration.user_summary.length > 0 && (
+        <ul className="mt-2 space-y-1 rounded bg-emerald-50 px-3 py-2 text-[12px] text-emerald-900">
+          {calibration.user_summary.map((line, i) => (
+            <li key={i}>{line}</li>
+          ))}
+        </ul>
+      )}
+      {y.decision_trace && (
+        <details className="mt-1 text-[11px] text-gray-600">
+          <summary className="cursor-pointer">선정 경로(엔진 근거)</summary>
+          <ul className="mt-1 space-y-0.5">
+            <li>문제: {y.decision_trace.problem}</li>
+            <li>채택: {y.decision_trace.chosen_path}</li>
+            {y.decision_trace.heesin_function_ko && (
+              <li>희신 기능: {y.decision_trace.heesin_function_ko}</li>
+            )}
+            {y.decision_trace.axis_conflict && (
+              <li>
+                축 충돌: 억부 {y.decision_trace.axis_conflict.eokbu} / 조후 {y.decision_trace.axis_conflict.johu}
+                {" — "}{y.decision_trace.axis_conflict.resolution}
+              </li>
+            )}
+            {y.decision_trace.rejected.length > 0 && (
+              <li>
+                기각·강등: {y.decision_trace.rejected.map((r) => `${r.element}(${r.reason})`).join(" · ")}
+              </li>
+            )}
+            {y.decision_trace.collateral.map((c, i) => (
+              <li key={i}>부작용: {c}</li>
+            ))}
+          </ul>
+        </details>
+      )}
       {calibration?.selected_model && (
-        <p className="mt-1 text-[11px] text-emerald-700">
+        <details className="mt-1 text-[11px] text-gray-500">
+          <summary className="cursor-pointer">판정 근거(자세히)</summary>
           검증 확정 축: {axisKo[axisOfModel[calibration.selected_model] ?? ""] ?? calibration.selected_model}
           {calibration.final_yongsin ? `[${elementLabel(calibration.final_yongsin)}]` : ""}
           {" · 피드백 일치율 "}{Math.round(calibration.match_rate * 100)}%
-        </p>
+        </details>
       )}
       {calibration && (
         <div className="mt-3 flex items-center justify-between rounded border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs">
@@ -152,6 +211,13 @@ export function CalibrationPanel({
   registered?: boolean;
 }) {
   const questions = result.calibration?.questions ?? [];
+  // CAL-P3: 판별 문항(용신 확정에 반영)과 참고 문항(교운·평소·해당 시기·성향 — 채점 비반영)을
+  // 나눠, 참고 문항은 접어 둔다(응답 부담·혼동 완화).
+  const PROBE_TYPES = new Set([
+    "transition_probe", "trait_probe", "static_deficiency_probe", "transit_activation_probe",
+  ]);
+  const baseQuestions = questions.filter((q) => !PROBE_TYPES.has(q.question_type));
+  const probeQuestions = questions.filter((q) => PROBE_TYPES.has(q.question_type));
   const [answers, setAnswers] = useState<AnswerMap>(initialAnswers ?? {});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -212,6 +278,7 @@ export function CalibrationPanel({
     );
   };
   const answeredCount = questions.filter(isAnswered).length;
+  const answeredBase = baseQuestions.filter(isAnswered).length;
 
   const patch = (id: string, next: Partial<AnswerMap[string]>) =>
     setAnswers((a) => {
@@ -261,17 +328,26 @@ export function CalibrationPanel({
     <section className="rounded-lg border-2 border-gray-300 bg-white p-4">
       <h2 className="mb-1 text-sm font-semibold">용신 검증 질문</h2>
       <p className="mb-3 text-xs text-gray-500">
-        과거 사건을 답하면 용신 후보를 검증해 확정합니다. 기억나지 않으면 점수에서 제외됩니다.
+        아래 해에 실제로 어땠는지 답하면 용신 후보 중 맞는 해석을 확정합니다. 각 문항의
+        &lsquo;실제 사건 · 결과&rsquo;만 골라도 충분해요. 기억나지 않으면 &lsquo;잘 모르겠다&rsquo;를
+        고르세요(점수에서 제외).
       </p>
       <ol className="space-y-4">
-        {questions.map((q) => {
+        {[...baseQuestions, ...probeQuestions].map((q) => {
           const a = answers[q.id];
+
+          const probeBadge = PROBE_TYPES.has(q.question_type) ? (
+            <span className="mb-1 inline-block rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">
+              참고 질문 · 용신 확정에 반영되지 않아요
+            </span>
+          ) : null;
 
           // trait_probe(CAL-P0) — 성향 확인: 선택형 고정. 정답 확인이 아니라 표현 보정용이며
           // 용신·점수를 바꾸지 않는다(백엔드 채점 비반영 고정).
           if (q.question_type === "trait_probe") {
             return (
-              <li key={q.id} className="rounded border p-2.5">
+              <li key={q.id} className="rounded border border-dashed p-2.5">
+                {probeBadge}
                 <p className="text-sm font-medium">{q.question_text}</p>
                 <p className="mt-0.5 text-[11px] text-gray-400">
                   답변 스타일을 더 잘 맞추기 위한 확인 질문이에요. 용신이나 운세 점수는
@@ -303,7 +379,8 @@ export function CalibrationPanel({
           // static_deficiency_probe(CAL-P1 A) — 평소 체감: 선택형 고정, 채점 비반영.
           if (q.question_type === "static_deficiency_probe") {
             return (
-              <li key={q.id} className="rounded border p-2.5">
+              <li key={q.id} className="rounded border border-dashed p-2.5">
+                {probeBadge}
                 <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
                   평소 체감
                 </span>
@@ -332,7 +409,8 @@ export function CalibrationPanel({
           // transit_activation_probe(CAL-P1 B) — 해당 시기 체감: 연도 앵커형, 채점 비반영.
           if (q.question_type === "transit_activation_probe") {
             return (
-              <li key={q.id} className="rounded border p-2.5">
+              <li key={q.id} className="rounded border border-dashed p-2.5">
+                {probeBadge}
                 <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
                   해당 시기 체감
                 </span>
@@ -365,15 +443,13 @@ export function CalibrationPanel({
           // 응답은 영향 영역 칩(복수)으로 받는다(채점 비반영 — 질문 품질·회상 보조용).
           if (q.question_type === "transition_probe") {
             return (
-              <li key={q.id} className="rounded border p-2.5">
+              <li key={q.id} className="rounded border border-dashed p-2.5">
+                {probeBadge}
                 <p className="text-sm font-medium">{q.question_text}</p>
+                {q.hint && <p className="mt-0.5 text-[11px] text-gray-500">{q.hint}</p>}
                 {q.period_range && (
                   <p className="mt-0.5 text-[11px] text-gray-400">{q.period_range}</p>
                 )}
-                <p className="mt-0.5 text-[11px] text-gray-400">
-                  이 시기는 대운(10년 흐름)이 바뀌는 전환 전후예요. 실제 사건이 아니더라도
-                  생활 리듬이나 주변 환경 변화가 체감됐는지 확인해요.
-                </p>
                 <p className="mt-2 text-[10px] font-medium text-gray-400">
                   변화가 있었던 영역(복수)
                 </p>
@@ -396,51 +472,18 @@ export function CalibrationPanel({
           return (
             <li key={q.id} className="rounded border p-2.5">
               <p className="text-sm font-medium">{q.question_text}</p>
+              {q.hint && <p className="mt-0.5 text-[11px] text-indigo-600">{q.hint}</p>}
               {q.period_range && (
                 <p className="mt-0.5 text-[11px] text-gray-400">{q.period_range}</p>
               )}
 
-              {/* ① 그 해 전체 체감(7상태) */}
-              <p className="mt-2 text-[10px] font-medium text-gray-400">그 해 전체 체감</p>
-              <div className="mt-0.5 flex flex-wrap gap-1">
-                {OVERALL_OPTIONS.map((r) => (
-                  <button key={r.value} type="button" onClick={() => setRating(q.id, r.value)}
-                    className={`rounded border px-2 py-0.5 text-[11px] ${
-                      a?.rating === r.value ? "border-gray-800 bg-gray-800 text-white" : "text-gray-600"
-                    }`}>
-                    {r.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* ② 영역별 체감(5상태) */}
-              <p className="mt-2 text-[10px] font-medium text-gray-400">영역별 체감</p>
-              <div className="mt-0.5 space-y-2">
-                {CALIB_DOMAINS.map((dom) => {
-                  const cur = a?.domain_ratings?.[dom.key];
-                  return (
-                    <div key={dom.key}>
-                      <span className="text-[12px] text-gray-600">{dom.label}</span>
-                      <div className="mt-0.5 flex flex-wrap gap-1">
-                        {DOMAIN_OPTIONS.map((o) => (
-                          <button key={o.value} type="button"
-                            onClick={() => setDomainRating(q.id, dom.key, o.value)}
-                            className={`rounded border px-2 py-1 text-[11px] ${
-                              cur === o.value ? "border-indigo-600 bg-indigo-600 text-white" : "text-gray-500"
-                            }`}>
-                            {o.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* ③ 사건별 결과 — 라벨은 한 줄, 버튼은 아래에서 줄바꿈(모바일 대응) */}
+              {/* ③ 사건별 결과 — 판별 주축이라 맨 앞(CAL-P3). 라벨은 한 줄, 버튼은 아래 줄바꿈 */}
               {q.events && q.events.length ? (
                 <>
                   <p className="mt-2 text-[10px] font-medium text-gray-400">그 해 실제 사건 · 결과</p>
+                  <p className="text-[10px] text-gray-400">
+                    좋았다/힘들었다 = 결과 기준 · 그런 일 없었다 = 사건 자체가 없었음 · 아직 판단 어렵다 = 기억이 흐림
+                  </p>
                   <ul className="mt-0.5 space-y-2">
                     {q.events.map((ev) => {
                       const cur = normalizeEventRating(a?.event_ratings?.[ev.event_key]);
@@ -483,6 +526,47 @@ export function CalibrationPanel({
                   </div>
                 </>
               )}
+
+              {/* ① 그 해 전체 체감(7상태) */}
+              <p className="mt-2 text-[10px] font-medium text-gray-400">그 해 전체 체감</p>
+              <div className="mt-0.5 flex flex-wrap gap-1">
+                {OVERALL_OPTIONS.map((r) => (
+                  <button key={r.value} type="button" onClick={() => setRating(q.id, r.value)}
+                    className={`rounded border px-2 py-0.5 text-[11px] ${
+                      a?.rating === r.value ? "border-gray-800 bg-gray-800 text-white" : "text-gray-600"
+                    }`}>
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* ② 영역별 체감(5상태) — 선택 입력(접힘, CAL-P3): 답하면 판별에 더 반영된다 */}
+              <details className="mt-2">
+                <summary className="cursor-pointer text-[11px] text-gray-500">
+                  더 자세히 답하기 — 영역별 체감(선택)
+                </summary>
+                <div className="mt-1 space-y-2">
+                  {CALIB_DOMAINS.map((dom) => {
+                    const cur = a?.domain_ratings?.[dom.key];
+                    return (
+                      <div key={dom.key}>
+                        <span className="text-[12px] text-gray-600">{dom.label}</span>
+                        <div className="mt-0.5 flex flex-wrap gap-1">
+                          {DOMAIN_OPTIONS.map((o) => (
+                            <button key={o.value} type="button"
+                              onClick={() => setDomainRating(q.id, dom.key, o.value)}
+                              className={`rounded border px-2 py-1 text-[11px] ${
+                                cur === o.value ? "border-indigo-600 bg-indigo-600 text-white" : "text-gray-500"
+                              }`}>
+                              {o.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </details>
             </li>
           );
         })}
@@ -493,8 +577,9 @@ export function CalibrationPanel({
         {busy ? "검증 중…" : "검증 제출"}
       </button>
       <p className="mt-1 text-center text-[11px] text-gray-400">
-        {answeredCount}/{questions.length}개 응답
-        {answeredCount === 0 && " · 흐름을 하나도 고르지 않으면 검증되지 않아요"}
+        판별 문항 {answeredBase}/{baseQuestions.length}개 응답
+        {probeQuestions.length > 0 && ` · 참고 질문 ${answeredCount - answeredBase}/${probeQuestions.length}`}
+        {answeredBase === 0 && " · 판별 문항을 하나도 답하지 않으면 확정되지 않아요"}
       </p>
     </section>
   );

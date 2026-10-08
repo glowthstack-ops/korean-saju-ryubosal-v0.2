@@ -71,6 +71,11 @@ def analyze_chart(pillars: FourPillarsResult) -> ChartAnalysis:
         season_adjusted=elements["season_adjusted_element_strength"],
     )
     strength.pop("_side_balance_score", None)
+    # 통근 분해(2026-10-08): 비겁 뿌리/인성 뿌리를 따로 노출 — root_score 는 인성 통근(0.65)을
+    # 합산해 종격 판정에 쓰면 교과서 종격도 유근이 되므로, 종격 공통 판정기는 peer_root_score 를
+    # 읽는다.
+    strength["components"]["peer_root_score"] = round(rooting["peer_root_score"], 2)
+    strength["components"]["resource_root_score"] = round(rooting["resource_root_score"], 2)
     strength["basis"] = {
         "deukryeong": rooting["deukryeong"],
         "deukji": rooting["deukji"],

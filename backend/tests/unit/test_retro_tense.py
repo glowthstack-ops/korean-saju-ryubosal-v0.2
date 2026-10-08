@@ -128,3 +128,100 @@ def test_reference_frame_straddling_window_unchanged() -> None:
     assert "이미 지났다" in frame.question_period_note
     assert "남은 구간" in frame.question_period_note
     assert "전부 이미 지났다" not in frame.question_period_note
+
+
+# ── 절입 직전 '이달' 시제 — 2026-09-04 데굴님 실로그 ────────────────────────────
+# 9/4는 백로(9/7) 전이라 '이달'=丙申월('2026-08'). 회고 판정이 이 라벨을 양력 '2026-09'와
+# 비교해 "창 전체 과거"로 뒤집혀 10월 흐름까지 과거형으로 서술되던 결함.
+
+_TODAY_PRE_JEOL = date(2026, 9, 4)
+_LUCK_MONTH_PRE_JEOL = "2026-08"
+_Q_THIS_MONTH = "이달에 사업에 대한 서류를 제출하면 선정될 가능성은 있을까?"
+
+
+def _this_month_tr(label: str = _LUCK_MONTH_PRE_JEOL) -> TimeRange:
+    return TimeRange(type="relative", granularity=Granularity.MONTH, start=label, end=label)
+
+
+def test_current_solar_month_before_jeol_is_not_retro() -> None:
+    assert _question_time_direction(
+        _Q_THIS_MONTH, _intent(_this_month_tr()), None, _TODAY_PRE_JEOL, _LUCK_MONTH_PRE_JEOL,
+    ) is False
+
+
+def test_current_solar_month_without_label_keeps_calendar_fallback() -> None:
+    # 라벨 미주입 = 기존 양력 폴백 동작 유지(호출자가 절기 라벨을 넘기는 것이 교정의 핵심).
+    assert _question_time_direction(
+        _Q_THIS_MONTH, _intent(_this_month_tr()), None, _TODAY_PRE_JEOL,
+    ) is True
+
+
+def test_previous_solar_month_still_retro_with_label() -> None:
+    assert _question_time_direction(
+        "7월에 무슨 일 있었을까", _intent(_this_month_tr("2026-07")), None,
+        _TODAY_PRE_JEOL, _LUCK_MONTH_PRE_JEOL,
+    ) is True
+
+
+def test_extend_current_month_when_few_days_remain() -> None:
+    from saju_api.services.chat_service import _extend_current_month_near_boundary
+
+    out = _extend_current_month_near_boundary(
+        _intent(_this_month_tr()), _TODAY_PRE_JEOL, _LUCK_MONTH_PRE_JEOL,
+    )
+    assert out.time_range is not None
+    assert out.time_range.start == "2026-08"
+    assert out.time_range.end == "2026-09"
+
+
+def test_extend_current_month_not_applied_mid_month() -> None:
+    from saju_api.services.chat_service import _extend_current_month_near_boundary
+
+    out = _extend_current_month_near_boundary(
+        _intent(_this_month_tr()), date(2026, 8, 15), _LUCK_MONTH_PRE_JEOL,
+    )
+    assert out.time_range is not None
+    assert out.time_range.end == "2026-08"
+
+
+def test_extend_current_month_leaves_absolute_and_multi_month_windows() -> None:
+    from saju_api.services.chat_service import _extend_current_month_near_boundary
+
+    absolute = TimeRange(
+        type="absolute", granularity=Granularity.MONTH, start="2026-08", end="2026-08",
+    )
+    assert _extend_current_month_near_boundary(
+        _intent(absolute), _TODAY_PRE_JEOL, _LUCK_MONTH_PRE_JEOL,
+    ).time_range == absolute
+    multi = TimeRange(
+        type="relative", granularity=Granularity.MONTH, start="2026-08", end="2026-12",
+    )
+    assert _extend_current_month_near_boundary(
+        _intent(multi), _TODAY_PRE_JEOL, _LUCK_MONTH_PRE_JEOL,
+    ).time_range == multi
+
+
+def test_reference_frame_marks_current_solar_month_as_ongoing() -> None:
+    from saju_api.services.manse_service import calculate
+    from saju_engines.context_reducer import build_reference_frame
+    from saju_shared_types.birth_input import BirthInput
+
+    result = calculate(BirthInput(
+        calendar_type="solar", birth_date="1980-09-21",
+        birth_time="10:00", birth_place_name="서울", gender="male",
+        reference_date="2026-09-04"))
+    # 당월 단독 창
+    frame = build_reference_frame(
+        _TODAY_PRE_JEOL, _intent(_this_month_tr()), result,
+        current_month_label=_LUCK_MONTH_PRE_JEOL,
+    )
+    assert "현재 진행 중인 절기월" in frame.question_period_note
+    assert "이미 지났다" not in frame.question_period_note
+    # 다음 절기월까지 늘어난 창 — 두 구간 구분 지시
+    tr2 = TimeRange(type="relative", granularity=Granularity.MONTH, start="2026-08", end="2026-09")
+    frame2 = build_reference_frame(
+        _TODAY_PRE_JEOL, _intent(tr2), result, current_month_label=_LUCK_MONTH_PRE_JEOL,
+    )
+    assert "2026-08는 현재 진행 중인 절기월" in frame2.question_period_note
+    assert "2026-09~2026-09는 곧 시작되는 다음 절기월" in frame2.question_period_note
+    assert "이미 지났다" not in frame2.question_period_note

@@ -17,7 +17,16 @@ export interface ReportSection {
   text: string;
 }
 
-export function ReportPager({ sections, title }: { sections: ReportSection[]; title: string }) {
+export function ReportPager({
+  sections,
+  title,
+  year,
+}: {
+  sections: ReportSection[];
+  title: string;
+  /** 한해풀이 선택 연도('2027') — 제목·설명의 '올해'를 연도로 표기. 다른 상품은 미지정. */
+  year?: string | null;
+}) {
   const [page, setPage] = useState(0);
   const [tocOpen, setTocOpen] = useState(false);
   // 읽기 글자 크기(설정) — AI 채팅 상담과 공통. 본문 마크다운 크기에 적용한다.
@@ -26,7 +35,7 @@ export function ReportPager({ sections, title }: { sections: ReportSection[]; ti
   if (total === 0) return <p className="text-sm text-gray-500">표시할 섹션이 없습니다.</p>;
 
   // 친화 표시 제목(원본 title 폴백) — 화면·목차·페이저 공용.
-  const displayTitle = (s: ReportSection) => sectionLabel(s.section_id, s.title);
+  const displayTitle = (s: ReportSection) => sectionLabel(s.section_id, s.title, year);
   const goTo = (i: number) => {
     setPage(i);
     setTocOpen(false);
@@ -34,7 +43,7 @@ export function ReportPager({ sections, title }: { sections: ReportSection[]; ti
   };
 
   const current = sections[page];
-  const blurb = sectionBlurb(current.section_id);
+  const blurb = sectionBlurb(current.section_id, year);
 
   return (
     // 하단 고정 페이저에 마지막 본문이 가리지 않도록 화면용 하단 패딩(인쇄 시 제거).

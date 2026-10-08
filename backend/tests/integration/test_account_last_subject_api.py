@@ -20,8 +20,6 @@ from saju_api.main import app
 from saju_engines.precompute_store import default_dsn
 
 _TEST_DSN = default_dsn() or "postgresql://saju_v2:saju_v2@localhost:15432/saju_v2"
-# API 계층 저장소는 env 의 DSN 을 쓴다 — 미설정이면 로컬 전용 DB 로 시드.
-os.environ.setdefault("SAJU_V2_DATABASE_URL", _TEST_DSN)
 
 
 def _request(method: str, path: str, **kwargs: Any) -> httpx.Response:
@@ -43,6 +41,14 @@ def _db_available() -> bool:
         return True
     except Exception:
         return False
+
+
+_DB_UP = _db_available()
+# API 계층 저장소는 env 의 DSN 을 쓴다 — 미설정이면 로컬 전용 DB 로 시드하되, **DB 가 살아
+# 있을 때만** 심는다. 무조건 setdefault 하면 DB 없는 CI 러너에서 conftest 의 세션 격리
+# fixture(_isolate_test_db)가 접속을 시도해 전 테스트가 에러로 쓰러졌다(2026-10-08 실측 5,703건).
+if _DB_UP:
+    os.environ.setdefault("SAJU_V2_DATABASE_URL", _TEST_DSN)
 
 
 _BIRTH = {
@@ -75,7 +81,7 @@ def _create_subject(owner: str) -> str:
     return res.json()["subject_id"]
 
 
-@pytest.mark.skipif(not _db_available(), reason="전용 DB(saju-v2-db) 미기동")
+@pytest.mark.skipif(not _DB_UP, reason="전용 DB(saju-v2-db) 미기동")
 def test_last_subject_roundtrip() -> None:
     owner = f"ls-{uuid.uuid4().hex[:8]}"
     subject_id = _create_subject(owner)
@@ -101,7 +107,7 @@ def test_last_subject_roundtrip() -> None:
     ] is None
 
 
-@pytest.mark.skipif(not _db_available(), reason="전용 DB(saju-v2-db) 미기동")
+@pytest.mark.skipif(not _DB_UP, reason="전용 DB(saju-v2-db) 미기동")
 def test_last_subject_rejects_foreign_subject() -> None:
     owner_a = f"ls-{uuid.uuid4().hex[:8]}"
     owner_b = f"ls-{uuid.uuid4().hex[:8]}"
@@ -113,7 +119,7 @@ def test_last_subject_rejects_foreign_subject() -> None:
     assert res.status_code == 403
 
 
-@pytest.mark.skipif(not _db_available(), reason="전용 DB(saju-v2-db) 미기동")
+@pytest.mark.skipif(not _DB_UP, reason="전용 DB(saju-v2-db) 미기동")
 def test_last_subject_deleted_subject_returns_null() -> None:
     owner = f"ls-{uuid.uuid4().hex[:8]}"
     subject_id = _create_subject(owner)

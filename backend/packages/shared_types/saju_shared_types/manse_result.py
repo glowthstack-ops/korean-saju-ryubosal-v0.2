@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from .analysis import ForceAnalysis
 from .calibration import CalibrationQuestionSet
+from .hour_unknown import HourUnknownAnalysis
 from .luck import LuckCycles
 from .pillars import FourPillarsResult
 from .sinsal import TraditionalExtras
@@ -42,6 +43,8 @@ class ManseV2Result(BaseModel):
     luck_cycles: LuckCycles | None = None
     calibration: CalibrationQuestionSet | None = None
     traditional_extras: TraditionalExtras | None = None
+    #: 출생시간 미상 분석(12시진 후보 비교·범위·경고) — 시간이 있으면 None(2026-10-06).
+    hour_unknown: HourUnknownAnalysis | None = None
 
     metadata: EngineMetadata
     trace: dict[str, Any] = Field(default_factory=dict)

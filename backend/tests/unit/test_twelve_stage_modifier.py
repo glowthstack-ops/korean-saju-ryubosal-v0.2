@@ -73,3 +73,65 @@ def test_delta_capped() -> None:
     m = _mod()
     out = m.apply([_cand("promotion", 50)], {LuckLayer.SEWOON: TwelveStage.JEWANG})
     assert out[0].score - 50 <= 18  # 단계 보정 한도
+
+
+# ── P1-b 채널 모델(2026-09-10 사용자 승인) — 사전 SSOT·정합 불변식 ────────────────
+
+
+def test_channel_model_is_active_and_covers_all_events_and_stages() -> None:
+    import json
+
+    m = _mod()
+    assert m.channel_model_active
+    raw = json.loads((_DICTS / "event_engine" / "twelve_stage_modifier.json").read_text("utf-8"))
+    cm = raw["channel_model"]
+    branching = json.loads(
+        (_DICTS / "event_engine" / "transit_ten_god_branching.json").read_text("utf-8")
+    )
+    events = set(branching["event_keys"])
+    assert set(cm["event_channel_evidence"]) == events  # 21종 전수
+    assert set(cm["stage_channels"]) == {s.value for s in TwelveStage}  # 12스테이지 전수
+    channels = {ch for v in cm["stage_channels"].values() for ch in v}
+    for ev, evidence in cm["event_channel_evidence"].items():
+        assert evidence, ev
+        for ch, w in evidence.items():
+            # 감점·가점 채널은 어떤 스테이지에서든 도달 가능해야 한다(사문 채널 금지 — daily 이식).
+            assert ch in channels, (ev, ch)
+            assert -0.4 <= w <= 0.4 and w != 0, (ev, ch, w)
+
+
+def test_channel_delta_matches_formula_and_ignores_legacy_lists() -> None:
+    import json
+
+    m = _mod()
+    raw = json.loads((_DICTS / "event_engine" / "twelve_stage_modifier.json").read_text("utf-8"))
+    cm = raw["channel_model"]
+    for ev, evidence in cm["event_channel_evidence"].items():
+        for stage_key, chans in cm["stage_channels"].items():
+            total = sum(w * chans.get(ch, 0.0) for ch, w in evidence.items())
+            expected = round(cm["scale"] * total)
+            assert m.channel_delta(ev, TwelveStage(stage_key)) == expected, (ev, stage_key)
+    # 구 규칙 목록을 흔들어도 채점은 변하지 않는다(채널 모델이 SSOT).
+    before = m.channel_delta("job_gain", TwelveStage.GEONROK)
+    m._stage[TwelveStage.GEONROK].good_for.clear()
+    m._event_specific["job_gain"].boost_stages.clear()
+    assert m.channel_delta("job_gain", TwelveStage.GEONROK) == before
+    out = m.apply([_cand("job_gain", 60)], {LuckLayer.SEWOON: TwelveStage.GEONROK})
+    assert out[0].contributions["stage"] == float(before) and before > 0
+
+
+def test_stage_means_are_signed_by_stage_semantics() -> None:
+    """사·병·절은 사건 평균이 음수, 제왕·건록·장생은 양수 — 포화 수정(P1-a)+채널화(P1-b)의 목적."""
+    import json
+
+    m = _mod()
+    branching_path = _DICTS / "event_engine" / "transit_ten_god_branching.json"
+    events = json.loads(branching_path.read_text("utf-8"))["event_keys"]
+    def mean(stage: TwelveStage) -> float:
+        vals = [m.channel_delta(ev, stage) for ev in events]
+        return sum(vals) / len(vals)
+    assert mean(TwelveStage.JEWANG) > 0 and mean(TwelveStage.GEONROK) > 0
+    assert mean(TwelveStage.JANGSAENG) > 0
+    assert mean(TwelveStage.BYEONG) < 0 and mean(TwelveStage.JEOL) < 0
+    assert all(abs(m.channel_delta(ev, st)) <= 18 for ev in events for st in TwelveStage)
+

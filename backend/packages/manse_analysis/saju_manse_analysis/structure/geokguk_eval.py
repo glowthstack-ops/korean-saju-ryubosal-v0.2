@@ -14,6 +14,11 @@ from saju_shared_types.enums import Branch, Stem, TenGod
 from saju_shared_types.pillars import FourPillarsResult
 from saju_shared_types.structure import GeokgukEvaluation, StructureAnalysis
 
+# 종격 전제 점수 임계는 strength_score 가 SSOT(C1-c C안 2026-10-08: 사본 상수 제거, 판정 임계
+# 자체는 불변).
+from ..relations.hap_modes import detect_hwagi
+from ..strength.follow_check import detect_follow
+
 # 십성 → 그룹(family) key.
 _GROUP_OF: dict[str, str] = {
     TenGod.BIGYEON.value: "peer", TenGod.GEOMJAE.value: "peer",
@@ -45,8 +50,9 @@ _GEOK_SANGSIN: dict[str, list[str]] = {
     "월겁격": ["officer", "output"],
 }
 
-_WEAK = {"극신약", "태신약", "신약", "중화신약"}
-_STRONG = {"중화신강", "신강", "태신강", "극신강"}
+_WEAK = {"태신약", "신약", "중화신약"}  # 7단계(2026-10-07): 극 밴드 제거
+_STRONG = {"중화신강", "신강", "태신강"}
+#: 옛 9단계 태신약 상한 — 종격 신호 전제를 밴드 이름 대신 점수로 보존(탐지 모집단 불변).
 _GROUP_KO = {"peer": "비겁", "resource": "인성", "output": "식상",
              "wealth": "재성", "officer": "관성"}
 
@@ -287,10 +293,18 @@ def _detect_failures(
 
 # ── 성패 score (-100~100) — geokguk_master_v2 success_failure_factors 6요소 ──
 
+# 성패 등급 경계(분위수 기반, 2026-10-07): 완전 성격 ≥p92, 성격 ≥p75, 패격 ≤p15, 심한 혼탁 ≤p3.
+# 패격 경계는 p20(−3)이 아니라 p15(−5.5) — 상담 감수 기준 사주 1980-11-22(−5.0, 반성반패 확정
+# 픽스처)를 보존한다. 그리드 분포: 성 27% · 중성 56% · 패 15%.
+_SF_COMPLETE = 37.0
+_SF_PARTIAL = 22.0
+_SF_FAILURE = -5.5
+_SF_SEVERE = -15.0
+
 # 일간 감당력(factor 2) band별 raw.
 _DM_CAPABILITY = {
-    "극신약": -70, "태신약": -45, "신약": -40, "중화신약": -10,
-    "중화": 20, "중화신강": 40, "신강": 50, "태신강": 30, "극신강": 10,
+    "태신약": -45, "신약": -40, "중화신약": -10,
+    "중화": 20, "중화신강": 40, "신강": 50, "태신강": 30,
 }
 
 
@@ -333,15 +347,21 @@ def _success_failure(
     score = _clamp(
         f1 * 0.20 + f2 * 0.20 + f3 * 0.20 + f4 * 0.20 + f5 * 0.15 + f6 * 0.05, -100, 100
     )
-    if score >= 70:
+    # 등급 경계(2026-10-07 데굴님 승인, C4): 6요소 가중합이 −10~40 에 몰려 88%가 '반성반패'였다
+    # (그리드 2,000명식 p8/p15/p75/p92 = −9.5/−5.5/22.5/36.5). 경계를 분위수로 재설정하고, 패격의
+    # 구제 유무는 점수 2단이 아니라 실제 구제 여부(failures.rescued)로 나눈다. 점수식은 불변 —
+    # 라벨 분포 교정이지 변별력 개선이 아니다.
+    active_f = [f for f in failures if f["active"]]
+    rescued_any = any(f["rescued"] for f in active_f)
+    if score >= _SF_COMPLETE:
         grade, label = "complete_success", "완전 성격"
-    elif score >= 40:
+    elif score >= _SF_PARTIAL:
         grade, label = "partial_success", "성격이나 약간 혼잡"
-    elif score >= -10:
+    elif score > _SF_FAILURE:
         grade, label = "mixed", "반성반패"
-    elif score >= -30:
+    elif score > _SF_SEVERE and rescued_any:
         grade, label = "failure_with_rescue", "패격이나 구제 있음"
-    elif score >= -70:
+    elif score > _SF_SEVERE:
         grade, label = "clear_failure", "명확한 패격"
     else:
         grade, label = "severe_muddiness", "심한 혼탁"
@@ -353,6 +373,7 @@ def _success_failure(
 _CLARITY_MULT = {
     "very_clear": 1.60, "clear_but_mixed": 1.20, "unclear": 0.80,
     "weak_gukguk_priority": 0.60, "special_pattern_uncertain": 1.30,
+    "special_pattern_confirmed": 1.30,  # 가중은 uncertain 과 동일(새 가중 구간을 만들지 않음)
 }
 _CLARITY_POLICY = {
     "very_clear": "격국 중심으로 해석한다.",
@@ -360,13 +381,26 @@ _CLARITY_POLICY = {
     "unclear": "격국 단정보다 억부·조후 용신 중심으로 해석한다.",
     "weak_gukguk_priority": "격국은 보조 설명으로만 사용한다.",
     "special_pattern_uncertain": "정격·종격 양쪽 가능성을 함께 비교한다.",
+    "special_pattern_confirmed": "종격(특수격)이 주격 — 정격은 병기 참고로만 본다.",
 }
 _BASE_WEIGHT = 0.25
 
 
-def _clarity_level(confidence: int, sf_score: float, band: str, root_score: float) -> str:
-    if band in ("극신약", "태신약") and root_score < 8.0:
-        return "special_pattern_uncertain"  # 종격 의심
+def _clarity_level(
+    confidence: int, sf_score: float, band: str, follow_kind: str | None,
+) -> str:
+    # 종격 명확도(2026-10-08 데굴님 결정): 독자적 `태신약 ∧ root<8` 판정을 버리고 공통 판정기
+    # (follow_check.detect_follow)의 진종/가종/비종과 표현을 일치시킨다. **표시 전용** — 가중은
+    # _final_weight 가 따로 정한다(표시와 가중 분리, 데굴님 지시).
+    if follow_kind == "real":
+        return "special_pattern_confirmed"   # 진종 — 격국도 특수격으로 치환됨
+    if follow_kind == "pseudo":
+        return "special_pattern_uncertain"   # 가종 — 정격·종격 양쪽 비교
+    return _base_clarity_level(confidence, sf_score, band)
+
+
+def _base_clarity_level(confidence: int, sf_score: float, band: str) -> str:
+    """정격 평가 신뢰도·성패만으로 정한 일반 명확도(가중 산정의 기준)."""
     if confidence >= 80 and sf_score >= 40:
         return "very_clear"
     if confidence >= 60 and sf_score >= -10:
@@ -378,9 +412,14 @@ def _clarity_level(confidence: int, sf_score: float, band: str, root_score: floa
     return "unclear"
 
 
-def _final_weight(level: str) -> tuple[float, str]:
+def _final_weight(level: str, base_level: str | None = None) -> tuple[float, str]:
     # geokguk_master_v2 final_gukguk_application_formula 해석 구간.
-    raw = _BASE_WEIGHT * _CLARITY_MULT.get(level, 1.0)
+    # 표시와 가중 분리(2026-10-08 데굴님 지시): 가종(uncertain)은 종격 가능성을 **표시만** 하고
+    # 가중은 정격 평가(base_level)대로 둔다 — 라벨 변경이 해석 비중을 자동으로 올리지 않는다.
+    # 진종(confirmed)은 격국이 특수격으로 치환되므로 옛 종격 의심 가중(1.30)을 그대로 쓴다(기존
+    # 8건과 동일).
+    mult_level = base_level if (level == "special_pattern_uncertain" and base_level) else level
+    raw = _BASE_WEIGHT * _CLARITY_MULT.get(mult_level, 1.0)
     final = round(_clamp(raw, 0.10, 0.60), 3)
     if final >= 0.46:
         interp = "격국 또는 특수격의 핵심 기준으로 사용"
@@ -440,31 +479,48 @@ _FOLLOW_NAME = {"wealth": "종재격", "officer": "종살격", "output": "종아
 
 
 def special_signal(force, pillars: FourPillarsResult) -> dict | None:
-    """종격/전왕 신호(정격과 병행 검토용). 확정 아님 — 화면/용신 보조 가중치."""
+    """특수격 신호(정격과 병행 검토용). 확정 아님 — 화면/용신 보조 가중치.
+
+    우선순위 화기격(진화) → 전왕 → 종격은 **엔진 채택 규칙**(리포 설계 codex_spec 10.6 검사 순서,
+    2026-10-08 데굴님 결정)이지 고전의 확정 규칙이 아니다. 진화 성립 조건 자체는 고전(滴天髓
+    從化論) 근거. 화기격 가화는 신호를 내지 않는다(격국 치환 보류 — 경고만).
+    """
+    hwagi = detect_hwagi(pillars)
+    if hwagi is not None and hwagi.kind == "real":
+        return {
+            "name": hwagi.name,
+            "type": "transform",
+            "confidence": 0.85,
+            "reason": (
+                f"일간 {''.join(hwagi.pair)}합 化{hwagi.target_element} 진화(眞化) — "
+                + "; ".join(hwagi.reasons[1:])
+            ),
+            "transform_element": hwagi.target_element,
+        }
     band = force.strength.band
-    root = float(force.strength.components.get("root_score", 0.0))
     fe = force.five_elements
     pct = fe.season_adjusted_element_strength or fe.distribution_environment
     if pct:
         strongest = max(pct, key=lambda e: pct[e])
         maxp = pct[strongest]
-        if maxp >= 60.0 and band in ("신강", "태신강", "극신강"):
+        if maxp >= 60.0 and band in ("신강", "태신강"):
             return {
                 "name": _DOMINANT_NAME.get(strongest, "전왕격"),
                 "type": "dominant",
                 "confidence": round(min((maxp - 50) / 50, 0.95), 3),
                 "reason": f"{strongest} {maxp}% 압도 + {band} → 전왕/일행득기 가능",
             }
-    if band in ("극신약", "태신약") and root < 8.0:
-        counts = _tg_counts(pillars)
-        groups = _group_counts(counts)
-        ext = {g: groups[g] for g in ("wealth", "officer", "output")}
-        top = max(ext, key=lambda g: ext[g]) if any(ext.values()) else ""
+    # 종격(2026-10-08 데굴님 결정): 격국·용신 공통 판정기. 진종 → conf 0.85(override 게이트 0.70
+    # 통과, 주격 치환), 가종 → conf 0.5(신호만). 옛 root_score<8·십성 개수 명칭 기준은 폐기(세력
+    # 기준 명칭).
+    fc = detect_follow(force)
+    if fc is not None:
         return {
-            "name": _FOLLOW_NAME.get(top, "종세격"),
+            "name": fc.name,
             "type": "follow",
-            "confidence": round(min(max((10 - root) / 10, 0.0), 0.9), 3),
-            "reason": f"극신약+무근(root={root:.1f}) → 종격 가능",
+            "confidence": fc.confidence,
+            "reason": " / ".join(fc.reasons),
+            "follow_kind": fc.kind,
         }
     return None
 
@@ -482,7 +538,6 @@ def evaluate_geokguk(
     groups = _group_counts(counts)
     month_void = pillars.month.branch in set(gongmang_branches)
     band = force.strength.band
-    root_score = float(force.strength.components.get("root_score", 0.0))
 
     failures = _detect_failures(
         counts, groups, band, _month_clashed(structure), month_void,
@@ -504,8 +559,11 @@ def evaluate_geokguk(
         pillars, cand, band, sangsin_groups, groups, failures, structure, clean
     )
 
-    level = _clarity_level(confidence, sf_score, band, root_score)
-    final_weight, fw_interp = _final_weight(level)
+    _fc = detect_follow(force)
+    level = _clarity_level(confidence, sf_score, band, _fc.kind if _fc else None)
+    final_weight, fw_interp = _final_weight(
+        level, _base_clarity_level(confidence, sf_score, band),
+    )
 
     expr = (
         "격국 무대(직업성·역할)가 매우 선명" if confidence >= 80 else

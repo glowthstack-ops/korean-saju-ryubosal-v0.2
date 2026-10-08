@@ -27,7 +27,7 @@ from saju_api.services import (
     llm_client,
 )
 from saju_engines.daily_fortune_cache import InMemoryDailyFortuneCache
-from saju_shared_types.daily_fortune import CONTENT_VERSION
+from saju_shared_types.daily_fortune import content_version_for
 
 _REPO_EXPORT = daily_fortune_export._REPO_ROOT / "오늘의운세.txt"
 
@@ -101,7 +101,7 @@ def test_daily_polish_path_cannot_produce_polished_text(client) -> None:
     assert audit is not None
     assert audit["accepted"] == 0
 
-    after = cache.load_board(today, CONTENT_VERSION)
+    after = cache.load_board(today, content_version_for(today))  # 날짜별 계약(전역 상수 아님)
     assert after is not None
     assert after.polish_status == "FAILED"
     assert all(not f.polished for f in after.fortunes)
@@ -145,7 +145,9 @@ def test_default_export_path_is_resolved_at_call_time(tmp_path) -> None:
     monkey = pytest.MonkeyPatch()
     monkey.setattr(daily_fortune_export, "THREADS_EXPORT_PATH", target)
     try:
-        assert daily_fortune_export.write_threads_export(board, today=today) is True
+        assert (
+            daily_fortune_export.write_threads_export(board, publish_date=today) is True
+        )
     finally:
         monkey.undo()
     assert target.exists()

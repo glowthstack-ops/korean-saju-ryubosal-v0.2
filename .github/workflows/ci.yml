@@ -11,6 +11,23 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # 전용 DB(docker-compose.yml 의 saju-v2-db 와 동일 이미지·계정·호스트 포트) — backend-ci.yml 과 같다.
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: saju_v2
+          POSTGRES_PASSWORD: saju_v2
+          POSTGRES_DB: saju_v2
+        ports:
+          - "15432:5432"
+        options: >-
+          --health-cmd "pg_isready -U saju_v2 -d saju_v2"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      SAJU_V2_DATABASE_URL: postgresql://saju_v2:saju_v2@localhost:15432/saju_v2
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -20,12 +37,13 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Ruff
         run: ruff check .
-      # TYP-0(감수 25차): production과 전체를 분리 게이트로 고정 — 테스트 타입
-      # 부채가 production 회귀를 가리지 않게 한다. 둘 다 0 errors가 기준.
-      - name: Mypy (production)
-        run: mypy packages apps scripts
-      - name: Mypy (project-wide)
-        run: mypy .
+      # Production 타입 게이트 — 범위는 backend/pyproject.toml [tool.mypy] packages 가 SSOT
+      # (CLAUDE.md §6). 여기서 경로를 다시 나열하지 않는다. scripts/·tests/ 의 기존 부채
+      # (full-tree 수백 건)는 비차단 감사이므로 `mypy .` 를 blocking 단계로 두지 않는다
+      # (2026-10-08 데굴님 승인: 종전 `mypy packages apps scripts`/`mypy .` 가 scripts 부채
+      # 289건으로 상시 실패 — backend-ci.yml 과 동일 게이트로 통일).
+      - name: Mypy (production gate)
+        run: ../scripts/typecheck.sh
       - name: Pytest
         run: pytest
 

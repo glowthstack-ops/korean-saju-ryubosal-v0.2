@@ -39,6 +39,22 @@ def _beta_flag_snapshot() -> dict[str, bool]:
         pass
     flags["daily_fortune_pregen"] = os.getenv("SAJU_DAILY_FORTUNE_PREGEN") == "1"
     try:
+        # 오늘의 운세 3층 판정 모델(docs/17 §22) — 어느 채점 경로가 활성인지 노출한다.
+        from saju_engines import daily_fortune_v2 as _dfv2
+
+        flags["daily_fortune_model_v2"] = bool(_dfv2.DAILY_FORTUNE_MODEL_V2_ENABLED)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        # 상담 결론 의미론(P1) — stage 행동 지침 블록. 실제 분기 상수를 노출한다.
+        from saju_engines import counseling_arbiter as _counsel
+
+        flags["counseling_semantics_enabled"] = bool(
+            _counsel.COUNSELING_SEMANTICS_ENABLED
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    try:
         # 총운 V2(P0~P3) — 어느 논리 버전으로 답변이 나가는지 운영에서 확인 가능해야 한다.
         from saju_engines import period_v2_config as _p2
 
@@ -46,6 +62,25 @@ def _beta_flag_snapshot() -> dict[str, bool]:
     except Exception:  # noqa: BLE001
         pass
     return flags
+
+
+def _llm_service_snapshot() -> dict[str, object]:
+    """비용 소진 일시 중단 상태(공개 최소 필드 — 비밀 없음). 조회 실패 시 active 로 본다."""
+    try:
+        from ..services import llm_client
+
+        return llm_client.service_state_snapshot(public=True)
+    except Exception:  # noqa: BLE001 — 관측 실패가 health를 막지 않는다
+        return {"state": "active", "reason": None, "suspended_at": None}
+
+
+@router.get("/api/v2/service/status")
+async def service_status() -> dict[str, object]:
+    """프론트용 서비스 상태 — `/health` 는 `/api` 밖이라 Next 프록시·터널로 닿지 않는다.
+
+    채팅 화면이 진입 시 이 값을 읽어 '일시 중단' 배너를 띄운다(2026-10-06).
+    """
+    return {"llm_service": _llm_service_snapshot()}
 
 
 @router.get("/health")
@@ -73,6 +108,7 @@ async def health() -> dict[str, object]:
         pass
     # beta flag는 gitignore된 .env.beta에만 있어 켜졌는지 확인할 수단이 없었다.
     out["beta_flags"] = _beta_flag_snapshot()
+    out["llm_service"] = _llm_service_snapshot()
     # 이벤트 엔진 실효 모드 — 선정 모드가 채널 간 갈리면 같은 질문에서 대표 시점이
     # 달라진다. env 가 아니라 실제로 쓰이는 값을 보여준다.
     try:

@@ -14,7 +14,8 @@ import { StepRealityCalibration } from "@/components/onboarding/StepRealityCalib
 import { StepShell } from "@/components/onboarding/StepShell";
 import { StepYongsin } from "@/components/onboarding/StepYongsin";
 import {
-  profileToBasic, profileToBirthDTO, subjectEotPreference, summaryToProfile,
+  buildTimeOptions, profileToBasic, profileToBirthDTO, subjectEotPreference, subjectJaHourRule,
+  summaryToProfile,
 } from "@/lib/subject-mapping";
 import {
   createSubject,
@@ -25,8 +26,12 @@ import {
   savePersona,
   updateSubject,
 } from "@/lib/subjects";
-import { loadEotPreference, saveProfile as saveLocalProfile } from "@/lib/storage";
-import { DEFAULT_PERSONA, type ExtendedProfile, type PersonaConfig, type Profile } from "@/lib/types";
+import {
+  loadEotPreference, loadJaHourRulePreference, saveProfile as saveLocalProfile,
+} from "@/lib/storage";
+import {
+  DEFAULT_PERSONA, type ExtendedProfile, type JaHourRule, type PersonaConfig, type Profile,
+} from "@/lib/types";
 
 type Mode = "add" | "edit" | "oneoff";
 
@@ -61,6 +66,8 @@ export function Wizard({ mode, subjectId, next }: { mode: Mode; subjectId?: stri
   // 균시차는 사주별 속성(데굴님 확정 2026-07-13) — edit 는 저장값 보존, add 는 기기 토글 시드.
   // null 이면 미로드(add/oneoff) → 저장 시 loadEotPreference() 사용.
   const [storedEot, setStoredEot] = useState<boolean | null>(null);
+  // 자시 처리 규칙도 같은 구조의 사주별 속성(2026-09-15) — edit 보존, add 는 기기 설정 시드.
+  const [storedJaHourRule, setStoredJaHourRule] = useState<JaHourRule | null>(null);
 
   // add(로그인): 계정 페르소나를 불러와 편집 기본값으로. edit: 사주·프로필·페르소나 프리필.
   useEffect(() => {
@@ -82,6 +89,7 @@ export function Wizard({ mode, subjectId, next }: { mode: Mode; subjectId?: stri
             persona,
           });
           setStoredEot(subjectEotPreference(subj)); // 수정 저장 시 사주별 균시차 보존
+          setStoredJaHourRule(subjectJaHourRule(subj)); // 수정 저장 시 사주별 자시 규칙 보존
           setLoaded(true);
         })
         .catch((e) => {
@@ -105,11 +113,15 @@ export function Wizard({ mode, subjectId, next }: { mode: Mode; subjectId?: stri
         router.push(next);
         return;
       }
-      // 균시차를 birth에 영속화(사주별 속성) — 챗·리포트·간지달력이 같은 시주 기준을 쓴다.
-      // edit 는 저장된 사주별 값을 보존(기기 토글로 덮지 않음), add 는 기기 토글을 시드로.
-      const birth = profileToBirthDTO(d.profile, {
-        apply_equation_of_time: storedEot ?? loadEotPreference(),
-      });
+      // 균시차·자시 규칙을 birth에 영속화(사주별 속성) — 챗·리포트·간지달력이 같은 명식을 쓴다.
+      // edit 는 저장된 사주별 값을 보존(기기 설정으로 덮지 않음), add 는 기기 설정을 시드로.
+      const birth = profileToBirthDTO(
+        d.profile,
+        buildTimeOptions(
+          storedEot ?? loadEotPreference(),
+          storedJaHourRule ?? loadJaHourRulePreference(),
+        ),
+      );
       const payload = {
         kind: "self" as const,
         label: d.nickname,

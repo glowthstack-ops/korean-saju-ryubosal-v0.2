@@ -10,6 +10,7 @@ YONGSIN_OPERATIONAL_ROLE_SPEC §4-1/§6. 여기의 문구·정책은 확정 명�
 
 from __future__ import annotations
 
+import os as _os
 from typing import TypedDict
 
 
@@ -101,6 +102,13 @@ OPERABILITY_PENALTY: dict[str, float] = {
     "yongsin_clash": 0.15,  # 용신 통근 지지가 충(六沖)을 받음(#6a) — 작동 불안정
     "yongsin_isolation": 0.15,  # 생조부재+단일출처+손상동반 복합 고립(#6b-1)
     "yongsin_bound": 0.15,  # 용신 투출 천간이 합반/쟁합으로 묶임(#6b-2) — 작동 지연
+    # #6c 투출 천간 자리 손상(2026-10-08 데굴님 승인: shadow 비교용 초기값 — 확정 수치 아님, 반복
+    # 튜닝 금지). 복수 투출이면 (손상 자리 수 / 투출 자리 수) 비율을 곱한다. 좌하 지지가 용신
+    # 통근이면 #6a 담당.
+    "yongsin_stem_clash": 0.10,       # 투출 천간이 인접 천간과 천간충(甲庚·乙辛·丙壬·丁癸)
+    "yongsin_stem_controlled": 0.10,  # 인접 천간 오행이 용신 오행을 극(같은 천간이 충이면 충만)
+    "yongsin_seat_void": 0.10,        # 투출 천간의 좌하 지지 공망(비통근 좌하)
+    "yongsin_seat_clash": 0.10,       # 좌하 지지가 六沖(비통근 좌하)
 }
 OPERABILITY_REASON: dict[str, str] = {
     "no_transmit": "용신이 천간에 투출 안 됨 — 작동성 약화",
@@ -110,6 +118,10 @@ OPERABILITY_REASON: dict[str, str] = {
     "yongsin_clash": "용신 뿌리가 충을 받음 — 작동 불안정",
     "yongsin_isolation": "용신이 생조·동류 없이 고립 + 손상 동반 — 작동 위태",
     "yongsin_bound": "용신 투출 천간이 합반/쟁합으로 묶임 — 작동 지연·불안정",
+    "yongsin_stem_clash": "용신 투출 천간이 옆 천간과 충 — 드러난 작동이 흔들림",
+    "yongsin_stem_controlled": "용신 투출 천간이 옆 천간에 극을 받음 — 드러난 작동 약화",
+    "yongsin_seat_void": "용신 투출 천간의 자리 지지가 공망 — 실린 곳이 허함",
+    "yongsin_seat_clash": "용신 투출 천간의 자리 지지가 충 — 실린 곳이 흔들림",
 }
 
 # operability 수치 → 표시용 작동성 밴드(Phase 5a, experimental). **확정 등급이 아니라 표시용 밴드.**
@@ -127,6 +139,10 @@ OPERABILITY_FACTOR_SHORT: dict[str, str] = {
     "yongsin_clash": "충",
     "yongsin_isolation": "고립",
     "yongsin_bound": "합반",
+    "yongsin_stem_clash": "천간충",
+    "yongsin_stem_controlled": "천간극",
+    "yongsin_seat_void": "좌하공망",
+    "yongsin_seat_clash": "좌하충",
 }
 
 # operational/legacy 역할 → shadow 점수 가중(#9a, experimental). 계산·검증 전용·실제 scoring 미소비.
@@ -366,3 +382,106 @@ SCORING_OPERATIONAL_REDUNDANCY_MARKERS: list[str] = [
 SCORING_OPERATIONAL_GUARD_TOKEN_EST: int = 25      # phrase 토큰 추정 실패 시 폴백 상한
 # reserved_tokens 미전달 시 system+trailing 보수 예약.
 SCORING_OPERATIONAL_HEADROOM_RESERVE: int = 1500
+
+
+# ── 희신 기능 어휘(2026-10-01 데굴님 승인 C) ──────────────────────────────────────────────
+# 희신은 '용신 후보 2등'이 아니라 기능이 있어야 한다(生용신만으로 확정 금지 — 더 큰 불균형을 만들
+# 수 있다). key 는 모델·추적·LLM 요약이 공유하는 stable key, 값은 노출 문구.
+HEESIN_FUNCTION_KO: dict[str, str] = {
+    "generate_yongsin": "生용신(용신을 생해 보강)",
+    "protect_yongsin": "護용신(용신을 극하는 기신 제어)",
+    "control_gisin": "制기신(과다·병 오행 제어)",
+    "support_day_master": "방신(일간 방조)",
+    "complete_flow": "유통(용신 설기 흐름 완성)",
+    "restrain_day_master": "일간 억제·조후 보조",
+    "climate_helper": "조후 보조",
+    "bridge_support": "통관 보조",
+}
+# 모델 유형 → 희신 기능. food_rescue:* 는 접두 매칭(호출부). 미등록 모델은 정적 폴백(生용신).
+MODEL_HEESIN_FUNCTION: dict[str, str] = {
+    "support_day_master": "generate_yongsin",      # 용=비겁, 희=인성(인성이 비겁을 생)
+    "resource_as_yongsin": "generate_yongsin",     # 용=인성, 희=관살(관인상생)
+    "output_as_yongsin": "generate_yongsin",       # 용=식상, 희=비겁(비겁이 식상을 생)
+    "eokbu_normal": "complete_flow",               # 용=식상, 희=재성(식상생재 유통)
+    "wealth_breaks_resource": "restrain_day_master",  # 용=재성, 희=관성(일간 억제·조후)
+    "resource_pattern_officer": "control_gisin",   # 용=관성, 희=재성(과다 인성 제어)
+    "officer_controls_peer": "bridge_support",     # 용=관성, 희=식상(비겁→식상→재 통관)
+    "resource_curbs_output": "support_day_master", # 용=인성, 희=비겁(방신)
+    "food_rescue": "control_gisin",                # 용=비겁(통관), 희=재성(制印)
+    "johu": "generate_yongsin",
+    "dominant_one_element": "complete_flow",
+    "pattern_sangsin": "generate_yongsin",
+    "disease_remedy": "generate_yongsin",
+    "bridge_tonggwan": "bridge_support",
+}
+# 같은 model_type 에 라벨이 둘인 경우 — 살인상생형(살중용인)은 희=비겁 방신.
+MODEL_LABEL_HEESIN_FUNCTION: dict[str, str] = {
+    "살인상생형(살중용인)": "support_day_master",
+}
+
+# ── 후보 부작용 감사(2026-10-01 데굴님 승인 A1 — 주석 전용, A2 계수는 플래그) ────────────────
+# 한 오행은 여러 방향으로 작용한다(金은 木을 극하면서 水를 생). 후보가 생하는 오행이 과다·병이면
+# feeds_excess, 후보가 극하는 오행이 용신·조후 필요신이면 controls_needed.
+COLLATERAL_REASON: dict[str, str] = {
+    "feeds_excess": "{el}({role})은 과다 {target}을 생함 — 부작용(과다 심화)",
+    "controls_needed": "{el}({role})은 {target}({target_role})을 극함 — 부작용(필요 기운 손상)",
+}
+#: A2 — 부작용 후보의 모델 신뢰도 계수. 기본 OFF(주석만). 672 그리드 재스캔 보고 후 데굴님 확정.
+COLLATERAL_SCORE_ENABLED: bool = False
+COLLATERAL_PENALTY: float = 0.85
+
+# ── 축 충돌·강등 게이트(2026-10-01 데굴님 승인 B) ────────────────────────────────────────
+#: 조후 역행 강등(_climate_harmful → 용·희 부적격)을 기후 축 severe(|값|≥40)일 때만 적용.
+#: 기본 OFF = 기존 동작(월령+분포 임계만). 그리드 비교 후 전환 여부 확정.
+CLIMATE_DEMOTE_REQUIRE_SEVERE: bool = False
+
+# ── 전왕 성립 조건(2026-10-01 데굴님 승인 E) ───────────────────────────────────────────────
+#: 전왕(일행득기)은 압도 오행을 극하는 오행이 투간·통근 없이 부재할 때만 진(眞)전왕. 극 오행이
+#: 남아 있으면 가(假)전왕으로 억부와 경쟁(종격 real/pseudo 와 같은 패턴). 기본 OFF.
+DOMINANT_REQUIRE_NO_CONTROLLER: bool = False
+#: 극 오행 '잔존' 판정 임계(월령 보정 분포 %). 이 미만이면 부재로 본다(투간 여부는 호출부 보강).
+DOMINANT_CONTROLLER_PRESENT_PCT: float = 8.0
+
+# ── C1 특수격↔용신 정합(2026-10-07 데굴님 승인, CASEBOOK_CALIBRATION_PLAN §3 F1) ─────────────
+#: C1-a — 진종(從)·진전왕(專旺)이 확정된 명식에서는 조후 역행 강등(_climate_harmful)을 적용하지
+#: 않는다. 종격 용신(윤하격의 水, 염상격의 火, 종재격의 재성 …)이 월령 한습·조열 때문에 기신으로
+#: 뒤집히던 결함(사례집 11건 중 8건). 조후 필요는 경고·서술 레이어로만 남긴다.
+SPECIAL_SKIP_CLIMATE_DEMOTE: bool = True
+#: C1-b — 전왕(일행득기)을 용신 '특수격 단독 주도'(special 축 1.0)로 취급하는 조건을 격국의
+#: 특수격 치환 게이트(geokguk.special_pattern.override — 압도 ≥80%)와 동일하게 맞춘다.
+#: 60~80% 구간은 격국이 정격(양인·건록·월겁 …)으로 두므로 용신도 가전왕(假專旺)으로 억부와
+#: 경쟁시킨다(일간 동기 오행이 용신이 되던 059·067·053 류 교정).
+DOMINANT_SPECIAL_REQUIRE_OVERRIDE: bool = True
+#: C1-d — 부분맵 모델(조후·격국 상신 등, 용신만 내는 모델)이 선택되면 기·구신을 정적 생극
+#: 순환이 아니라 집계된 불리 후보(억부 맥락: 신강이면 인성·비겁)로 배정하고 한신은 나머지 오행.
+#: 기준 사주 2018-01-09 창원(丁酉·癸丑·辛丑·甲午, 조후 火): 기대 한신 水가 정적 순환 때문에
+#: 기신이 되던 결함. 통관·무비겁 특수분기와 완비 모델맵 승격은 그대로다.
+PARTIAL_MAP_ADOPT_AGGREGATED_UNFAVORABLE: bool = True
+# ── C2 조후 필요신 후보 생성부 교체(2026-10-07 데굴님 결정 A·C, B 보류) ──────────────────────
+#: 결정 A — 조후 후보는 사전 needs[] 의 climate_* 역할 천간만. 생조·설기·제련·배합 글자는 설명에만.
+#: climate 글자가 없는 셀(丙·丁 겨울 등 10칸)은 후보를 내지 않고 교정 필요 오행을 경고로만 표시
+#: (0.25 보조 후보 금지). OFF 면 v0.2 동작(셀 첫 글자 오행 환원).
+JOHU_CLIMATE_ROLE_ONLY: bool = True
+# #6c 투출 천간 자리 손상(2026-10-08 데굴님 승인, shadow 선행) — 기본 OFF = 기존 byte 불변. 운 천간
+# 제외(원국 투출 자리 한정). 환경변수 SAJU_YONGSIN_STEM_DAMAGE_ENABLED.
+YONGSIN_STEM_DAMAGE_ENABLED: bool = (
+    _os.environ.get("SAJU_YONGSIN_STEM_DAMAGE_ENABLED", "false").strip().lower()
+    in ("1", "true", "yes")
+)
+#: 결정 C — 조후 역행 감점 모드(후보 유지, 자동 강등 없음; mild 약한 감점·severe 강한 감점).
+#:   "axis_graded"        기후 축(계산)이 mild 이상일 때만, 월지 무관 — 결정 C 문면. 단 축 공식이
+#:                        분포 중심이라 卯·辰월에서도 발동하고 丑月 창원 2018(기준 사주)은
+#:                        neutral 로 빠져 火 용신을 잃는다 → 재결정 전까지 기본값으로 쓰지 않는다.
+#:   "month_axis_graded"  한난 월(亥子丑/巳午未)을 필요조건으로, 축으로 강도만(severe=강, 그 외=약).
+#:   "legacy_month_demote" 월지+분포 기준 강등(CLIMATE_DEMOTE_REQUIRE_SEVERE 적용) — v0.2 동작.
+CLIMATE_PENALTY_MODE: str = "month_axis_graded"
+#: 감점 계수 — 214명식 A/B 스윕(2026-10-07): 0.6/0.3 이면 CASE-020(未月 甲, 전문가 '水 필요')이
+#: 火 통관 용신으로 뒤집힌다. 0.4/0.2 는 기준 사주·골든 불변, 역할표 변경 1건(020/R 구·한 교환) →
+#: 제안값.
+CLIMATE_PENALTY_MILD: float = 0.4
+CLIMATE_PENALTY_SEVERE: float = 0.2
+#: 결정 B(보류) — 조후 필요 오행의 최저 역할 보장은 구현하지 않는다(조후 필요성 ≠ 종합 용희기구한).
+
+#: (C1-c 종격 게이트 정합은 보류 — 격국 종격 신호가 root_score<8 기준이라 교과서 종살격
+#: 庚申·庚申·甲申·庚午(root 30)조차 신호가 없다. 종격은 용신 쪽 세력군 판정을 유지하고, C1-a
+#: 면제만 양쪽 합의(override) 때 적용한다. 검출기 통일은 골든 스냅샷에 닿아 별도 결정 사항.)

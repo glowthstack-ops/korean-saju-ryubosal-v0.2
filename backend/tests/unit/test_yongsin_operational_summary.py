@@ -100,8 +100,10 @@ def test_serialize_block_and_token_budget(make_pillars) -> None:
     # 프리픽스엔 한국어 압축 표현만, 내부 key(no_transmit 등)는 노출 안 됨.
     assert "투간無" in text and "子卯 격각" in text
     assert "no_transmit" not in text and "gyeokgak_zimao" not in text
-    # token proxy: 추가 char 합리적 상한 이내(≈115 token).
-    assert len("\n".join(withop)) - len("\n".join(base)) <= 230
+    # token proxy: 추가 char 합리적 상한 이내(≈115 token → 2026-10-01 희신 기능·판정 경로 2줄 추가로
+    # ≈+30 token; 고정 prefix 라 provider 캐시 대상). 상한 230→300.
+    assert len("\n".join(withop)) - len("\n".join(base)) <= 300
+    assert "희신 " in text and "판정 경로: [" in text
     # None 이어도 깨지지 않음.
     assert serialize_chart_prefix(summary, None)
 

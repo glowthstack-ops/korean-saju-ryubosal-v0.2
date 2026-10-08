@@ -277,7 +277,7 @@ Phase별 회귀·실측으로 조정한다. (정확한 파일 위치는 Phase 0 
 | 5 | 합화·합반으로 십성 전환/묶임 | 丁壬合 | Phase 3 官殺만 — 財/印/食傷/比劫 합 맥락 확장 필요 |
 | 6 | 좋은+나쁜 십성 혼잡(정/편) | 官殺混雜 | 십성 그룹 합산에서 정/편 구분 보존 필요 |
 | 7 | 제살/통제 오행의 양면성 | 土(조건부 제살보조) | Phase 1 일부 — 조건부 보조약 일반화 필요 |
-| 8 | 특수격/종격/전왕격 역전 | — | Phase 0 부분맵 폴백 보호 + 특수격 operational 설명 필요 |
+| 8 | 특수격/종격/전왕격 역전 | — | Phase 0 부분맵 폴백 보호 + 특수격 operational 설명 필요. **2026-10-08 데굴님 승인**: 종재·종살 follow_structure 모델맵 완비(희신=용신을 生하는 십성군, 기신=비겁, 구신=인성, 한신=나머지) → 완비 모델맵 승격. 종아격·전왕(dominant_one_element)은 부분맵 유지(결정 대기) |
 | 9 | 운 입자가 원국 operational과 충돌 | 水운 추가 | 운세 이벤트 해석을 canonical 아닌 operational 기준 참조 |
 
 ### 10-2. 우선순위 (데굴님 확정 — 실서비스 기준)
@@ -670,3 +670,67 @@ byte-identical.** `.score`·rank·reduce·final/favorability/canonical/groups/�
 - **1c-γ prominence**: 5b 중복 — 제외.
 - **검증**: flag off byte-identical·intent 미매칭 미적용·token budget 회귀·33차트 가드 G1/G3/G4 위반 0·
   순서/score/rank/final/favorability 불변.
+
+## 14. 선정 근거 추적·희신 기능·축 충돌·부작용 감사·전왕 조건 (2026-10-01, 데굴님 승인)
+
+참고 글(억부법 통설 — 신강약은 후보 방향만, 최종은 불균형 원인 → 생극 경로 → 조후·격국 → 역할)과 현행 엔진을
+대조한 결과, 골격은 이미 일치하고 간극은 다섯 곳이었다. **설명 계층(D·C·B 보고·A1)은 기본 ON, 판정 변경
+가능 계층(B 강등 게이트·E·A2)은 config 플래그 기본 OFF**로 넣고 719명식 스냅샷(감수 골든 3 + 표준·아들·데굴님 +
+provenance 코호트 8 + shadow 9 + 1950~2005 매월 15일 정오 서울 남성 그리드 672)으로 전/후를 비교했다.
+
+| 항목 | 구현 | 노출 |
+|---|---|---|
+| **D 선정 근거 추적** | `AggregatedYongsinResult.decision_trace`(`YongsinDecisionTrace`): problem(신강약+과다 십성+기후 축+특수 구조) · chosen_path(채택 모델 라벨 — 핵심 사유) · rejected(경쟁 후보 점수 차·강등 사유 `climate_demote`/`overwhelmed_by_*`, 채택 희신 제외) · heesin_function · axis_conflict · collateral | FE CalibrationPanel "선정 경로(엔진 근거)" 접힘, LLM 프리픽스 `[작동 역할]` "판정 경로: [문제] → 모델" |
+| **C 희신 기능** | `YongsinCandidateModel.heesin_function`(stable key, `HEESIN_FUNCTION_KO` 8종: 生용신·護용신·制기신·방신·유통·일간 억제/조후 보조·조후 보조·통관 보조). `MODEL_HEESIN_FUNCTION`(모델 유형) + `MODEL_LABEL_HEESIN_FUNCTION`(살인상생형=방신). 집계 직전 전 모델 태깅. 정적 폴백=生용신, bridge=통관 보조 | 프리픽스 "희신 金: 制기신", `_OPERATIONAL_INSTRUCTION` — 희신은 2등 후보가 아니라 기능대로, 보완책은 용신 일변도 금지 |
+| **B 축 충돌 보고** | `axes` 의 억부 top ≠ 조후 top 이면 `axis_conflict{eokbu, johu, resolution, significant}`. significant = 기후 축 non-neutral(719 중 형식상 불일치 504건이라 경고·프리픽스는 significant 만) | warnings "억부·조후 축 충돌: 억부 水 / 조후 火 — 억부 우선", 프리픽스 "축 충돌:" |
+| **A1 부작용 주석** | `_collateral_effects`: 용신·희신이 **생하는** 오행이 원국 과다·병이면 `feeds_excess`, **극하는** 오행이 용신·조후 필요신이면 `controls_needed`. 후보 자신이 과다인 경우는 기존 '조건부 희신/병' 담당(중복 금지) | operational role note 뒤에 ` | …부작용…`, trace.collateral, 프리픽스 "부작용 주석:" 첫 1건 |
+| **E 전왕 조건** | `special_cases`: 압도 오행을 극하는 오행이 분포 ≥`DOMINANT_CONTROLLER_PRESENT_PCT`(8%)면 detail `pseudo:` (OFF 면 표기만). `DOMINANT_REQUIRE_NO_CONTROLLER=True` 면 가전왕 모델(신뢰도 ×0.6)을 비집계 병기하고 억부와 경쟁 | 가전왕 경고 |
+| **B 강등 게이트** | `CLIMATE_DEMOTE_REQUIRE_SEVERE=True` 면 `_climate_harmful` 강등을 기후 축 severe(|값|≥40)일 때만 | — |
+| **A2 부작용 계수** | `COLLATERAL_SCORE_ENABLED=True` 면 feeds_excess 후보 점수 ×`COLLATERAL_PENALTY`(0.85). 점수식 원문(`_put` 줄)은 불변, 사후 계수 | — |
+
+### 14-1. 719명식 비교 결과 (2026-10-01)
+
+- **플래그 전부 OFF(운영 기본)**: final·useful·unfavorable·operational role/operability·status·모델 집합 **변경 0건**.
+  추가된 것은 trace·희신 기능(生용신 416·방신 99·통관 보조 94·유통 77·制기신 28·일간 억제 5)·부작용 주석 250건·
+  축 충돌 데이터 504건(significant 만 경고)이다.
+- **B 강등 게이트 ON**: final 24건 변경(용신 14·희신 19·모델 14). **감수 골든 1959-11-15(己亥 乙亥 辛丑 甲午)가
+  support_day_master 金 → johu 水로 뒤집힌다** — 2026-07-13 감수 확정("최종은 억부가 결정")과 충돌. **전환 불가**.
+  게이트 설계를 "강등 조건 완화"가 아니라 "조후 축 상위 후보가 억부 top 과 근접할 때만 보고"로 바꿔야 한다(후속).
+- **E 가전왕 ON**: final 12건 변경(그리드 10 + shadow 2). 예: 1951-03-15 辛卯 辛卯 甲寅 庚午(木 압도·金 관살 투간 잔존)
+  전왕 → 군겁쟁재형(관성 제겁 金). 통설상 설득력 있으나 **감수 전 전환 금지** — 12건 목록은 스냅샷 diff 로 보존.
+- **A2 부작용 계수 ON**: final 9건 변경(useful 점수 110건). 예: 1967-07-15 丁未 丁未 庚辰 壬午 財損印(木) → 화인통관
+  (food_rescue). **감수 전 전환 금지**.
+- 회귀: `test_yongsin_decision_trace.py`(골든 3건 추적·B/E/A2 플래그 ON 대표 사례·기본 OFF·어휘 폐쇄·프리픽스 직렬화).
+  스냅샷·diff 도구는 스크래치패드(`yongsin_snapshot.py`/`yongsin_diff.py`, `YONGSIN_FLAGS=B,E,A2`)에 두었다 —
+  재실행 가치가 확인되면 `backend/scripts/` 승격 + maintained allowlist 검토.
+
+### 14-2. 불변 원칙 (유지)
+
+final·canonical_roles·favorability_map·score·rank·polarity·groups·신강약·모델 선택은 플래그 OFF 에서 한 글자도
+바뀌지 않는다(14-1 첫 줄). 플래그 전환은 그리드 diff 목록을 데굴님이 감수한 뒤에만, 항목별로 한다.
+
+### 14-3. 偏印倒食 병약 모델 완비맵 — 문헌 확인 후 적용 (2026-10-01, 데굴님 지시)
+
+**질문**: 중화권에서 화인통관(比劫 통관) 후보가 생성되지 않아 2015-03-01(乙未 戊寅 丙子 庚寅)을 중화신강으로 가정하면
+용신 火→金, **火가 기신으로 반전**된다. 印食 병 치료 후보를 신강약과 무관하게 생성하는 것이 문헌상 합리적인가?
+
+**문헌 확인**
+- 子平真詮 論食神: "更有印來奪食，透財以解，亦有富貴，須就其全局之勢而斷之" — 印奪食의 해법은 **財**.
+- 子平真詮 論食神取運: "食神帶印，而透財以解，運喜財旺，食傷亦吉，印與官煞皆忌矣" — 吉=財·食傷, 忌=印·官煞,
+  比劫은 언급 없음(중립).
+- 子平真詮 論印: "印重身強，透財以抑太過 … 若印輕財重，又無劫財以救，則為貪財破印", "印淺身輕，而用層層傷食，則寒貧之局" —
+  財·食傷 치료는 신약에서 금기(신강약 의존). 劫財는 貪財破印의 구원자로만 등장.
+- 滴天髓闡微 通關장(任鐵樵 주): 통관 조건은 서술되나 **日主·比劫이 印–食을 통관한다는 언급 없음**.
+
+**판단**: 比劫 통관의 밴드 독립화는 근거 불확실 → **미적용**(신강 전용 food_rescue 는 2026-07-13 감수 그대로). 반전의 실체는
+`disease_remedy:pyeonin_dosik` 모델이 용신(財)만 들어 정적 생극 폴백이 克용신(火)을 기신으로 채운 것 → 取運 명문대로
+**완비맵 적용**(`_DAMAGE_ROLE_MAP["pyeonin_dosik"]` 용=財·희=食傷·기=印·구=官殺·한=比劫, 라벨 "병약용신형(약신·문헌맵)").
+2015-03-01 반사실: 중화신강·중화 → 金/土/木/水/**火 한신**(기신 반전 해소). 태신강·신강은 불변(火/金 화인통관).
+다른 파격 유형(상관견관·관살혼잡·군겁쟁재 등)은 문헌 맵을 따로 확인하지 않아 부분맵 유지.
+
+**적용 범위·집계 분리**: ①완비맵은 `geokguk.main_structure == "식신격"`일 때만 — 論食神은 食神格 논설이며, 건록격
+편인도식(1980-02-15 골든: 比劫 土가 克財라 기신)은 정적 폴백 유지. ②이 모델의 희·기·구는 final 역할표 전용으로,
+후보 집계(`useful/unfavorable`)에는 넣지 않는다 — 넣으면 다른 모델의 용신 후보가 heesin 으로 덮여 선택이 흔들린다
+(무조건 적용 1차 그리드: final 17건·2004-12-15 모델 교체). 게이트+분리 후 719명식 diff: **final 1건**(2002-10-15
+壬午 庚戌 丙辰 甲午 식신격, 기·구·한 회전만), 모델 집합 라벨 29건. 회귀 `test_yongsin_decision_trace.py`
+(2015 식신격 중화 반사실 → 火 한신 / 1980 건록격 골든 불변).

@@ -155,7 +155,7 @@ class PredictionEngines:
         risk = max(0, min(100, risk))
         evidence.append(f"위험 감수: 식상+비겁 비중 기반 {risk}")
 
-        strong = band in ("신강", "태신강", "극신강", "중화신강")
+        strong = band in ("신강", "태신강", "중화신강")  # 7단계(2026-10-07)
         execution = round(100 * (g("peer") + g("output")) / total)
         execution += 15 if strong else -10
         execution = max(0, min(100, execution))

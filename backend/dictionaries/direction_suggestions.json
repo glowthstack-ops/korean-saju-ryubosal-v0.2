@@ -70,7 +70,7 @@
           "channel_id": "peer_support",
           "name_ko": "신약 + 비겁 운 유입 — 조력 확보(득비이재)",
           "conditions": [
-            { "kind": "strength_band", "bands": ["극신약", "태신약", "신약", "중화신약"] },
+            { "kind": "strength_band", "bands": ["태신약", "신약", "중화신약"] },
             { "kind": "group_state", "group": "peer", "states": ["luck_inflow"] }
           ],
           "direction": {
@@ -97,7 +97,7 @@
       "guards": [
         {
           "guard_id": "weak_self",
-          "conditions": [{ "kind": "strength_band", "bands": ["극신약", "태신약", "신약", "중화신약"] }],
+          "conditions": [{ "kind": "strength_band", "bands": ["태신약", "신약", "중화신약"] }],
           "note": "신약한데 재성 부담이 크면 돈의 책임을 감당하기 어렵다 — 벌인 일이 오히려 짐이 될 수 있다"
         },
         {
@@ -269,7 +269,7 @@
       "guards": [
         {
           "guard_id": "weak_self",
-          "conditions": [{ "kind": "strength_band", "bands": ["극신약", "태신약", "신약", "중화신약"] }],
+          "conditions": [{ "kind": "strength_band", "bands": ["태신약", "신약", "중화신약"] }],
           "note": "감당 범위를 넘는 책임은 건강·번아웃으로 이어지기 쉽다 — 업무량 총량 관리가 먼저"
         },
         {

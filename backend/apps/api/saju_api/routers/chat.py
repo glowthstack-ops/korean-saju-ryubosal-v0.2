@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from saju_engines.chat_history_store import ChatHistoryStore
 from saju_engines.companion_alias import AliasEntry, build_companion_alias_index
 from saju_engines.conversation_store import ConversationStore
+from saju_engines.llm_guard import TokenBudgetExceeded
 from saju_engines.profile_engine import profile_event_signals
 from saju_engines.subject_store import SubjectStore
 from saju_shared_types.birth_input import BirthInput
@@ -30,7 +31,8 @@ from ..deps import (
     optional_owner,
     require_owner,
 )
-from ..services import chat_service
+from ..services import chat_service, llm_service_state
+from ..services.llm_client import LLMServiceSuspended
 from ..services.partner_resolve import inline_to_birth
 
 router = APIRouter(prefix="/api/v2/chat", tags=["chat"])
@@ -157,6 +159,7 @@ def _run_chat_answer(
     prompt: str,
     call_type: str,
     system: str | None,
+    postprocess: chat_service.ChatPostprocessContext | None = None,
 ) -> None:
     """백그라운드 LLM 생성 → 예약된 pending 답변에 본문 채움(연결 독립).
 
@@ -168,11 +171,30 @@ def _run_chat_answer(
             prompt, call_type=call_type, system=system,
             owner_id=owner_id, surface="chat", ref_id=thread_id,
         )
+        # 후처리 전체(커리어 출력 감사·관계 주장 패치·월 커버리지·텍스트 후처리) — 동기 경로와
+        # 동일 계약. 이 경로는 chat_service 의 후처리를 전혀 지나지 않았다(2026-10-01 경로 통일).
+        answer = chat_service.finalize_answer_full(answer, postprocess, thread_id)
         history.complete_turn(message_id, answer, status="done")
         # 답변 끝 제안(offer)을 스레드 상태에 반영 — 다음 턴 offer-slot 링킹의 근거.
         # 동기 경로 전용이던 갱신이 비동기 경로에서 누락돼 후속이 too_broad로 끊기던
         # 결함 교정(2026-07-21).
         chat_service.update_thread_offer(thread_id, answer)
+    except TokenBudgetExceeded as exc:
+        # 입력 상한 초과(2026-09-11 실로그 #650~654: 일반 오류문으로 3회 연속 종료) —
+        # 오류가 아니라 범위 좁히기 안내로 마감한다. 한도 상수는 바꾸지 않는다(절대원칙 9).
+        history.complete_turn(
+            message_id, chat_service.TOKEN_BUDGET_ANSWER, status="done",
+            meta={"error": str(exc)[:300]},
+        )
+        chat_service.update_thread_offer(thread_id, "")
+    except LLMServiceSuspended as exc:
+        # 비용 소진 일시 중단 — 중단 시점에 생성 중이던 답변은 재개 시 되살리지 않는다
+        # (며칠 뒤 답해 봐야 사용자는 떠났다 — 데굴님 결정 2026-10-06). 사유를 meta 에 남긴다.
+        history.complete_turn(
+            message_id, llm_service_state.SUSPENDED_PENDING_MESSAGE, status="error",
+            meta={"error": str(exc)[:300], "reason": "llm_suspended"},
+        )
+        chat_service.update_thread_offer(thread_id, "")
     except Exception as exc:  # noqa: BLE001 — 어떤 실패든 사용자 안내문으로 마감
         history.complete_turn(
             message_id,
@@ -248,6 +270,17 @@ def chat(
     llm_ready = chat_service.llm_client.is_available()
     is_llm_path = prep.status == "dry_run"  # 정책/범위/need_subject는 이미 answer 보유
 
+    # 비용 소진 일시 중단 — pending 을 만들지 않고 즉시 안내한다(중단 중 질문은 큐에 넣지
+    # 않는다 — 데굴님 결정 2026-10-06). 아래 즉시 응답 영속화 블록이 질문·안내문을 스레드에
+    # 남긴다(정책 응답과 같은 경로).
+    if is_llm_path and llm_ready and chat_service.llm_client.is_suspended():
+        return _finish_immediate(
+            prep.model_copy(update={
+                "status": "suspended", "answer": llm_service_state.SUSPENDED_USER_MESSAGE,
+            }),
+            req, owner_id, history,
+        )
+
     # 로그인 + 스레드 + LLM 경로 → 백그라운드 생성 + 폴링 복구(영속화엔 history 필수).
     if owner_id and req.thread_id and is_llm_path and llm_ready and history is not None:
         message_id = history.start_turn(
@@ -258,6 +291,7 @@ def chat(
         background.add_task(
             _run_chat_answer, history, message_id, owner_id, req.thread_id,
             prep.prompt_preview or "", prep.call_type or "chat_single", prep.system_prompt,
+            prep.postprocess,
         )
         return chat_service.ChatResponse(
             status="pending", thread_id=req.thread_id, message_id=message_id,
@@ -267,11 +301,21 @@ def chat(
 
     # 비로그인/스레드 없음 — prep을 재사용해 동기 생성(영속화 불가).
     if is_llm_path and llm_ready:
-        answer = chat_service.llm_client.generate_reading(
-            prep.prompt_preview or "", call_type=prep.call_type or "chat_single",
-            system=prep.system_prompt, owner_id=owner_id, surface="chat",
-            ref_id=req.thread_id,
-        )
+        try:
+            answer = chat_service.llm_client.generate_reading(
+                prep.prompt_preview or "", call_type=prep.call_type or "chat_single",
+                system=prep.system_prompt, owner_id=owner_id, surface="chat",
+                ref_id=req.thread_id,
+            )
+        except LLMServiceSuspended:
+            # 이 호출로 중단이 전이된 경우(직전 검사는 active 였다) — 같은 안내로 마감.
+            return _finish_immediate(
+                prep.model_copy(update={
+                    "status": "suspended", "answer": llm_service_state.SUSPENDED_USER_MESSAGE,
+                }),
+                req, owner_id, history,
+            )
+        answer = chat_service.finalize_answer_full(answer, prep.postprocess, req.thread_id)
         prep = prep.model_copy(update={"status": "answered", "answer": answer})
         # 이 경로는 라우터가 답변을 직접 생성하므로 chat_service 의 offer 저장
         # 지점을 지나지 않는다 — 스레드가 있으면 여기서 갱신해야 다음 턴의
@@ -281,6 +325,14 @@ def chat(
             chat_service.update_thread_offer(req.thread_id, answer)
 
     # 정책/범위/need_subject(즉시 응답) — 로그인+스레드+DB면 동기 영속화.
+    return _finish_immediate(prep, req, owner_id, history)
+
+
+def _finish_immediate(
+    prep: chat_service.ChatResponse, req: ChatRequest, owner_id: str | None,
+    history: ChatHistoryStore | None,
+) -> chat_service.ChatResponse:
+    """즉시 응답(정책/범위/need_subject/suspended/동기 생성) 마감 — 로그인+스레드+DB면 영속화."""
     if owner_id and req.thread_id and prep.answer and history is not None:
         try:
             history.record_turn(

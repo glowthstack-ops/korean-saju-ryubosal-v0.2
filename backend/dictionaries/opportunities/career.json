@@ -1,0 +1,516 @@
+{
+  "version": "1.0.0",
+  "domain": "career",
+  "reviewed": false,
+  "purpose": "기회·호전 사전(P1, 2026-09-18 데굴님 승인) — 위험 사전(risks/)의 긍정 대칭 층. 경량 엔진(opportunity_engine)이 LuckPillar 관계·역할·공망·합 완화·구조 배경으로 판정하며 점수·순위는 바꾸지 않는다(서술·favorability 참고). 성사·당첨·확정 표현 금지. family는 event_process_types 긍정 유형 id.",
+  "items": [
+    {
+      "opportunityId": "CAR_OFFER_INFLOW",
+      "domain": "career",
+      "kind": "opportunity",
+      "family": "opportunity_inflow",
+      "baseValue": 0.3,
+      "triggerRules": [
+        {
+          "id": "CAR_OFI_T1",
+          "tenGodGroup": "officer",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ]
+        },
+        {
+          "id": "CAR_OFI_T2",
+          "relation": "STEM_HAP",
+          "tenGodGroup": "officer"
+        },
+        {
+          "id": "CAR_OFI_T3",
+          "hapMitigation": "officer"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "CAR_OFI_A1",
+          "relation": "YUKHAP",
+          "strength": 0.2
+        },
+        {
+          "id": "CAR_OFI_A2",
+          "luckGradeIn": [
+            "강한 용신운"
+          ],
+          "strength": 0.2
+        }
+      ],
+      "dampenerRules": [
+        {
+          "id": "CAR_OFI_D1",
+          "voidState": "active",
+          "strength": 0.3
+        },
+        {
+          "id": "CAR_OFI_D2",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG",
+            "HAN_BAD"
+          ],
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "offer",
+          "ko": "채용 제안·스카우트 연락"
+        },
+        {
+          "id": "interview",
+          "ko": "면접·처우 협의 기회"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "관성(직장·조직)이 길신으로 들어오거나 관으로 합하는 시점 — 기회 유입은 성취가 아니다.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "CAR_SELECTION_PASS",
+      "domain": "career",
+      "kind": "achievement",
+      "family": "selection_pass",
+      "baseValue": 0.25,
+      "triggerRules": [
+        {
+          "id": "CAR_SEL_T1",
+          "tenGodGroup": "officer",
+          "tenGodGroup2": "resource",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ]
+        },
+        {
+          "id": "CAR_SEL_T2",
+          "reasonPrefix": "EXAM_PASS"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "CAR_SEL_A1",
+          "relation": "YUKHAP",
+          "strength": 0.2
+        },
+        {
+          "id": "CAR_SEL_A2",
+          "voidState": "release",
+          "strength": 0.2
+        }
+      ],
+      "dampenerRules": [
+        {
+          "id": "CAR_SEL_D1",
+          "voidState": "active",
+          "strength": 0.4
+        },
+        {
+          "id": "CAR_SEL_D2",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "officer",
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "final_pass",
+          "ko": "최종 합격·입사"
+        },
+        {
+          "id": "promotion_pass",
+          "ko": "승진·승급 통과"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "관인상생(관성+인성) 길신 — 심사 통과 계열. 합격 확정 금지.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "CAR_RECOGNITION",
+      "domain": "career",
+      "kind": "achievement",
+      "family": "recognition",
+      "baseValue": 0.25,
+      "triggerRules": [
+        {
+          "id": "CAR_REC_T1",
+          "tenGod": "정관",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ]
+        },
+        {
+          "id": "CAR_REC_T2",
+          "tenGodGroup": "output",
+          "tenGodGroup2": "wealth",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ]
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "CAR_REC_A1",
+          "twelveStageIn": [
+            "관대",
+            "건록",
+            "제왕"
+          ],
+          "strength": 0.2
+        }
+      ],
+      "dampenerRules": [
+        {
+          "id": "CAR_REC_D1",
+          "reasonPrefix": "格_운파격_상관견관",
+          "strength": 0.4
+        },
+        {
+          "id": "CAR_REC_D2",
+          "voidState": "active",
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "praise",
+          "ko": "좋은 평가·공로 인정"
+        },
+        {
+          "id": "award",
+          "ko": "포상·수상"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "정관 길신(평가·인정) 또는 식상생재(성과가 대가로).",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "CAR_ROLE_EXPANSION",
+      "domain": "career",
+      "kind": "achievement",
+      "family": "expansion",
+      "baseValue": 0.25,
+      "triggerRules": [
+        {
+          "id": "CAR_EXP_T1",
+          "luckGradeIn": [
+            "강한 용신운"
+          ],
+          "tenGodGroup": "officer"
+        },
+        {
+          "id": "CAR_EXP_T2",
+          "relation": "SAMHAP",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ]
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "CAR_EXP_A1",
+          "twelveStageIn": [
+            "건록",
+            "제왕"
+          ],
+          "strength": 0.2
+        }
+      ],
+      "dampenerRules": [
+        {
+          "id": "CAR_EXP_D1",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG",
+            "HAN_BAD"
+          ],
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "role_up",
+          "ko": "역할·권한 확대"
+        },
+        {
+          "id": "team_up",
+          "ko": "담당 범위·인력 확충"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "관성 강한 용신운 또는 삼합 성립(구조적 결속).",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "CAR_STABILIZATION",
+      "domain": "career",
+      "kind": "maintenance",
+      "family": "stabilization",
+      "baseValue": 0.25,
+      "triggerRules": [
+        {
+          "id": "CAR_STB_T1",
+          "tenGod": "정관",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "rooted": true
+        },
+        {
+          "id": "CAR_STB_T2",
+          "tenGod": "정재",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "rooted": true
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "CAR_STB_A1",
+          "twelveStageIn": [
+            "건록",
+            "관대"
+          ],
+          "strength": 0.2
+        }
+      ],
+      "dampenerRules": [
+        {
+          "id": "CAR_STB_D1",
+          "relation": "CHUNG",
+          "strength": 0.3
+        },
+        {
+          "id": "CAR_STB_D2",
+          "voidState": "active",
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "renewal",
+          "ko": "재계약·정규직 전환"
+        },
+        {
+          "id": "tenure",
+          "ko": "고용 안정·정기 수입 유지"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "정관·정재 길신이 뿌리(통근)를 가진 시점 — 유지·정착.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "CAR_PRESSURE_RELIEF",
+      "domain": "career",
+      "kind": "relief",
+      "family": "relief",
+      "baseValue": 0.3,
+      "triggerRules": [
+        {
+          "id": "CAR_RLF_T1",
+          "hapMitigation": "mitigated",
+          "tenGodGroup": "officer"
+        },
+        {
+          "id": "CAR_RLF_T2",
+          "structure": "chunggeun_clear",
+          "strength": 0.25
+        },
+        {
+          "id": "CAR_RLF_T3",
+          "tenGod": "식신",
+          "relationTargetTenGodGroup": "officer",
+          "relation": "CHUNG"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "CAR_RLF_A1",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "strength": 0.2
+        }
+      ],
+      "dampenerRules": [
+        {
+          "id": "CAR_RLF_D1",
+          "polarityRoleIn": [
+            "GI_STRONG"
+          ],
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "role_adjust",
+          "ko": "역할 조정·책임 분담"
+        },
+        {
+          "id": "pressure_down",
+          "ko": "압박·과부하 완화"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "관살(압박)이 합거로 완화되거나 기신 뿌리가 충으로 정리되는 시점(제화).",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "CAR_AUTONOMY",
+      "domain": "career",
+      "kind": "opportunity",
+      "family": "autonomy",
+      "baseValue": 0.25,
+      "triggerRules": [
+        {
+          "id": "CAR_AUT_T1",
+          "tenGodGroup": "peer",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "twelveStageIn": [
+            "관대",
+            "건록",
+            "제왕"
+          ]
+        },
+        {
+          "id": "CAR_AUT_T2",
+          "tenGodGroup": "output",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "relation": "YUKHAP"
+        }
+      ],
+      "amplifierRules": [],
+      "dampenerRules": [
+        {
+          "id": "CAR_AUT_D1",
+          "tenGod": "편관",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG",
+            "HAN_BAD"
+          ],
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "discretion",
+          "ko": "업무 재량·독립 여지 확대"
+        },
+        {
+          "id": "multi_offer",
+          "ko": "복수 제안 확보"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "비겁·식상 길신(자기 주도)이 활동 단계와 겹칠 때.",
+      "reviewed": false
+    }
+  ]
+}

@@ -23,13 +23,17 @@ const SECTION_DISPLAY: Record<string, SectionDisplay> = {
   "F-11": { label: "올해의 운과 신호", blurb: "올 한 해 두드러지는 기운을 짚어드려요." },
   "F-12": { label: "요즘 달라진 나", blurb: "지금 시기에 변하는 마음·태도를 봐요." },
   "F-13": { label: "앞으로의 인생 지도", blurb: "다가올 대운의 큰 방향을 미리 그려봐요." },
-  "F-14": { label: "가장 중요한 해들", blurb: "인생에서 크게 움직이는 해를 추려드려요." },
-  "F-15": { label: "일과 직업 전망", blurb: "커리어가 어떻게 흘러갈지 살펴봐요." },
+  "F-14": { label: "인생의 변곡점 연표", blurb: "출생부터 90세까지, 크게 움직이는 해를 추려드려요." },
+  "F-15": { label: "일과 직업 전망", blurb: "커리어 흐름과 나에게 맞는 조직·분야를 봐요." },
   "F-16": { label: "재물 전망", blurb: "돈의 흐름과 기회 시기를 봐요." },
-  "F-17": { label: "관계와 가정 전망", blurb: "사랑·가족·인연의 흐름을 풀어드려요." },
+  "F-17": { label: "연애와 결혼 전망", blurb: "사랑·인연의 흐름과 배우자상을 풀어드려요." },
+  "F-17b": { label: "부모님과 가족", blurb: "부모님 건강을 챙길 시기와 가족의 결을 봐요." },
+  "F-17c": { label: "자녀 이야기", blurb: "자녀 인연의 시기와 관계의 결을 봐요." },
   "F-18": { label: "건강과 주의 시기", blurb: "몸과 컨디션에서 챙길 시기를 짚어요." },
+  "F-18b": { label: "이사와 터전의 이동", blurb: "삶의 터전이 움직이는 시기를 살펴봐요." },
   "F-19": { label: "분야별 행동 가이드", blurb: "언제 무엇을 하면 좋을지 전략을 드려요." },
   "F-20": { label: "운을 살리는 생활 팁", blurb: "일상에서 기운을 북돋우는 방법이에요." },
+  "F-20b": { label: "나의 방향운", blurb: "공부·잠·만남·발표마다 어느 쪽을 어떻게 쓸지 봐요." },
   "F-21": { label: "핵심 요약 카드", blurb: "전체 풀이를 한 장으로 압축했어요." },
   "F-22": { label: "간지 달력과 용어 풀이", blurb: "날짜별 기운표와 어려운 말 풀이예요." },
 
@@ -101,22 +105,32 @@ const SECTION_DISPLAY: Record<string, SectionDisplay> = {
   "Y-02": { label: "내 사주와 핵심 기운", blurb: "올해 풀이의 기준이 되는 기운이에요." },
   "Y-03": { label: "올해가 속한 큰 흐름", blurb: "지금 대운 속 올해의 위치를 봐요." },
   "Y-04": { label: "올해의 운과 신호", blurb: "한 해 두드러지는 기운을 짚어요." },
-  "Y-05": { label: "달별 흐름과 주목할 달", blurb: "1~12월의 기운을 달마다 살펴봐요." },
+  "Y-05": { label: "달별 흐름과 주목할 달", blurb: "입춘부터 열두 달의 기운을 달마다 살펴봐요." },
   "Y-06": { label: "올해 일·직업", blurb: "올해 커리어 흐름을 봐요." },
   "Y-07": { label: "올해 재물", blurb: "올해 돈의 흐름을 봐요." },
   "Y-08": { label: "올해 관계·가정", blurb: "올해 사랑·가족의 흐름을 봐요." },
   "Y-09": { label: "올해 건강·주의 시기", blurb: "올해 몸에서 챙길 시기를 짚어요." },
   "Y-10": { label: "올해 행동 가이드", blurb: "분기별로 무엇을 하면 좋을지 드려요." },
   "Y-11": { label: "올해 운을 살리는 팁", blurb: "일상에서 기운을 북돋우는 방법이에요." },
+  "Y-11b": { label: "올해의 방향운과 삼재", blurb: "올해 방향 활용법과 삼재 흐름을 봐요." },
   "Y-12": { label: "간지 달력과 용어 풀이", blurb: "올해 달력표와 어려운 말 풀이예요." },
 };
 
 /** 섹션의 친화 표시 제목 — 매핑 없으면 원본 title 폴백. */
-export function sectionLabel(sectionId: string, fallbackTitle: string): string {
-  return SECTION_DISPLAY[sectionId]?.label ?? fallbackTitle;
+/** '올해…' 표기를 선택 연도로 — 한해풀이는 올해가 아닌 해를 고를 수 있어 '올해'가 읽는 시점과
+ *  어긋난다(2026-10-08). 조사 호환: '올해가'→'{y}년이', '올해는'→'{y}년은', 그 외 '올해'→'{y}년'.
+ *  year 미지정이면 원문 그대로(총운 F-11 등). 백엔드 _year_title과 같은 규칙. */
+export function yearizeLabel(text: string, year?: string | null): string {
+  if (!year) return text;
+  const ys = `${year}년`;
+  return text.replaceAll("올해가", `${ys}이`).replaceAll("올해는", `${ys}은`).replaceAll("올해", ys);
+}
+
+export function sectionLabel(sectionId: string, fallbackTitle: string, year?: string | null): string {
+  return yearizeLabel(SECTION_DISPLAY[sectionId]?.label ?? fallbackTitle, year);
 }
 
 /** 섹션 한 줄 설명 — 없으면 빈 문자열(설명 줄 미표시). */
-export function sectionBlurb(sectionId: string): string {
-  return SECTION_DISPLAY[sectionId]?.blurb ?? "";
+export function sectionBlurb(sectionId: string, year?: string | null): string {
+  return yearizeLabel(SECTION_DISPLAY[sectionId]?.blurb ?? "", year);
 }

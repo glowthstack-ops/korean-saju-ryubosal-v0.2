@@ -7,10 +7,13 @@
 from __future__ import annotations
 
 import calendar as _cal
+import os
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from saju_manse_analysis.relations.hap_mitigation import HapMitigation, resolve_hap_mitigation
 from saju_manse_analysis.sinsal.sinsal_aggregator import sinsal_for_luck
+from saju_manse_analysis.structure.luck_structure_flags import resolve_luck_structure_flags
 from saju_manse_core.calendar.sexagenary_cycle import (
     day_ganzi,
     ganzi_from_index,
@@ -43,6 +46,7 @@ from saju_shared_types.constants import (
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.luck import DaewoonItem, LuckCycles, LuckPillar, LuckPolarity
 from saju_shared_types.pillars import FourPillarsResult
+from saju_shared_types.twelve_sinsal import samjae_for
 
 # 운 종류별 (천간, 지지) 가중치 — 긴 운일수록 지지(기반) 비중↑.
 _PERIOD_WEIGHTS: dict[str, tuple[float, float]] = {
@@ -87,6 +91,105 @@ def _branch_effect(branch: Branch, useful: set[str], unfavorable: set[str]) -> L
         element=str(BRANCH_ELEMENT[branch]),  # 정기 대표 오행
         type=_polarity_type(score), score=score, detail="·".join(parts),
     )
+
+
+# P1 합 완화(2026-09-18 데굴님 지시 — 전문가 취지 "기신 억제 + 관운 강화", "지병 완화").
+# 운 흉신 글자가 원국과의 합거로 묶이면 그 글자의 흉 점수를 절반으로 낮추고 등급에 '합거 완화'를
+# 표기한다(제거 아님 — 방향은 유지). 플래그는 saju_engines.period_v2_config와 같은 환경변수를
+# 읽는다(이 패키지는 saju_engines를 import 할 수 없어 여기서 따로 읽는다). 기본 OFF = 기존 byte.
+HAP_MITIGATION_ENABLED: bool = (
+    os.environ.get("SAJU_HAP_MITIGATION_ENABLED", "false").strip().lower() in ("1", "true", "yes")
+)
+# CALIBRATE: 묶인 흉 글자의 점수 배율(데굴님 승인 제안값 — shadow 실측 후 조정).
+HAP_MITIGATION_FACTOR = 0.5
+HAP_HARM_MODIFIER = 0.1  # CALIBRATE: 희용신 합반 감점(관계 보정 ±0.2 범위와 같은 자릿수)
+# A2 구조 배경(2026-09-18 승인) — 운 기둥 개두·절각으로 억제되는 쪽의 점수 배율, 충근 요약 표기.
+STRUCTURE_BACKGROUND_ENABLED: bool = (
+    os.environ.get("SAJU_STRUCTURE_BACKGROUND_ENABLED", "false").strip().lower()
+    in ("1", "true", "yes")
+)
+STRUCTURE_SUPPRESS_FACTOR = 0.85  # CALIBRATE
+# C6 B/C(2026-10-08 데굴님 승인) — 세운 luck_score 는 원국×60갑자 순환값이라 어느 대운에
+# 떨어져도 같다(SEWOON_DAEWOON_CONTEXT_C6.md §1). 실험으로 세운에 소속 대운 극성을 섞은
+# **별도 필드** LuckPillar.daewoon_context_score 를 채운다. luck_score·라벨·기존 소비자는
+# 불변(이중 반영 방지). 기본 OFF = 기존 byte. 환경변수는 period_v2_config 와 같은 이름을
+# 여기서 따로 읽는다(패키지 의존 방향).
+SEWOON_DAEWOON_CONTEXT_ENABLED: bool = (
+    os.environ.get("SAJU_SEWOON_DAEWOON_CONTEXT_ENABLED", "false").strip().lower()
+    in ("1", "true", "yes")
+)
+# blend: w·세운 + (1−w)·대운 / gate: |대운| ≥ GATE_MIN 일 때만 GATE_W·세운 + (1−GATE_W)·대운,
+# 아니면 세운 그대로 / gate_protect: gate + 강한 세운(|세운| ≥ PROTECT_MIN) 원본 보호.
+SEWOON_DAEWOON_CONTEXT_MODE: str = (
+    os.environ.get("SAJU_SEWOON_DAEWOON_CONTEXT_MODE", "blend").strip().lower() or "blend"
+)
+SEWOON_DAEWOON_CONTEXT_W: float = float(os.environ.get("SAJU_SEWOON_DAEWOON_CONTEXT_W", "0.5"))
+SEWOON_DAEWOON_GATE_MIN: float = 0.3  # CALIBRATE(C6 조사 §4 대운지배 게이트 임계)
+SEWOON_DAEWOON_GATE_W: float = 0.3  # CALIBRATE(게이트 통과 시 세운 가중)
+# gate_protect(2026-10-08 데굴님 지시 — 검증 가설, 사례 맞춤 반복 조정 금지): 세운 |점수| ≥
+# PROTECT_MIN 이면 강한 세운 신호로 보고 원본을 그대로 둔다(약신호만 대운에 기댄다).
+# 묻힘(세운 부호 뒤집힘) 감소가 목적.
+SEWOON_DAEWOON_PROTECT_MIN: float = 0.5
+
+
+def daewoon_context_score(sewoon_score: float, daewoon_score: float) -> float:
+    """세운 점수에 소속 대운 점수를 섞은 실험값(C6 B/C). 모드는 모듈 상수가 결정한다.
+
+    Args:
+        sewoon_score: 해당 연도 세운 luck_score(불변 원본).
+        daewoon_score: 그 연도가 속한 대운의 luck_score.
+
+    Returns:
+        blend 모드 = w·세운 + (1−w)·대운, gate 모드 = |대운| ≥ 임계일 때만 블렌드
+        (아니면 세운 그대로), gate_protect 모드 = gate + 세운 |점수| ≥ PROTECT_MIN 이면 원본 유지.
+    """
+    if SEWOON_DAEWOON_CONTEXT_MODE in ("gate", "gate_protect"):
+        if (SEWOON_DAEWOON_CONTEXT_MODE == "gate_protect"
+                and abs(sewoon_score) >= SEWOON_DAEWOON_PROTECT_MIN):
+            return round(sewoon_score, 4)
+        if abs(daewoon_score) < SEWOON_DAEWOON_GATE_MIN:
+            return round(sewoon_score, 4)
+        w = SEWOON_DAEWOON_GATE_W
+        return round(w * sewoon_score + (1 - w) * daewoon_score, 4)
+    w = SEWOON_DAEWOON_CONTEXT_W
+    return round(w * sewoon_score + (1 - w) * daewoon_score, 4)
+
+
+def _attach_daewoon_context(sewoon: list[LuckPillar], daewoon_score: float | None) -> None:
+    """플래그 ON 이고 대운 점수가 있으면 세운 목록에 daewoon_context_score 를 채운다.
+
+    원본 luck_score·라벨은 건드리지 않는다.
+    """
+    if not SEWOON_DAEWOON_CONTEXT_ENABLED or daewoon_score is None:
+        return
+    for sp in sewoon:
+        sp.daewoon_context_score = daewoon_context_score(sp.luck_score, daewoon_score)
+
+
+def daewoon_score_by_year(daewoon: list[DaewoonItem]) -> dict[int, float]:
+    """연도 → 소속 대운 luck_score(정수 나이 기반 approx_start_date 기준, 10년 구간)."""
+    out: dict[int, float] = {}
+    for item in daewoon:
+        y0 = item.approx_start_date.year
+        for y in range(y0, y0 + 10):
+            out.setdefault(y, item.luck_score)
+    return out
+
+
+def _fav_map_from_sets(useful: set[str], unfavorable: set[str]) -> dict[str, str]:
+    """useful/unfavorable 오행 집합 → 합 판정용 역할 맵(용신/기신 2역할 — boon 판정에 충분)."""
+    return {**{el: "용신" for el in useful}, **{el: "기신" for el in unfavorable}}
+
+
+def _mitigated_label(code: str, label: str, summary: str) -> tuple[str, str, str]:
+    """합거 완화가 적용된 달의 등급 표기 — '강한 기신운'은 별도 코드, 그 외는 괄호 안에 병기."""
+    if code == "pure_gisin_luck":
+        return (
+            "gisin_mitigated", "기신운(합거 완화)",
+            "천간·지지가 흉신이나 흉 글자가 합으로 묶여 부담이 완화된 운 — 지병 완화(제거 아님)",
+        )
+    new_label = label[:-1] + "·합거 완화)" if label.endswith(")") else f"{label}(합거 완화)"
+    return (code, new_label, f"{summary} · 흉 글자 합거로 부담 완화(제거 아님)")
 
 
 def _relation_modifier(
@@ -188,7 +291,7 @@ def _coarse_alignment(code: str) -> str:
     """세분 라벨 → 기존 coarse 라벨(용신운/기신운/혼합/평운) 호환."""
     if code in ("pure_yongsin_luck", "partial_yongsin"):
         return "용신운"
-    if code in ("pure_gisin_luck", "partial_gisin"):
+    if code in ("pure_gisin_luck", "partial_gisin", "gisin_mitigated"):
         return "기신운"
     if code in ("mixed_yongsin_surface", "mixed_gisin_surface"):
         return "혼합"
@@ -198,28 +301,95 @@ def _coarse_alignment(code: str) -> str:
 def _luck_effect(
     stem: Stem, branch: Branch, useful: set[str], unfavorable: set[str], period_type: str,
     relations: list[str], transformed: list[str], void: bool,
+    mitigation: HapMitigation | None = None,
 ) -> dict:
     """천간·지지·관계를 분리 평가하고 가중 점수·세분 라벨을 산출.
 
     지지는 방향(용신/기신) 평가 후 공망·충 동태(_branch_dynamics)로 작동력·사건성을 조정한다.
+    mitigation(P1, 플래그 ON일 때만 전달)이 있으면 합거로 묶인 흉 글자의 점수를
+    HAP_MITIGATION_FACTOR 배로 낮추고 등급 표기에 '합거 완화'를 병기한다 — 방향(기신)은 유지.
     """
     stem_eff = _stem_effect(stem, useful, unfavorable)
     branch_eff = _branch_effect(branch, useful, unfavorable)
     _branch_dynamics(branch_eff, branch, void, relations, useful, unfavorable)
+    mitigated = False
+    if mitigation is not None:
+        if mitigation.branch_mitigated and branch_eff.type == "기신":
+            branch_eff.score = round(branch_eff.score * HAP_MITIGATION_FACTOR, 4)
+            branch_eff.branch_label = (
+                f"{branch_eff.branch_label} · 합거 완화" if branch_eff.branch_label else "합거 완화"
+            )
+            mitigated = True
+        if mitigation.stem_mitigated and stem_eff.type == "기신":
+            stem_eff.score = round(stem_eff.score * HAP_MITIGATION_FACTOR, 4)
+            stem_eff.detail = f"{stem_eff.detail} · 합거 완화".lstrip(" ·")
+            mitigated = True
     rel_mod = _relation_modifier(transformed, useful, unfavorable)
+    harmed = mitigation is not None and (mitigation.stem_harmed or mitigation.branch_harmed)
+    if harmed:
+        # 희용신 손상·합반 — 원국 길신이 운 글자에 묶여 지원·조절 기능이 약해진다(완화의 대칭).
+        rel_mod = round(rel_mod - HAP_HARM_MODIFIER, 4)
     w_s, w_b = _PERIOD_WEIGHTS.get(period_type, (0.4, 0.6))
     score = round(w_s * stem_eff.score + w_b * branch_eff.score + rel_mod, 4)
     strong = branch_eff.has_clash or branch_eff.is_void or any(
         ("완성" in r or "성립" in r) for r in relations
     )
     code, label, summary = _luck_label(stem_eff.type, branch_eff.type, strong)
+    if mitigated:
+        code, label, summary = _mitigated_label(code, label, summary)
+    if harmed:
+        summary = f"{summary} · 원국 용·희신이 합으로 묶여 지원·조절 기능 약화(희용신 합반)"
+    if HAP_MITIGATION_ENABLED and any(
+        r.partition(":")[0] in ("삼합완성", "반합성립", "방합완성")
+        and r.partition(":")[2] in unfavorable
+        for r in relations
+    ):
+        # 기신 성국(局) — 점수는 _relation_modifier(변환 오행 −0.1)가 이미 반영, 표기만 덧붙인다.
+        summary = f"{summary} · 기신 성국(局) — 불리 오행이 국을 이뤄 기존 불균형 확대"
     if branch_eff.branch_label:  # 공망/충 동태를 요약에 덧붙임
         summary = f"{summary} · 지지 {branch_eff.branch_label}"
     return {
         "stem_effect": stem_eff, "branch_effect": branch_eff, "luck_score": score,
         "luck_label_code": code, "luck_label": label, "luck_summary": summary,
-        "coarse": _coarse_alignment(code),
+        "coarse": _coarse_alignment(code), "rel_mod": rel_mod,
     }
+
+
+def _apply_structure_background_month(
+    eff: dict, pillars: FourPillarsResult, useful: set[str], unfavorable: set[str],
+    stem: Stem, branch: Branch, period_type: str,
+) -> None:
+    """A2 — 운 기둥 개두·절각으로 억제되는 쪽 점수를 STRUCTURE_SUPPRESS_FACTOR 배로 낮춘다.
+
+    충근·통관 부재는 요약 표기만(충 동태·관계 보정이 점수는 이미 반영). eff를 제자리 갱신한다.
+    """
+    fl = resolve_luck_structure_flags(
+        pillars, _fav_map_from_sets(useful, unfavorable),
+        luck_stem=str(stem), luck_branch=str(branch),
+    )
+    if not fl.any:
+        return
+    stem_eff, branch_eff = eff["stem_effect"], eff["branch_effect"]
+    marks: list[str] = []
+    if fl.luck_gaedu and branch_eff.score != 0.0:
+        branch_eff.score = round(branch_eff.score * STRUCTURE_SUPPRESS_FACTOR, 4)
+        marks.append("운 기둥 개두(지지 작용 억제)")
+    elif fl.luck_jeolgak and stem_eff.score != 0.0:
+        stem_eff.score = round(stem_eff.score * STRUCTURE_SUPPRESS_FACTOR, 4)
+        marks.append("운 기둥 절각(천간 작용 억제)")
+    if marks:
+        w_s, w_b = _PERIOD_WEIGHTS.get(period_type, (0.4, 0.6))
+        eff["luck_score"] = round(
+            w_s * stem_eff.score + w_b * branch_eff.score + eff.get("rel_mod", 0.0), 4
+        )
+    if fl.chunggeun_useful:
+        marks.append("충근(필요한 천간의 뿌리가 충 — 유지 기반 약화)")
+    elif fl.chunggeun_unfavorable:
+        marks.append("충근(불리한 기운의 뿌리 정리)")
+    if fl.tonggwan_absent:
+        marks.append(f"통관 부재({fl.tonggwan_absent})")
+    if marks:
+        eff["luck_summary"] = f"{eff['luck_summary']} · " + " · ".join(marks)
 
 
 def _relations_to_chart(stem: Stem, branch: Branch, pillars: FourPillarsResult) -> list[str]:
@@ -347,7 +517,21 @@ def _luck_pillar(
     gong = _gongmang_activation(branch, pillars)
     transformed = _transformed_elements(branch, pillars)
     void = str(branch) in set(pillars.gongmang_branches)
-    eff = _luck_effect(stem, branch, useful, unfavorable, period_type, rels, transformed, void)
+    mitigation = (
+        resolve_hap_mitigation(
+            pillars, _fav_map_from_sets(useful, unfavorable),
+            luck_stem=str(stem), luck_branch=str(branch),
+        )
+        if HAP_MITIGATION_ENABLED else None
+    )
+    eff = _luck_effect(
+        stem, branch, useful, unfavorable, period_type, rels, transformed, void,
+        mitigation=mitigation,
+    )
+    if STRUCTURE_BACKGROUND_ENABLED:
+        _apply_structure_background_month(
+            eff, pillars, useful, unfavorable, stem, branch, period_type,
+        )
     return LuckPillar(
         label=label,
         period_type=period_type,
@@ -369,6 +553,10 @@ def _luck_pillar(
         luck_summary=eff["luck_summary"],
         solar_term_range=solar_range,
         luck_sinsal=sinsal_for_luck(pillars, stem, branch),
+        # 삼재(세운만) — 원국 연지 삼합국 기준 역마/육해/화개 세운. 맥락 라벨 전용(점수 무관).
+        samjae=(
+            samjae_for(Branch(pillars.year.branch), branch) if period_type == "year" else None
+        ),
     )
 
 
@@ -422,6 +610,7 @@ def compute_luck_cycles(
         # 이 대운 10년의 세운(연동 표시용).
         sew_years = range(birth_date.year + age, birth_date.year + age + 10)
         sewoon = _yearly(pillars, dm, useful_elements, unfavorable_elements, sew_years)
+        _attach_daewoon_context(sewoon, eff["luck_score"])  # C6 B/C(플래그 OFF 면 no-op)
         daewoon.append(DaewoonItem(
             index=i, start_age=age, approx_start_date=sdate, approx_end_date=edate,
             ganji=f"{stem}{branch}", stem=str(stem), branch=str(branch),
@@ -473,6 +662,10 @@ def compute_luck_cycles(
             pillars, dm, useful_elements, unfavorable_elements,
             range(reference_date.year - 4, reference_date.year + 6),
         )
+        if SEWOON_DAEWOON_CONTEXT_ENABLED:
+            dw_by_year = daewoon_score_by_year(daewoon)
+            for sp in cycles.yearly_luck:
+                _attach_daewoon_context([sp], dw_by_year.get(int(sp.label)))
         cycles.monthly_luck = _monthly(
             pillars, dm, useful_elements, unfavorable_elements,
             reference_date.year, table, timezone
@@ -550,13 +743,21 @@ def yearly_luck_for_range(
     useful: set[str],
     unfavorable: set[str],
     years: list[int],
+    daewoon_table: list[DaewoonItem] | None = None,
 ) -> list[LuckPillar]:
     """주어진 연도 목록의 세운 — 기본 창(올해±5) 밖 연도를 온디맨드로 채울 때 쓴다.
 
     막연한 시점 질문의 '올해부터 10년' 연 단위 흐름처럼 기본 yearly_luck 창을 넘는
     구간을 조회하는 용도. 결정론적이라 차트 재계산 없이 세운 간지·점수만 만든다.
+    daewoon_table 을 주면(C6 B/C 플래그 ON 일 때) daewoon_context_score 도 채운다 — 기존 호출자는
+    생략하므로 None 유지.
     """
-    return _yearly(pillars, day_master, useful, unfavorable, years)
+    out = _yearly(pillars, day_master, useful, unfavorable, years)
+    if SEWOON_DAEWOON_CONTEXT_ENABLED and daewoon_table:
+        dw_by_year = daewoon_score_by_year(daewoon_table)
+        for sp in out:
+            _attach_daewoon_context([sp], dw_by_year.get(int(sp.label)))
+    return out
 
 
 def daily_luck_for_month(

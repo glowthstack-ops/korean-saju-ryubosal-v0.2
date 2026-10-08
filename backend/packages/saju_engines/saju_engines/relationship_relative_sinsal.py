@@ -11,27 +11,22 @@ SSOT: doc/v2_2/RELATIONSHIP_READING.md §4. 기준 지지(년지=사회 관계 /
 
 from __future__ import annotations
 
-from saju_shared_types.constants import THREE_HARMONY
 from saju_shared_types.enums import Branch
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.relative_sinsal import RelativeSinsalResult
+from saju_shared_types.twelve_sinsal import BASE_MAPS, BRANCH_ORDER, TWELVE_SINSAL_ORDER
 
-# 12지지 표준 순서(子→亥) 및 12신살 순서(겁살→…→화개).
-_BRANCH_ORDER: list[Branch] = [
-    Branch.JA, Branch.CHUK, Branch.IN, Branch.MYO, Branch.JIN, Branch.SA,
-    Branch.O, Branch.MI, Branch.SIN, Branch.YU, Branch.SUL, Branch.HAE,
-]
-_TWELVE_SINSAL: list[str] = [
-    "겁살", "재살", "천살", "지살", "연살", "월살",
-    "망신살", "장성살", "반안살", "역마살", "육해살", "화개살",
-]
+# 12지지 순서·12신살 표는 공용 SSOT(saju_shared_types.twelve_sinsal)에서 가져온다 —
+# 방위(공간)·삼재(시간)·관계 세 소비처가 같은 표를 공유한다(2026-09-20). 기존 이름은 호환 별칭.
+_BRANCH_ORDER: list[Branch] = list(BRANCH_ORDER)
+_TWELVE_SINSAL: list[str] = list(TWELVE_SINSAL_ORDER)
 
 # 12신살 → (노출 tier, 관계 역학 문구). internal은 노출하지 않는다(관계 낙인 방지).
 _SINSAL_READING: dict[str, tuple[str, str]] = {
     "장성살": ("expose", "상대가 강하거나 주도성이 느껴지는 관계"),
     "반안살": ("expose", "안정감·기댈 곳·조력이 되는 관계"),
     "천살": ("expose", "상대가 크게 느껴지거나 부담·거리감이 생기기 쉬운 관계"),
-    "연살": ("expose", "상대가 눈에 띄고 매력·표현이 살아나는 관계"),
+    "년살": ("expose", "상대가 눈에 띄고 매력·표현이 살아나는 관계"),
     "망신살": ("expose", "관계에서 노출감·민감함·체면 이슈가 생기기 쉬운 위치"),
     "육해살": ("expose", "소모·지체·돌봄이 따르는 관계"),
     "화개살": ("expose", "고독·정신·예술 결이 겹치는 관계"),
@@ -43,15 +38,8 @@ _SINSAL_READING: dict[str, tuple[str, str]] = {
 }
 
 
-# base 지지 → {target 지지: 12신살명}. THREE_HARMONY = (members, 합화오행, 왕지) 순.
-# 고지(辰戌丑未 멤버) 다음 지지가 겁살이며, 삼합 3멤버는 같은 상대위치 맵을 공유한다.
-_BASE_MAPS: dict[Branch, dict[Branch, str]] = {}
-for _members, _elem, _wangji in THREE_HARMONY:
-    _goji = next(b for b in _members if b in (Branch.JIN, Branch.SUL, Branch.CHUK, Branch.MI))
-    _gyeop = (_BRANCH_ORDER.index(_goji) + 1) % 12
-    _table = {_BRANCH_ORDER[(_gyeop + k) % 12]: _TWELVE_SINSAL[k] for k in range(12)}
-    for _base in _members:
-        _BASE_MAPS[_base] = _table
+# base 지지 → {target 지지: 12신살명} — 공용 표 별칭(테스트·외부 참조 호환).
+_BASE_MAPS: dict[Branch, dict[Branch, str]] = BASE_MAPS
 
 
 def get_relative_sinsal(base: Branch, target: Branch) -> RelativeSinsalResult:

@@ -14,6 +14,7 @@ import {
   deleteChatThread,
   getChatPartner,
   getChatThread,
+  getLlmServiceStatus,
   listChatThreads,
   postChat,
 } from "@/lib/api";
@@ -26,6 +27,7 @@ import type {
   ChatMessageDTO,
   ChatPartner,
   ChatThreadSummary,
+  LlmServiceStatus,
   PersonaConfig,
   Profile,
   SubjectSummary,
@@ -151,6 +153,12 @@ export default function ChatPage() {
   const [partner, setPartner] = useState<ChatPartner | null>(null);
   const [showPartner, setShowPartner] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  // LLM 서비스 일시 중단(비용 소진) 배너 — 진입 시 1회 조회, suspended 응답을 받으면 즉시 갱신.
+  const [service, setService] = useState<LlmServiceStatus | null>(null);
+  useEffect(() => {
+    getLlmServiceStatus().then(setService);
+  }, []);
+
   // 백그라운드 답변 폴링 세션 토큰 — 스레드 전환/언마운트 시 증가시켜 진행 중 폴링을 무효화.
   const pollTokenRef = useRef(0);
 
@@ -336,9 +344,18 @@ export default function ChatPage() {
         if (fresh) loadThreads();
         void pollThread(res.thread_id ?? threadId);
       } else {
+        if (res.status === "suspended") {
+          // 서버가 중단 상태를 알렸다 — 배너를 즉시 켠다(다음 진입 조회를 기다리지 않음).
+          setService((s) => ({ state: "suspended", reason: s?.reason ?? null, suspended_at: s?.suspended_at ?? null }));
+        }
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", text: res.answer ?? "(응답 없음)", meta: res },
+          {
+            role: "assistant",
+            text: res.answer ?? "(응답 없음)",
+            meta: res,
+            error: res.status === "suspended",
+          },
         ]);
         if (fresh) loadThreads();
       }
@@ -386,8 +403,20 @@ export default function ChatPage() {
   }
 
   return (
-    // pb-24: 하단 고정 입력바에 가려지지 않도록 본문 끝에 여백 확보.
-    <div className="pb-28">
+    // pb-28: 하단 고정 입력바에 가려지지 않도록 본문 끝에 여백 확보.
+    // -mb-20: 루트 레이아웃 공통 하단 여백(pb-20) 상쇄 — 입력바가 fixed라 이 페이지는 자체 pb-28만 쓴다.
+    <div className="-mb-20 pb-28">
+      {service?.state === "suspended" && (
+        <div
+          role="status"
+          className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+        >
+          <p className="font-medium">풀이 생성이 일시 중단되어 있어요.</p>
+          <p className="mt-0.5 text-xs text-amber-700">
+            지금 보내는 질문에는 답변이 만들어지지 않아요. 서비스가 재개되면 다시 질문해 주세요.
+          </p>
+        </div>
+      )}
       {showSwitch && (
         <Modal title="사주 변경" onClose={() => setShowSwitch(false)}>
           <div className="space-y-1.5">
@@ -551,16 +580,19 @@ export default function ChatPage() {
                   ? `inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl bg-indigo-600 px-4 py-2 text-left ${bubbleFontCls} text-white`
                   : m.error
                     ? `inline-block max-w-[95%] rounded-2xl bg-red-50 px-4 py-3 ${bubbleFontCls} text-red-700`
-                    : `inline-block max-w-[95%] rounded-2xl bg-gray-100 px-4 py-3 ${bubbleFontCls} text-gray-800`
+                    : m.pending
+                      ? "block max-w-[95%] py-1" // 대기 스켈레톤 — 말풍선 배경 없이 본문 폭 사용
+                      : `inline-block max-w-[95%] rounded-2xl bg-gray-100 px-4 py-3 ${bubbleFontCls} text-gray-800`
               }
             >
               {m.role === "user" ? (
                 m.text
               ) : m.pending ? (
-                <span className={`flex items-center gap-2 ${bubbleFontCls} text-gray-500`}>
-                  <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-indigo-400" />
-                  답변 생성 중…
-                </span>
+                <div className="space-y-2.5" role="status" aria-label="답변 생성 중">
+                  <div className="chat-skeleton-line w-full" />
+                  <div className="chat-skeleton-line w-11/12" style={{ animationDelay: "0.15s" }} />
+                  <div className="chat-skeleton-line w-2/3" style={{ animationDelay: "0.3s" }} />
+                </div>
               ) : (
                 <div className={`prose ${proseFontCls} max-w-none prose-p:my-1.5 prose-headings:mt-2 prose-headings:mb-1 prose-li:my-0.5`}>
                   <ReactMarkdown>{m.text}</ReactMarkdown>
@@ -585,7 +617,13 @@ export default function ChatPage() {
           </div>
         ))}
 
-        {busy && <p className="text-sm text-gray-400">풀이 작성 중…</p>}
+        {busy && (
+          <div className="max-w-[95%] space-y-2.5 py-1" role="status" aria-label="풀이 작성 중">
+            <div className="chat-skeleton-line w-full" />
+            <div className="chat-skeleton-line w-11/12" style={{ animationDelay: "0.15s" }} />
+            <div className="chat-skeleton-line w-2/3" style={{ animationDelay: "0.3s" }} />
+          </div>
+        )}
         <div ref={bottomRef} />
       </section>
 

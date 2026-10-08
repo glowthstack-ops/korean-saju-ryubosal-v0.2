@@ -1,0 +1,266 @@
+{
+  "version": "1.0.0",
+  "domain": "selection",
+  "reviewed": false,
+  "purpose": "기회·호전 사전(P1, 2026-09-18 데굴님 승인) — 위험 사전(risks/)의 긍정 대칭 층. 경량 엔진(opportunity_engine)이 LuckPillar 관계·역할·공망·합 완화·구조 배경으로 판정하며 점수·순위는 바꾸지 않는다(서술·favorability 참고). 성사·당첨·확정 표현 금지. family는 event_process_types 긍정 유형 id.",
+  "items": [
+    {
+      "opportunityId": "SEL_APPLICATION_ACCEPTED",
+      "domain": "selection",
+      "kind": "achievement",
+      "family": "selection_pass",
+      "baseValue": 0.3,
+      "triggerRules": [
+        {
+          "id": "SEL_ACC_T1",
+          "tenGodGroup": "officer",
+          "tenGodGroup2": "resource",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ]
+        },
+        {
+          "id": "SEL_ACC_T2",
+          "reasonPrefix": "EXAM_PASS"
+        },
+        {
+          "id": "SEL_ACC_T3",
+          "voidState": "release",
+          "tenGodGroup": "resource"
+        }
+      ],
+      "amplifierRules": [
+        {
+          "id": "SEL_ACC_A1",
+          "relation": "YUKHAP",
+          "strength": 0.2
+        }
+      ],
+      "dampenerRules": [
+        {
+          "id": "SEL_ACC_D1",
+          "voidState": "active",
+          "strength": 0.4
+        },
+        {
+          "id": "SEL_ACC_D2",
+          "reasonPrefix": "EXAM_FAIL",
+          "strength": 0.4
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "accepted",
+          "ko": "서류·심사 통과·선정"
+        },
+        {
+          "id": "eligible",
+          "ko": "자격 확인·조건 충족"
+        }
+      ],
+      "allowedClaimScope": [
+        "통과 가능성",
+        "준비 체크포인트"
+      ],
+      "prohibitedClaims": [
+        "합격·당첨 확정",
+        "순위 단정"
+      ],
+      "note": "관인상생 길신·문서 공망 해소 — 심사 통과. 추첨형은 무작위성 캡(선발·배치 코어) 우선.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "SEL_RESULT_ARRIVES",
+      "domain": "selection",
+      "kind": "relief",
+      "family": "settlement",
+      "baseValue": 0.25,
+      "triggerRules": [
+        {
+          "id": "SEL_RES_T1",
+          "tenGod": "정관",
+          "relation": "YUKHAP"
+        },
+        {
+          "id": "SEL_RES_T2",
+          "voidState": "release",
+          "tenGodGroup": "officer"
+        },
+        {
+          "id": "SEL_RES_T3",
+          "relation": "CHUNG",
+          "relationTargetTenGodGroup": "resource",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ]
+        }
+      ],
+      "amplifierRules": [],
+      "dampenerRules": [
+        {
+          "id": "SEL_RES_D1",
+          "voidState": "active",
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "result",
+          "ko": "보류됐던 결과·승인이 확정"
+        },
+        {
+          "id": "waitlist_clear",
+          "ko": "대기 해소"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "정관 합·관성 공망 해소 — 미뤄진 결정이 정리.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "SEL_ALTERNATIVE_OPENS",
+      "domain": "selection",
+      "kind": "opportunity",
+      "family": "autonomy",
+      "baseValue": 0.25,
+      "triggerRules": [
+        {
+          "id": "SEL_ALT_T1",
+          "tenGodGroup": "peer",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "relation": "SAMHAP"
+        },
+        {
+          "id": "SEL_ALT_T2",
+          "tenGodGroup": "wealth",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "twelveStageIn": [
+            "관대",
+            "건록"
+          ]
+        }
+      ],
+      "amplifierRules": [],
+      "dampenerRules": [
+        {
+          "id": "SEL_ALT_D1",
+          "polarityRoleIn": [
+            "GI",
+            "GI_STRONG",
+            "HAN_BAD"
+          ],
+          "strength": 0.3
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "options",
+          "ko": "복수 제안·대안 확보"
+        },
+        {
+          "id": "choice",
+          "ko": "선택권 확대"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "비겁·재성 길신 — 선택지가 늘어남.",
+      "reviewed": false
+    },
+    {
+      "opportunityId": "SEL_SUPPORT_SECURED",
+      "domain": "selection",
+      "kind": "opportunity",
+      "family": "protection",
+      "baseValue": 0.25,
+      "triggerRules": [
+        {
+          "id": "SEL_SUP_T1",
+          "tenGodGroup": "resource",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "relation": "STEM_HAP"
+        },
+        {
+          "id": "SEL_SUP_T2",
+          "tenGodGroup": "resource",
+          "polarityRoleIn": [
+            "YONG",
+            "HEE",
+            "HAN_GOOD",
+            "YONG_STRONG"
+          ],
+          "rooted": true
+        }
+      ],
+      "amplifierRules": [],
+      "dampenerRules": [
+        {
+          "id": "SEL_SUP_D1",
+          "reasonPrefix": "格_운파격_재극인",
+          "strength": 0.4
+        }
+      ],
+      "minimumTriggers": 1,
+      "manifestations": [
+        {
+          "id": "scholarship",
+          "ko": "장학·연구 지원 선정"
+        },
+        {
+          "id": "recommendation",
+          "ko": "추천·후견 확보"
+        }
+      ],
+      "allowedClaimScope": [
+        "가능한 발현 형태",
+        "준비·확인 체크포인트",
+        "활성화 창"
+      ],
+      "prohibitedClaims": [
+        "성사·당첨·합격 확정",
+        "금액·시점 단정"
+      ],
+      "note": "인성 길신 합·통근 — 지원 확보.",
+      "reviewed": false
+    }
+  ]
+}

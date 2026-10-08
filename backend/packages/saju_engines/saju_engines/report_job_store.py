@@ -18,6 +18,11 @@ _KST = ZoneInfo("Asia/Seoul")
 
 _MIGRATION = Path(__file__).resolve().parents[3] / "migrations" / "006_report_jobs.sql"
 
+#: LLM 서비스 일시 중단으로 보류된 잡의 error 마커 — status='queued' 와 함께 쓴다(2026-10-06).
+#: 새 status 값을 추가하지 않는 이유: CHECK 제약 변경 없이 기존 프론트 폴링('queued'=대기)이
+#: 그대로 동작하고, 재개 시 `claim_suspended` 가 이 마커로만 대상을 고른다.
+SUSPENDED_MARKER = "LLM_SUSPENDED"
+
 
 class ReportJobRecord:
     """잡 1건(읽기 전용 뷰)."""
@@ -68,22 +73,56 @@ class ReportJobStore:
         """실행 시작 표시."""
         self._set_status(job_id, "running")
 
-    def update_progress(self, job_id: str, sections_done: int) -> None:
-        """진행 섹션 수 갱신."""
+    def update_progress(self, job_id: str, sections_done: int, sections_total: int) -> None:
+        """진행 섹션 수 갱신 — 분모는 분할 페이지 확장 후 실제 총수로 동기화."""
         with self._connect() as conn:
             conn.execute(
-                "UPDATE report_jobs SET sections_done=%s, updated_at=now() WHERE job_id=%s",
-                (sections_done, job_id),
+                "UPDATE report_jobs SET sections_done=%s, sections_total=%s, "
+                "updated_at=now() WHERE job_id=%s",
+                (sections_done, sections_total, job_id),
             )
 
     def complete(self, job_id: str, result: dict, sections_done: int) -> None:
-        """완료 — 결과 저장."""
+        """완료 — 결과 저장. 총수도 실제 작성 장 수와 일치시킨다."""
         with self._connect() as conn:
             conn.execute(
                 "UPDATE report_jobs SET status='completed', result=%s::jsonb, "
-                "sections_done=%s, updated_at=now() WHERE job_id=%s",
-                (json.dumps(result, ensure_ascii=False), sections_done, job_id),
+                "sections_done=%s, sections_total=%s, updated_at=now() WHERE job_id=%s",
+                (json.dumps(result, ensure_ascii=False), sections_done, sections_done, job_id),
             )
+
+    def suspend(self, job_id: str, payload: dict, sections_done: int) -> None:
+        """LLM 서비스 중단으로 보류 — status='queued' + 마커, 부분 산출물(payload)을 result 에 보존.
+
+        payload = {"resume": {...재실행 컨텍스트}, "partial_sections": [...통과 섹션]}.
+        """
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE report_jobs SET status='queued', error=%s, result=%s::jsonb, "
+                "sections_done=%s, updated_at=now() WHERE job_id=%s",
+                (SUSPENDED_MARKER, json.dumps(payload, ensure_ascii=False), sections_done, job_id),
+            )
+
+    def claim_suspended(self) -> list[ReportJobRecord]:
+        """보류 잡을 원자적으로 가져간다(status→running, 마커 해제) — 중복 클릭에도 1회만."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "UPDATE report_jobs SET status='running', error=NULL, updated_at=now() "
+                "WHERE status='queued' AND error=%s "
+                "RETURNING job_id, owner_id, spec, status, sections_done, sections_total, "
+                "result, error, created_at, updated_at",
+                (SUSPENDED_MARKER,),
+            ).fetchall()
+        return [ReportJobRecord(r) for r in rows]
+
+    def count_suspended(self) -> int:
+        """보류(재개 대기) 잡 수 — 관리자 콘솔 표시용."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM report_jobs WHERE status='queued' AND error=%s",
+                (SUSPENDED_MARKER,),
+            ).fetchone()
+        return int(row[0]) if row else 0
 
     def fail(self, job_id: str, error: str) -> None:
         """실패 — 사유 저장(LLM 키 미설정 등)."""
