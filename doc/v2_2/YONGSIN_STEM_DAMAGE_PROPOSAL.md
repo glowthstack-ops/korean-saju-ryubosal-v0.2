@@ -89,3 +89,29 @@
 ### 6-4. 구현·검증 계획
 플래그 `SAJU_YONGSIN_STEM_DAMAGE_ENABLED`(기본 OFF, 기존 byte 불변) 뒤에 구현 → 집중 테스트(중복 차단·복수 투출 집계·OFF 불변) → shadow 1회(189명식:
 인자별 발동 분포·operability 전/후·작동성 등급·설명 변화 큰 사례) → 타당하면 베타 반영, 근거 부족 인자만 제외. 전체 스위트·반복 replay 생략.
+
+## 7. shadow 구현·측정 1회 (2026-10-08, 플래그 `SAJU_YONGSIN_STEM_DAMAGE_ENABLED` 기본 OFF)
+
+구현: `operational_role_config`(penalty·reason·short label 4종, 플래그), `candidates._yongsin_stem_damage_factors`(§6-2·6-3 규칙 그대로) →
+`_compute_yongsin_operability` 끝에 플래그 ON 시만 적용. 집중 테스트 `test_yongsin_operability_stem_damage.py` 10건(좌하 통근이면 #6a 담당, 같은 인접
+천간 충>극, 합반 시 천간 관계 미적용, 복수 투출 비율, OFF byte 불변·ON 적용, config 4종). 기존 operability 테스트 전부 통과.
+
+측정(189명식 = 사례집 175 + 골든 8 + 기준 6, OFF↔ON 직접 계산):
+
+| 항목 | 값 |
+|---|---|
+| 후보 조건 존재(§0) → **실제 발동** | 57 → **27명식**(중복 차단·비통근 좌하 한정 후) |
+| 인자별 발동 | stem_controlled 14 · seat_clash 11 · stem_clash 5 · seat_void 5 |
+| final 5역할 변경 | **0** (설계대로 operability 전용) |
+| 작동성 밴드 전이(발동 27) | 높음→높음 14 · 보통→보통 9 · **높음→보통 2(049/L·062/R)** · **보통→낮음 2(005/R·072/L)** |
+| 최대 감점 | 1.0→0.81(두 인자), 0.85→0.6885(두 인자) |
+| 골든 8 | 밴드 변동 0 / 기준 사주 6 | 2018-01-09 火 1.0→0.9(stem_clash, 밴드 높음 유지), 5역할 불변 |
+
+설명 변화가 큰 사례(밴드 하향 4건): 049/L 壬午 戊申 丁酉 癸卯 — 용신 火(丁) 옆 癸 천간충 + 좌하 酉·卯 충; 062/R 용신 土 좌하 공망·충; 005/R·072/L 용신 火
+인접 극 + 좌하 충. 모두 "투출은 됐으나 자리가 흔들린다"는 서술로 바뀐다(LLM 명식 블록 작동성 사유 1~2줄 추가).
+
+판단 자료: ① final 불변·밴드 하향 4/189 로 과발동 징후 없음 ② 네 인자 모두 발동 사례가 있어 근거 부족으로 제외할 인자는 없음 ③ stem_controlled(14)가
+가장 잦다 — 인접 극은 천간충보다 약한 손상이라 같은 0.10 이 적절한지는 독립 사례 확보 후 재측정 항목으로 남긴다(지금 조정하지 않음).
+**베타 반영 여부는 데굴님 결정**(.env.beta `SAJU_YONGSIN_STEM_DAMAGE_ENABLED=true`). 전체 스위트·반복 replay 생략(지시).
+
+**2026-10-08 베타 반영(데굴님 "진행하자")**: `.env.beta` `SAJU_YONGSIN_STEM_DAMAGE_ENABLED=true`, 백엔드 재기동. 0.10 은 초기값 유지(튜닝 금지), 인접 극 가중은 독립 사례 확보 후 재측정.

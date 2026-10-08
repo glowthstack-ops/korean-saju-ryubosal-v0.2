@@ -10,6 +10,7 @@ YONGSIN_OPERATIONAL_ROLE_SPEC §4-1/§6. 여기의 문구·정책은 확정 명�
 
 from __future__ import annotations
 
+import os as _os
 from typing import TypedDict
 
 
@@ -101,6 +102,13 @@ OPERABILITY_PENALTY: dict[str, float] = {
     "yongsin_clash": 0.15,  # 용신 통근 지지가 충(六沖)을 받음(#6a) — 작동 불안정
     "yongsin_isolation": 0.15,  # 생조부재+단일출처+손상동반 복합 고립(#6b-1)
     "yongsin_bound": 0.15,  # 용신 투출 천간이 합반/쟁합으로 묶임(#6b-2) — 작동 지연
+    # #6c 투출 천간 자리 손상(2026-10-08 데굴님 승인: shadow 비교용 초기값 — 확정 수치 아님, 반복
+    # 튜닝 금지). 복수 투출이면 (손상 자리 수 / 투출 자리 수) 비율을 곱한다. 좌하 지지가 용신
+    # 통근이면 #6a 담당.
+    "yongsin_stem_clash": 0.10,       # 투출 천간이 인접 천간과 천간충(甲庚·乙辛·丙壬·丁癸)
+    "yongsin_stem_controlled": 0.10,  # 인접 천간 오행이 용신 오행을 극(같은 천간이 충이면 충만)
+    "yongsin_seat_void": 0.10,        # 투출 천간의 좌하 지지 공망(비통근 좌하)
+    "yongsin_seat_clash": 0.10,       # 좌하 지지가 六沖(비통근 좌하)
 }
 OPERABILITY_REASON: dict[str, str] = {
     "no_transmit": "용신이 천간에 투출 안 됨 — 작동성 약화",
@@ -110,6 +118,10 @@ OPERABILITY_REASON: dict[str, str] = {
     "yongsin_clash": "용신 뿌리가 충을 받음 — 작동 불안정",
     "yongsin_isolation": "용신이 생조·동류 없이 고립 + 손상 동반 — 작동 위태",
     "yongsin_bound": "용신 투출 천간이 합반/쟁합으로 묶임 — 작동 지연·불안정",
+    "yongsin_stem_clash": "용신 투출 천간이 옆 천간과 충 — 드러난 작동이 흔들림",
+    "yongsin_stem_controlled": "용신 투출 천간이 옆 천간에 극을 받음 — 드러난 작동 약화",
+    "yongsin_seat_void": "용신 투출 천간의 자리 지지가 공망 — 실린 곳이 허함",
+    "yongsin_seat_clash": "용신 투출 천간의 자리 지지가 충 — 실린 곳이 흔들림",
 }
 
 # operability 수치 → 표시용 작동성 밴드(Phase 5a, experimental). **확정 등급이 아니라 표시용 밴드.**
@@ -127,6 +139,10 @@ OPERABILITY_FACTOR_SHORT: dict[str, str] = {
     "yongsin_clash": "충",
     "yongsin_isolation": "고립",
     "yongsin_bound": "합반",
+    "yongsin_stem_clash": "천간충",
+    "yongsin_stem_controlled": "천간극",
+    "yongsin_seat_void": "좌하공망",
+    "yongsin_seat_clash": "좌하충",
 }
 
 # operational/legacy 역할 → shadow 점수 가중(#9a, experimental). 계산·검증 전용·실제 scoring 미소비.
@@ -446,6 +462,12 @@ PARTIAL_MAP_ADOPT_AGGREGATED_UNFAVORABLE: bool = True
 #: climate 글자가 없는 셀(丙·丁 겨울 등 10칸)은 후보를 내지 않고 교정 필요 오행을 경고로만 표시
 #: (0.25 보조 후보 금지). OFF 면 v0.2 동작(셀 첫 글자 오행 환원).
 JOHU_CLIMATE_ROLE_ONLY: bool = True
+# #6c 투출 천간 자리 손상(2026-10-08 데굴님 승인, shadow 선행) — 기본 OFF = 기존 byte 불변. 운 천간
+# 제외(원국 투출 자리 한정). 환경변수 SAJU_YONGSIN_STEM_DAMAGE_ENABLED.
+YONGSIN_STEM_DAMAGE_ENABLED: bool = (
+    _os.environ.get("SAJU_YONGSIN_STEM_DAMAGE_ENABLED", "false").strip().lower()
+    in ("1", "true", "yes")
+)
 #: 결정 C — 조후 역행 감점 모드(후보 유지, 자동 강등 없음; mild 약한 감점·severe 강한 감점).
 #:   "axis_graded"        기후 축(계산)이 mild 이상일 때만, 월지 무관 — 결정 C 문면. 단 축 공식이
 #:                        분포 중심이라 卯·辰월에서도 발동하고 丑月 창원 2018(기준 사주)은

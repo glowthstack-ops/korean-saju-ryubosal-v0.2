@@ -53,6 +53,7 @@ from .operational_role_config import (
     SPECIAL_SKIP_CLIMATE_DEMOTE,
     TEN_GOD_HAP_MODE_PHRASE,
     TEN_GOD_HAP_REASON,
+    YONGSIN_STEM_DAMAGE_ENABLED,
 )
 from .role_realization import (
     _ROLE_KEYS,
@@ -718,6 +719,58 @@ def _yongsin_bound_factor(
     return False
 
 
+_STEM_CLASH_PAIRS = {  # 天干四沖
+    frozenset({"甲", "庚"}), frozenset({"乙", "辛"}),
+    frozenset({"丙", "壬"}), frozenset({"丁", "癸"}),
+}
+
+
+def _yongsin_stem_damage_factors(
+    yongsin_el: str, pillars: FourPillarsResult, bound_applied: bool,
+) -> list[tuple[str, float]]:
+    """#6c 투출 천간 자리 손상(2026-10-08 데굴님 승인, shadow) — 원국 투출 자리만.
+
+    자리마다 ①인접 천간충 ②인접 극(같은 인접 천간이 충이면 충만) ③좌하 공망(비통근 좌하)
+    ④좌하 六沖(비통근 좌하)을 독립 평가하고, 인자별 가중 = penalty × (손상 자리 수 / 투출 자리 수).
+    좌하 지지가 용신 통근이면 #6a(yongsin_void/clash) 담당이라 ③④ 미적용. 합반(#6b-2)이 이미
+    적용됐으면 천간 관계 인자(①②)는 적용하지 않는다(동일 층 1개만). 운 천간은 제외.
+    """
+    ps = _pillar_list(pillars)
+    seats = [(i, p) for i, p in enumerate(ps) if p.stem_element == yongsin_el]
+    if not seats:
+        return []
+    hits = {"yongsin_stem_clash": 0, "yongsin_stem_controlled": 0,
+            "yongsin_seat_void": 0, "yongsin_seat_clash": 0}
+    for i, p in seats:
+        seat_rooted = any(hs.element == yongsin_el for hs in p.hidden_stems)
+        if not seat_rooted:
+            if p.gongmang_hit:
+                hits["yongsin_seat_void"] += 1
+            if any(
+                frozenset({Branch(p.branch), Branch(q.branch)}) in BRANCH_CLASHES
+                for q in ps if q is not p
+            ):
+                hits["yongsin_seat_clash"] += 1
+        if bound_applied:
+            continue
+        clash = controlled = False
+        for j in (i - 1, i + 1):
+            if 0 <= j < len(ps):
+                q = ps[j]
+                if frozenset({q.stem, p.stem}) in _STEM_CLASH_PAIRS:
+                    clash = True
+                elif CONTROLS[Element(q.stem_element)] == Element(yongsin_el):
+                    controlled = True
+        if clash:
+            hits["yongsin_stem_clash"] += 1
+        elif controlled:
+            hits["yongsin_stem_controlled"] += 1
+    n = len(seats)
+    return [
+        (k, round(OPERABILITY_PENALTY[k] * c / n, 4)) for k, c in hits.items() if c
+    ]
+
+
 def _compute_yongsin_operability(
     yongsin_el: str,
     pillars: FourPillarsResult,
@@ -767,6 +820,13 @@ def _compute_yongsin_operability(
         op *= 1.0 - OPERABILITY_PENALTY["yongsin_bound"]
         factors.append("yongsin_bound")
         reasons.append(OPERABILITY_REASON["yongsin_bound"])
+    if YONGSIN_STEM_DAMAGE_ENABLED:  # #6c(shadow, 기본 OFF)
+        for factor, weight in _yongsin_stem_damage_factors(
+            yongsin_el, pillars, "yongsin_bound" in factors,
+        ):
+            op *= 1.0 - weight
+            factors.append(factor)
+            reasons.append(OPERABILITY_REASON[factor])
     return round(op, 4), factors, reasons
 
 

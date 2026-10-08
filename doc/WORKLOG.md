@@ -11709,3 +11709,10 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 
 - `doc/v2_2/YONGSIN_STEM_DAMAGE_PROPOSAL.md`: 측정(189명식) 투출 100·손상 ≥1 57, #6c 4인자 제안(stem_clash·stem_controlled·seat_void·seat_clash, 0.10),
   중복 방지(좌하 통근은 #6a), operability 전용. 구현 없음.
+
+## 2026-10-08 — 용신 투출 천간 자리 손상(#6c) shadow 구현·측정 (데굴님 결정)
+
+- `operational_role_config`: penalty/reason/short 4종 + `YONGSIN_STEM_DAMAGE_ENABLED`(env, 기본 OFF). `candidates._yongsin_stem_damage_factors`(좌하 통근→#6a 담당,
+  동일 인접 천간 충>극, 합반 시 천간 인자 미적용, 복수 투출 비율) → `_compute_yongsin_operability` 플래그 ON 시 적용.
+- 테스트 `test_yongsin_operability_stem_damage.py` 10건 + 기존 operability 4파일 통과. 측정 189: 발동 27·final 0·밴드 하향 4·골든 0. 베타 반영은 결정 대기.
+- 베타 반영(데굴님 "진행하자"): `.env.beta` SAJU_YONGSIN_STEM_DAMAGE_ENABLED=true + 백엔드 재기동. 구현 커밋.

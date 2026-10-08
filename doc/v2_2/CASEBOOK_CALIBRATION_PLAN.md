@@ -330,3 +330,8 @@ C1 → C2 → (C3 ∥ C4) → C5 → C6. C1·C2는 용신 배정을 바꾸므로
 
 - `YONGSIN_STEM_DAMAGE_PROPOSAL.md`: 현행 #6a 는 통근 지지만, 투출 100건 중 57건에 투출 자리 손상(좌하 충 30·인접 극 29·좌하 공망 15·천간충 11).
   제안 #6c 4인자(0.10 CALIBRATE, 좌하=통근이면 #6a 담당, 배타 규칙), operability 전용(5역할·이벤트 불변). 결정 G1~G5 대기, shadow 측정 후 구현.
+
+### 2026-10-08 — #6c 투출 천간 자리 손상 shadow 구현·측정 (데굴님 결정 G1~G5)
+
+- 플래그 OFF 구현 + 테스트 10건. 189명식 OFF↔ON: 발동 27(후보 57→27), 인자 controlled 14·seat_clash 11·stem_clash 5·seat_void 5, final 0, 밴드 하향 4, 골든 0.
+  베타 반영 결정 대기(`YONGSIN_STEM_DAMAGE_PROPOSAL.md` §7).
