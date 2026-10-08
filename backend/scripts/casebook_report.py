@@ -392,9 +392,13 @@ def _summary(metrics: dict, n_subs: int) -> list[str]:
     md.append(f"- A. 쌍 비교 순위 일치: {pa}/{pt} = {pa / pt * 100:.1f}%"
               if pt else "- A. 쌍 비교 없음")
     if tt:
+        # C5(2026-10-08): C 는 '상위4 안 노출' 지표다. 도메인 후보가 생성됐으나 상위4 밖인 '노출
+        # 경쟁'은 재생 산출물(top_by_year 상위4)만으로는 셀 수 없어 별도 분류 문서
+        # (HEALTH_CHANNEL_C5_CAUSES.md)로 보고한다.
         for label, key in (("B. 시점 사건 세운 극성 일치(합산·비교용)", "timed_sewoon_agree"),
                            ("B'. 시점 사건 대운 극성 일치(합산·비교용)", "timed_daewoon_agree"),
-                           ("C. 시점 도메인 이벤트 히트(상위4)", "timed_event_hit"),
+                           ("C. 시점 도메인 이벤트 히트(상위4 노출 기준 — 후보 생성 여부와 다름)",
+                            "timed_event_hit"),
                            ("C'. 시점 도메인 위험밀도 > 개인 기준선", "timed_risk_above_base")):
             md.append(f"- {label}: {metrics[key]}/{tt} = {metrics[key] / tt * 100:.1f}%")
         st, mt = metrics["timed_single_total"], metrics["timed_multi_total"]

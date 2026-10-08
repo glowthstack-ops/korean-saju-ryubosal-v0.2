@@ -11716,3 +11716,11 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
   동일 인접 천간 충>극, 합반 시 천간 인자 미적용, 복수 투출 비율) → `_compute_yongsin_operability` 플래그 ON 시 적용.
 - 테스트 `test_yongsin_operability_stem_damage.py` 10건 + 기존 operability 4파일 통과. 측정 189: 발동 27·final 0·밴드 하향 4·골든 0. 베타 반영은 결정 대기.
 - 베타 반영(데굴님 "진행하자"): `.env.beta` SAJU_YONGSIN_STEM_DAMAGE_ENABLED=true + 백엔드 재기동. 구현 커밋.
+
+## 2026-10-08 — C5 원인 분류 · C4 현재값 · 운 기둥 검토안 · C2 결정 묶음 (데굴님 지시 순서)
+
+- .env.beta 재생 1회(`subjects_beta_20261008.jsonl`): C4 쌍 비교 35/68(51.5%), 단일 세운 10·대운 13/26, 다년 대운 13/18, C 25/44, C' 23/44. 보고서 사본 `*_2026-10-08_beta`.
+- C5(`HEALTH_CHANNEL_C5_CAUSES.md`): 히트 4·노출 경쟁 5·누락 3(날짜 없음 1·창 임계 미달 2). 결함 없음, 규칙 추가 없음. 1차 스크립트의 years 키 누락 오류는 정정.
+  `casebook_report.py` C 라벨에 '상위4 노출 기준' 명시(리포트 전용).
+- `TRANSIT_HIDDEN_STEM_REVIEW.md`(T1~T4), `JOHU_C2_DECISIONS_2026-10-08.md`(채택/기각/보류 분류). 구현 없음.
+- OFF 기능 승격 검토(`OFF_FEATURE_PROMOTION_REVIEW_2026-10-08.md`): 개별 승격 근거 충분한 기능 없음(MT4·MT5·Tier B·near_tie·이동 시기·P2 게이트 전부 보류). 메모 정정: MT1·2·3·6 운영 ON, P2 게이트는 grounding 노출만.
