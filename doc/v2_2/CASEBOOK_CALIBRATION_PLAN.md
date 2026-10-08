@@ -131,7 +131,7 @@
 
 | 단계 | 우선 | 내용 | 완료 기준 | 승인 필요 |
 |---|---|---|---|---|
-| C0 | 완료 | 데이터셋·재생·리포트 인프라 + 명식 재현 회귀 테스트 | `tests/regression/test_comparison_casebook.py`: 180명식 4주 일치(날짜 복원 가능한 175건) | 파일 추가 승인 |
+| C0 | 완료 | 데이터셋·재생·리포트 인프라 + 명식 재현 회귀 테스트 | `tests/regression/test_comparison_casebook.py`: 날짜·시각 보유 157명식 4주 재현(변형×시각 이동 허용) + 픽스처 형상(85/180) — **2026-10-08 추가**(2026-10-07 기록은 파일 없이 완료로 적혀 있었음, 정정) | 파일 추가 승인(2026-10-08) |
 | C1 | P0 | **특수격↔용신 정합 규칙**: `special_pattern.override=True`면 종격 모델을 final로 채택(조후 severe는 경고만). override=False이고 band가 극신강/태신강이면 dominant_one_element를 final 후보에서 제외(일간 동기 용신 금지, 단 종격 확정 제외). | 11건 불일치 0, 059·067·053/R·014/L·017/L 용신이 억부·상신으로 복귀, 기존 스위트 통과 | 규칙 승인 |
 | C2 | P0 | **조후 정비**: (a) 조후 후보 강등 17건 감사 → `CLIMATE_DEMOTE_REQUIRE_SEVERE`·조후 보존 조건 확장(한습 월의 火·조열 월의 水는 기·구신 배정 금지, 한신 이상 보장). (b) 조후 모델을 십간×월지 조후표 사전(`dictionaries/johu_table.json`, 궁통보감 계열)으로 교체. | (a) 17건 중 조후 오행 기·구신 0건. (b) 069/R·070/R·035 류 오출력 0, 사전 validate→compile 파이프라인 통과 | (b) 사전 내용 감수·승인 |
 | C3 | P1 | **신강약 밴드 캘리브레이션**: 사례집 180건 분포(57% 극·태)와 전문가 판정 대조표를 만들고 밴드 경계·득령 가중·borderline 폭을 재조정. | 극·태 비율 ≤35%, 055/L·012/L 등 전문가 판정 사례 일치, 기존 골든(1980_1122) 유지 | 경계값 승인 |
@@ -224,3 +224,33 @@ C1 → C2 → (C3 ∥ C4) → C5 → C6. C1·C2는 용신 배정을 바꾸므로
 - 적용(같은 날): 1~3 제안대로, 4는 데굴님 지시로 **관리자 비밀 코드 치환**("코드 F-1에 해당하는 사건이 발생할
   가능성이 있습니다"). 같은 날 확정: 코드 체계(F-1 내적 질병/F-2 외적 사고/F-3 스스로 만드는 위기) reviewed:true,
   034→F-2 조건 강화, 월 단위 창 추가, `.env.beta` ON. 상세 §5·§5-1.
+
+### 2026-10-08 — C8 등록 · shadow 재스캔 · 조후 사전 감수 보고 · C6 조사 (데굴님 지시: "C8·coverage 즉시, 조후 감수·C6 우선, 로직 변경은 영향 보고 후 승인")
+
+- **C8 완료**: F9 12항목을 `DICTIONARY_REVIEW_QUEUE.md`에 등록(runtime_status=NONE, 착수 시 층 결정).
+- **shadow 재스캔**: `find_shadow_charts.py` 7,201 후보, FOUND 24/BEST 0/NOT_FOUND 0, charts.jsonl 불변. `coverage_report.json`의 C3 라벨
+  3곳 갱신. **발견**: `kansal_taewang_01`·`sarin_sangsaeng_01`의 `expected_shadow_ok` true→false — bisect 결과 첫 bad 커밋은
+  d990676(2026-07-12 희신=과다 교정)이며 C 시리즈(95aa07c 직전) 이전부터 false. 官殺이 legacy에서 한신으로 내려가 "shadow<legacy"
+  기대가 성립할 수 없게 된 spec 기대값 노후화로 판단(엔진 회귀 아님). spec 수정은 승인 사항.
+- **조후 사전 감수**: `JOHU_NEED_REVIEW_2026-10-08.md` — 출처 A(궁통보감 원문)·B(서락오 해설본 3사이트)·C(ncc 판) 대조.
+  글자 집합 57/60 일치(3칸은 원문이 사전 지지), 변경 권고 10건(런타임 영향은 壬未 癸 추가 1건), 판단 갈림 4건, conditions 초안 17건
+  (엔진 미소비), avoid 6건, §4-1 10칸은 경고 유지 권고. **reviewed:true 전환은 승인 후**(§7 절차).
+- **C6 조사**: `SEWOON_DAEWOON_CONTEXT_C6.md` — 가설 성립(세운 luck_score는 원국×60갑자 순환, 대운 무관; period_hierarchy는 서술 전용).
+  불일치 29 = a18·b9·c2, 다년 평균 13건은 지표 설계 문제, 단일 연도 24건은 어떤 블렌드에서도 12/24 상한. 블렌드 w=0.5→24/44(54.5%).
+  권장 A(지표 보정) → B/C(플래그 OFF·별도 필드 `daewoon_context_score`). **변경 미적용, 승인 대기.**
+- **계획서 정정**: C0 완료 기준의 `tests/regression/test_comparison_casebook.py`는 리포에 없다(git 전체 이력에도 없음(한 번도 커밋되지 않음)). C0 "완료"는 데이터셋·재생·리포트까지이며
+  명식 재현 회귀 테스트는 **미작성** — 추가 여부 결정 필요.
+
+### 2026-10-08 — 승인 실행: C6-A 지표 보정 · 조후 3-A 9건 · shadow spec · C0 회귀 테스트 (데굴님 승인)
+
+- **C6-A**: `casebook_report.py` 시점 사건을 단일 연도(year/years/age)·다년 구간(daewoon/age~age_max/~age_max)으로 분리 집계
+  (`timed_single_*`, `timed_multi_*`, `sewoon_sign_ratio`). 합산 B/B'는 비교용 유지. **새 기준선(2026-10-08, C5 재생분)**:
+  단일 연도 26건 세운 10(38.5%)·대운 13(50.0%) / 다년 18건 대운 13(72.2%)·세운 부호 비율≥0.6 2(11.1%). 리포트·지표 사본
+  `cases/comparison_casebook/REPLAY_REPORT_2026-10-08.md`·`replay_metrics_2026-10-08.json`. B/C(대운 맥락 블렌드)는 플래그 OFF·별도 필드로
+  다음 단계.
+- **조후**: 3-A A-2~A-10 적용 → `johu_yongsin.json` v0.3.1 + `compiled/johu_yongsin_v0.3.1.json` + `JOHU_YONGSIN_VERSION` 상향.
+  `conditions_schema` 정의(항목 미등재·엔진 미소비). 영향 replay(`JOHU_NEED_REVIEW_2026-10-08.md` §8): A-1·B-2② 모집단 영향 0(합성 4건
+  역할 불변), B-1② 2명식 조후 후보 소실, B-3② 3명식 변경(1건 용신 반전) → 3-B 보류 유지, A-1 확정 대기.
+- **shadow spec**: `expect_role_shadow_neutral` 신설(shadow==legacy==0, 재승격 없음)로 관살태왕·살인상생 기대 교체, 재스캔으로
+  `coverage_report.json` 갱신(expected_shadow true 복귀, charts.jsonl 불변).
+- **C0 회귀**: `tests/regression/test_comparison_casebook.py` 158건(형상 1 + 명식 157) 통과.

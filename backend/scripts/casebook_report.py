@@ -4,6 +4,10 @@
 지표
   A. 쌍 비교 순위: 같은 사례 안에서 결과 극성이 다른 명식 쌍에 대해 엔진 생애 지수가 같은 순서인가
   B. 시점 사건 극성: 제공된 연도/나이/대운의 세운·대운 luck_score 부호가 결과 극성과 같은가
+     (C6-A 2026-10-08 데굴님 승인: 단일 연도(year/years/age)와 다년 구간(daewoon/age~age_max/
+      ~age_max)을 분리해 센다. 다년 구간의 세운 평균은 60갑자 순환으로 0에 수렴해 부호를 지우므로
+      세운 극성 지표는 단일 연도만, 다년 구간은 대운 극성 + 세운 부호 연도 비율(≥0.6)로 본다.
+      합산 B/B'는 비교용으로 유지)
   C. 시점 도메인 히트: 그 시점 상위 이벤트/위험에 결과 도메인이 나타나는가(개인 기준선 대비)
   D. 구조 판정표: 신강약·격국·용희기구한 — 문서 해설과 사람이 대조
 
@@ -87,6 +91,15 @@ def _age_year(sub: dict, age: int) -> int:
     return int(sub["date_used"][:4]) + age - 1
 
 
+def _span_kind(when: dict) -> str:
+    """시점 종류 — 'single'(year/years/age 단독) 또는 'multi'(대운·연령 구간). C6-A."""
+    if "year" in when or "years" in when:
+        return "single"
+    if "age" in when and "age_max" not in when:
+        return "single"
+    return "multi"
+
+
 def _years_for_when(sub: dict, when: dict) -> tuple[list[int], str]:
     """제공 시점 → 엔진 연도 목록, 기준 설명."""
     if "year" in when:
@@ -151,6 +164,7 @@ def _domain_hits(sub: dict, years: list[int], domain: str) -> dict[str, Any]:
     }
     return {
         "years": years,
+        "sewoon_scores": scores,
         "sewoon_mean": round(statistics.mean(scores), 2) if scores else None,
         "event_hit_years": hit_years,
         "event_fav_mean": round(statistics.mean(fav), 2) if fav else None,
@@ -213,12 +227,31 @@ def _outcome_rows(c: dict, subs: dict, metrics: dict) -> list[str]:
                 if any(int(d["start"][:4]) <= y < int(d["start"][:4]) + 10 for y in years)
             ]
             dw_mean = round(statistics.mean(dw_scores), 2) if dw_scores else None
+            span = _span_kind(when)
+            sew_scores = h["sewoon_scores"]
+            sign_ratio = (
+                round(sum(1 for v in sew_scores if _sign(v) == pol) / len(sew_scores), 2)
+                if sew_scores else None
+            )
             if pol in "+-":
                 metrics["timed_total"] += 1
-                if h["sewoon_mean"] is not None and _sign(h["sewoon_mean"]) == pol:
+                sew_ok = h["sewoon_mean"] is not None and _sign(h["sewoon_mean"]) == pol
+                dw_ok = dw_mean is not None and _sign(dw_mean) == pol
+                if sew_ok:
                     metrics["timed_sewoon_agree"] += 1
-                if dw_mean is not None and _sign(dw_mean) == pol:
+                if dw_ok:
                     metrics["timed_daewoon_agree"] += 1
+                # C6-A: 단일 연도/다년 구간 분리 집계.
+                if span == "single":
+                    metrics["timed_single_total"] += 1
+                    metrics["timed_single_sewoon_agree"] += int(sew_ok)
+                    metrics["timed_single_daewoon_agree"] += int(dw_ok)
+                else:
+                    metrics["timed_multi_total"] += 1
+                    metrics["timed_multi_daewoon_agree"] += int(dw_ok)
+                    metrics["timed_multi_sewoon_ratio_agree"] += int(
+                        sign_ratio is not None and sign_ratio >= 0.6
+                    )
                 if h["event_hit_years"]:
                     metrics["timed_event_hit"] += 1
                 risk_up = (h["risk_inc_mean"] is not None
@@ -227,7 +260,8 @@ def _outcome_rows(c: dict, subs: dict, metrics: dict) -> list[str]:
                     metrics["timed_risk_above_base"] += 1
                 metrics["timed_detail"].append({
                     "case": c["case_id"], "key": s["key"], "domain": o["domain"], "pol": pol,
-                    "when": label, "sewoon_mean": h["sewoon_mean"], "daewoon_mean": dw_mean,
+                    "when": label, "span": span, "sewoon_mean": h["sewoon_mean"],
+                    "sewoon_sign_ratio": sign_ratio, "daewoon_mean": dw_mean,
                     "event_hit": bool(h["event_hit_years"]), "event_fav": h["event_fav_mean"],
                     "risk_inc": h["risk_inc_mean"], "risk_base": h["risk_inc_base"],
                 })
@@ -304,11 +338,21 @@ def _summary(metrics: dict, n_subs: int) -> list[str]:
     md.append(f"- A. 쌍 비교 순위 일치: {pa}/{pt} = {pa / pt * 100:.1f}%"
               if pt else "- A. 쌍 비교 없음")
     if tt:
-        for label, key in (("B. 시점 사건 세운 극성 일치", "timed_sewoon_agree"),
-                           ("B'. 시점 사건 대운 극성 일치", "timed_daewoon_agree"),
+        for label, key in (("B. 시점 사건 세운 극성 일치(합산·비교용)", "timed_sewoon_agree"),
+                           ("B'. 시점 사건 대운 극성 일치(합산·비교용)", "timed_daewoon_agree"),
                            ("C. 시점 도메인 이벤트 히트(상위4)", "timed_event_hit"),
                            ("C'. 시점 도메인 위험밀도 > 개인 기준선", "timed_risk_above_base")):
             md.append(f"- {label}: {metrics[key]}/{tt} = {metrics[key] / tt * 100:.1f}%")
+        st, mt = metrics["timed_single_total"], metrics["timed_multi_total"]
+        if st:
+            for label, key in (("B1. 단일 연도 세운 극성 일치", "timed_single_sewoon_agree"),
+                               ("B1'. 단일 연도 대운 극성 일치", "timed_single_daewoon_agree")):
+                md.append(f"- {label}: {metrics[key]}/{st} = {metrics[key] / st * 100:.1f}%")
+        if mt:
+            for label, key in (("B2. 다년 구간 대운 극성 일치", "timed_multi_daewoon_agree"),
+                               ("B2'. 다년 구간 세운 부호 연도 비율≥0.6",
+                                "timed_multi_sewoon_ratio_agree")):
+                md.append(f"- {label}: {metrics[key]}/{mt} = {metrics[key] / mt * 100:.1f}%")
     bydom: dict[str, Counter] = defaultdict(Counter)
     for r in metrics["timed_detail"]:
         d = bydom[r["domain"]]
@@ -336,6 +380,9 @@ def main() -> int:
         "pair_total": 0, "pair_agree": 0, "pair_detail": [],
         "timed_total": 0, "timed_sewoon_agree": 0, "timed_daewoon_agree": 0,
         "timed_event_hit": 0, "timed_risk_above_base": 0, "timed_detail": [],
+        "timed_single_total": 0, "timed_single_sewoon_agree": 0, "timed_single_daewoon_agree": 0,
+        "timed_multi_total": 0, "timed_multi_daewoon_agree": 0,
+        "timed_multi_sewoon_ratio_agree": 0,
         "structure_only": [], "pillars_mismatch": [],
     }
     sections = [_case_section(c, subs, metrics) for c in cases]

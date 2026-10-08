@@ -11568,3 +11568,50 @@ conditions 미작성=미검토 상태).
 - 남은 결정: .env.beta ON, 코드 표 확정(F-3 정의), 월 단위 창 규칙.
 - 같은 날 확정: 코드 체계 F-1 내적 질병/F-2 외적 사고/F-3 스스로 만드는 위기(`severe_event_codes.json` reviewed:true), 034→F-2 로 F-1 조건 강화, 월 단위 창 추가, .env.beta ON. 테스트 8건.
 검증 기록(C5 최종): `./scripts/run_suite.sh` VALID_SUITE_PASS · `./scripts/gates.sh --quick` ruff·typecheck·maintained_scripts exit 0.
+
+## 2026-10-08 — C8 큐 등록 · shadow 재스캔 · 조후 사전 v0.3.0 감수 보고 · C6 세운 극성 조사 (데굴님 지시)
+
+### 배경
+데굴님 지시 "C8·coverage 갱신 즉시 진행, 조후 감수와 C6 조사 우선 착수, 판정 로직 변경은 영향 보고 후 승인". 검색·신뢰 출처 활용 지시에 따라
+궁통보감 원문(维基文库)과 서락오 조후용신표 해설본을 직접 취득해 대조했다.
+
+### 문제
+- 조후 사전 v0.3.0 needs[] 태그가 감수 전(`reviewed:false`)이고 111명식 후보가 바뀐 변경의 근거가 미확정.
+- 세운 극성 15/44(34%) vs 대운 26/44(59%) 괴리 원인 미확인.
+- C3 이후 `coverage_report.json` 라벨 미갱신, F9 큐 미등록.
+
+### 해결
+- `doc/v2_2/DICTIONARY_REVIEW_QUEUE.md`: F9 12항목 등록(C8).
+- `backend/data/shadow_charts/coverage_report.json`: 재스캔 재생성(charts.jsonl 불변). expected_shadow 2건 false는 bisect로 d990676
+  (2026-07-12)이 첫 bad 커밋 — spec 기대 노후화, 어제 C 시리즈와 무관.
+- `doc/v2_2/JOHU_NEED_REVIEW_2026-10-08.md`: 60칸 감수 보고(권고 10·갈림 4·conditions 17·avoid 6·§4-1 10칸 결론). 사전은 미수정.
+- `doc/v2_2/SEWOON_DAEWOON_CONTEXT_C6.md` + `cases/comparison_casebook/c6_analysis/`: 읽기 전용 조사(에이전트 위임), 변경 후보 A~D 영향 보고.
+- `doc/v2_2/CASEBOOK_CALIBRATION_PLAN.md` §6 진행 기록 추가, C0 회귀 테스트 부재 정정.
+
+### 결과
+소스·사전·테스트 무변경(문서·생성 산출물만). 승인 대기: 조후 3-A 10건+3-B 4건+conditions 스키마, C6 후보 A→B/C, shadow spec 기대값 수정,
+C0 명식 재현 회귀 테스트 추가 여부. 게이트는 소스 무변경이라 미실행(생성 산출물 coverage_report는 테스트 미참조 확인).
+
+## 2026-10-08 — 승인 실행: C6-A 지표 보정 · 조후 3-A 9건(v0.3.1) · shadow spec 기대값 교정 · C0 명식 재현 회귀 (데굴님 승인)
+
+### 배경
+데굴님 결정: "C6 A 지표 보정 우선, 조후 3-A는 비런타임 9건 적용·壬未 癸는 replay 후 확정, 3-B 4건 보류, conditions 는 스키마·문서까지,
+shadow spec 은 의도 동작 명시 후 수정, C0 회귀 테스트 추가". 실행 순서 지표 보정 → 확정 수정·검증 기반 정비 → replay.
+
+### 해결
+- `backend/scripts/casebook_report.py`: `_span_kind`(single/multi)·`timed_single_*`/`timed_multi_*`·`sewoon_sign_ratio` 추가, 요약에
+  B1/B1'/B2/B2' 노출. 새 기준선 단일 26(세운 10·대운 13)/다년 18(대운 13·세운 비율 2). 사본 `doc/v2_2/cases/comparison_casebook/*_2026-10-08.*`.
+- `backend/dictionaries/johu_yongsin.json` 0.3.0→0.3.1: A-2 癸巳 庚 추가, A-3 戊巳 甲 priority, A-4 丙亥 壬 alt, A-5 丙丑 甲 alt,
+  A-6 戊子·丑 甲 alt, A-7 辛午 己 pair, A-8 庚子 丙 alt, A-9/A-10 note(`tag_source: reviewed`). `conditions_schema` 정의(미소비),
+  `review_status` partially_reviewed, `reviewed:false` 유지. `johu_dict.JOHU_YONGSIN_VERSION`=0.3.1, 스냅샷 재컴파일(10 경고=§4-1 10칸).
+- 영향 replay(스크래치 `johu_variants.py`, 셀 지역성 기반 해당 명식만): A-1·B-2② 모집단 0/214(합성 4건 역할 불변·경고 해제), B-1② 2/2 조후
+  후보 소실, B-1③ 0/2, B-3② 3/10(CASE-008/R 용신 반전). → 3-B 보류 유지, A-1 확정 대기. 결과는 감수 보고 §8.
+- `shadow_chart_predicates.expect_role_shadow_neutral` 신설(shadow==legacy==0 — canonical 한신 강등 후 operational 재승격 없음),
+  `shadow_chart_specs` 관살태왕·살인상생 기대 교체(의도 동작 주석). `find_shadow_charts.py` 재스캔으로 coverage_report 갱신.
+  `jesal_assist_earth_01` expected_shadow false 는 2026-06-24 생성 시점부터 false(기존 상태, 미변경).
+- `backend/tests/regression/test_comparison_casebook.py` 신설: 픽스처 형상(85/180/157) + 명식 157건 4주 재현(변형 4종×시각 이동 5종).
+
+### 결과
+게이트·스위트 기록은 아래 검증 기록. 승인 대기: A-1 확정, 3-B 4건(§8 근거), avoid 6건, C6 B/C 구현(플래그 OFF·별도 필드).
+검증 기록(2026-10-08): `./scripts/gates.sh --quick` ruff·typecheck·maintained_scripts 전부 state=RAN exit=0 (production mypy gate clean ·
+maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(note 병합·스냅샷 재빌드 후) VALID_SUITE_PASS.

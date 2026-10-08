@@ -216,6 +216,31 @@ def expect_role_shadow_down(label: str) -> Pred:
     return Pred(f"{label} shadow 하향", fn)
 
 
+def expect_role_shadow_neutral(label: str) -> Pred:
+    """해당 operational_role 오행의 shadow 가중과 legacy(final) 가중이 **둘 다 0** 인지.
+
+    의도한 동작(2026-07-12 희신=과다 교정 이후): 관살태왕·살인상생의 官殺(병 오행)은 canonical
+    단계에서 이미 final 한신(가중 0)으로 강등되고, operational 라벨 '조건부 한신/병'의 가중도
+    0 이다. 즉 operational 층은 이 오행을 **재승격하지 않는다**(중첩 유입 시 기신성은 조건 템플릿·
+    운 서술 가드가 담당, 가중 아님). legacy 가 이미 0 이라 `expect_role_shadow_down`("shadow <
+    legacy")은 성립할 수 없으므로 그 기대는 '조건부 희신/병'(희신 0.6 → 하향) 전용이다.
+    2026-10-08 데굴님 승인.
+    """
+    def fn(r: ManseV2Result) -> bool:
+        ya = _ya(r)
+        if not ya:
+            return False
+        el = next((er.element for er in ya.operational_roles
+                   if er.operational_role == label), None)
+        if el is None:
+            return False
+        sw = operational_shadow_weights(ya).get(el)
+        lr = favorability_map(r).get(el)
+        lw = SHADOW_ROLE_WEIGHT.get(lr, 0.0) if lr else 0.0
+        return sw == 0.0 and lw == 0.0
+    return Pred(f"{label} shadow 중립(legacy 한신 0 유지·재승격 없음)", fn)
+
+
 def invariant_additive() -> Pred:
     """2계층 공존 — canonical/operational/final 모두 존재(operational 이 무엇도 덮지 않음)."""
     def fn(r: ManseV2Result) -> bool:

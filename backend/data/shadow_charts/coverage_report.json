@@ -11,9 +11,9 @@
       "status": "FOUND",
       "match_quality": "FOUND",
       "satisfied_predicates": [
-        "strength∈극신약/태신약/신약/중화신약",
+        "strength∈태신약/신약/중화신약",
         "최다십성=officer",
-        "작동역할:조건부 희신/병"
+        "작동역할:조건부 한신/병"
       ],
       "missing_predicates": [],
       "expected_shadow_ok": true,
@@ -25,7 +25,7 @@
       "match_quality": "FOUND",
       "satisfied_predicates": [
         "최다십성=officer",
-        "작동역할:조건부 희신/병"
+        "작동역할:조건부 한신/병"
       ],
       "missing_predicates": [],
       "expected_shadow_ok": true,
@@ -41,7 +41,7 @@
       ],
       "missing_predicates": [],
       "expected_shadow_ok": true,
-      "notes": "표준 丁巳/壬子류 재현"
+      "notes": "비겁 희신이 한습 조후 역행으로 강등되는 류(예: 己酉/丁丑/癸巳) 재현"
     },
     {
       "chart_id": "johu_cold_01",
@@ -161,7 +161,7 @@
       "status": "FOUND",
       "match_quality": "FOUND",
       "satisfied_predicates": [
-        "strength∈극신약/태신약/신약/중화신약",
+        "strength∈태신약/신약/중화신약",
         "최다십성=wealth"
       ],
       "missing_predicates": [],
@@ -255,7 +255,7 @@
       ],
       "missing_predicates": [],
       "expected_shadow_ok": null,
-      "notes": "극신약+무근 순응(종격)"
+      "notes": "극단 신약(점수≤34)+무근 순응(종격)"
     },
     {
       "chart_id": "jeonwang_01",

@@ -33,18 +33,21 @@ class ChartSpec:
 SPECS: list[ChartSpec] = [
     # ── 그룹 1: 관살/살인상생/조건부 병 ──
     # 희신 과다 교정(2026-07-12) 후 관살태왕의 官殺은 final 한신 강등 → '조건부 한신/병'.
+    # 의도한 동작: 官殺(병)은 canonical 에서 이미 한신(가중 0)이고 operational 가중도 0 —
+    # "legacy 대비 하향"이 아니라 "중립 유지·재승격 없음"이 기대값이다(2026-10-08 데굴님 승인;
+    # 2026-07-12 이후 expect_role_shadow_down 이 성립 불가였던 것을 bisect 로 확인).
     ChartSpec(
         "kansal_taewang_01", "관살태왕 신약 — 官殺 조건부 한신/병",
         required=[P.strength_in(_WEAK), P.dominant_group("officer"),
                   P.has_operational_role("조건부 한신/병")],
-        expected_shadow=P.expect_role_shadow_down("조건부 한신/병"),
+        expected_shadow=P.expect_role_shadow_neutral("조건부 한신/병"),
         notes="官殺 과발동 방지 핵심",
     ),
     ChartSpec(
         "sarin_sangsaeng_01", "살인상생 — 印 용신·官殺 조건부",
         required=[P.dominant_group("officer"), P.has_operational_role("조건부 한신/병")],
         preferred=[P.strength_in(_WEAK)],
-        expected_shadow=P.expect_role_shadow_down("조건부 한신/병"),
+        expected_shadow=P.expect_role_shadow_neutral("조건부 한신/병"),
         notes="살인상생형 일반화",
     ),
     ChartSpec(
