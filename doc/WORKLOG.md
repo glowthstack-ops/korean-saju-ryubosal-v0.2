@@ -11704,3 +11704,8 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 측정 222명식: 표시 변경 22(구 uncertain 8→confirmed, 신규 가종 11·진종 3), final_weight 14건 변동(0.325), 특수→일반 0. 테스트 +1, gates --quick. 재생·스위트 반복 없음.
 - 가중 분리(데굴님 지시): `_final_weight(level, base_level)` — 가종은 정격 가중 유지, 진종만 1.30. 소비 경로 = `_select_axis_weights`(중화·신강 분기)·프론트 문구뿐.
   재측정 가중 변동 5건(진종 ↑3·가종 ↓2), 5건 final 불변. 성과 = 판정·표시 기준 통일. 검증: 집중 테스트(가중 분리 단언 포함)·gates --quick.
+
+## 2026-10-08 — 용신 투출 천간 자리 손상 변경안 (데굴님 지시, 승인 대기)
+
+- `doc/v2_2/YONGSIN_STEM_DAMAGE_PROPOSAL.md`: 측정(189명식) 투출 100·손상 ≥1 57, #6c 4인자 제안(stem_clash·stem_controlled·seat_void·seat_clash, 0.10),
+  중복 방지(좌하 통근은 #6a), operability 전용. 구현 없음.
