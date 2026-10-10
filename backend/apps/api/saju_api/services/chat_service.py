@@ -107,6 +107,7 @@ from saju_engines.query_parser import (
     AFFIRMATION_RE,
     BEHAVIOR_PATTERN_RE,
     NEUTRAL_PAST_EXPLANATION_RE,
+    SEVERE_CODE_QUESTION_RE,
     detect_kin_axis,
     implies_self_counterpart,
     parse_message,
@@ -2864,6 +2865,26 @@ _ACCIDENT_RISK_DIRECTIVE = (
     "금지). 질문 기간이 길면(수년~10년) 주의 시기를 2~3개로 압축하고, 나머지 기간은 비교적 "
     "평온하다는 균형도 함께 말하라."
 )
+
+
+# 관리자 코드(F-n) 근거 질문(2026-10-10 데굴님 승인) — 답을 [원국 건강 취약 구조] 블록의 코드 줄
+# [근거]로만 한정한다. 실로그: '2031년 F-2 코드의 근거'가 총운으로 라우팅돼 巳亥충·亥亥형·원진·
+# 공망을 근거처럼 끌어왔다(실제 근거는 취약 장기 재공격·대운 중첩). 코드 의미는 여전히 비공개.
+_SEVERE_CODE_EVIDENCE_DIRECTIVE = (
+    "[코드 근거 질문] 사용자는 관리자 코드(F-n) 표기의 근거를 묻고 있다. 답은 [원국 건강 취약 "
+    "구조] 블록의 해당 연도 코드 줄에 적힌 [근거](어느 운 글자·오행이 취약 장기·일간을 어떻게 "
+    "건드리는지, 대운·세운 중첩, 본인 생애 분포 상위 비율)만으로 구성하고, 코드 문장은 그대로 "
+    "한 번만 인용할 것. "
+    "코드의 의미·사건 종류는 추측·설명하지 말 것. 그 해의 총운·직업·재물·관계 서술과, 다른 블록의 "
+    "충·형·합·원진·공망·신살을 근거로 끌어오는 것은 금지. 의료 진단이 아니며 질병명·수명·사망 단정 "
+    "금지 — '그 무렵 컨디션·검진을 챙기라는 신호'라는 관리 프레임을 유지할 것. 해당 연도에 코드 "
+    "줄이 없으면 그 해에는 코드 표기가 없다고만 답할 것."
+)
+
+
+def _is_severe_code_question(question: str) -> bool:
+    """관리자 코드(F-n) 근거 질문 여부 — 파서와 같은 정규식(SSOT)."""
+    return bool(SEVERE_CODE_QUESTION_RE.search(question))
 
 
 def _is_accident_risk_question(question: str) -> bool:
@@ -5969,6 +5990,9 @@ def chat(
     # 후보·위험 신호는 건강·안전 축으로 이미 필터돼 들어온다.
     if _is_accident_risk_question(question):
         trailing.append(_ACCIDENT_RISK_DIRECTIVE)
+    # 관리자 코드(F-n) 근거 질문 — 건강 블록 코드 줄 [근거]로만 답하게 고정(2026-10-10).
+    if _is_severe_code_question(question):
+        trailing.append(_SEVERE_CODE_EVIDENCE_DIRECTIVE)
     # 인연·만남 시기 — 만남은 '택일'이 아니므로 약한/기신 달을 선택지로 끌어와 무르지 말고,
     # 가장 유리한 시기 하나(연·반기·계절)로. 만날 장소·경로는 사주로 단정 불가(과도한 구체화 금지).
     # 단 사용자가 '달'을 명시하면 '연·계절로 제시' 지시가 질문 입도와 충돌하므로(실사례 오답의

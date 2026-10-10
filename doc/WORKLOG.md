@@ -11826,3 +11826,33 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
   와 report_service(재물 섹션) 호출부가 `favorability_map` 역할 전달. `preparation_context_lines` 발현 후보 문구를 "그 해 운 천간에 식상 동반
   (운에서의 식상생재 유입 — 원국 구조 아님)"으로.
 - 테스트 `test_wealth_capacity_lines.py` 3건. 재물 그릇 판정 로직(`analyze_wealth_capacity`) 자체는 불변.
+
+## 2026-10-10 — 화면수정안(화면수정안_261010.pdf) 5건 반영: 명칭 Beta test·히어로 제거·드로어 통합·사주목록 이동 버튼 (데굴님 지시)
+
+- 명칭: 헤더 로고 '류보살 v2' → '류보살 Beta test'(`Gnb.tsx`), 브라우저 탭 제목(`app/layout.tsx`) 동일.
+- 홈(`app/page.tsx`): 상단 소개 히어로(제목·설명·로그인/내 사주목록 버튼·비회원 안내) 전체 제거 — 공간만 차지. 로그인·사주목록 진입은 드로어가 담당.
+- 드로어(`Gnb.tsx`·`AuthPanel.tsx`): '현재 선택된 사주' 블록은 로그인 시에만 렌더하고, 계정 표시(`{loginId}님`+로그아웃)와 한 블록으로 통합.
+  하단 계정 패널은 비로그인 전용(로그인 폼)으로 축소 — `AuthPanel`의 로그인 상태 분기 제거. 사주목록 페이지의 비로그인 URL 직접 진입 가드는
+  유지하되 '확인 중…' 문구는 제거(null).
+- 사주목록(`app/sajus/page.tsx`·`SubjectCard.tsx`): 선택 카드 내부 하단에 '이 사주로 보기' 행 + 테마사주/AI채팅상담 이동 버튼(2열, 모바일 대응).
+  딤드 레이어 없이 인라인 — `SubjectCard`에 optional `footer` 슬롯 추가, 다른 사용처(게이트웨이) 영향 없음.
+- 헤더 '○○ 기준 ⓘ' 팝오버 하단에 '사주목록 →' 이동 링크 추가(데굴님 추가 지시).
+- 검증: `tsc --noEmit` 0, vitest 38 passed, production build 0(`var/frontend_build_20261010.log`). 백엔드 변경 없음.
+
+## 2026-10-10 — 관리자 코드(F-n) 근거 병기 + 코드 근거 질문 라우팅 (데굴님 지적·승인)
+
+- 실로그(데굴, 1980-11-22 09:40 구로구): "2031년에 F-2 코드의 위험이 있다고 알려준 근거를 알고 싶어" → 답이 2031년 총운(巳亥충·亥亥형·辰亥원진·공망)
+  으로 흘렀다. 원인 ①파서가 `fortune_overview`/general 로 분류해 '한 해 총운' 지시문이 붙음 ②`health_lines` 가 코드 줄에서 근거(`w.reasons`)를 빼고
+  "의미를 설명하지 말 것"만 지시해 LLM 이 인용할 근거가 없었음. 엔진의 실제 근거 = 취약 장기 심·혈관(火)을 세운 亥(水)·대운 壬(水)이 재공격 +
+  대운·세운 중첩, 창 48 ≥ 본인 p93(44) → F-2(천극지충·일간 입묘 없음). 2032 동일 F-2, 2033 은 일간 입묘 가세 70 → F-1.
+- `health_vulnerability.health_window_evidence(window, result, profile, thresholds)`: 창 룰 적중을 세운·대운 글자와 취약 장기·일간 관계로 번역
+  (새 명리 규칙 없음, `_period_reasons` 의 같은 오행 관계만 글자로 되짚음) + `percentile_top_label`(p97/93/85 → 상위 3/7/15%). 코드 의미는 비공개 유지.
+- `structural_context.health_lines`: 코드 줄에 `[근거: …]` 병기, 관리자 코드 지시문에 "근거 질문엔 [근거]만으로 설명, 다른 블록의 충·형·합·원진·
+  공망·신살 금지" 추가(채팅·리포트 공용).
+- `query_parser.SEVERE_CODE_QUESTION_RE`(`코드 F-n`/`F-n`) → `DOMAIN_ANALYSIS` + `HEALTH` 고정(파싱 꼬리, 마지막 우선). 승인안의 Q5(event_explanation)
+  대신 Q2 를 쓴 이유: chat 이 Q5 를 과거 방향(retro)으로 못박아 미래 연도 질문에 맞지 않음.
+- `chat_service._SEVERE_CODE_EVIDENCE_DIRECTIVE`(trailing): 답을 코드 줄 [근거]로만, 총운·타 블록 인용 금지, 관리 프레임 유지, 코드 줄 없는 해는 없다고만.
+- F-2 트리거(손상 장기 재공격 단독 허용, 10-07 034 교정)는 데굴님 결정대로 불변 — 2031 은 외적 신호 없이 재공격 단독으로 F-2 가 붙는다는 점 보고.
+- 테스트 `test_severe_code_evidence.py` 5건(정규식·라우팅·근거 문구·health_lines·dry-run 프롬프트). 게이트: lint `All checks passed`,
+  `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 결과는 아래 줄.
+  전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=8dffbaf, 지문 동일, exit 0; `var/suite_severe_code_20261010.log`). 백엔드 8888 재기동 반영.

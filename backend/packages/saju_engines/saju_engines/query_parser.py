@@ -582,6 +582,10 @@ def _detect_domains(text: str) -> list[Domain]:
 _CHART_SCOPE_RE = re.compile(
     r"(?:내|제|나의|저의|본인)\s*(?:사주|명식|원국)|(?:사주|명식|원국)\s*(?:에서|상|의|는)"
 )
+# 관리자 코드(F-n) 근거 질문(2026-10-10 데굴님 승인) — 건강 창 코드 표기의 근거를 묻는 질문.
+# 총운(Q1)으로 떨어지면 한 해 총운 지시문이 붙어 답이 연간 흐름으로 새므로, 건강 도메인 분석(Q2)
+# 으로 고정한다. Q5(사건 설명)는 chat 이 과거 방향(retro)으로 못박아 미래 연도에 맞지 않는다.
+SEVERE_CODE_QUESTION_RE = re.compile(r"(?:코드\s*)?F\s*-\s*[1-9]\b", re.IGNORECASE)
 # 주의점 어휘 — chart_caution 플래그(관리 프레임 지시문·시점 미승계).
 _CAUTION_RE = re.compile(r"주의|조심|약점|단점|취약|리스크|문제점")
 
@@ -1324,6 +1328,11 @@ def parse_message(
             ):
                 _last.subjects = [SubjectRef(kind=SubjectKind.SELF, label="본인")]
                 _last.subject_mode = SubjectMode.SINGLE
+        # 관리자 코드(F-n) 근거 질문 — 건강 도메인 분석으로 고정(마지막 우선, 타 도메인 오염 차단).
+        if SEVERE_CODE_QUESTION_RE.search(piece):
+            _last.query_type = QueryType.DOMAIN_ANALYSIS
+            _last.domain = Domain.HEALTH
+            _last.domains = []
     return ParsedMessage(
         intents=intents, output_style=style,
         trace={  # P0 — 시점 해소 추적(파싱 계층)

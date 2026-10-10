@@ -22,6 +22,7 @@ from .era_energy import era_curated_note, era_energy_profile
 from .health_vulnerability import (
     health_percentile_thresholds,
     health_risk_windows,
+    health_window_evidence,
     lifetime_health_scores,
     load_severe_codes,
     percentile_level,
@@ -753,8 +754,12 @@ def health_lines(
             code = severe_event_code(w, thresholds, codes) if thresholds else None
             bg = f" {w.daewoon}대운" if w.daewoon else ""
             if code:
-                # C5-4(데굴님 지시): 금지 어휘 대신 관리자 전용 코드 문장으로만 표시 — 의미 비전달.
-                coded.append(f"- {w.period}년{bg}: {template.format(code=code)}")
+                # C5-4(데굴님 지시): 금지 어휘 대신 관리자 전용 코드 문장으로 표시 — 의미 비전달.
+                # 근거 병기(2026-10-10 데굴님 승인): 코드 근거 질문에 LLM이 다른 블록의 충·형·합을
+                # 끌어오던 결함 — 창 점수를 만든 운 글자·오행 관계만 덧붙인다(의미는 여전히 비공개).
+                evidence = health_window_evidence(w, result, hv, thresholds)
+                ev = f" [근거: {'; '.join(evidence)}]" if evidence else ""
+                coded.append(f"- {w.period}년{bg}: {template.format(code=code)}{ev}")
             else:
                 shown.append(f"- {w.period}년{bg}: {level} ({', '.join(w.reasons)})")
         if shown:
@@ -765,8 +770,11 @@ def health_lines(
             lines.extend(shown)
         if coded:
             lines.append(
-                "[관리자 코드 표기 — 아래 문장은 **문자 그대로 한 번만** 전달하고, 코드의 의미를 "
-                "추측·설명·완곡화하지 말 것. 질병명·사망·사고·수명 어휘로 바꾸지 말 것]"
+                "[관리자 코드 표기 — 코드 문장은 **문자 그대로 한 번만** 전달하고, 코드의 의미"
+                "(어떤 종류의 사건인지)를 추측·설명·완곡화하지 말 것. 질병명·사망·사고·수명 어휘로 "
+                "바꾸지 말 것. 코드의 근거를 물으면 각 줄의 [근거]에 적힌 운 글자·오행·취약 장기 "
+                "관계만으로 설명하고, 다른 블록의 충·형·합·원진·공망·신살을 코드 근거로 끌어오지 "
+                "말 것]"
             )
             lines.extend(coded)
     return lines
