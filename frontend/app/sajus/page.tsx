@@ -18,11 +18,12 @@ import type { SubjectSummary } from "@/lib/types";
 const UNDO_MS = 5000;
 
 // 선택 카드에서 바로 이동할 서비스(선택 사주는 SelectedSubjectProvider가 보관).
-const SERVICE_LINKS = [
-  { href: "/manse", label: "만세력" },
-  { href: "/themes", label: "테마사주" },
-  { href: "/chat", label: "AI채팅상담" },
-] as const;
+// 만세력은 게이트웨이(사주 재선택)를 거치지 않고 그 사주의 결과 페이지로 직행한다(데굴님 지시 2026-10-10).
+const SERVICE_LINKS: readonly { href: (subjectId: string) => string; label: string }[] = [
+  { href: (id) => `/manse/result?subject=${id}`, label: "만세력" },
+  { href: () => "/themes", label: "테마사주" },
+  { href: () => "/chat", label: "AI채팅상담" },
+];
 
 export default function SajusPage() {
   const router = useRouter();
@@ -123,8 +124,8 @@ export default function SajusPage() {
                     <div className="grid grid-cols-3 gap-2">
                       {SERVICE_LINKS.map((l) => (
                         <Link
-                          key={l.href}
-                          href={l.href}
+                          key={l.label}
+                          href={l.href(s.subject_id)}
                           onClick={(e) => e.stopPropagation()}
                           className="rounded bg-gray-800 px-3 py-2 text-center text-xs text-white hover:bg-gray-700"
                         >
