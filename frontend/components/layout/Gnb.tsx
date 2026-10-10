@@ -1,7 +1,8 @@
 "use client";
 
-// GNB — 햄버거 버튼 → 좌측 슬라이드 드로어. 현재 선택 사주 칩, 서비스 메뉴(무료/유료),
-// 사주목록·설정, 계정(ID+PIN) 패널을 담는다. 유료 항목은 비로그인 시 안내 뱃지를 단다.
+// GNB — 햄버거 버튼 → 좌측 슬라이드 드로어. 로그인 시 계정+현재 선택 사주 통합 블록,
+// 서비스 메뉴(무료/유료), 내 풀이·설정, 비로그인 시 계정(ID+PIN) 패널을 담는다.
+// 유료 항목은 비로그인 시 안내 뱃지를 단다. (화면수정안 2026-10-10)
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -31,7 +32,7 @@ const PAID: NavItem[] = [
   { href: "/chat", label: "AI채팅상담", desc: "대화형 사주 풀이" },
 ];
 
-// 경로 → 페이지 타이틀(메인 외 모든 페이지). 헤더의 '류보살 v2'를 대체 표시. 긴 접두사 우선.
+// 경로 → 페이지 타이틀(메인 외 모든 페이지). 헤더의 '류보살 Beta test'를 대체 표시. 긴 접두사 우선.
 const PAGE_TITLES: [string, string][] = [
   ["/daily", "일주별 오늘의 운세"],
   ["/manse", "만세력"],
@@ -52,12 +53,12 @@ export function Gnb() {
   // 스크롤 방향에 따라 top bar 숨김/표시(아래로 스크롤=숨김, 위로 스크롤=표시).
   const [hidden, setHidden] = useState(false);
   const pathname = usePathname();
-  // 현재 페이지 타이틀 — 메인('/') 외에는 '류보살 v2' 자리를 페이지 타이틀로 대체.
+  // 현재 페이지 타이틀 — 메인('/') 외에는 '류보살 Beta test' 자리를 페이지 타이틀로 대체.
   const pageTitle =
     pathname === "/"
       ? undefined
       : PAGE_TITLES.find(([href]) => pathname === href || pathname.startsWith(`${href}/`))?.[1];
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, loginId, logout } = useAuth();
   const { selected } = useSelectedSubject();
   const { badgeCount } = useReportNotifications();
   // 선택 사주의 출생정보 — '데굴 기준' 칩 클릭 시 확인용 툴팁으로 표시.
@@ -127,7 +128,7 @@ export function Gnb() {
           <Link href="/" className="text-lg font-bold" aria-label="홈">
             {pageTitle ?? (
               <>
-                류보살 <span className="text-gray-400">v2</span>
+                류보살 <span className="text-gray-400">Beta test</span>
               </>
             )}
           </Link>
@@ -168,6 +169,13 @@ export function Gnb() {
                     ) : (
                       <p className="text-gray-400">출생정보를 불러올 수 없어요.</p>
                     )}
+                    {/* 기준 사주 변경 진입점 — 팝오버에서 바로 사주목록으로 이동 */}
+                    <Link
+                      href="/sajus"
+                      className="mt-2 block rounded border px-2 py-1 text-center text-xs text-gray-700 hover:bg-gray-50"
+                    >
+                      사주목록 →
+                    </Link>
                   </div>
                 </>
               )}
@@ -207,17 +215,35 @@ export function Gnb() {
               </button>
             </div>
 
-            <div className="border-b px-4 py-3">
-              <p className="mb-1 text-xs font-medium text-gray-400">현재 선택된 사주</p>
-              {selected ? (
-                <p className="text-sm font-medium">{selected.label}</p>
-              ) : (
-                <p className="text-sm text-gray-400">선택된 사주 없음</p>
-              )}
-              <Link href="/sajus" className="mt-2 inline-block text-xs text-blue-600 hover:underline">
-                사주목록 관리 →
-              </Link>
-            </div>
+            {/* 로그인 시에만 — 계정 표시·로그아웃과 현재 선택 사주를 한 블록으로 통합.
+                비로그인에서는 선택 사주 개념이 없으므로 블록 자체를 숨긴다. */}
+            {isLoggedIn && (
+              <div className="border-b px-4 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-sm text-gray-600">
+                    <span className="font-medium text-gray-800">{loginId}</span>님
+                  </p>
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="shrink-0 rounded border px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-50"
+                  >
+                    로그아웃
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-gray-400">
+                  현재 선택된 사주 ·{" "}
+                  {selected ? (
+                    <span className="font-medium text-gray-800">{selected.label}</span>
+                  ) : (
+                    <span>선택된 사주 없음</span>
+                  )}
+                </p>
+                <Link href="/sajus" className="mt-1 inline-block text-xs text-blue-600 hover:underline">
+                  사주목록 관리 →
+                </Link>
+              </div>
+            )}
 
             <nav className="px-2 py-2">
               <p className="px-2 py-1 text-xs font-medium text-gray-400">무료</p>
@@ -252,9 +278,12 @@ export function Gnb() {
               </Link>
             </div>
 
-            <div className="border-t px-4 py-4">
-              <AuthPanel />
-            </div>
+            {/* 비로그인 시에만 — 로그인/새 계정 폼. 로그인 후 계정 표시는 상단 통합 블록으로 이동. */}
+            {!isLoggedIn && (
+              <div className="border-t px-4 py-4">
+                <AuthPanel />
+              </div>
+            )}
           </div>
 
           {/* 카피라이트 — 드로어 최하단 고정 */}

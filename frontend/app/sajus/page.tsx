@@ -2,7 +2,8 @@
 
 // 사주목록(관리) — 별명·생년월일시·용신/물상 등록여부 표시, 추가/수정/삭제.
 // 삭제는 스낵바 '되돌리기'로 취소 가능(미취소 시 일정 시간 후 실제 삭제 반영).
-// 비로그인 진입은 안내 페이지를 보여주지 않고 홈으로 돌려보내며 사이드바(계정 패널)를 연다.
+// 선택된 카드에는 테마사주·AI채팅상담 이동 버튼을 카드 내부에 인라인으로 보여준다(딤드 레이어 없음).
+// 비로그인 진입(URL 직접 입력)은 안내 없이 홈으로 돌려보내며 사이드바(계정 패널)를 연다.
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,6 +16,12 @@ import { deleteSubject, listSubjects } from "@/lib/subjects";
 import type { SubjectSummary } from "@/lib/types";
 
 const UNDO_MS = 5000;
+
+// 선택 카드에서 바로 이동할 서비스(선택 사주는 SelectedSubjectProvider가 보관).
+const SERVICE_LINKS = [
+  { href: "/themes", label: "테마사주" },
+  { href: "/chat", label: "AI채팅상담" },
+] as const;
 
 export default function SajusPage() {
   const router = useRouter();
@@ -75,7 +82,7 @@ export default function SajusPage() {
     setPending(null);
   }, [pending]);
 
-  if (!ready || !isLoggedIn) return <p className="text-sm text-gray-500">확인 중…</p>;
+  if (!ready || !isLoggedIn) return null;
 
   return (
     <div className="space-y-4">
@@ -108,6 +115,25 @@ export default function SajusPage() {
                 router.push(`/onboarding?mode=edit&subject=${x.subject_id}&next=/sajus`)
               }
               onDelete={startDelete}
+              footer={
+                selected?.subjectId === s.subject_id ? (
+                  <div>
+                    <p className="mb-1 text-[11px] text-gray-400">이 사주로 보기</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {SERVICE_LINKS.map((l) => (
+                        <Link
+                          key={l.href}
+                          href={l.href}
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded bg-gray-800 px-3 py-2 text-center text-xs text-white hover:bg-gray-700"
+                        >
+                          {l.label} →
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ) : undefined
+              }
             />
           ))}
         </div>

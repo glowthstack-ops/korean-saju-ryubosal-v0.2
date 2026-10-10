@@ -1,13 +1,13 @@
 "use client";
 
-// ID+PIN 로그인/등록 패널(드로어 내부). 로그인 상태면 계정 표시 + 로그아웃.
-// 임시 인증임을 안내한다(추후 OAuth 대치).
+// ID+PIN 로그인/등록 패널(드로어 내부, 비로그인 전용). 로그인 상태의 계정 표시·로그아웃은
+// Gnb 상단 통합 블록이 담당하므로 여기서는 렌더하지 않는다. 임시 인증임을 안내한다(추후 OAuth 대치).
 
 import { useState } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
 
 export function AuthPanel() {
-  const { ready, isLoggedIn, loginId, login, register, logout } = useAuth();
+  const { ready, isLoggedIn, login, register } = useAuth();
   const [id, setId] = useState("");
   const [pin, setPin] = useState("");
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -16,21 +16,7 @@ export function AuthPanel() {
 
   if (!ready) return <p className="text-xs text-gray-400">계정 확인 중…</p>;
 
-  if (isLoggedIn) {
-    return (
-      <div className="space-y-2 text-sm">
-        <p className="text-gray-600">
-          <span className="font-medium text-gray-800">{loginId}</span>님으로 로그인됨
-        </p>
-        <button
-          onClick={logout}
-          className="rounded border px-3 py-1 text-xs text-gray-600 hover:bg-gray-50"
-        >
-          로그아웃
-        </button>
-      </div>
-    );
-  }
+  if (isLoggedIn) return null;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

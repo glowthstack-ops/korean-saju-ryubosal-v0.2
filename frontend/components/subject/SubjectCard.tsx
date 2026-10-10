@@ -2,6 +2,7 @@
 
 // 사주 1건 카드 — 별명 + 생년월일시 + 용신/물상 등록여부 인디케이터 + (옵션)액션 버튼.
 // 목록(관리)과 게이트웨이(선택) 양쪽에서 재사용한다. 액션은 props 콜백으로 주입.
+// footer: 카드 하단 추가 영역(예: 선택 카드의 서비스 이동 버튼) — 주입한 경우에만 렌더.
 
 import type { SubjectSummary } from "@/lib/types";
 
@@ -19,9 +20,10 @@ interface Props {
   onSelect?: (s: SubjectSummary) => void;
   onEdit?: (s: SubjectSummary) => void;
   onDelete?: (s: SubjectSummary) => void;
+  footer?: React.ReactNode;
 }
 
-export function SubjectCard({ subject, active, onSelect, onEdit, onDelete }: Props) {
+export function SubjectCard({ subject, active, onSelect, onEdit, onDelete, footer }: Props) {
   const clickable = !!onSelect;
   return (
     <div
@@ -74,6 +76,8 @@ export function SubjectCard({ subject, active, onSelect, onEdit, onDelete }: Pro
           )}
         </div>
       )}
+
+      {footer && <div className="mt-3">{footer}</div>}
     </div>
   );
 }
