@@ -11837,6 +11837,7 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 사주목록(`app/sajus/page.tsx`·`SubjectCard.tsx`): 선택 카드 내부 하단에 '이 사주로 보기' 행 + 테마사주/AI채팅상담 이동 버튼(2열, 모바일 대응).
   딤드 레이어 없이 인라인 — `SubjectCard`에 optional `footer` 슬롯 추가, 다른 사용처(게이트웨이) 영향 없음.
 - 헤더 '○○ 기준 ⓘ' 팝오버 하단에 '사주목록 →' 이동 링크 추가(데굴님 추가 지시).
+- 후속(같은 날): 선택 카드 이동 버튼에 만세력 추가(3열), 버튼 내 화살표 제거(데굴님 지시).
 - 검증: `tsc --noEmit` 0, vitest 38 passed, production build 0(`var/frontend_build_20261010.log`). 백엔드 변경 없음.
 
 ## 2026-10-10 — 관리자 코드(F-n) 근거 병기 + 코드 근거 질문 라우팅 (데굴님 지적·승인)
