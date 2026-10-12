@@ -115,6 +115,7 @@ from saju_engines.query_parser import (
 )
 from saju_engines.relation_claim_audit import (
     audit_relation_claims,
+    dedupe_canonical_claims,
     patch_relation_claims,
 )
 from saju_engines.relation_semantics import collect_luck_relation_semantics
@@ -3238,13 +3239,34 @@ _SINGLE_MAJOR_RE = re.compile(
 _OVERVIEW_COVERAGE_DIRECTIVE = (
     "[총운 조망 지침] 선정된 주요 후보를 생활 영역별로 묶어 앞으로의 흐름을 조망하라. "
     "**선정된 이벤트 후보는 각각 최소 한 번씩 직접 다루고**, 강도가 가장 높은 후보는 "
-    "영역과 무관하게 답변 앞부분에서 비중 있게 서술하라 — 월별 용신·기신 흐름 서술이 "
+    "영역과 무관하게 첫 문단의 결론에 담아 비중 있게 서술하되, 나머지 영역(직장·관계·"
+    "재물·건강 등)은 영역당 1~2문장으로 짧게 받는다 — 월별 용신·기신 흐름 서술이 "
     "이벤트 후보 조망을 대체하거나 특정 영역(직업 등)으로 비중을 쏠리게 하면 안 된다. "
     "여러 후보가 같은 사건군·같은 영역에 집중돼 있으면 반복 나열하지 말고 하나의 "
     "흐름으로 통합하고, 그 집중을 명시하라('이 기간은 ○○ 영역 신호가 특히 강하다'). "
     "'반복 신호' 표기가 있으면 대표 시기와 재등장 시기를 하나의 흐름으로 설명하라. "
     "후보에 포함되지 않은 생활 영역은 상태를 임의로 추론하거나 '신호 없음·문제없음'으로 "
     "단정하지 말고 언급을 생략하라 — 후보가 존재하는 영역들만 조망한다."
+)
+
+
+# 결론 우선·근거 압축(2026-10-12 데굴님 지시) — 사용자는 결과를 먼저 듣고 근거는 짧게 받는
+# 것을 선호한다(단순·빠른 트렌드). 실답(오늘의 운세 1,215자): 첫 문장이 己未·己亥·土 용신으로
+# 시작하고 영역별 문단이 4~5문장씩 같은 비중으로 나열돼 결론이 늦게 드러났다. 시스템 규칙 7의
+# 1,500자 상한은 그대로 두되 '넘칠 때만 동작하는 상한'임을 명시한다 — 모델이 상한을 목표
+# 분량으로 삼아 채우던 실측(샘플 3회 934~1,329자)을 막는다. 부족할 때 상한에 맞추려 늘리는
+# 동작은 금지(2026-10-12 데굴님 지시). 챗 전용 — 리포트 섹션은 분량 목표가 달라
+# ANSWER_CLARITY_DIRECTIVE(공용)의 결론 우선 규칙만 공유한다.
+_RESULT_FIRST_BREVITY_DIRECTIVE = (
+    "[결론 우선·근거 압축 — 항상 적용] 사용자는 결과를 먼저 듣고 근거는 짧게 받기를 원한다. "
+    "구성은 ①일상어 결론 1~2문장 → ②그 결론을 받치는 근거(간지·관계·십성)를 영역당 1~2문장 "
+    "→ ③시스템 지시의 마무리 한 번 순서로 쓴다. 첫 문장에는 간지·오행·용신 등 한자 원어를 "
+    "한 글자도 넣지 않는다 — 예: '오늘은 내 편이 늘고 기반이 단단해지는 유리한 날이에요.'로 "
+    "시작하고, '己未 일진·土 용신' 같은 근거는 둘째 문단에서 처음 말한다(날짜·기준 설명으로 "
+    "시작하지도 않는다). 분량은 결론과 근거에 필요한 만큼만 쓰고 내용이 끝나면 멈춘다 — "
+    "시스템 지시의 1,500자는 넘칠 때만 줄이는 상한이지 채워야 할 분량이 아니며, 짧게 끝나도 "
+    "상한에 맞추려 늘리지 않는다. 같은 근거·같은 관계 문장을 두 곳에서 반복하지 마라. "
+    "영역을 소제목처럼 '직장과 업무 면에서는'으로 열지 말고 바로 내용 문장으로 들어간다."
 )
 
 
@@ -5519,6 +5541,9 @@ def chat(
         # 명확한 답 계약(2026-08-10 테스터 피드백) — 첫 문단 3진 판정+시기+행동, 유보 표현
         # 총량 제한(조건문 번역), 판정 용어 결과어 번역, 중요도 순 서술. 상시(리포트 공용).
         ANSWER_CLARITY_DIRECTIVE,
+        # 결론 우선·근거 압축(2026-10-12) — 일상어 결론 → 영역당 1~2문장 근거, 700~900자 목표.
+        # 챗 전용 상시.
+        _RESULT_FIRST_BREVITY_DIRECTIVE,
         # 근거 밖 사건 창작·저신뢰 정밀 단정·억지 긍정 보완 금지 — 상시(P4, 리포트 공용).
         EVIDENCE_FIDELITY_DIRECTIVE,
         # 질문 무관 성격 칭찬 서두 금지 — 상시(2026-07-22, 리포트 공용).
@@ -6751,7 +6776,9 @@ def _audit_relation_answer(answer, period_fortune, thread_id, extra_period_fortu
             "relation_claim_audit result=pass relations=%d thread=%s",
             len(semantics), thread_id,
         )
-        return answer
+        # 확정 문장 전문 반복 제거(2026-10-12) — 통과 답에서도 LLM이 같은 canonical 문장을
+        # 영역별 문단마다 복사한 경우를 첫 출현만 남긴다(결정론·재호출 없음).
+        return dedupe_canonical_claims(answer, semantics)
 
     patched = patch_relation_claims(answer, violations, semantics)
     _logger.warning(
@@ -6764,7 +6791,8 @@ def _audit_relation_answer(answer, period_fortune, thread_id, extra_period_fortu
         len(patched.unpatched), thread_id,
     )
     if patched.fully_repaired:
-        return patched.text
+        # 위반 문장 둘이 같은 canonical claim으로 교체되면 중복이 생긴다 — 첫 출현만 남긴다.
+        return dedupe_canonical_claims(patched.text, semantics)
     # 미교정 위반이 남음(모호하거나 문장 특정 실패) — 추가 LLM 호출 대신 엔진 데이터로
     # 답변을 조립한다. 어느 관계를 말하는지 확정 못 한 채 임의 문장으로 바꾸지 않는다.
     if period_v2_config.SAFE_TEMPLATE_FALLBACK_ENABLED:

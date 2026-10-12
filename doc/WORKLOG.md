@@ -11859,3 +11859,40 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 테스트 `test_severe_code_evidence.py` 5건(정규식·라우팅·근거 문구·health_lines·dry-run 프롬프트). 게이트: lint `All checks passed`,
   `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 결과는 아래 줄.
   전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=8dffbaf, 지문 동일, exit 0; `var/suite_severe_code_20261010.log`). 백엔드 8888 재기동 반영.
+
+## 2026-10-12 — 채팅 답변 결론 우선·근거 압축 + 관계 확정 문장 중복 제거 (데굴님 지시·승인)
+
+- 지시: 사용자는 결과를 먼저 듣고 근거는 짧게 받는 것을 선호한다(단순·빠른 트렌드). 실답 '오늘의 운세'(1,215자): 첫 문장이 己未·己亥·土 용신으로
+  시작, 午未合 엔진 확정 문장(합반·합거·化)이 2·3문단에 동일 반복, 영역별 문단이 4~5문장씩 같은 비중.
+- `structural_context.ANSWER_CLARITY_DIRECTIVE`(챗·리포트 공용) ①에 "첫 1~2문장은 원어 없는 일상어 결론, 간지·용어는 뒤 근거 문장에서 처음" 추가,
+  ③에 간지·오행·용신·합반·합거·化 원어 서너 번 상한 + 두 번째부터 결과어.
+- `chat_service._RESULT_FIRST_BREVITY_DIRECTIVE`(챗 전용 trailing 상시): 결론 1~2문장 → 영역당 근거 1~2문장 → 마무리, 첫 문장 한자 0, 예문,
+  700~900자 목표(시스템 규칙 7 상한 1,500자·규칙 8 리터럴은 불변). `_OVERVIEW_COVERAGE_DIRECTIVE`: 최강 후보는 첫 문단 결론에, 나머지 영역 1~2문장.
+- `relation_claim_audit.canonical_claim_lines` 헤더에 "한 번만 인용" 추가 + `dedupe_canonical_claims()` 신설(전문 일치 중복만 첫 출현 유지, 결정론·재호출
+  없음). `chat_service._audit_relation_answer` 통과·패치 완료 두 출구에 적용. 테스트 3건(헤더·중복 제거·결과어 문장 불변) + 지시문 불변식 2건.
+- 실답 샘플 3회(1980-11-22 09:40 서울 남, 2026-10-12): 첫 문장 일상어 결론 전환 확인, 중복 0, 분량 934~1,292자(목표 700~900 미달 — 모델이 상한
+  1,500자를 목표로 삼음). 추가 조치는 아래 미결.
+- 후속(같은 날, 데굴님 결정) ①분량: 상한은 넘칠 때만 동작해야 하며 부족할 때 상한에 맞추려 늘리는 동작은 금지 — 상한 하향 대신 챗 지시문에서
+  '700~900자 목표'를 빼고 "필요한 만큼만, 1,500자는 넘칠 때만 줄이는 상한이지 채울 분량이 아니다"로 교체(규칙 7·`llm_guard` 불변).
+  ②감사 오귀속 수정 승인: `_normalize_for_naming`(괄호 한글 병기 제거 + 접미 앞 공백 제거)을 `_named_relations`에만 적용, 2자 관계에 '午未합'·
+  '未午합' 한자+한글 접미 별칭 추가. 글자 언급(`_mentions_char`)은 미적용. 테스트 4건(병기 3형 귀속·역전 검출 유지).
+- 실답 샘플 4회차: 1,026자, 첫 문장 일상어 결론, 중복 0, 병기 호칭 오귀속 0. 잔여 오탐 1종(기존): 관계 호칭 없는 문장('己未 기운 … 결정권이 강화')이
+  창 경로로 午未合 STRENGTHEN_ASSERTED_WHEN_SUPPRESSED 에 귀속 — 별도 검토 대상(미착수).
+- 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`
+  (start_head=end_head=d9670ab, 지문 동일, exit 0; 1차 `var/suite_result_first_20261012b.log`, 후속 포함 최종 `var/suite_result_first_20261012c.log`).
+  백엔드 8100 재기동 반영, 미커밋.
+
+## 2026-10-12 — 관계 감사 창 귀속 좁히기 + 일주 요약 인용 조건화 (데굴님 지시)
+
+- 창 귀속: `_RELATION_WORD`가 한글 1음절('합'·'충'·'형'·'파'·'해')을 그대로 매칭해 '집중합니다'·'종합해보면'·'뚜렷해지고'·'충분히'·'유형이'
+  같은 일상 어절이 관계 어휘로 읽혔다 → 관계를 말하지 않은 문장이 공유 글자(未·己)만으로 午未合에 귀속, STRENGTHEN_ASSERTED_WHEN_SUPPRESSED 교체
+  (실답 4회차). 한자(合沖刑破害)는 그대로, 한글은 관계 어휘로만 읽히는 활용·복합형(합을/합으로/합화/합거/반합·방합·삼합/충이/충돌/형살/파살/
+  해살/육해/원진 등)으로 한정, 종합·결합·보충·유형·돌파 류는 lookbehind로 제외. '해' 단독 불인정. 호칭 경로(①)·캐노니컬 문장 검출은 불변.
+  테스트 3건(2026-10-12 스택 fixture: 오탐 문장 2형 무위반·'합을 하여' 억제 대상 강화 검출 유지).
+- 일주 요약 규칙(`context_reducer._ILJU_SUMMARY_INSTRUCTION`): "일주는 '나'다 — 모든 답의 소개가 아니라 성격·성향·취향 설명이 풀이 이해에 필요한
+  경우에만 인용(연애·배우자·대인 태도·적성, 또는 일지 십성·배우자궁 줄과 묶어 결론 근거가 될 때 — 예: 일지가 정재이자 배우자 자리 → 외모가 마음에
+  들어야 선택하는 경향). 총운·시기·방향 답은 성향 없이 결론이 서면 일주 문장 금지" 전제 추가. 기존 인용 형태 규칙(traits 1구절·서사 금지·병렬 문형)은
+  유지. 방향 답 계약(sinsal_direction)의 '기질 한 문장' 참조는 그대로. 테스트 1건.
+- 실답 샘플 5회차(같은 명식·오늘의 운세): 감사 위반 0(병기 호칭·창 귀속 오탐 모두 해소), 일주 언급 1회(관계 문단, 이전 2~3회), 1,194자.
+- 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트는 아래 줄.
+  전체 스위트 `VALID_SUITE_PASS`(`var/suite_result_first_20261012d.log`, 결과는 세션 보고 참조). 백엔드 8100 재기동 반영, 미커밋.

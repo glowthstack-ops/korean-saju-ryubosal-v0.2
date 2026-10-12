@@ -14,6 +14,7 @@ from saju_engines.relation_claim_audit import (
     RelationViolationKind,
     audit_relation_claims,
     canonical_claim_lines,
+    dedupe_canonical_claims,
     patch_relation_claims,
     split_sentences,
 )
@@ -333,3 +334,100 @@ def test_real_reversals_still_caught_after_explicit_name_rule(
     violations = audit_relation_claims(text, shared_semantics)
     assert (label, kind) in {(v.relation_label, v.kind) for v in violations}
     assert {v.relation_label for v in violations} == {label}
+
+
+def test_prompt_header_limits_claim_to_single_citation(semantics):
+    """확정 문장 헤더는 '한 번만 인용'을 명시한다(2026-10-12 — 영역별 문단 복사 반복 차단)."""
+    header = canonical_claim_lines(semantics)[0]
+    assert "한 번만 인용" in header
+
+
+def test_dedupe_keeps_first_canonical_claim_only(semantics):
+    """같은 canonical claim이 두 번 그대로 실리면 첫 출현만 남고 문장 간격은 유지된다."""
+    claim = _by_label(semantics, "寅亥合").canonical_claim
+    text = f"오늘은 유리한 날이에요. {claim} 일에서는 막힌 것이 풀려요. {claim} 돈은 점검이 맞아요."
+    out = dedupe_canonical_claims(text, semantics)
+    assert out.count(claim) == 1
+    assert out == f"오늘은 유리한 날이에요. {claim} 일에서는 막힌 것이 풀려요. 돈은 점검이 맞아요."
+    # 중복이 없으면 원문 byte 그대로.
+    assert dedupe_canonical_claims(out, semantics) == out
+
+
+def test_dedupe_ignores_rephrased_claims(semantics):
+    """결과어로 바꿔 받은 문장은 전문 일치가 아니므로 건드리지 않는다."""
+    claim = _by_label(semantics, "寅亥合").canonical_claim
+    text = f"{claim} 그래서 묶인 글자의 작용이 끌려가는 흐름이 이어져요."
+    assert dedupe_canonical_claims(text, semantics) == text
+
+
+# ── 한글 병기 호칭 정규화(2026-10-12 실답 오귀속) ───────────────────────────────
+# '午未(오미) 합'·'巳午未(사오미) 방합'처럼 한자 뒤 괄호 음 병기 + 공백이 끼면 직접 호칭
+# 인식이 실패해 공유 글자 관계로 귀속됐다. 2026-10-02 스택(酉 공유 3관계)으로 재현한다.
+@pytest.mark.parametrize(
+    "text",
+    [
+        "辰酉(진유) 합은 이번 판정에서 서로 묶이는 합반이며 합거입니다.",
+        "巳酉(사유) 반합이 형성되며 金(금)의 기운이 보조적으로 강화됩니다.",
+        "申酉(신유)방합으로 金 기운이 강화됩니다.",
+    ],
+)
+def test_annotated_relation_name_counts_as_explicit_name(shared_semantics, text):
+    """괄호 병기·공백이 끼어도 호칭된 관계에만 귀속되어 공유 글자 관계 위반이 나지 않는다."""
+    assert audit_relation_claims(text, shared_semantics) == []
+
+
+def test_annotated_name_still_catches_real_reversal(shared_semantics):
+    """정규화는 귀속만 바로잡는다 — 호칭된 관계 자체의 역전은 그대로 검출된다."""
+    text = "辰酉(진유) 합으로 金이 강해져 식상의 기운이 살아납니다."
+    violations = audit_relation_claims(text, shared_semantics)
+    assert {(v.relation_label, v.kind) for v in violations} == {
+        ("辰酉合", RelationViolationKind.TRANSFORMATION_ASSERTED_WHEN_NOT)
+    }
+
+
+# ── 호칭 없는 문장의 창 귀속 좁히기(2026-10-12 데굴님 승인) ────────────────────────
+# 2026-10-12 스택 — 대운 壬辰 · 세운 丙午 · 월운 戊戌 · 일진 己未. 午未合이 己 비견·丁 편인을
+# 억제(SUPPRESSED)한다. 관계를 말하지 않은 문장('뚜렷해지고'·'집중합니다'·'종합해보면')이
+# 한글 1음절 관계 어휘에 걸려 未·己 공유로 午未合에 귀속, STRENGTHEN 위반으로 교체되던 오탐.
+_OCT12_STEMS = ["壬", "丙", "戊", "己"]
+_OCT12_BRANCHES = ["辰", "午", "戌", "未"]
+
+
+@pytest.fixture(scope="module")
+def oct12_semantics():
+    """午未合(합반·합거, 己·丁 억제)이 성립하는 2026-10-12 스택의 관계 구조화 의미."""
+    from saju_api.services.manse_service import calculate
+
+    chart = calculate(_BIRTH.model_copy(update={"reference_date": date(2026, 10, 12)}))
+    sems = collect_luck_relation_semantics(chart, _OCT12_STEMS, _OCT12_BRANCHES)
+    sem = _by_label(sems, "午未合")
+    assert any(e.effect is EffectKind.SUPPRESSED and e.target == "己" for e in sem.effects)
+    return sems
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # 실답 오탐 문장 그대로 — '뚜렷해지고'의 '해'가 관계 어휘로 읽혔다.
+        "세운 丙午(병오)가 배경에 있습니다. 오늘 유입된 己未(기미) 기운은 당신에게 꼭 필요한 "
+        "土(토) 용신의 힘으로, 본인의 주관이 뚜렷해지고 결정권이 강화되는 흐름을 만듭니다.",
+        # '집중합니다'·'종합해보면'·'충분히' — 일상 어절.
+        "丙午(병오) 세운 속 己未(기미) 일진은 己(기) 비견을 강하게 합니다. 종합해보면 충분히 "
+        "좋은 날이니 정리에 집중합니다.",
+    ],
+)
+def test_sentence_without_relation_word_is_not_window_attributed(oct12_semantics, text):
+    """관계 어휘가 없는 문장은 공유 글자가 창 안에 있어도 어느 관계에도 귀속되지 않는다."""
+    assert audit_relation_claims(text, oct12_semantics) == []
+
+
+def test_window_path_still_catches_strengthen_of_suppressed_target(oct12_semantics):
+    """진짜 관계 어휘('합을 하여')가 있으면 창 경로 귀속과 억제 대상 강화 검출은 유지된다."""
+    text = (
+        "세운의 午(오화)가 들어옵니다. 일진 未(미토)가 그와 합을 하여 己(기) 비견이 더 "
+        "강해지니 주도권이 커집니다."
+    )
+    violations = audit_relation_claims(text, oct12_semantics)
+    assert ("午未合", RelationViolationKind.STRENGTHEN_ASSERTED_WHEN_SUPPRESSED) in {
+        (v.relation_label, v.kind) for v in violations
+    }

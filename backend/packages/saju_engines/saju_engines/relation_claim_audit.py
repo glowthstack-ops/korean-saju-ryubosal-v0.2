@@ -57,8 +57,21 @@ _NEGATION_WINDOW = 12
 
 # 문장 분리 — 한국어 종결('~요.', '~다.') + 줄바꿈. 오프셋 보존을 위해 finditer를 쓴다.
 _SENTENCE_END = re.compile(r"[.!?]+[\s\n]+|\n+")
-# 관계 언급 여부 판정용 키워드(합/충/형/파/해/원진).
-_RELATION_WORD = re.compile(r"합|沖|충|刑|형|破|파|害|해|원진")
+# 관계 언급 여부 판정용 키워드(합/충/형/파/해/원진) — 호칭 없는 문장의 창(±2문장) 귀속 입구.
+# 한글 1음절('합'·'충'·'형'·'파'·'해')을 그대로 쓰면 '집중합니다'·'종합해보면'·'뚜렷해지고'·
+# '충분히'·'유형이'처럼 일상 어절에 걸려, 관계를 말하지 않은 문장이 공유 글자(未·己)만으로
+# 午未合에 귀속돼 STRENGTHEN_ASSERTED_WHEN_SUPPRESSED 로 교체됐다(2026-10-12 실답). 한자는
+# 그대로 인정하고, 한글은 관계 어휘로만 읽히는 활용·복합형에 한정한다(2026-10-12 데굴님 승인).
+# '해' 단독은 인정하지 않는다(害·'해살'·'육해'로만) — 명식 서술에서 '해'는 거의 연(年)·행위다.
+_RELATION_WORD = re.compile(
+    r"合|沖|刑|破|害|원진|"
+    r"(?<![종결조통적부복취집배혼화연])합(?:화|거|반|국|을|이|으로|하여|해서|하는|하면|한다|해|과|도)|"
+    r"반합|방합|삼합|육합|암합|쟁합|"
+    r"(?<![보])충(?:이|을|으로|하|해|돼|되|살|과|도|돌)|상충|"
+    r"(?<![유모조변])형(?:살|이 |을|으로|하|과|도)|삼형|자형|형충|형파|"
+    r"(?<![돌출전])파(?:살|가 |를|로|과)|파해|"
+    r"해살|육해"
+)
 # 합화(化) 주장.
 _TRANSFORM_CLAIM = re.compile(r"합화|化하|化 성립|으로 변하|로 바뀌|로 화하|化한다")
 # 강화 주장 — 우회 표현까지 포함(단순 '강화·증폭'만 보면 뚫린다).
@@ -183,20 +196,48 @@ def _relation_name_aliases(sem: RelationSemantics) -> tuple[str, ...]:
     joined = "".join(k for k in ko if k)
     suffix = sem.relation_label[len("".join(sem.members)):]
     suffix_ko = _LABEL_SUFFIX_KO.get(suffix, "합")
+    hanja = "".join(sem.members)
     if len(sem.members) == 2:
         a, b = (k for k in ko if k)
         names += [f"{a}{b}합", f"{b}{a}합", f"{a}{b}{suffix_ko}", f"{b}{a}{suffix_ko}"]
+        # 한자 글자 + 한글 접미('午未합'·'未午합') — 병기 정규화 뒤 남는 형태(2026-10-12).
+        names += [f"{hanja}{suffix_ko}", f"{hanja[::-1]}{suffix_ko}", f"{hanja[::-1]}{suffix}"]
     else:
-        names += [f"{joined}합", f"{joined}{suffix_ko}"]
+        names += [f"{joined}합", f"{joined}{suffix_ko}", f"{hanja}합", f"{hanja}{suffix_ko}"]
     return tuple(dict.fromkeys(names))
+
+
+# 한글 병기 괄호 — '午未(오미) 합'·'巳午未(사오미) 방합'처럼 한자 뒤에 음을 괄호로 달면
+# 직접 호칭이 끊긴다. 관계 호칭 판정에서만 괄호 병기와 접미 앞 공백을 걷어낸다.
+_KO_ANNOTATION = re.compile(r"\(\s*[가-힣·\s]+\s*\)")
+_SUFFIX_GAP = re.compile(r"\s+(合|합|반합|방합|삼합)")
+
+
+def _normalize_for_naming(text: str) -> str:
+    """호칭 판정용 정규화 — 괄호 한글 병기 제거 + 관계 접미 앞 공백 제거.
+
+    '午未(오미) 합으로 인해 … 묶이는'은 午未合을 직접 부른 문장인데 원문 그대로는
+    '午未合'·'오미합' 어느 별칭에도 맞지 않아 공유 글자(未)로 巳午未방합에 귀속되어
+    BINDING_ASSERTED_WHEN_NONE 으로 오판·교체됐다(2026-10-12 실답 3회 중 2회).
+    글자 언급(_mentions_char)은 '해수(亥水)' 형태를 쓰므로 이 정규화를 거치지 않는다.
+
+    Args:
+        text: 문장 원문.
+
+    Returns:
+        호칭 매칭에만 쓰는 정규화 문자열.
+    """
+    out = _KO_ANNOTATION.sub("", text)
+    return _SUFFIX_GAP.sub(r"\1", out)
 
 
 def _named_relations(text: str, semantics: list[RelationSemantics]) -> set[str]:
     """문장이 이름으로 직접 부르는 관계 라벨 집합(없으면 빈 집합)."""
+    norm = _normalize_for_naming(text)
     return {
         sem.relation_label
         for sem in semantics
-        if any(alias in text for alias in _relation_name_aliases(sem))
+        if any(alias in text or alias in norm for alias in _relation_name_aliases(sem))
     }
 
 
@@ -457,6 +498,40 @@ def patch_relation_claims(
     )
 
 
+def dedupe_canonical_claims(answer: str, semantics: list[RelationSemantics]) -> str:
+    """같은 canonical claim이 두 번 이상 그대로 실렸으면 첫 출현만 남긴다(결정론·재호출 없음).
+
+    프롬프트가 확정 문장을 '그대로 쓰거나 생략'하라고 지시하므로 LLM이 같은 문장을 영역별
+    문단마다 복사하는 일이 생긴다(2026-10-12 실답: 午未合 문장이 2·3문단에 동일 반복).
+    패치 경로에서도 위반 문장 둘이 같은 canonical claim으로 교체되면 같은 중복이 생긴다.
+    두 경로 모두 이 함수로 정리한다. 확정 문장은 전문(全文) 일치만 중복으로 본다 — 결과어로
+    바꿔 받은 문장은 건드리지 않는다.
+
+    Args:
+        answer: 답변 원문(감사·패치 이후 텍스트).
+        semantics: 관계 구조화 의미(canonical claim 보유).
+
+    Returns:
+        각 canonical claim이 최대 한 번만 남은 답변. 중복이 없으면 원문 그대로.
+    """
+    out = answer
+    for sem in semantics:
+        claim = sem.canonical_claim
+        if not claim:
+            continue
+        first = out.find(claim)
+        if first < 0:
+            continue
+        cut = first + len(claim)
+        head, tail = out[:cut], out[cut:]
+        # 뒤따르는 공백 하나까지 함께 지워 '문장. 문장.' 간격을 유지한다.
+        tail = re.sub(re.escape(claim) + r" ?", "", tail)
+        out = head + tail
+    if out != answer:
+        out = re.sub(r" +\n", "\n", out)
+    return out
+
+
 def canonical_claim_lines(semantics: list[RelationSemantics]) -> list[str]:
     """생성 **전** LLM 입력용 — 관계별 확정 문장과 금지 주장.
 
@@ -466,7 +541,9 @@ def canonical_claim_lines(semantics: list[RelationSemantics]) -> list[str]:
         return []
     lines = [
         "[관계 확정 문장 — 아래 문장의 의미를 바꾸지 말 것. 그대로 쓰거나 생략만 "
-        "허용하며, 다른 뜻으로 바꿔 쓰면 안 된다(엔진 확정값)]"
+        "허용하며, 다른 뜻으로 바꿔 쓰면 안 된다(엔진 확정값). 각 문장은 답 전체에서 "
+        "한 번만 인용하고, 같은 관계를 다른 영역에서 다시 다룰 때는 원문 반복 없이 "
+        "결과어로만 받는다]"
     ]
     for sem in semantics:
         if not sem.canonical_claim:
