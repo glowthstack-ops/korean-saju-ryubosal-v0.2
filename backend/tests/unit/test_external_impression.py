@@ -104,11 +104,13 @@ def test_case2_metal_water_without_officer() -> None:
     assert external_impression_lines(prof, _intent(Domain.RELATIONSHIP)) == []
 
 
-# ── Case 3: 일지 도화 + 식상 적정(18~35%) → notable 노출 ──
+# ── Case 3: 일지 진도화 + 식상 적정(18~35%) → notable 노출 ──
 def _day_peach_output_result(gender: str = "female") -> ManseV2Result:
-    # 丙午 일주(일지 午=도화) + 식상 25%. 홍염(丙→寅) 미존재, 실제 도화 target 미존재.
+    # 丙午 일주 + 연지 丑 — 연지 丑(巳酉丑국) 기준 년살 午가 일지에 성립 = 일지 진도화
+    # (2026-10-13 D안: 일지가 子午卯酉라는 글자만으로는 도화가 아니다). 식상 25%.
+    # 홍염(丙→寅) 미존재, 일지 외 진도화 없음.
     return _result(
-        _pil("甲", "申", "편인", "편재"),
+        _pil("辛", "丑", "정재", "상관"),
         _pil("乙", "未", "정인", "정인"),
         _pil("丙", "午", "일간", "겁재"),
         _pil("戊", "辰", "식신", "식신"),
@@ -123,14 +125,14 @@ def test_case3_day_peach_plus_output_notable() -> None:
     sig = _codes(prof)
     assert "DAY_BRANCH_PEACH" in sig and sig["DAY_BRANCH_PEACH"].weight == 1.2
     assert "OUTPUT_EXPRESSION" in sig and sig["OUTPUT_EXPRESSION"].tier == "primary"
-    assert "ACTUAL_DOHWA_OR_HONGYEOM" not in sig  # 실제 도화·홍염 아님(단순 일지 왕지)
+    assert "ACTUAL_DOHWA_OR_HONGYEOM" not in sig  # 일지 진도화는 C3 한 번만(중복 가산 금지)
     assert prof.category_count >= 2 and prof.primary_signal_count >= 2
     assert prof.band == "notable" and prof.is_notable is True
     lines = external_impression_lines(prof, _intent(Domain.RELATIONSHIP))
     assert lines and any("끌림" in ln or "표현" in ln for ln in lines)
 
 
-# ── Case 4: 단순 子午卯酉만 존재(일지 아님) → 0.3, 단독 notable 금지 ──
+# ── Case 4: 단순 子午卯酉만 존재 → 매력 점수 없음(2026-10-13 D안 — 사정지는 성향 설명 전용) ──
 def test_case4_non_day_peach_only() -> None:
     # 일지 辰(도화 아님) + 연지 卯(왕지, 일지 외). 실제 도화 target·홍염 미존재.
     r = _result(
@@ -142,8 +144,8 @@ def test_case4_non_day_peach_only() -> None:
     )
     prof = analyze_external_impression(r)
     sig = _codes(prof)
-    assert "NON_DAY_PEACH_BRANCH" in sig and sig["NON_DAY_PEACH_BRANCH"].weight == 0.3
-    assert "DAY_BRANCH_PEACH" not in sig and "ACTUAL_DOHWA_OR_HONGYEOM" not in sig
+    assert not {"NON_DAY_PEACH_BRANCH", "DAY_BRANCH_PEACH", "ACTUAL_DOHWA_OR_HONGYEOM"} & set(sig)
+    assert not any(s.category == "peach" for s in prof.signals)
     assert prof.is_notable is False
     # 단순 왕지 존재만으로는 어떤 intent에서도 노출되지 않는다.
     assert external_impression_lines(prof, _intent(Domain.RELATIONSHIP)) == []
@@ -194,3 +196,32 @@ def test_missing_pillars_graceful() -> None:
     prof = analyze_external_impression(r)
     assert prof.band == "none" and prof.signals == []
     assert external_impression_lines(prof, _intent(Domain.RELATIONSHIP)) == []
+
+
+# ── D안(2026-10-13): 일지 글자만 子午卯酉 → 매력 점수 없음 / 일지 외 진도화 → C4a 1.0 ──
+def test_day_glyph_without_establishment_scores_nothing() -> None:
+    """일지가 午여도 연지·일지 삼합 기준 년살이 아니면 도화 점수를 주지 않는다."""
+    r = _result(
+        _pil("甲", "申", "편인", "편재"),   # 申(申子辰) 기준 년살=酉 — 午 아님
+        _pil("乙", "未", "정인", "상관"),
+        _pil("丙", "午", "일간", "겁재"),   # 午(寅午戌) 기준 년살=卯 — 원국에 없음
+        _pil("戊", "辰", "식신", "식신"),
+        groups={"output": 25.0, "officer": 5.0},
+    )
+    prof = analyze_external_impression(r)
+    assert not any(s.category == "peach" for s in prof.signals)
+
+
+def test_non_day_establishment_counts_once_as_c4a() -> None:
+    """일지 외 진도화는 C4a(1.0) 한 번 — 일지 진도화 C3 와 겹쳐 세지 않는다."""
+    r = _result(
+        _pil("甲", "申", "편인", "편재"),   # 申 기준 년살=酉
+        _pil("丁", "酉", "겁재", "정재"),   # 월지 酉 = 연지 申 기준 진도화
+        _pil("丙", "辰", "일간", "식신"),   # 辰(申子辰) 기준 년살=酉 — 같은 월지 酉
+        _pil("戊", "戌", "식신", "식신"),
+        groups={"output": 25.0},
+    )
+    prof = analyze_external_impression(r)
+    peach = [s for s in prof.signals if s.category == "peach"]
+    assert [s.code for s in peach] == ["ACTUAL_DOHWA_OR_HONGYEOM"]
+    assert peach[0].weight == 1.0

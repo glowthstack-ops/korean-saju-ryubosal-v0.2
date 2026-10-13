@@ -32,6 +32,7 @@ from saju_shared_types.relation_semantics import (
     EffectFavorability,
     EffectKind,
     FormationState,
+    RelationEffect,
     RelationSemantics,
     TransformationState,
 )
@@ -210,6 +211,9 @@ def _relation_name_aliases(sem: RelationSemantics) -> tuple[str, ...]:
 # 한글 병기 괄호 — '午未(오미) 합'·'巳午未(사오미) 방합'처럼 한자 뒤에 음을 괄호로 달면
 # 직접 호칭이 끊긴다. 관계 호칭 판정에서만 괄호 병기와 접미 앞 공백을 걷어낸다.
 _KO_ANNOTATION = re.compile(r"\(\s*[가-힣·\s]+\s*\)")
+# 한자 병기 괄호 — '사신(巳申)합'처럼 한글 음 뒤에 한자를 괄호로 달아도 직접 호칭이 끊긴다
+# (2026-10-13 실답: 巳申合 서술이 창 경로로 巳午방합·申戌방합에 귀속돼 안전 템플릿 교체).
+_HANJA_ANNOTATION = re.compile(r"\(\s*[\u4e00-\u9fff·\s]+\s*\)")
 _SUFFIX_GAP = re.compile(r"\s+(合|합|반합|방합|삼합)")
 
 
@@ -227,7 +231,7 @@ def _normalize_for_naming(text: str) -> str:
     Returns:
         호칭 매칭에만 쓰는 정규화 문자열.
     """
-    out = _KO_ANNOTATION.sub("", text)
+    out = _HANJA_ANNOTATION.sub("", _KO_ANNOTATION.sub("", text))
     return _SUFFIX_GAP.sub(r"\1", out)
 
 
@@ -300,6 +304,10 @@ def audit_relation_claims(
     sentences = split_sentences(answer)
     # 문장별 직접 호칭 관계 — 호칭이 있는 문장은 그 관계에만 귀속한다(공유 글자 오탐 차단).
     named = [_named_relations(s.text, semantics) for s in sentences]
+    # 문장별 묶임 어휘의 정당한 지시 대상 유무 — 있으면 binding=NONE 관계에 ③을 걸지 않는다.
+    binding_ok = [
+        _has_binding_referent(s.text, named[i], semantics) for i, s in enumerate(sentences)
+    ]
     out: list[RelationClaimViolation] = []
     for sem in semantics:
         if sem.formation_state is FormationState.NOT_FORMED and not sem.transform_element:
@@ -307,12 +315,88 @@ def audit_relation_claims(
         for i, s in enumerate(sentences):
             if not _referenced(sentences, i, sem, named[i]):
                 continue
-            out += _audit_sentence(sem, s)
+            out += _audit_sentence(sem, s, binding_referent=binding_ok[i])
     return out
 
 
-def _audit_sentence(sem: RelationSemantics, s: _Sentence) -> list[RelationClaimViolation]:
-    """문장 1개 × 관계 1건 — 불변식 4종을 확인한다."""
+#: 억제 대상 글자와 십성명의 인접 허용 폭('丙 정인'·'정인 丙(병화)').
+_EFFECT_TARGET_WINDOW = 8
+
+
+def _mentions_effect_target(text: str, eff: RelationEffect) -> bool:
+    """문장이 관계의 억제 대상 글자를 **십성명과 붙여** 부르는가('丙 정인'·'병화 정인').
+
+    글자 단독 언급은 인정하지 않는다 — 세운 丙午처럼 간지 표기 속 丙이 걸리면 묶임 어휘의
+    지시 대상이 있다고 오판해 진짜 역전('午戌반합으로 묶여')을 놓친다.
+    """
+    if not eff.ten_god:
+        return False
+    for alias in _CHAR_ALIASES.get(eff.target, (eff.target,)):
+        for m in re.finditer(re.escape(alias), text):
+            lo = max(0, m.start() - _EFFECT_TARGET_WINDOW)
+            around = text[lo : m.end() + _EFFECT_TARGET_WINDOW]
+            if eff.ten_god in around:
+                return True
+    return False
+
+
+def _has_binding_referent(
+    text: str, named: set[str], semantics: list[RelationSemantics]
+) -> bool:
+    """문장 안에 묶임·합거 어휘의 정당한 지시 대상이 있는가.
+
+    한 문장이 묶임 판정이 **있는** 관계(합반·합거)의 결과를 결과어로 받으면서 묶임 판정이
+    **없는** 반합·방합을 함께 부르는 서술은 정상이다 — 프롬프트가 '두 번째부터는 원어 대신
+    결과어', '영역당 1~2문장'을 요구하니 "丙 정인이 묶여 있어 … 巳午방합·申戌방합이 보조하는
+    …"처럼 한 문장에 합쳐 쓰게 된다. 직접 호칭 배타 규칙만 있으면 이 '묶여'가 호칭된
+    방합들에 귀속돼 BINDING_ASSERTED_WHEN_NONE ×2 → 모호 → 답 전체가 안전 템플릿으로
+    교체됐다(2026-10-13 실답·재현 3형). 다음 셋 중 하나면 지시 대상이 있다고 본다.
+      ① binding≠NONE 관계를 이름으로 부른다(정규화 호칭 포함).
+      ② 그 관계의 구성 글자가 **같은 문장 안에** 모두 있다(±2문장 창은 쓰지 않으며,
+         호칭된 다른 관계의 라벨 글자는 세지 않는다).
+      ③ 그 관계가 억제한 대상 글자가 십성명과 붙어 있다('丙 정인').
+    한계: 같은 문장에서 묶임 있는 합과 함께 "午戌반합도 묶인다"처럼 둘 다 묶였다고 쓰면
+    후자를 놓친다 — 확정 문장이 입력에 실리는 구조상 드문 형태로 보고 수용한다.
+
+    Args:
+        text: 문장 원문.
+        named: 문장이 직접 부르는 관계 라벨 집합.
+        semantics: 이번 턴 관계 구조화 의미 전체.
+    """
+    # ② 판정용 본문 — 호칭된 관계 라벨 자체는 걷어낸다. "巳午방합과 申戌방합이 서로 묶여"의
+    # 巳·申은 방합 이름의 일부이지 巳申合 서술이 아니다(걷어내지 않으면 이 진짜 역전을 놓친다).
+    bare = _normalize_for_naming(text)
+    for sem in semantics:
+        if sem.relation_label in named:
+            for alias in _relation_name_aliases(sem):
+                bare = bare.replace(alias, " ")
+    for sem in semantics:
+        if sem.binding_state is BindingState.NONE:
+            continue
+        if sem.relation_label in named:
+            return True
+        if all(_mentions_char(bare, c) for c in sem.members):
+            return True
+        if any(
+            _mentions_effect_target(text, eff)
+            for eff in sem.effects
+            if eff.effect is EffectKind.SUPPRESSED
+        ):
+            return True
+    return False
+
+
+def _audit_sentence(
+    sem: RelationSemantics, s: _Sentence, *, binding_referent: bool = False
+) -> list[RelationClaimViolation]:
+    """문장 1개 × 관계 1건 — 불변식 4종을 확인한다.
+
+    Args:
+        sem: 판정할 관계.
+        s: 문장.
+        binding_referent: 문장 안에 묶임 어휘의 정당한 지시 대상(묶임 판정이 있는 다른
+            관계)이 있는가. True면 ③ BINDING_ASSERTED_WHEN_NONE 을 걸지 않는다.
+    """
     out: list[RelationClaimViolation] = []
     el = sem.transform_element or ""
     transform_claimed = _claimed(_TRANSFORM_CLAIM, s.text)
@@ -352,7 +436,11 @@ def _audit_sentence(sem: RelationSemantics, s: _Sentence) -> list[RelationClaimV
             ))
 
     # ③ 묶임 판정이 없는데 묶였다·합거됐다고 서술(반합을 합반으로 옮기는 오류의 대칭).
-    if sem.binding_state is BindingState.NONE and _claimed(_BINDING_CLAIM, s.text):
+    if (
+        sem.binding_state is BindingState.NONE
+        and _claimed(_BINDING_CLAIM, s.text)
+        and not binding_referent
+    ):
         out.append(RelationClaimViolation(
             relation_label=sem.relation_label,
             kind=RelationViolationKind.BINDING_ASSERTED_WHEN_NONE,
@@ -409,6 +497,8 @@ class PatchOutcome(StrEnum):
     """패치 결과 분류 — 계측에서 모호성과 불가능을 구분해야 마커 도입 필요성을 판단한다."""
 
     PATCHED_UNIQUE_RELATION = "PATCHED_UNIQUE_RELATION"
+    # 한 문장이 여러 관계를 위반 → 그 문장을 위반 관계 전부의 canonical 문장으로 교체(2026-10-13).
+    PATCHED_MULTI_RELATION = "PATCHED_MULTI_RELATION"
     AMBIGUOUS_RELATION_FALLBACK = "AMBIGUOUS_RELATION_FALLBACK"
     UNPATCHABLE_RELATION_FALLBACK = "UNPATCHABLE_RELATION_FALLBACK"
 
@@ -420,6 +510,7 @@ class PatchedAnswer(BaseModel):
     patches: list[RelationPatch] = []
     unpatched: list[RelationClaimViolation] = []
     ambiguous_sentences: list[int] = []
+    multi_patched_sentences: list[int] = []  # 여러 관계 canonical 문장으로 교체된 문장
 
     @property
     def patched_count(self) -> int:
@@ -435,6 +526,8 @@ class PatchedAnswer(BaseModel):
     def outcome(self) -> PatchOutcome:
         """이번 패치의 대표 결과 — 로그 집계 키."""
         if self.fully_repaired:
+            if self.multi_patched_sentences:
+                return PatchOutcome.PATCHED_MULTI_RELATION
             return PatchOutcome.PATCHED_UNIQUE_RELATION
         if self.ambiguous_sentences:
             return PatchOutcome.AMBIGUOUS_RELATION_FALLBACK
@@ -465,8 +558,11 @@ def patch_relation_claims(
     by_label = {s.relation_label: s for s in semantics}
     sentences = split_sentences(answer)
     # 문장 인덱스 → 그 문장에서 위반한 관계들. 한 글자가 여러 관계에 참여하므로
-    # (예: 寅은 寅午반합·亥寅合·寅申충·寅巳해에 모두 참여) 후보가 둘 이상이면 어느
-    # 관계 문장으로 바꿔야 하는지 확정할 수 없다 — 임의로 고르지 않는다.
+    # (예: 寅은 寅午반합·亥寅合·寅申충·寅巳해에 모두 참여) 한 문장이 둘 이상에 걸린다.
+    # 어느 하나를 **임의로 고르지 않고**, 위반한 관계 전부의 canonical 문장(semantics 순)으로
+    # 그 문장을 교체한다 — 결정론·재호출 없음. 예전처럼 문장 하나 때문에 답 전체를 안전
+    # 템플릿으로 바꾸던 경로(2026-10-02·10-13 실답)는 canonical 문장이 없는 관계가 섞인
+    # 경우에만 남는다(2026-10-13 데굴님 승인).
     by_sentence: dict[int, set[str]] = {}
     for v in violations:
         by_sentence.setdefault(v.sentence_index, set()).add(v.relation_label)
@@ -475,26 +571,37 @@ def patch_relation_claims(
     patches: list[RelationPatch] = []
     patched_idx: set[int] = set()
     ambiguous: list[int] = []
+    multi_patched: list[int] = []
     for idx in sorted(by_sentence, reverse=True):  # 뒤에서부터 잘라야 오프셋이 안 밀린다
         labels = by_sentence[idx]
-        if len(labels) > 1:
-            ambiguous.append(idx)
+        if idx >= len(sentences):
             continue
-        sem = by_label.get(next(iter(labels)))
-        if sem is None or idx >= len(sentences) or not sem.canonical_claim:
+        sems = [
+            by_label[s.relation_label] for s in semantics
+            if s.relation_label in labels and s.canonical_claim
+        ]
+        if len(sems) != len(labels):
+            # canonical 문장이 없는 관계가 섞여 있으면 교체본을 확정할 수 없다.
+            if len(labels) > 1:
+                ambiguous.append(idx)
             continue
         s = sentences[idx]
-        out = out[: s.start] + sem.canonical_claim + out[s.end :]
-        patches.append(RelationPatch(
-            relation_label=sem.relation_label, sentence_index=idx,
-            original=s.text, replacement=sem.canonical_claim, applied=True,
-        ))
+        replacement = " ".join(sem.canonical_claim for sem in sems)
+        out = out[: s.start] + replacement + out[s.end :]
+        for sem in sems:
+            patches.append(RelationPatch(
+                relation_label=sem.relation_label, sentence_index=idx,
+                original=s.text, replacement=sem.canonical_claim, applied=True,
+            ))
         patched_idx.add(idx)
+        if len(sems) > 1:
+            multi_patched.append(idx)
 
     unpatched = [v for v in violations if v.sentence_index not in patched_idx]
     return PatchedAnswer(
         text=out, patches=patches, unpatched=unpatched,
         ambiguous_sentences=sorted(ambiguous),
+        multi_patched_sentences=sorted(multi_patched),
     )
 
 

@@ -12,6 +12,7 @@ LLM 입력의 **고정 prefix**(캐시 대상)를 만든다. 규칙:
 from __future__ import annotations
 
 import json
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -397,17 +398,59 @@ def _match_relation_item(relation_type: str, members: list[str]) -> dict | None:
     return candidates[0] if len(candidates) == 1 else None
 
 
+#: 서술 블록에서 생략하는 재물 주장 유형(2026-10-13 데굴님 확정 — ilju.json wealth_claims).
+#: 기준은 **문장 유형**이며 재성의 용희기구한과 무관하다(재성이 용·희신이어도 같은 규칙).
+#:   fortune_assertion — 일주만으로 재물복을 단정할 수 없다.
+#:   accumulation      — 축재 결과는 원국 전체와 운을 함께 봐야 해서 일주 블록이 말할 수 없다
+#:                       (재물 그릇·준비기 블록이 맡는다).
+#:   ability           — 능력 종류별로 필요한 근거가 다르다(수익 구조 ≠ 사업 판단력,
+#:                       수익 창출 ≠ 보존·관리). 현재 엔진은 그 수준까지 구분하지 못하므로
+#:                       근거 부족으로 생략한다.
+#: 유지: interest(관심·성향), cultural_symbol(띠 동물 상징 — 개인 재물복 근거로 쓰지 않는다는
+#: 규칙은 context_reducer 의 일주 자료 사용 규칙이 함께 싣는다).
+#: 생략은 문장 단위이며 고쳐 쓰지 않는다(새 문안 금지 — 원칙 10). 복합 문장은 무관한 장점도 함께
+#: 빠지므로 사전에 split_review 로 표시해 분리 감수 대상으로 남긴다.
+_ILJU_OMIT_CLAIM_TYPES: frozenset[str] = frozenset({"fortune_assertion", "accumulation", "ability"})
+
+
+def _ilju_omitted(entry: dict) -> dict[str, set[str]]:
+    """field → 생략할 원문 집합."""
+    out: dict[str, set[str]] = {}
+    for claim in entry.get("wealth_claims", []):
+        if claim["type"] in _ILJU_OMIT_CLAIM_TYPES:
+            out.setdefault(claim["field"], set()).add(claim["text"])
+    return out
+
+
+def _strip_sentences(text: str, sentences: set[str]) -> str:
+    """서사에서 태그된 문장을 통째로 걷어낸다(앞뒤 공백 정리, 나머지 문장은 그대로)."""
+    for sent in sentences:
+        text = text.replace(sent, "")
+    return re.sub(r"\s{2,}", " ", text).strip()
+
+
 def _serialize_ilju(entry: dict) -> str:
-    """일주 엔트리 → 프롬프트 텍스트(basis는 내부 근거라 제외)."""
+    """일주 엔트리 → 프롬프트 텍스트(basis·wealth_claims는 내부 근거라 제외).
+
+    재물 주장 태그 중 `_ILJU_OMIT_CLAIM_TYPES` 문장은 싣지 않는다 — LLM이 일주 일반 문장을
+    이 사람의 재물복·재물 능력으로 옮겨 쓰는 것을 막는다(2026-10-13 실답: 재성 구신 명식에
+    '타고난 재물 감각이 있는 명식'). 비워진 줄(밝은 면이 모두 생략 등)은 줄째 생략한다.
+    """
     animal = f"{entry['animal']['color']} {entry['animal']['name']}"
     traits = entry["traits"]
-    return "\n".join([
-        f"일주 {entry['ganji']} ({animal}) — {entry['imagery']}",
-        entry["narrative"],
-        "밝은 면: " + " / ".join(traits["light"]),
-        "그림자: " + " / ".join(traits["shadow"]),
-        f"배우자궁: {entry['spouse_palace_note']}",
-    ])
+    omit = _ilju_omitted(entry)
+    header = f"일주 {entry['ganji']} ({animal})"
+    if entry["imagery"] not in omit.get("imagery", set()):
+        header += f" — {entry['imagery']}"
+    light = [t for t in traits["light"] if t not in omit.get("traits.light", set())]
+    shadow = [t for t in traits["shadow"] if t not in omit.get("traits.shadow", set())]
+    lines = [header, _strip_sentences(entry["narrative"], omit.get("narrative", set()))]
+    if light:
+        lines.append("밝은 면: " + " / ".join(light))
+    if shadow:
+        lines.append("그림자: " + " / ".join(shadow))
+    lines.append(f"배우자궁: {entry['spouse_palace_note']}")
+    return "\n".join(lines)
 
 
 # 작동 역할 요약 token 절제(Phase 5a). warnings 최대 개수 + 누적 char 예산(토큰 proxy):

@@ -163,6 +163,7 @@ from saju_engines.task_procedures import (
     detect_task_pack,
     procedure_reference_block,
 )
+from saju_engines.ten_god_label_audit import audit_ten_god_labels, facts_from_pillar_details
 from saju_engines.time_parser import DAY_WORD_OFFSETS as _TP_DAY_WORDS
 from saju_engines.time_parser import LIFE_STAGE_AGE_RANGES, WEEK_FRAME_SUN_SAT
 from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
@@ -985,6 +986,7 @@ def _build_period_fortune(
     # 절기월 안내(데굴님 제안) — 해당 월운(절기월)의 간지 + 양력 절기 범위를 함께 준다.
     # 월운은 절입 기준이라 양력 달과 어긋난다(예: 未월=7/7~8/6). '7월=을미월' 혼동 방지.
     solar_month_note = ""
+    solar_month_user_note = ""
     if fortune_type in ("daily", "monthly"):
         m_label = day_solar_month if fortune_type == "daily" else start
         m_comp = next(
@@ -998,6 +1000,11 @@ def _build_period_fortune(
                 f"이 기간이 속한 절기월은 {m_comp.ganji.stem}{m_comp.ganji.branch}월"
                 f"(양력 {sm_s.isoformat()}~{sm_e.isoformat()})이다 — 월운은 절기 경계라 양력 달과 "
                 "다르니 '○월=○○월운'으로 혼동하지 말 것."
+            )
+            # 사용자 노출용(안전 템플릿) — 지시문 없이 사실만.
+            solar_month_user_note = (
+                f"이 기간이 속한 절기월은 {m_comp.ganji.stem}{m_comp.ganji.branch}월"
+                f"(양력 {sm_s.isoformat()}~{sm_e.isoformat()})이에요."
             )
     ctx = build_lifestyle_context(
         [SubjectRef(kind=SubjectKind.SELF, label="본인")],
@@ -1104,6 +1111,7 @@ def _build_period_fortune(
         period_label=label,
         ganji=pillar.ganji,
         solar_month_note=solar_month_note,
+        solar_month_user_note=solar_month_user_note,
         pillar_line=grounding["pillar_line"],
         luck_label=pillar.luck_label,
         luck_summary=pillar.luck_summary,
@@ -1651,7 +1659,42 @@ def finalize_answer_full(
             answer, ctx.payload.period_fortune, thread_id, ctx.payload.extra_period_fortunes,
         )
         answer = _audit_month_coverage_answer(answer, ctx.payload, thread_id)
+        answer = _audit_ten_god_labels_answer(answer, ctx, thread_id)
     return finalize_answer_text(answer, thread_id)
+
+
+def _audit_ten_god_labels_answer(
+    answer: str, ctx: ChatPostprocessContext, thread_id: str | None,
+) -> str:
+    """원국 지지 자리 십성 표기 감사(2026-10-13) — 엔진값과 명확히 다른 표기만 결정론 교정.
+
+    실답: 프롬프트에 '월주 丙子 · 지지 편관'이 정확히 실렸는데 "월지에 자리한 정관의 기운"으로 썼다.
+    LLM 재호출 없이 그 단어만 고친다. 여러 사람이 함께 나오는 답(동반자 공동 풀이·궁합)은 어느
+    사람의 '월지'인지 문장만으로 확정할 수 없어 건너뛴다.
+
+    Args:
+        answer: 앞 단계 후처리까지 마친 답변.
+        ctx: 생성 시점 맥락(원국 기둥 상세 보유).
+        thread_id: 로깅용.
+
+    Returns:
+        교정된 답변(불일치 없으면 원문).
+    """
+    payload = ctx.payload
+    ci = payload.chart_interpretation
+    if ci is None or not ci.pillar_details:
+        return answer
+    if len(payload.subject_blocks) > 1 or payload.relationship_context is not None:
+        return answer
+    if "[궁합 신호" in ctx.prompt_text:
+        return answer
+    fixed, fixes = audit_ten_god_labels(answer, facts_from_pillar_details(ci.pillar_details))
+    if fixes:
+        _logger.warning(
+            "ten_god_label_fixed surface=chat fixes=%s thread=%s",
+            [(f.position, f.written, f.corrected) for f in fixes], thread_id,
+        )
+    return fixed
 
 
 def finalize_answer_text(answer: str, thread_id: str | None = None) -> str:
@@ -3764,6 +3807,9 @@ def _structural_context(
     intent: IntentJson,
     today: date,
     question: str = "",
+    *,
+    thread_id: str | None = None,
+    turn_no: int | None = None,
 ) -> list[str]:
     """질문 도메인에 맞는 구조 해석 블록(누출 안전 한글). intent 미확정(general)=총운으로 간주해
     모든 블록을, 확정 도메인은 해당 블록만 표면화한다(2026-06-16 사용자 확정).
@@ -3783,6 +3829,7 @@ def _structural_context(
     )
     from saju_engines.preparation_context import build_preparation_context
     from saju_engines.structural_context import (
+        dohwa_structure_lines,
         era_energy_lines,
         external_impression_lines,
         health_lines,
@@ -3837,6 +3884,18 @@ def _structural_context(
     # 외적 인상·매력 신호 — 자체 allowlist·gender·band 게이트(미해당 시 무언급). 외모 직접질문은
     # suppress 도메인에서도 예외 노출하므로 도메인 분기 밖에서 항상 호출한다.
     out += external_impression_lines(analyze_external_impression(result), intent, question)
+    # 도화 구조(2026-10-13) — 진도화 성립·월담·사정지 구분, 자체 게이트(관계·명식분석·직접질문).
+    # 해석 문구는 검수 전(reviewed:false)이어도 싣는다 — 검수는 실제 답변을 보고서만 가능하므로
+    # 어떤 턴에 어떤 문구가 실렸는지 노출 원장 로그로 남긴다(실답 검수 경로).
+    from saju_engines.dohwa import analyze_dohwa
+
+    dohwa_lines, dohwa_keys = dohwa_structure_lines(analyze_dohwa(result), intent, question)
+    if dohwa_lines:
+        out += dohwa_lines
+        _logger.info(
+            "dohwa_text_exposed surface=chat thread=%s turn=%s keys=%s",
+            thread_id, turn_no, dohwa_keys,
+        )
     return out
 
 
@@ -5251,7 +5310,11 @@ def chat(
         }
     # 구조 해석 블록 — 단일 대상일 때만(궁합 비교는 대상 혼동 방지로 생략).
     structural = (
-        _structural_context(result, intent, today, question) if not plan.per_subject else None
+        _structural_context(
+            result, intent, today, question,
+            thread_id=thread_id, turn_no=state.turn_no if state is not None else None,
+        )
+        if not plan.per_subject else None
     )
     # 이사 평가 질문('이사하면 어때?' — 택일 아님)은 date_block이 없으므로, 십성 이사 이유분류를
     # 구조 블록에 실어 '무슨 십성이라 이런 이사' 서술을 가능케 한다(2026-06-18 결함 보완).

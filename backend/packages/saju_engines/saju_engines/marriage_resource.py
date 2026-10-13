@@ -28,6 +28,8 @@ from saju_shared_types.llm_input import UsefulGods
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.marriage_resource import MarriageResourceProfile
 
+from .dohwa import analyze_dohwa
+
 # 오행 상생/상극.
 _GENERATES = {"木": "火", "火": "土", "土": "金", "金": "水", "水": "木"}
 _CONTROLS = {"木": "土", "土": "水", "水": "火", "火": "金", "金": "木"}
@@ -147,8 +149,12 @@ def _inverse(table: dict[str, str], target: str) -> str:
 def _day_branch_temperament(branch: Branch) -> tuple[str, str]:
     """일지(배우자궁) 12지지 → 왕지/생지/고지 3분류 + 관계 기질 경향 라벨(비단정).
 
-    왕지(子午卯酉·도화)·생지(寅申巳亥·역마)·고지(辰戌丑未·화개)로 나눠 연애·배우자 관계의
+    왕지(子午卯酉)·생지(寅申巳亥·역마)·고지(辰戌丑未·화개)로 나눠 연애·배우자 관계의
     기질을 중립 경향으로만 표면화한다. 점수·단정 없이 서술 보조로만 쓰며, 미분류면 빈 값.
+    왕지 라벨에서 '도화형'과 "이성 인연이 잦고 끌림이 빠르나 익숙해지면 마음이 먼저 식기 쉬운"
+    서술을 뺐다 — 子午卯酉 보유는 사정지(가도화)일 뿐 도화 성립이 아니며, 개성·자기주장 성향으로만
+    설명한다(2026-10-13 도화 정비 기준, 도화는 saju_engines.dohwa 진도화만). 생지 '역마형'·고지
+    '화개형' 표기도 같은 글자 기준 문제라 실제 성립 조건과 대조 후 정비할 별도 항목으로 기록했다.
 
     Args:
         branch: 일지 지지.
@@ -159,8 +165,7 @@ def _day_branch_temperament(branch: Branch) -> tuple[str, str]:
     if branch in SAJEONG:
         return (
             "wangji",
-            "왕지(子午卯酉·도화형) — 이성 인연이 잦고 끌림이 빠르나, 익숙해지면 마음이 먼저 "
-            "식기 쉬운 결·'내 페이스' 경향",
+            "왕지(子午卯酉) — 개성·자기주장이 뚜렷해 관계에서도 '내 페이스'를 지키려는 결",
         )
     if branch in SASAENG:
         return (
@@ -433,12 +438,19 @@ def analyze_marriage_resource(
     )
     spouse_star_excess = spouse_pct >= 30.0 or spouse_visible_count >= 3
     spouse_star_absent = not spouse_star_present
-    # 도화(사정지 子午卯酉)·홍염(일간→지지) — 이성에게 매력적으로 비치는 끌림 경향.
+    # 도화·홍염 — 각자의 성립 조건으로 구분한다(2026-10-13 도화 정비). 도화는 진도화(연지·일지
+    # 삼합 기준 년살) 성립만 인정하고, 子午卯酉 글자 보유(사정지)만으로는 도화를 부여하지 않는다.
+    # 홍염은 일간 기준 홍염 지지가 원국에 있을 때.
     day_master = Stem(day_pillar.stem)
     branch_objs = [Branch(pil.branch) for pil in all_pillars]
-    charm_present = (
-        any(b in SAJEONG for b in branch_objs)
-        or HONGYEOM.get(day_master) in branch_objs
+    dohwa = analyze_dohwa(result)
+    dohwa_established = bool(dohwa is not None and dohwa.established)
+    hongyeom_present = HONGYEOM.get(day_master) in branch_objs
+    charm_present = dohwa_established or hongyeom_present
+    charm_label = "·".join(
+        name for ok, name in (
+            (dohwa_established, "도화(진도화 성립)"), (hongyeom_present, "홍염"),
+        ) if ok
     )
 
     # 배우자궁(일지) 기질 — 왕지/생지/고지 3분류(경향·비단정).
@@ -507,7 +519,7 @@ def analyze_marriage_resource(
         (spouse_star_present, f"{spouse_star} 존재(배우자 신호)"),
         (spouse_star_absent, absent_label),
         (spouse_star_excess, excess_label),
-        (charm_present, "도화·홍염 — 이성에게 매력적으로 비치고 끌림이 잦은 경향"),
+        (charm_present, f"{charm_label} — 이성에게 매력적으로 비치고 끌림이 잦은 경향"),
         (wealth_in_family_palace, "재성 년월(집안·초년 기반)"),
         (wealth_in_result_palace, "재성 시주(결혼 후·결과 자원)"),
         (wealth_strong, "재성 세력 강"),
@@ -530,6 +542,8 @@ def analyze_marriage_resource(
         spouse_star_excess=spouse_star_excess,
         spouse_star_absent=spouse_star_absent,
         charm_present=charm_present,
+        dohwa_established=dohwa_established,
+        hongyeom_present=hongyeom_present,
         day_branch_group=day_branch_group,
         day_branch_tendency=day_branch_tendency,
         day_branch_ten_god_group=day_branch_ten_god_group,

@@ -35,9 +35,12 @@ class MarriageResourceProfile(BaseModel):
     # 신호가 많아 한 곳에 매이기보다 끌림이 잦은 결, 미투출 = 인연을 스스로 만들어가는 능동형.
     spouse_star_excess: bool = False  # 배우자 별 과다(남:재다 / 여:관살혼잡 경향)
     spouse_star_absent: bool = False  # 배우자 별 미투출(천간·본기 부재 — 능동형 구조)
-    charm_present: bool = False  # 도화·홍염(이성에게 매력적으로 비치는 끌림 경향)
+    charm_present: bool = False  # 도화(진도화 성립) 또는 홍염 — 각자의 성립 조건(2026-10-13)
+    dohwa_established: bool = False  # 진도화 성립(子午卯酉 글자 보유=사정지는 해당 없음)
+    hongyeom_present: bool = False  # 일간 기준 홍염 지지가 원국에 있음
     # ── 배우자궁(일지) 기질 — 왕지/생지/고지 3분류(도화·역마·화개, 경향·비단정) ──
-    # 왕지(子午卯酉)=인연 잦고 끌림 빠르나 익숙해지면 식기 쉬움, 생지(寅申巳亥)=먼저 다가가나
+    # 왕지(子午卯酉)=개성·자기주장·'내 페이스'(2026-10-13 — 이성 인연·끌림 서술 제거, 글자 보유는
+    # 이성 매력 근거 아님), 생지(寅申巳亥)=먼저 다가가나
     # 마무리 약함, 고지(辰戌丑未)=신중·수동·익숙함 선호. 점수·단정 없이 관계 기질 경향으로만.
     day_branch_group: str = ""  # wangji(왕지)/saengji(생지)/goji(고지) — 빈 문자열이면 미분류
     day_branch_tendency: str = ""  # 한글 경향 라벨(서술용)

@@ -367,6 +367,9 @@ class PeriodFortune(BaseModel):
     # 절기월 안내 — 월운은 절기 경계라 양력 달과 어긋난다(예: 未월=7/7~8/6). '7월=을미월' 혼동을
     # 막으려 절기월 간지와 양력 날짜 범위를 함께 준다(2026-06-22 데굴님 제안). 비어 있으면 미표기.
     solar_month_note: str = ""
+    # 같은 절기월 사실의 **사용자 노출용** 문장. solar_month_note는 LLM 지시('…혼동하지 말 것')가
+    # 붙은 프롬프트 전용 문자열이라 안전 템플릿 등 사용자 직접 출력에는 이 필드만 쓴다(2026-10-13).
+    solar_month_user_note: str = ""
     pillar_line: str  # 십성·십이운성·용신정렬 요약 1줄(grounding)
     luck_label: str = ""  # '강한 용신운'
     luck_summary: str = ""  # 엔진 운 요약 그대로

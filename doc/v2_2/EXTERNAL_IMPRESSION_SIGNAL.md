@@ -193,3 +193,9 @@ legacy_female_centric_used: bool          # 진단용
 7. 단순 "2개 이상" 대신 **가중 스코어 + primary≥1 + category≥2**.
 8. `structural_context` 주입에 **intent allowlist** 적용.
 9. 재미 위주 정보 — 하드 가드 유지하되 과잉 조심·면책 남발 금지.
+
+## 2026-10-13 도화계 D안 (데굴님 확정)
+
+- 도화 정비 기준(글자 보유 ≠ 도화 성립)에 따라 도화계 신호를 진도화(연지·일지 삼합국 년살 성립) 기준으로 바꿨다. `DAY_BRANCH_PEACH`=일지 진도화 1.2, `ACTUAL_DOHWA_OR_HONGYEOM`=일지 외 진도화 또는 홍염 1.0(일지 진도화는 C3에서만 — 같은 진도화 중복 가산 없음), `NON_DAY_PEACH_BRANCH`(子午卯酉 글자 보유 0.3)는 **제거**. 사정지(子午卯酉)는 성향 설명 전용이다.
+- 근거: `scripts/compare_dohwa_consumers.py` 후보 비교(3,131명) — notable 이상 A(현행) 55.9% / B 47.7% / C 48.8% / D 43.1%. 기존 수치를 재사용했다는 사실만으로 가중 타당성이 확보되지 않으므로 글자 신호를 모두 뺀 D안을 채택했다. band 임계(1.8/2.8)·게이트는 불변.
+

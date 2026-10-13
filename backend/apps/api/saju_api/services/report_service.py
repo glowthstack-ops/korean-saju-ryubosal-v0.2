@@ -139,6 +139,7 @@ from saju_engines.structural_context import (
     activity_keyword_lines,
     document_caution_block,
     document_contrast_block,
+    dohwa_structure_lines,
     era_energy_lines,
     external_impression_lines,
     health_lines,
@@ -168,6 +169,7 @@ from saju_engines.structure_patterns import (
     select_llm_patterns,
 )
 from saju_engines.task_procedures import TASK_PACKS, procedure_reference_block
+from saju_engines.ten_god_label_audit import audit_ten_god_labels, facts_from_pillars
 from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
 from saju_engines.topic_builder import build_topic_context
 from saju_engines.wealth_capacity import analyze_wealth_capacity
@@ -1844,6 +1846,25 @@ class _ReportData:
             domain=Domain.RELATIONSHIP,
         )
         return external_impression_lines(analyze_external_impression(self.result), intent)
+
+    def _dohwa(self) -> tuple[list[str], list[str]]:
+        """도화 구조 블록과 노출 문구 키 — 관계 챕터 배치가 노출 근거(합성 RELATIONSHIP intent)."""
+        from saju_engines.dohwa import analyze_dohwa
+
+        intent = IntentJson(
+            intent_id="report_dohwa",
+            query_type=QueryType.DOMAIN_ANALYSIS,
+            domain=Domain.RELATIONSHIP,
+        )
+        return dohwa_structure_lines(analyze_dohwa(self.result), intent)
+
+    def dohwa_block(self) -> list[str]:
+        """[도화 구조] — 진도화(자리·기준·십성군)·월담도화·사정지(가도화) 보조 자료."""
+        return self._dohwa()[0]
+
+    def dohwa_keys(self) -> list[str]:
+        """도화 블록에 실린 해석 문구 키(노출 원장 로그용)."""
+        return self._dohwa()[1]
 
     def health_vulnerability_block(self) -> list[str]:
         """[원국 건강 취약 구조 + 관리 권장 시기] — structural_context 위임(의료 면책)."""
@@ -3542,6 +3563,14 @@ def build_section_context(
         impression = data.external_impression_block()
         if impression:
             lines += ["", *impression]
+        # 도화 구조(2026-10-13) — 진도화 성립만 '도화'로, 사정지는 성향으로. 검수 전 문구도 싣고
+        # 노출 원장 로그로 실답(리포트 본문) 검수 경로를 남긴다.
+        dohwa = data.dohwa_block()
+        if dohwa:
+            lines += ["", *dohwa]
+            _logger.info(
+                "dohwa_text_exposed surface=report section=%s keys=%s", sid, data.dohwa_keys(),
+            )
         # 궁위 관계망(P3) — 연·월·일·시 궁위 간 관계질(설명 레이어, 점수 미개입).
         network = palace_network_lines(analyze_palace_network(data.result), Domain.RELATIONSHIP)
         if network:
@@ -4178,6 +4207,17 @@ def generate_report(
                         "false_contrast_rewritten surface=report section=%s count=%d",
                         plan.section_id, len(_fc),
                     )
+                # 원국 지지 자리 십성 표기 감사(2026-10-13) — 명확한 불일치만 결정론 교정. 궁합처럼
+                # 두 사람이 나오는 리포트는 어느 사람의 자리인지 확정할 수 없어 건너뛴다.
+                if data.partner_result is None and data.result.pillars is not None:
+                    text, _tg = audit_ten_god_labels(
+                        text, facts_from_pillars(data.result.pillars),
+                    )
+                    if _tg:
+                        _logger.warning(
+                            "ten_god_label_fixed surface=report section=%s fixes=%s",
+                            plan.section_id, [(f.position, f.written, f.corrected) for f in _tg],
+                        )
                 # 섹션 claim 감사 — 생성 직후, **이 섹션 범위**에서만. 전체 문서
                 # 오프셋 변환이 필요 없고 W-05 정책이 W-03 문장에 적용될 여지도 없다.
                 # 위반 → 결정적 patch → 재감사 → 남으면 이 섹션만 안전 문구로 대체.

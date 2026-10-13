@@ -11,7 +11,7 @@ vs 기·구신을 강화하는가). 모두 엔진이 계산한 사실이며 LLM�
 
 from __future__ import annotations
 
-from saju_manse_analysis.sinsal.sinsal_catalog import GWIMUN, HONGYEOM, SAJEONG, WONJIN
+from saju_manse_analysis.sinsal.sinsal_catalog import GWIMUN, HONGYEOM, WONJIN
 
 from saju_shared_types.compatibility import (
     CompatDirection,
@@ -31,11 +31,15 @@ from saju_shared_types.constants import (
     STEM_ELEMENT,
     ten_god,
 )
+from saju_shared_types.dohwa import DohwaProfile
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.llm_input import UsefulGods
 from saju_shared_types.manse_result import ManseV2Result
 
+from .dohwa import analyze_dohwa
 from .relationship_relation_labels import relation_summary_ko
+
+_SLOT_KO = {"year": "연지", "month": "월지", "day": "일지", "hour": "시지"}
 
 # 궁합 신호 종류 → 관계질 라벨 키(P4 설명 문구용, 점수 미개입). 합충형파해·원진만 매핑한다.
 _KIND_TO_RELATION: dict[CompatSignalKind, str] = {
@@ -224,10 +228,18 @@ def _ten_god_complement_signals(
 
 def _sinsal_cross_signals(
     self_dm: Stem, partner_dm: Stem, a: Branch, b: Branch,
+    *,
+    self_dohwa: DohwaProfile | None = None,
+    partner_dohwa: DohwaProfile | None = None,
+    self_label: str = "본인",
+    partner_label: str = "상대",
 ) -> list[CompatSignal]:
-    """관계 신살 교차(보조 — 가볍게). 끌림(도화·홍염)·미묘한 거슬림(원진·귀문).
+    """관계 신살 교차(보조 — 가볍게). 끌림(홍염 교차)·개인 도화·미묘한 거슬림(원진·귀문).
 
     모두 direction=NEUTRAL·auxiliary=True — 보완/마찰 카운트와 전반 톤에는 반영하지 않는다.
+    도화(2026-10-13 정비): 일지가 子午卯酉라는 글자 보유만으로 '서로 끌리는 매력'을 붙이던
+    조건을 없앴다. 각자의 원국에 진도화가 성립했을 때만 그 사람의 개인 신호로 적고, 한쪽의
+    도화로 두 사람의 상호 끌림을 단정하지 않도록 끌림 점수(SINSAL_CHARM)와 분리한다.
     """
     out: list[CompatSignal] = []
     pair = frozenset({a, b})
@@ -242,9 +254,17 @@ def _sinsal_cross_signals(
             detail=f"일지 {a.value}·{b.value} {'·'.join(names)} — 가까울수록 예민해질 수 있는 결",
             direction=CompatDirection.NEUTRAL, auxiliary=True,
         ))
+    for label, prof in ((self_label, self_dohwa), (partner_label, partner_dohwa)):
+        if prof is None or not prof.established:
+            continue
+        where = "·".join(f"{_SLOT_KO[e.position]} {e.branch}" for e in prof.established)
+        out.append(CompatSignal(
+            kind=CompatSignalKind.SINSAL_DOHWA, label=f"{label} 도화 성립(개인·보조)",
+            detail=f"{label} 원국 진도화({where}) — {label}이(가) 매력적으로 비치기 쉬운 결이며 "
+                   "두 사람의 상호 끌림 판정이 아니다",
+            direction=CompatDirection.NEUTRAL, auxiliary=True,
+        ))
     charm: list[str] = []
-    if a in SAJEONG or b in SAJEONG:
-        charm.append("도화(서로 끌리는 매력)")
     if HONGYEOM.get(self_dm) == b or HONGYEOM.get(partner_dm) == a:
         charm.append("홍염(매력적으로 비치는 신호)")
     if charm:
@@ -264,7 +284,8 @@ def _summary(harmony: int, friction: int) -> str:
     return "보완과 마찰이 함께 있는 조합 — 강점은 살리고 마찰점은 대화로 관리할 영역입니다."
 
 
-# 끌림(자극) 가중 — 충·형·도화·홍염·천간합은 '스파크/매력'을 키운다. 안정(보완/마찰)과 별개 축.
+# 끌림(자극) 가중 — 충·형·홍염 교차·천간합은 '스파크/매력'을 키운다. 안정(보완/마찰)과 별개 축.
+# 개인 도화(SINSAL_DOHWA)는 한 사람의 신호라 두 사람의 끌림 점수에 넣지 않는다(2026-10-13).
 # 궁합 자료: "충·살이 많아도 확 끌릴 수 있다"(끌림 ≠ 좋은 궁합). reviewed:false 초안.
 _ATTRACTION_WEIGHT: dict[CompatSignalKind, int] = {
     CompatSignalKind.DAY_STEM_COMBINE: 2,   # 천간합 — 강하게 끌어당김(안정도 동반)
@@ -272,7 +293,7 @@ _ATTRACTION_WEIGHT: dict[CompatSignalKind, int] = {
     CompatSignalKind.DAY_BRANCH_PUNISH: 1,  # 형 — 자극
     CompatSignalKind.DAY_BRANCH_SIX: 1,     # 육합 — 잔잔한 끌림(안정형)
     CompatSignalKind.TEN_GOD_COMPLEMENT: 1,  # 없는 십성 채움 — 보완형 끌림(잔잔)
-    CompatSignalKind.SINSAL_CHARM: 2,       # 도화·홍염 — 매력·끌림
+    CompatSignalKind.SINSAL_CHARM: 2,       # 홍염 교차 — 매력·끌림(개인 도화 SINSAL_DOHWA는 0)
     CompatSignalKind.SINSAL_FRICTION: 1,    # 원진·귀문 — 애증(끌리며 거슬림)
 }
 
@@ -369,7 +390,11 @@ def analyze_compatibility(
     )
 
     # 5) 관계 신살 교차(보조 — 카운트·톤 미반영, 가볍게만).
-    signals += _sinsal_cross_signals(self_dm, partner_dm, self_branch, partner_branch)
+    signals += _sinsal_cross_signals(
+        self_dm, partner_dm, self_branch, partner_branch,
+        self_dohwa=analyze_dohwa(self_result), partner_dohwa=analyze_dohwa(partner_result),
+        self_label=self_label, partner_label=partner_label,
+    )
 
     # 카운트·톤은 본 신호(auxiliary 아님)만 — 보조 신살이 전반 판정을 좌우하지 않게.
     harmony = sum(

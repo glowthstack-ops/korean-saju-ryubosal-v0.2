@@ -27,7 +27,10 @@ class CompatSignalKind(StrEnum):
     TEN_GOD_COMPLEMENT = "ten_god_complement"  # 내게 약한 십성군을 상대가 채워줌(보완 끌림)
     YONGSIN_SUPPORT = "yongsin_support"        # 상대 오행이 본인 용·희신 보완
     YONGSIN_BURDEN = "yongsin_burden"          # 상대 오행이 본인 기·구신 강화
-    SINSAL_CHARM = "sinsal_charm"              # 도화·홍염 끌림(보조 — 가볍게)
+    SINSAL_CHARM = "sinsal_charm"              # 홍염 교차 끌림(보조 — 가볍게)
+    # 개인 도화(진도화 성립) — 그 사람이 매력적으로 비치기 쉬운 결(보조). 두 사람의 상호 끌림
+    # 판정이 아니므로 끌림 점수에 넣지 않는다(2026-10-13 도화 정비).
+    SINSAL_DOHWA = "sinsal_dohwa"
     SINSAL_FRICTION = "sinsal_friction"        # 원진·귀문 거슬림(보조 — 가볍게)
 
 
