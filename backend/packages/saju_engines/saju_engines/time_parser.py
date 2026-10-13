@@ -400,6 +400,60 @@ def parse_weekday_range(
     ), TimeScope.SHORT_TERM
 
 
+# 한글 수사 기간 정규화(2026-10-13 데굴님 지시) — "앞으로 두 달 안에"가 숫자 규칙(C8a·C8·C8c·C8b)에
+# 걸리지 않아 12개월 지평으로 새던 결함. 기간 표지가 붙은 경우만 숫자로 바꿔 기존 규칙을 그대로 쓴다
+# — "한 달에 한 번"처럼 빈도·관용 표현은 표지가 없어 바꾸지 않는다(숫자 입력과 같은 조건).
+_KO_NATIVE_COUNT: dict[str, int] = {
+    "한": 1, "두": 2, "세": 3, "석": 3, "네": 4, "넉": 4, "다섯": 5, "여섯": 6, "일곱": 7,
+    "여덟": 8, "아홉": 9, "열": 10, "열한": 11, "열두": 12,
+}
+_KO_SINO_COUNT: dict[str, int] = {
+    "일": 1, "이": 2, "삼": 3, "사": 4, "오": 5, "육": 6, "칠": 7, "팔": 8, "구": 9, "십": 10,
+    "십일": 11, "십이": 12,
+}
+_KO_COUNT_PRE_RE = re.compile(r"(?:향후|앞으로|다가오는|지난|최근)\s*$")
+_KO_COUNT_POST_RE = re.compile(
+    r"^\s*(?:안|이내|내(?!내)|동안|간|후|뒤|이후|만에|정도|쯤|까지)"
+)
+_KO_NATIVE_SPAN_RE = re.compile(
+    r"(?<![가-힣])(열한|열두|다섯|여섯|일곱|여덟|아홉|한|두|세|석|네|넉|열)\s*(달)"
+)
+_KO_SINO_SPAN_RE = re.compile(
+    r"(?<![가-힣])(십일|십이|일|이|삼|사|오|육|칠|팔|구|십)\s*(개월|년)"
+)
+
+
+def normalize_korean_counts(text: str) -> str:
+    """기간 표지가 붙은 한글 수사 기간을 숫자로 바꾼다("앞으로 두 달 안에" → "앞으로 2달 안에").
+
+    고유어 수사+'달'과 한자어 수사+'년'은 앞에 향후·앞으로·다가오는·지난·최근이 있거나 뒤에
+    안·이내·내·동안·간·후·뒤·이후·만에·정도·쯤·까지가 올 때만 바꾼다. 한자어 수사+'개월'은 수사
+    외 쓰임이 없어 항상 바꾼다. 나머지 텍스트는 그대로 둔다.
+    """
+
+    def _sub(pattern: re.Pattern[str], table: dict[str, int], always: frozenset[str]) -> None:
+        nonlocal text
+        out: list[str] = []
+        cursor = 0
+        for m in pattern.finditer(text):
+            num, unit = m.group(1), m.group(2)
+            ok = unit in always or bool(
+                _KO_COUNT_PRE_RE.search(text[: m.start()])
+                or _KO_COUNT_POST_RE.match(text[m.end():])
+            )
+            if not ok:
+                continue
+            out.append(text[cursor: m.start()])
+            out.append(f"{table[num]}{unit}")
+            cursor = m.end()
+        out.append(text[cursor:])
+        text = "".join(out)
+
+    _sub(_KO_NATIVE_SPAN_RE, _KO_NATIVE_COUNT, frozenset())
+    _sub(_KO_SINO_SPAN_RE, _KO_SINO_COUNT, frozenset({"개월"}))
+    return text
+
+
 def parse_time(
     text: str,
     today: date,
@@ -423,6 +477,7 @@ def parse_time(
         (TimeRange | None, TimeScope). 무시점(C1)이면 (None, TIMELESS) —
         분야별 기본 기간 적용은 Broad Query Rewriter 몫.
     """
+    text = normalize_korean_counts(text)  # "두 달 안에" → "2달 안에"(기간 표지 있을 때만)
     # 절기 기준 '당월' 라벨 — 주입 없으면 양력 폴백(경계 직전 한 달 어긋남 감수).
     this_month = current_month_label or f"{today.year}-{today.month:02d}"
     # 로또 주 = 판매 회차(일요일~토요일 저녁 판매분을 토요일 저녁 추첨, 2026-10-04 데굴님 지적).
@@ -1296,6 +1351,7 @@ def parse_time_with_constraints(
     # '7월 22일'이 explicit 시점으로 채택돼 미래 이사 질문이 오늘 일운으로 앵커됨).
     # 진술 절만 제거하므로 "오늘 운세 봐줘"류 순수 '오늘' 요청은 영향 없다.
     text = _TODAY_DATE_STATEMENT_RE.sub(" ", text)
+    text = normalize_korean_counts(text)  # 제약 추출도 같은 정규화 본문을 본다
     tr, scope = parse_time(text, today, birth_year, current_month_label, sunday_week)
     tr, scope = _attach_holiday_anchor(text, today, tr, scope)
     items = extract_time_constraints(text, today)

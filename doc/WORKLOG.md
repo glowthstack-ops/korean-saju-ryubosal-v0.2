@@ -12115,3 +12115,14 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 잔여: '두 달'처럼 한글 수사 기간은 시점 파서가 못 읽는다('2달'은 2026-10~11). 별도 항목.
 - 테스트 `test_agent_relations.py`(판정 7형·근거표·천간/지지 병렬 줄·후보 상위 기간·가족 칸 관계 도메인 한정·비해당·현재 월 폴백·dry-run 프롬프트·lint).
 - 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 사전 validate 통과, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=94a580e, 지문 동일, exit 0, `var/suite_20261013_agent.log`, SAJU_ 환경변수 0개 셸). 백엔드 8888 재기동 반영.
+
+## 2026-10-13 — 한글 수사 기간 파싱('앞으로 두 달 안에') (데굴님 지시)
+
+- 결함: 시점 파서의 상대 기간 규칙(C8a 앞으로 N개월·C8 N개월 안에·C8c N개월 후·C8b 지난 N개월)이 숫자만 받아 '앞으로 두 달 안에'가 미파싱 → 12개월
+  지평으로 새서 관계 대상 후보가 2027년 2·5월로 나왔다('2달안에'는 2026-10~11 정상).
+- `time_parser.normalize_korean_counts`: 고유어 수사(한·두·세/석·네/넉·다섯~열두)+'달', 한자어 수사(일~십이)+'년'은 앞에 향후·앞으로·다가오는·지난·최근이
+  있거나 뒤에 안·이내·내·동안·간·후·뒤·이후·만에·정도·쯤·까지가 올 때만 숫자로, 한자어 수사+'개월'은 항상 숫자로 바꾼다. `parse_time`·
+  `parse_time_with_constraints` 입구에서 적용해 기존 숫자 규칙을 그대로 쓴다. '한 달에 한 번'·'이 년은'·'올 한 해'처럼 기간 표지 없는 표현은 불변.
+- 테스트 `test_time_parser_korean_counts.py`(한글/숫자 동일 창 8형, 불변 4형, 원 실로그 문장 = 2026-10~11). 기존 시점·파서·대화·지평 테스트 통과.
+- 실답("앞으로 두 달 안에 누가 취업 제안을 해올까?"): 창 2026-10~11, 관계 대상 후보 2026-11·2026(이전 2027-02·2027-05), 답은 "선배나 윗사람 혹은 비슷한 위치의 동료를 통해"로 시작.
+- 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=33734b7, 지문 동일, exit 0, `var/suite_20261013_kocount.log`, SAJU_ 환경변수 0개 셸). 백엔드 8888 재기동 반영.
