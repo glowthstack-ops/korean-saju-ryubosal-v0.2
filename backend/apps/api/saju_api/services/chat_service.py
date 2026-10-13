@@ -39,7 +39,7 @@ from saju_engines.assistant_commitments import (
     prior_statement_lines,
 )
 from saju_engines.career_field import build_career_field_facts, render_career_field_lines
-from saju_engines.chart_interpretation import build_luck_grounding
+from saju_engines.chart_interpretation import build_luck_grounding, luck_dohwa_sinsal_line
 from saju_engines.commitment_audit import audit_answer
 from saju_engines.companion_alias import AliasEntry, merge_attached_partner
 from saju_engines.companion_similarity import augment_relation_type, augment_subject_mode
@@ -156,6 +156,7 @@ from saju_engines.structural_context import (
     document_caution_block,
     document_contrast_block,
     hour_unknown_directive,
+    is_appearance_question,
     spouse_star_directive,
 )
 from saju_engines.task_procedures import (
@@ -3978,6 +3979,100 @@ def _multi_day_focus_dates(intent: IntentJson) -> list[date]:
     return [start + timedelta(days=i) for i in range(span)]
 
 
+#: 질문 기간 운 도화 블록의 범위 상한 — 날짜 14일·월 12개·연 3개(무관한 기간까지 일괄 확대 금지).
+_LUCK_DOHWA_MAX_DAYS = 14
+_LUCK_DOHWA_MAX_MONTHS = 12
+_LUCK_DOHWA_MAX_YEARS = 3
+
+
+def _luck_pillars_for_range(birth: BirthInput, tr: TimeRange) -> list:
+    """질문한 기간의 운 기둥 — 일(14일 이내·지목 날짜)·월(12개 이내)·연(3개 이내)만."""
+    start, end = tr.start or "", tr.end or tr.start or ""
+    try:
+        if tr.granularity is Granularity.DAY:
+            d0, d1 = date.fromisoformat(start[:10]), date.fromisoformat(end[:10])
+            if not (d0 <= d1 and (d1 - d0).days < _LUCK_DOHWA_MAX_DAYS):
+                return []
+            wanted = set(tr.dates) or {
+                (d0 + timedelta(days=i)).isoformat() for i in range((d1 - d0).days + 1)
+            }
+            months = sorted({w[:7] for w in wanted})
+            return [
+                pl for ym in months for pl in luck_days(birth, int(ym[:4]), int(ym[5:7]))
+                if pl.label in wanted
+            ]
+        if tr.granularity is Granularity.MONTH:
+            y0, m0, y1, m1 = int(start[:4]), int(start[5:7]), int(end[:4]), int(end[5:7])
+            span = (y1 - y0) * 12 + (m1 - m0) + 1
+            if not (0 < span <= _LUCK_DOHWA_MAX_MONTHS):
+                return []
+            wanted = {
+                f"{y0 + (m0 - 1 + i) // 12}-{(m0 - 1 + i) % 12 + 1:02d}" for i in range(span)
+            }
+            return [
+                pl for y in sorted({int(w[:4]) for w in wanted}) for pl in luck_months(birth, y)
+                if pl.label in wanted
+            ]
+        if tr.granularity is Granularity.YEAR:
+            y0, y1 = int(start[:4]), int(end[:4])
+            if not (0 <= y1 - y0 < _LUCK_DOHWA_MAX_YEARS):
+                return []
+            return luck_years(birth, list(range(y0, y1 + 1)))
+    except (ValueError, IndexError):
+        return []
+    return []
+
+
+def _luck_dohwa_context(
+    birth: BirthInput,
+    result: ManseV2Result,
+    intent: IntentJson,
+    question: str,
+    covered: set[str],
+    *,
+    thread_id: str | None = None,
+    turn_no: int | None = None,
+) -> list[str]:
+    """날짜·기간이 있는 도화 관련 질문(연애·매력)에 그 기간의 운 도화를 싣는다(2026-10-13).
+
+    기간 총운(일·월·연 운세)은 운 신살 줄에 운 도화를 이미 싣지만, '10월 5일 연애운'처럼 주제가
+    정해진 기간 질문은 운 신살을 싣지 않았다. 같은 판정·십성군·기간 제한 규칙을 쓰도록 공용 빌더
+    (`chart_interpretation.luck_dohwa_sinsal_line`)를 재사용하고, 관계 도메인이거나 도화·매력을 직접
+    물은 질문에만 붙인다(무관한 주제로 일괄 확대 금지). 기간 총운에 이미 실린 기간(`covered`)은
+    건너뛰어 같은 운 도화가 두 번 들어가지 않게 한다. 원국 도화(구조 블록)와는 다른 층이다.
+
+    Returns:
+        LLM 입력 줄 목록(해당 없으면 빈 목록).
+    """
+    tr = intent.time_range
+    if tr is None or not tr.start:
+        return []
+    if not (intent.domain is Domain.RELATIONSHIP or is_appearance_question(question)):
+        return []
+    lines: list[str] = []
+    keys: list[str] = []
+    for pl in _luck_pillars_for_range(birth, tr):
+        if pl.label in covered:
+            continue
+        built = luck_dohwa_sinsal_line(result, pl)
+        if built is None:
+            continue
+        line, key = built
+        lines.append(line)
+        keys.append(f"{key}@{pl.label}")
+    if not lines:
+        return []
+    _logger.info(
+        "dohwa_text_exposed surface=chat_luck_range thread=%s turn=%s keys=%s",
+        thread_id, turn_no, keys,
+    )
+    return [
+        "[질문 기간 운 도화 — 원국 도화와 별개 층(그 기간에 들어온 도화). 질문한 기간에만 적용하고 "
+        "다른 기간이나 타고난 매력으로 넓히지 말 것]",
+        *lines,
+    ]
+
+
 def _weekly_overview_lines(
     birth: BirthInput,
     intent: IntentJson,
@@ -5346,6 +5441,19 @@ def chat(
     # 주간(일 범위) 질문은 7일 일별 일운을 surface — 월운으로 뭉뚱그려지던 결함 보완(2026-06-18).
     if structural is not None and _is_day_range(intent):
         structural = structural + _weekly_overview_lines(birth, intent, today)
+    # 질문 기간 운 도화(2026-10-13) — 연애·매력 질문에 그 기간 운 도화. 기간 총운에 이미 실린
+    # 기간은 건너뛴다(중복 삽입 금지).
+    if structural is not None:
+        _covered = {
+            _pf.period_label.split(" ")[0]
+            for _pf in ([period_fortune] if period_fortune is not None else [])
+            + extra_period_fortunes
+            if _pf.dohwa_text_keys
+        }
+        structural = structural + _luck_dohwa_context(
+            birth, result, intent, question, _covered,
+            thread_id=thread_id, turn_no=state.turn_no if state is not None else None,
+        )
     # 경계 당일 명식 변형 완전 분기(2026-10-06): 표시 변형 외 변형마다 사건 점수를 따로 돌려 변형별
     # 시기 후보 블록을 싣는다. 시간이 있거나 변형이 하나면 빈 목록(바이트 불변).
     if structural is not None and result.hour_unknown is not None \

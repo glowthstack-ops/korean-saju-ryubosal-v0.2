@@ -950,6 +950,11 @@ _IMPRESSION_DIRECT_KEYWORDS = (
 )
 
 
+def is_appearance_question(question: str) -> bool:
+    """외모·매력·인상·도화를 직접 묻는 질문인가 — 다른 모듈의 도화 관련 질문 판정용 공개 이름."""
+    return _is_appearance_question(question)
+
+
 def _is_appearance_question(question: str) -> bool:
     """질문이 외모·매력·인상을 직접 묻는가 — suppress 도메인에서도 노출 허용하는 예외 판정."""
     q = question or ""

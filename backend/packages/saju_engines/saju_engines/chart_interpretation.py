@@ -357,9 +357,9 @@ def build_luck_grounding(
         if name == "도화":
             # 운 도화 × 십성군(2026-10-13) — 기존 운 진도화 판정에 기준 지지·운 지지 본기 십성군과
             # 십성군 문구(운에 적용된 설명)를 붙인다. 한 줄 1건 — 두 기준이 겹쳐도 가산 없음.
-            ld = analyze_luck_dohwa(result, luck_pillar, level_ko.split("(")[0])
-            if ld is not None:
-                line, key = _luck_dohwa_line(ld, line)
+            dohwa = luck_dohwa_sinsal_line(result, luck_pillar)
+            if dohwa is not None:
+                line, key = dohwa
                 dohwa_text_keys.append(key)
         sinsal_lines.append(line)
 
@@ -398,6 +398,28 @@ _LUCK_DOHWA_RULE = (
     "사용 규칙: 이 기간에 들어온 도화다 — 타고난 성향이나 평생의 매력으로 설명하지 말고 원국 "
     "도화와 구분해 그 기간의 매력 노출·인연 기회로만 말할 것. 기준이 둘이어도 한 번만 다룰 것."
 )
+
+
+def luck_dohwa_sinsal_line(result: ManseV2Result, luck_pillar: object) -> tuple[str, str] | None:
+    """운 기둥 1개의 운 도화 줄 — 기간 총운 운 신살 줄과 주제별 기간 질문 블록이 공유한다.
+
+    두 경로가 같은 판정(sinsal_for_luck '도화')·같은 십성군·같은 기간 제한 규칙을 쓰도록 한 곳에서
+    만든다(2026-10-13). 운 도화가 아니면 None.
+
+    Returns:
+        (줄, 노출 문구 키 'luck_combo:{군}') 또는 None.
+    """
+    level_ko = _LUCK_LEVEL_KO.get(getattr(luck_pillar, "period_type", ""), "운")
+    ld = analyze_luck_dohwa(result, luck_pillar, level_ko.split("(")[0])
+    item = _sinsal_text_by_name().get("도화")
+    if ld is None or item is None:
+        return None
+    body = item.get("fromLuck") or item["manifestation"]
+    base = (
+        f"(보조·{level_ko} 유입) 도화: {_first_sentence(body, 110)} "
+        f"양면 {_first_sentence(item['flipSide'], 80)}"
+    )
+    return _luck_dohwa_line(ld, base)
 
 
 def _luck_dohwa_line(ld: LuckDohwa, base_line: str) -> tuple[str, str]:

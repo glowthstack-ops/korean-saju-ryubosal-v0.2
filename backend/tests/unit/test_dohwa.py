@@ -351,3 +351,123 @@ def test_period_fortune_carries_luck_dohwa_keys():
     assert pf is not None
     assert pf.dohwa_text_keys == ["luck_combo:관성"]
     assert any("도화(운 진도화)" in ln for ln in pf.sinsal_lines)
+
+
+# ── 주제별 기간 질문(연애·매력)에 운 도화 연결(2026-10-13) — 총운과 같은 판정·문구, 중복 없음 ──
+
+
+def _range_intent(gran, start, end=None, domain=Domain.RELATIONSHIP, dates=None):
+    from saju_shared_types.intent import TimeRange
+
+    return IntentJson(
+        intent_id="t", query_type=QueryType.DOMAIN_ANALYSIS, domain=domain,
+        time_range=TimeRange(type="absolute", granularity=gran, start=start,
+                             end=end or start, dates=dates or []),
+    )
+
+
+def _birth(spec: tuple) -> BirthInput:
+    return BirthInput(birth_date=spec[0], birth_time=spec[1], birth_place_name="서울",
+                      gender="female")
+
+
+def test_relationship_day_question_gets_same_line_as_period_fortune():
+    """'10월 5일 연애운'과 '10월 5일 운세'의 운 도화 줄이 같다.
+
+    판정·십성군·기간 규칙을 공용 빌더로 공유한다.
+    """
+    from saju_api.services import chat_service
+    from saju_shared_types.intent import Granularity
+
+    b = _birth(_WOLLDAM)
+    ctx = chat_service._luck_dohwa_context(
+        b, _chart(*_WOLLDAM), _range_intent(Granularity.DAY, "2026-10-05"), "연애운", set(),
+    )
+    assert ctx and ctx[0].startswith("[질문 기간 운 도화 — 원국 도화와 별개 층")
+    overview = IntentJson(
+        intent_id="t", query_type=QueryType.FORTUNE_OVERVIEW,
+        time_range=_range_intent(Granularity.DAY, "2026-10-05").time_range,
+    )
+    pf = chat_service._build_period_fortune(b, overview, date(2026, 10, 5), "daily")
+    assert pf is not None
+    pf_line = next(ln for ln in pf.sinsal_lines if "도화(운 진도화)" in ln)
+    assert ctx[1:] == [pf_line]
+    assert "타고난 성향이나 평생의 매력으로 설명하지 말고" in ctx[1]
+
+
+@pytest.mark.parametrize(
+    ("domain", "question", "shown"),
+    [
+        (Domain.RELATIONSHIP, "연애운", True),
+        (Domain.CAREER, "이직운 어때", False),
+        (Domain.CAREER, "이 날 내 매력이 잘 보일까", True),  # 매력 직접 질문 예외
+    ],
+)
+def test_luck_dohwa_context_gating(domain, question, shown):
+    from saju_api.services import chat_service
+    from saju_shared_types.intent import Granularity
+
+    ctx = chat_service._luck_dohwa_context(
+        _birth(_WOLLDAM), _chart(*_WOLLDAM),
+        _range_intent(Granularity.DAY, "2026-10-05", domain=domain), question, set(),
+    )
+    assert bool(ctx) is shown
+
+
+def test_luck_dohwa_context_skips_period_already_covered():
+    """기간 총운에 이미 실린 날짜는 건너뛴다 — 같은 운 도화 중복 삽입 금지."""
+    from saju_api.services import chat_service
+    from saju_shared_types.intent import Granularity
+
+    ctx = chat_service._luck_dohwa_context(
+        _birth(_WOLLDAM), _chart(*_WOLLDAM), _range_intent(Granularity.DAY, "2026-10-05"),
+        "연애운", {"2026-10-05"},
+    )
+    assert ctx == []
+
+
+def test_luck_dohwa_context_only_asked_days():
+    """질문한 날만 — 범위 안 운 도화 날(5일)만 싣고 범위 밖 날(8일 乙卯)은 싣지 않는다."""
+    from saju_api.services import chat_service
+    from saju_shared_types.intent import Granularity
+
+    ctx = chat_service._luck_dohwa_context(
+        _birth(_WOLLDAM), _chart(*_WOLLDAM),
+        _range_intent(Granularity.DAY, "2026-10-04", "2026-10-06"), "연애운", set(),
+    )
+    body = "\n".join(ctx[1:])
+    assert "2026-10-05 壬子" in body and "2026-10-08" not in body
+    assert len(ctx) == 2
+
+
+def test_luck_dohwa_context_month_and_year():
+    """월(2026-12 庚子)·연(2032 壬子) 단위 질문 — 월운·세운 운 도화를 같은 규칙으로 싣는다."""
+    from saju_api.services import chat_service
+    from saju_shared_types.intent import Granularity
+
+    month = chat_service._luck_dohwa_context(
+        _birth(_WOLLDAM), _chart(*_WOLLDAM), _range_intent(Granularity.MONTH, "2026-12"),
+        "12월 연애운", set(),
+    )
+    assert len(month) == 2 and "월운" in month[1] and "2026-12 庚子의 지지 子" in month[1]
+    year = chat_service._luck_dohwa_context(
+        _birth(_WOLLDAM), _chart(*_WOLLDAM), _range_intent(Granularity.YEAR, "2032"),
+        "2032년 연애운", set(),
+    )
+    assert len(year) == 2 and "세운" in year[1] and "2032 壬子의 지지 子" in year[1]
+
+
+def test_luck_dohwa_context_empty_without_dohwa_or_range():
+    from saju_api.services import chat_service
+    from saju_shared_types.intent import Granularity
+
+    none_day = chat_service._luck_dohwa_context(
+        _birth(_WOLLDAM), _chart(*_WOLLDAM), _range_intent(Granularity.DAY, "2026-10-01"),
+        "연애운", set(),
+    )
+    assert none_day == []
+    too_long = chat_service._luck_dohwa_context(
+        _birth(_WOLLDAM), _chart(*_WOLLDAM),
+        _range_intent(Granularity.DAY, "2026-10-01", "2026-11-30"), "연애운", set(),
+    )
+    assert too_long == []

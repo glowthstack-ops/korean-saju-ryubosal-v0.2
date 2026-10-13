@@ -12052,3 +12052,13 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
   `test_marriage_resource` 생지 라벨(역마·이동 없음).
 - 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=e74aa48, 지문 동일, exit 0, `var/suite_20261013_dohwa5.log`, SAJU_ 환경변수 0개 셸). 백엔드 8888 재기동 반영.
 - 실답 근거: 재기동 전 서버(ab49a5d 교정기 포함)의 실답에서 `ten_god_label_fixed surface=chat fixes=[(월지, 정관, 편관)]`가 기록되고 답변이 "월지에 자리한 편관"으로 나감 — 십성 오기 교정기의 실사용 작동 확인.
+
+## 2026-10-13 — 주제별 기간 질문(연애·매력)에 운 도화 연결 + 나체도화 기록 정정
+
+- 연결: '10월 5일 연애운'처럼 기간이 있는 관계 도메인·도화/매력 직접 질문에 `_luck_dohwa_context`가 질문 기간(일 14일·월 12개·연 3개 이내)의 운 기둥
+  운 도화를 "[질문 기간 운 도화 — 원국 도화와 별개 층 … 질문한 기간에만 적용]" 블록으로 싣는다. 줄은 기간 총운과 공용 빌더
+  `luck_dohwa_sinsal_line`(판정·십성군·기간 규칙 동일). 기간 총운에 이미 실린 기간은 건너뜀(중복 금지). 무관한 주제는 제외. 로그 surface=chat_luck_range.
+- 나체도화 기록 정정: "목욕 일주와 같은 개념으로 보지 않기로 했다" → "목욕 일주라는 사실만으로 나체도화와 동일시하지 않고 출처별 정의를 확인"(목욕 기준
+  사용 금지가 아니었음). 자료 표현을 "확인한 해당 자료에서는 …로 정의"로 한정. 정의 차이·근거 미확보로 이번 범위 미도입 종료.
+- 테스트: `test_dohwa.py` 6건(같은 날 총운·연애운 줄 동일, 게이트 3형, 총운 기간 중복 건너뜀, 질문 날짜만, 월·연 단위, 비해당·범위 초과).
+- 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=2fff583, 지문 동일, exit 0, `var/suite_20261013_dohwa6.log`, SAJU_ 환경변수 0개 셸). 백엔드 8888 재기동 반영.
