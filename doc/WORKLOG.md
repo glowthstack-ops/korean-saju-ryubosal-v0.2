@@ -11999,7 +11999,7 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 ## 2026-10-13 — 도화 정비 2차: 외적 인상 D안·해석 문구 검수 게이트·왕지 문장 수정·십성 오기 검사 (데굴님 확정)
 
 - 결정(데굴님, 외부 검토 의견 반영): 판정 구조 유지 / 외적 인상 D안 / 궁합 끌림 감소 수용(복원 보정 금지 — 7.7%는 표본 결과일 뿐 정확도
-  검증 아님) / 해석 문구는 **검수 후 연결**(노출 로그는 검수를 대신하지 못함) / 원국 자리 십성 오기 생성 후 검사 / 왕지 이성 인연 문장 제거,
+  검증 아님) / 해석 문구는 **검수 후 연결**(노출 로그는 검수를 대신하지 못함)[※ 이후 정정: 이 항목은 데굴님 지침이 아니라 붙여 넣은 외부 의견이었고 실행 불가능한 지침 — 아래 '기본 노출로 정정' 참조] / 원국 자리 십성 오기 생성 후 검사 / 왕지 이성 인연 문장 제거,
   역마형·화개형은 별도 항목 / 나체도화 계속 보류(전체 목록 정의·출처·성립 조건 확인 후) / '도화 없음'은 현재 원국 진도화 미확인으로 한정.
 - 외적 인상 D안(`external_impression`): `DAY_BRANCH_PEACH`=일지 진도화 1.2, `ACTUAL_DOHWA_OR_HONGYEOM`=일지 외 진도화·홍염 1.0(같은 진도화
   중복 가산 없음), `NON_DAY_PEACH_BRANCH`(글자 0.3) 제거, 글자 기준 헬퍼 삭제. 테스트 스텁의 '일지 午=도화' 전제를 연지 丑 기준 진도화로
@@ -12035,3 +12035,20 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
   보고의 '8건'은 집계 오기.
 - 실답 1회에서 월지를 편관으로 쓴 것은 교정기 작동 증거가 아니다 — 교정 동작은 의도적 오기를 넣은 단위 테스트(사고 문장·교정 3형·조사 3형·채팅 경로)로 확인.
   게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=ab49a5d, 지문 동일, exit 0, `var/suite_20261013_dohwa4.log`, SAJU_ 환경변수 0개 셸). 백엔드 8888 재기동 반영.
+
+## 2026-10-13 — 도화 후속 3건 종료(운 도화 십성군 구현·역마형/화개형 정리·나체도화 미도입) + 정책 표기 정리
+
+- 운 도화 × 십성군(구현): 기존 운 진도화 판정(sinsal_for_luck '도화') 재사용 → `dohwa.analyze_luck_dohwa`(기준 지지·운 지지 본기 십성=원국
+  일간 기준 `LuckPillar.branch_ten_god`) → `build_luck_grounding` 운 신살 줄 1줄(운 종류·기간·간지·기준·십성군·'운에 적용된 설명' 문구·사용 규칙:
+  그 기간의 매력 노출·인연 기회로만, 타고난 성향·평생 매력 금지, 원국 도화와 구분). 두 기준 겹쳐도 1건. `PeriodFortune.dohwa_text_keys` →
+  로그 `dohwa_text_exposed surface=chat_period`. 승인 게이트 없음.
+- 역마형·화개형(구현): 소비처 검색 결과 글자 기준 신살 이름은 결혼 자원 일지 기질뿐 — 생지 '역마형'·'변화·이동 지향', 고지 '화개형' 삭제(글자 성향만).
+  구조 패턴 역마형(驛馬刑)·이동지 충돌, 신살 사전 이동지·사고지 표지는 이미 성립 기준과 분리돼 있어 유지.
+- 나체도화(미도입): 포스텔러·网易号·무신·사주클래스 대조 — 일지 목욕(甲子·乙巳·庚午·辛亥)/천충지충 추가 요건/甲子+庚午 기둥 조합(裸形桃花)으로
+  기준이 갈리고 丁亥·戊午 근거 없음. 목욕 일주와 같은 개념으로 보지 않는 정비 기준상 확정 불가 → docs/05에 조사 기록·도입 조건 남기고 종료.
+- 정리: 사전 8개 항목·해석 문구 7개 표기 통일(docs/05·dohwa_text.json 1.0.3 note). 폐기 게이트·플래그 잔존 확인 — 코드·설정·env 0건(문서는 정정
+  경위만). WORKLOG 2차 항목의 '검수 후 연결'에 정정 표시.
+- 테스트: `test_dohwa.py` 운 도화 6건(판정 재사용·십성군, 비해당 None, 두 기준 1건·1줄·키, 운 범위 표기·문구·규칙, 원국/운 층 분리, PeriodFortune 키),
+  `test_marriage_resource` 생지 라벨(역마·이동 없음).
+- 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=e74aa48, 지문 동일, exit 0, `var/suite_20261013_dohwa5.log`, SAJU_ 환경변수 0개 셸). 백엔드 8888 재기동 반영.
+- 실답 근거: 재기동 전 서버(ab49a5d 교정기 포함)의 실답에서 `ten_god_label_fixed surface=chat fixes=[(월지, 정관, 편관)]`가 기록되고 답변이 "월지에 자리한 편관"으로 나감 — 십성 오기 교정기의 실사용 작동 확인.

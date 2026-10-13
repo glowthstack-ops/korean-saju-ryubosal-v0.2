@@ -262,3 +262,92 @@ def test_compat_one_sided_dohwa_is_personal_and_not_attraction():
     assert "상호 끌림 판정이 아니다" in dohwa[0].detail
     assert CompatSignalKind.SINSAL_DOHWA not in _ATTRACTION_WEIGHT
     assert rep.attraction_score == sum(_ATTRACTION_WEIGHT.get(s.kind, 0) for s in rep.signals)
+
+
+# ── 운 도화 × 십성군(2026-10-13) — 기존 운 진도화 판정 재사용, 원국과 구분, 중복 가산 없음 ──
+
+
+def _luck_day(birth: tuple, label: str):
+    from saju_api.services.manse_service import luck_days
+
+    b = BirthInput(birth_date=birth[0], birth_time=birth[1], birth_place_name="서울",
+                   gender="female")
+    y, m = int(label[:4]), int(label[5:7])
+    return next(p for p in luck_days(b, y, m) if p.label == label)
+
+
+def test_luck_dohwa_uses_existing_judgment_and_luck_branch_ten_god():
+    """운 진도화(sinsal_for_luck '도화')를 그대로 쓰고 운 지지 본기 십성으로 군을 붙인다.
+
+    십성은 원국 일간 기준(LuckPillar.branch_ten_god)이다.
+    """
+    from saju_engines.dohwa import analyze_luck_dohwa
+
+    pillar = _luck_day(_WOLLDAM, "2026-10-05")  # 壬子 — 일지 未(亥卯未) 기준 子
+    assert "도화" in [s.name for s in pillar.luck_sinsal]
+    ld = analyze_luck_dohwa(_chart(*_WOLLDAM), pillar, "일운")
+    assert ld is not None
+    assert (ld.level, ld.period_label, ld.ganji, ld.branch) == ("일운", "2026-10-05", "壬子", "子")
+    assert [(b.slot, b.branch) for b in ld.bases] == [("day", "未")]
+    assert (ld.ten_god, ld.group_label) == ("편관", "관성도화")
+
+
+def test_luck_dohwa_none_when_not_judged():
+    from saju_engines.dohwa import analyze_luck_dohwa
+
+    pillar = _luck_day(_WOLLDAM, "2026-10-01")  # 戊申 — 운 도화 아님
+    assert analyze_luck_dohwa(_chart(*_WOLLDAM), pillar, "일운") is None
+
+
+def test_luck_dohwa_two_bases_one_line_no_double_count():
+    """연지 寅·일지 戌 두 기준이 같은 卯를 가리켜도 1건·1줄(가산 없음)."""
+    from saju_engines.chart_interpretation import build_luck_grounding
+    from saju_engines.dohwa import analyze_luck_dohwa
+
+    chart = _chart(*_DUAL_BASE)  # 壬 일간
+    pillar = _luck_day(_DUAL_BASE, "2026-10-08")  # 乙卯
+    ld = analyze_luck_dohwa(chart, pillar, "일운")
+    assert ld is not None
+    assert {(b.slot, b.branch) for b in ld.bases} == {("year", "寅"), ("day", "戌")}
+    assert (ld.ten_god, ld.group_label) == ("상관", "식상도화")
+    g = build_luck_grounding(chart, pillar)
+    dohwa_lines = [ln for ln in g["sinsal_lines"] if "도화(운 진도화)" in ln]
+    assert len(dohwa_lines) == 1
+    assert g["dohwa_text_keys"] == ["luck_combo:식상"]
+
+
+def test_luck_dohwa_line_marks_luck_scope_and_carries_text():
+    """운 도화 줄 — 기간·기준·십성군·'운에 적용된 설명' 문구·평생 매력 금지 규칙."""
+    from saju_engines.chart_interpretation import build_luck_grounding
+
+    g = build_luck_grounding(_chart(*_WOLLDAM), _luck_day(_WOLLDAM, "2026-10-05"))
+    line = next(ln for ln in g["sinsal_lines"] if "도화(운 진도화)" in ln)
+    assert "2026-10-05 壬子의 지지 子 [일지 未 기준(亥卯未국)] — 관성도화(운 지지 본기 편관" in line
+    assert "운에 적용된 설명 — 매력의 핵심: 품격·신뢰·카리스마" in line
+    assert "타고난 성향이나 평생의 매력으로 설명하지 말고 원국 도화와 구분" in line
+    assert g["dohwa_text_keys"] == ["luck_combo:관성"]
+
+
+def test_natal_block_and_luck_lines_are_separate_layers():
+    """원국 도화 블록은 원국 판정만, 운 도화는 기간 블록 줄에만 — 서로 섞지 않는다."""
+    lines, _ = dohwa_structure_lines(analyze_dohwa(_chart(*_WOLLDAM)), _intent())
+    natal = "\n".join(lines)
+    assert "운 진도화" not in natal and "원국 기준(운 미반영)" in natal
+
+
+def test_period_fortune_carries_luck_dohwa_keys():
+    """일 총운(PeriodFortune) — 운 도화 문구 키가 실려 노출 로그 재료가 된다."""
+    from saju_api.services import chat_service
+    from saju_shared_types.intent import Granularity, TimeRange
+
+    b = BirthInput(birth_date=_WOLLDAM[0], birth_time=_WOLLDAM[1], birth_place_name="서울",
+                   gender="female")
+    intent = IntentJson(
+        intent_id="t", query_type=QueryType.FORTUNE_OVERVIEW,
+        time_range=TimeRange(type="absolute", granularity=Granularity.DAY,
+                             start="2026-10-05", end="2026-10-05"),
+    )
+    pf = chat_service._build_period_fortune(b, intent, date(2026, 10, 5), "daily")
+    assert pf is not None
+    assert pf.dohwa_text_keys == ["luck_combo:관성"]
+    assert any("도화(운 진도화)" in ln for ln in pf.sinsal_lines)

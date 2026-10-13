@@ -387,6 +387,8 @@ class PeriodFortune(BaseModel):
     hierarchy_lines: list[str] = Field(default_factory=list)
     hierarchy_appendix: list[str] = Field(default_factory=list)
     luck_hierarchy: LuckHierarchy | None = None
+    # 운 도화 × 십성군 문구가 실렸으면 그 키(2026-10-13) — 노출 로그(실답 검수 경로)용.
+    dohwa_text_keys: list[str] = Field(default_factory=list)
 
 
 class DateChoiceRow(BaseModel):

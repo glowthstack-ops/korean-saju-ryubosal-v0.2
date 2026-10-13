@@ -18,6 +18,7 @@ from saju_shared_types.dohwa import (
     DohwaEstablishment,
     DohwaProfile,
     DohwaTenGodGroup,
+    LuckDohwa,
     PillarSlot,
     SajeongMarker,
 )
@@ -93,6 +94,53 @@ def analyze_dohwa(result: ManseV2Result) -> DohwaProfile | None:
     return DohwaProfile(
         established=established, sajeong_markers=markers,
         wolldam_status=wolldam, hour_known=hour_known,
+    )
+
+
+def analyze_luck_dohwa(
+    result: ManseV2Result, luck_pillar: object, level: str,
+) -> LuckDohwa | None:
+    """운 기둥의 도화를 구조화한다 — 판정은 기존 운 신살(sinsal_for_luck '도화')을 그대로 쓴다.
+
+    운 지지가 '도화'로 판정된 경우에만, 같은 규칙(연지·일지 삼합국 기준 년살)으로 어느 기준에서
+    성립했는지 기록하고 운 지지 본기 십성(LuckPillar.branch_ten_god — 원국 일간 기준)으로 십성군을
+    붙인다. 새 판정을 만들지 않는다(절대원칙 1, 2026-10-13 데굴님 지시).
+
+    Args:
+        result: 원국 만세 결과(연지·일지 기준점).
+        luck_pillar: LuckPillar(ganji·branch·branch_ten_god·label·luck_sinsal).
+        level: 운 종류 한글 라벨(세운·월운·일운·대운).
+
+    Returns:
+        LuckDohwa. 운 도화가 아니거나 명식이 없으면 None.
+    """
+    p = result.pillars
+    if p is None:
+        return None
+    names = {
+        getattr(s, "name", None) or (s.get("name") if isinstance(s, dict) else None)
+        for s in (getattr(luck_pillar, "luck_sinsal", None) or [])
+    }
+    if "도화" not in names:
+        return None
+    branch = Branch(str(getattr(luck_pillar, "branch", "")))
+    base_src: list[tuple[Literal["year", "day"], Branch]] = [
+        ("year", Branch(p.year.branch)), ("day", Branch(p.day.branch)),
+    ]
+    bases = [
+        DohwaBase(slot=slot, branch=base.value, trine=trine_group_label(base))
+        for slot, base in base_src
+        if branch_of_sinsal(base, "년살") == branch
+    ]
+    ten_god = str(getattr(luck_pillar, "branch_ten_god", ""))
+    group = _TEN_GOD_GROUP.get(ten_god)
+    if not bases or group is None:
+        # 판정('도화')과 기준 재현이 어긋나면 결함이다 — 근거 없는 십성군을 붙이지 않는다.
+        return None
+    return LuckDohwa(
+        level=level, period_label=str(getattr(luck_pillar, "label", "")),
+        ganji=str(getattr(luck_pillar, "ganji", "")), branch=branch.value,
+        bases=bases, ten_god=ten_god, group=group,
     )
 
 

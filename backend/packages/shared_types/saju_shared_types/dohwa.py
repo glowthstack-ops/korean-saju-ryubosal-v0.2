@@ -77,3 +77,24 @@ class DohwaProfile(BaseModel):
     def has_established(self) -> bool:
         """진도화가 원국 어느 자리에든 성립했는가."""
         return bool(self.established)
+
+
+class LuckDohwa(BaseModel):
+    """운에서 들어온 도화 1건 — 기존 운 진도화 판정(sinsal_for_luck '도화')에 십성군을 붙인 것.
+
+    원국 도화와 다른 층이다: 그 기간에 들어온 기운이며 타고난 성향·평생의 매력이 아니다.
+    같은 운 지지가 연지·일지 두 기준에서 성립해도 1건(bases 에 둘 다 기록, 가산 없음).
+    """
+
+    level: str  # 운 종류 한글(세운·월운·일운·대운)
+    period_label: str  # 기간 라벨('2026'·'2026-10'·'2026-10-13')
+    ganji: str
+    branch: str
+    bases: list[DohwaBase] = Field(min_length=1)
+    ten_god: str  # 운 지지 본기의 십성(원국 일간 기준 — LuckPillar.branch_ten_god)
+    group: DohwaTenGodGroup
+
+    @property
+    def group_label(self) -> str:
+        """'식상도화' 형태 표기."""
+        return f"{self.group.value}도화"

@@ -1124,6 +1124,7 @@ def _build_period_fortune(
         hierarchy_lines=hierarchy_lines,
         hierarchy_appendix=hierarchy_appendix,
         luck_hierarchy=hierarchy,
+        dohwa_text_keys=list(grounding.get("dohwa_text_keys", [])),
     )
 
 
@@ -4745,6 +4746,14 @@ def chat(
             )
             if _pf is not None:
                 extra_period_fortunes.append(_pf)
+    # 운 도화 문구 노출 원장(2026-10-13) — 어떤 턴의 어느 기간에 어떤 십성군 문구가 실렸는지.
+    for _pf_log in ([period_fortune] if period_fortune is not None else []) + extra_period_fortunes:
+        if _pf_log.dohwa_text_keys:
+            _logger.info(
+                "dohwa_text_exposed surface=chat_period thread=%s turn=%s period=%s keys=%s",
+                thread_id, state.turn_no if state is not None else None,
+                _pf_log.period_label, _pf_log.dohwa_text_keys,
+            )
 
     # P5·P6(2026-06-12): 미래지향 질문의 유효 창은 '오늘이 속한 달'에서 시작한다.
     # ① 시점 미지정('이직 제안 들어올까?') → 현재 달 ~ +2년. ② '올해'처럼 연 단위 창이

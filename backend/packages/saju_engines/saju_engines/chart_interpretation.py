@@ -35,6 +35,7 @@ from saju_shared_types.constants import (
     main_hidden_stem,
     ten_god,
 )
+from saju_shared_types.dohwa import LuckDohwa
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.llm_input import (
     ChartInterpretation,
@@ -43,6 +44,8 @@ from saju_shared_types.llm_input import (
     YongsinOperationalSummary,
 )
 from saju_shared_types.manse_result import ManseV2Result
+
+from .dohwa import analyze_luck_dohwa
 
 _DICT_DIR = Path(__file__).resolve().parents[3] / "dictionaries"
 _PALACE_KO = {"year": "연주", "month": "월주", "day": "일주", "hour": "시주"}
@@ -338,6 +341,7 @@ def build_luck_grounding(
     # 운 신살은 들어온 운 레벨이 곧 시기·작용력 — 대운=장기 배경, 세운=올해, 월/일=단기.
     level_ko = _LUCK_LEVEL_KO.get(getattr(luck_pillar, "period_type", ""), "운")
     sinsal_lines: list[str] = []
+    dohwa_text_keys: list[str] = []
     texts = _sinsal_text_by_name()
     for s in (getattr(luck_pillar, "luck_sinsal", []) or [])[:3]:
         name = getattr(s, "name", None) or (s.get("name") if isinstance(s, dict) else None)
@@ -346,10 +350,18 @@ def build_luck_grounding(
             continue
         # 운 신살은 '체질'이 아니라 그 시기에 터지는 '사건' — fromLuck 우선(없으면 manifestation).
         body = item.get("fromLuck") or item["manifestation"]
-        sinsal_lines.append(
+        line = (
             f"(보조·{level_ko} 유입) {name}: {_first_sentence(body, 110)} "
             f"양면 {_first_sentence(item['flipSide'], 80)}"
         )
+        if name == "도화":
+            # 운 도화 × 십성군(2026-10-13) — 기존 운 진도화 판정에 기준 지지·운 지지 본기 십성군과
+            # 십성군 문구(운에 적용된 설명)를 붙인다. 한 줄 1건 — 두 기준이 겹쳐도 가산 없음.
+            ld = analyze_luck_dohwa(result, luck_pillar, level_ko.split("(")[0])
+            if ld is not None:
+                line, key = _luck_dohwa_line(ld, line)
+                dohwa_text_keys.append(key)
+        sinsal_lines.append(line)
 
     # 길흉 표현 제한(Phase 5b-2a) — 점수·순위 불변, 문장 강도만 clamp(단일 기간 블록만).
     # rollback: EXPRESSION_CLAMP_ENABLED=False 면 라인 미노출(즉시 off — 계산·shadow 무관).
@@ -377,7 +389,39 @@ def build_luck_grounding(
         "relation_lines": rel_lines,
         "sinsal_lines": sinsal_lines,
         "gongmang": gongmang,
+        "dohwa_text_keys": dohwa_text_keys,
     }
+
+
+#: 운 도화 사용 규칙 — 원국 도화와 구분(2026-10-13 데굴님 지시).
+_LUCK_DOHWA_RULE = (
+    "사용 규칙: 이 기간에 들어온 도화다 — 타고난 성향이나 평생의 매력으로 설명하지 말고 원국 "
+    "도화와 구분해 그 기간의 매력 노출·인연 기회로만 말할 것. 기준이 둘이어도 한 번만 다룰 것."
+)
+
+
+def _luck_dohwa_line(ld: LuckDohwa, base_line: str) -> tuple[str, str]:
+    """운 도화 줄 — 기간·운 지지·기준·십성군·십성군 문구(운에 적용된 설명)·사용 규칙.
+
+    해석 문구는 reviewed 와 무관하게 기본으로 싣는다(검수는 실제 사용 결과로 판단).
+
+    Returns:
+        (줄, 노출 문구 키 'luck_combo:{군}').
+    """
+    from .dohwa import load_dohwa_texts
+
+    slot_ko = {"year": "연지", "day": "일지"}
+    bases = "·".join(f"{slot_ko[b.slot]} {b.branch} 기준({b.trine}국)" for b in ld.bases)
+    combo = load_dohwa_texts()[f"combo:{ld.group.value}"]
+    head = base_line.split(":", 1)[0]  # '(보조·세운(올해) 유입) 도화'
+    rest = base_line.split(":", 1)[1].strip()
+    line = (
+        f"{head}(운 진도화): {ld.period_label} {ld.ganji}의 지지 {ld.branch} [{bases}] — "
+        f"{ld.group_label}(운 지지 본기 {ld.ten_god}, 원국 일간 기준) · 운에 적용된 설명 — "
+        f"매력의 핵심: {combo['core']} · 발현 방식: {combo['manifestation']} · {rest} · "
+        f"{_LUCK_DOHWA_RULE}"
+    )
+    return line, f"luck_combo:{ld.group.value}"
 
 
 def _first_sentence(text: str, limit: int = 160) -> str:
