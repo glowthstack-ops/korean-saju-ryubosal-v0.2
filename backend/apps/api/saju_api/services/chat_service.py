@@ -720,6 +720,10 @@ def _question_time_direction(
             )
             if starts_future:
                 return False
+    # 사건 보고형('오늘 해고통보를 받았어. 앞으로 어떻게…')은 과거형 어미가 있어도 묻는 것은
+    # 앞으로다(2026-10-13) — 회고 모드로 뒤집으면 미래 조언이 금지된다.
+    if intent.dialogue_act == "reported_event":
+        return False
     if (
         intent.query_type is QueryType.EVENT_EXPLANATION
         or any(k in question for k in _PAST_KEYWORDS)
@@ -734,6 +738,24 @@ def _question_time_direction(
     return False
 
 
+# 사건 보고형 답변 계약(2026-10-13 데굴님 지시) — 실로그: "오늘 해고통보를 받았어. 앞으로
+# 어떻게 하면 좋을까"에 '업무적으로 유리한 신호가 우세한 날'로 시작해 사건은 맨 끝 한 줄로만
+# 받았다.
+# 금지 문형을 예문으로 적지 않는다(예문이 그 문형을 상기시킨다 — 2026-10-01).
+_REPORTED_EVENT_DIRECTIVE = (
+    "[사건 보고형 — 사용자가 이미 겪은 일을 알리고 앞으로를 묻는다] "
+    "사용자가 알린 사건은 확인된 현실 사실이다. "
+    "① 첫 문장에서 그 사건을 짧게 받아들이고(한 문장, 과잉 위로·면책 반복 없이) "
+    "바로 앞으로의 결론으로 넘어갈 것. "
+    "② 사건이 일어난 날 하루의 운세(일진 길흉)로 답하지 말고, "
+    "그날의 신호를 사건과 반대 방향으로 해석해 위로하지 말 것. "
+    "③ 사건은 사용자의 현실 사실로만 다룬다 — 사주·운 서술은 사건 이후 앞으로의 흐름에만 쓰고, "
+    "사건이 일어난 이유·의미·목적을 운의 언어로 설명하는 문장(운이 그렇게 만들었다, 무엇을 위한 "
+    "과정이다 류)은 쓰지 않는다. "
+    "④ 답의 중심은 [답변 지평] 기간 안의 흐름과 지금 할 일(정리·준비·다음 선택의 시기)이다. "
+    "해고·퇴사 통보·권고사직은 같은 계열(직장을 떠나게 된 사건)로 다루고, "
+    "재직 중이라는 전제로 쓰지 말 것."
+)
 # 회고 질문 시제 강제 — is_retro여도 시제 지시가 없어 이벤트 후보·트리거류 미래 지향
 # 디렉티브에 묻혀 과거 사건을 예측처럼 서술하던 결함 교정(2026-07-21 데굴님 실로그).
 _RETRO_TENSE_DIRECTIVE = (
@@ -5847,6 +5869,9 @@ def chat(
     # P4 — 결론 요약 모드: 새 월별 분석 대신 직전 분석 압축 결론(1문장 결론→확실성→근거→조건).
     if intent.dialogue_act == "conclusion_summary":
         trailing.append(_CONCLUSION_SUMMARY_DIRECTIVE)
+    # 사건 보고형(2026-10-13) — 이미 겪은 사건을 전제로 앞으로의 흐름·대응을 답한다.
+    if intent.dialogue_act == "reported_event":
+        trailing.append(_REPORTED_EVENT_DIRECTIVE)
     # 총운 다변화 P2(2026-07-14) — 조망 서술 계약: 후보 존재 영역만, 집중은 집중으로
     # 명시, 미선정 영역은 '신호 없음' 단정 금지·생략.
     if _overview_mode:

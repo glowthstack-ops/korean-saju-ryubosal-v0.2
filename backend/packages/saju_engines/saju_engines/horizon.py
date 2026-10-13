@@ -23,6 +23,7 @@ from dataclasses import dataclass
 
 from saju_shared_types.intent import IntentJson, TimeScope
 
+from .job_separation import is_job_separation
 from .rewriter import DEFAULT_PERIOD_MONTHS
 
 # 유형 감지(우선순위: 장기/개방형시기 제외 > 구조 결정 > 즉시 > 시도·전망 > 분야 기본).
@@ -66,7 +67,8 @@ def resolve_horizon(question: str, intent: IntentJson) -> HorizonPolicy | None:
         return None
     if _OPEN_WHEN_RE.search(question):
         return None  # 개방형 시기 탐색 — 기존 10년 digest(연도 지정 유도) 유지
-    if _STRUCTURAL_RE.search(question):
+    # 직장 이탈 계열(해고·퇴사 통보·권고사직 — 한 계열, 2026-10-13)도 퇴사와 같은 구조 결정형이다.
+    if _STRUCTURAL_RE.search(question) or is_job_separation(question):
         return HorizonPolicy(
             kind="structural",
             months_detail=3,
