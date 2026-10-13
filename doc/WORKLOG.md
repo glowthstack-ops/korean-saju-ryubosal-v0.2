@@ -12021,3 +12021,17 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
   게이트(기본 사실만·검수 플래그·승인 문구만·부정 한정·왕지 문장), `test_external_impression.py` D안.
 - 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 사전 validate 통과, 전체 스위트 결과는 아래 줄.
   전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=3505f5f, 지문 동일, exit 0, `var/suite_20261013_dohwa3.log`). 직전 실행(`suite_20261013_dohwa2.log`, TESTS_FAILED 14건)은 비교 스크립트용으로 .env 플래그를 export 한 셸에서 이어 돌린 **무효 실행** — 실패 전부 플래그 기본 OFF 전제 테스트였고, SAJU_ 환경변수 0개인 셸 재실행으로 확인. 백엔드 8888 재기동 반영.
+
+## 2026-10-13 — 도화 해석 문구 기본 노출로 정정 (데굴님 정정)
+
+- 경위: 도화 정비 2차에서 붙여 넣은 외부 검토 의견의 "검수 후 연결"을 데굴님 지침으로 오인해, 해석 문구를 `reviewed:true`만 싣는 게이트와 검수용
+  베타 플래그 `SAJU_DOHWA_TEXT_REVIEW_EXPOSE`(기본 OFF)를 넣고 커밋했다(ab49a5d). 같은 대화에서 데굴님이 직접 "검수는 실제 사용자 이용 시 풀이
+  내용을 확인해야 가능"이라고 했는데 그 충돌을 묻지 않고 플래그로 절충한 것이 원인. 데굴님: "검수 후 연결은 애초에 사용 불가능한 지침, 준 적 없다."
+- 정정: 게이트(`_dohwa_text_usable`)와 플래그(설정·health beta_flags 표기) 삭제. 해석 문구(특징·핵심·발현)는 기본으로 싣고 `reviewed`는 검토 상태
+  기록용(노출 조건 아님). 노출 로그 `dohwa_text_exposed`는 유지(실답 검수 경로). 사용 규칙 코드 상수는 유지. 사전 dohwa_text.json 1.0.2 note·스키마
+  docstring·docs/05 서술을 실제 경위대로 수정. 테스트: 기본 노출·reviewed 값과 무관한 노출·채팅 로그(플래그 없이) 확인.
+- 확인 요청 2건 대조: ①십성 오기 교정의 시주 미상 범위 — 시지만 제외하고 연지·월지·일지는 그대로 교정함을 테스트로 고정(만세 기둥·LLM 입력 기둥 상세
+  두 경로). ②문구 '8건' — 사전 항목은 8개(유형 3·십성군 5)지만 풀이에 실리는 해석 문구는 7개다(진도화 항목은 정의만 있고 풀이 문구로 쓰지 않음).
+  보고의 '8건'은 집계 오기.
+- 실답 1회에서 월지를 편관으로 쓴 것은 교정기 작동 증거가 아니다 — 교정 동작은 의도적 오기를 넣은 단위 테스트(사고 문장·교정 3형·조사 3형·채팅 경로)로 확인.
+  게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=ab49a5d, 지문 동일, exit 0, `var/suite_20261013_dohwa4.log`, SAJU_ 환경변수 0개 셸). 백엔드 8888 재기동 반영.

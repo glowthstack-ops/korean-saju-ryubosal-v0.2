@@ -68,16 +68,27 @@ def test_ambiguous_or_matching_text_is_untouched(text):
     assert fixed == text and fixes == []
 
 
-def test_hour_unknown_has_no_hour_fact():
-    """시주 미상이면 시지 엔진값이 없어 시지 표기는 검사하지 않는다."""
+def test_hour_unknown_skips_only_hour():
+    """시주 미상이면 **시지만** 검사하지 않는다 — 연지·월지·일지 교정은 그대로 한다."""
     r = calculate(BirthInput(
         birth_date=date(1975, 1, 1), birth_time=None, birth_time_unknown=True,
         birth_place_name="서울", gender="female",
     ))
     assert r.pillars is not None
     facts = facts_from_pillars(r.pillars)
-    assert "hour" not in facts
+    assert set(facts) == {"year", "month", "day"}
     assert audit_ten_god_labels("시지 정관", facts) == ("시지 정관", [])
+    fixed, fixes = audit_ten_god_labels("월지에 자리한 정관과 다른 이야기", facts)
+    assert fixed == "월지에 자리한 편관과 다른 이야기" and len(fixes) == 1
+    # 채팅 경로(LLM 입력 기둥 상세)도 시주 미상이면 시지 상세가 없어 시지만 빠진다.
+    details = [
+        PillarDetail(palace=slot, ganji=getattr(r.pillars, slot).ganji,
+                     stem_ten_god=getattr(r.pillars, slot).stem_ten_god,
+                     branch_ten_god=getattr(r.pillars, slot).branch_main_ten_god,
+                     twelve_stage="")
+        for slot in ("year", "month", "day")
+    ]
+    assert facts_from_pillar_details(details) == facts
 
 
 def test_facts_from_real_chart_match_prompt_details():

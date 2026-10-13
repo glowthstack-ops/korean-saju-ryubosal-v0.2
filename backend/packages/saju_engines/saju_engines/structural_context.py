@@ -19,7 +19,6 @@ from saju_shared_types.preparation_context import PreparationContext
 from saju_shared_types.wealth_capacity import WealthCapacity
 from saju_shared_types.wealth_status_lean import WealthStatusLean
 
-from . import period_v2_config
 from .era_energy import era_curated_note, era_energy_profile
 from .health_vulnerability import (
     health_percentile_thresholds,
@@ -975,24 +974,17 @@ _DOHWA_NONE_LINE = (
 )
 
 
-def _dohwa_text_usable(item: dict) -> bool:
-    """해석 문구 사용 가능 여부 — 검수 승인(reviewed:true)만(검수용 노출 플래그 환경은 예외).
-
-    노출 로그는 검수를 대신하지 않는다(2026-10-13 데굴님 확정). 검수는 실제 이용 시 풀이를 봐야
-    가능하므로, 검수 환경에서만 SAJU_DOHWA_TEXT_REVIEW_EXPOSE 로 검수 전 문구를 싣는다.
-    """
-    return bool(item.get("reviewed")) or period_v2_config.DOHWA_TEXT_REVIEW_EXPOSE
-
-
 def dohwa_structure_lines(
     profile: DohwaProfile | None, intent: IntentJson, question: str = "",
 ) -> tuple[list[str], list[str]]:
     """[도화 구조] — 진도화(자리·기준·십성군)·월담도화·사정지(가도화)를 보조 자료로 싣는다.
 
     정비 기준(2026-10-13 데굴님 확정): 글자 보유(사정지)와 도화 성립(진도화)을 구분하고 판정된
-    사실만 풀이에 연결한다. 엔진 판정(유형·자리·기준·십성군)은 항상 싣고, 해석 문구(dohwa_text.json
-    특징·핵심·발현)는 **검수 승인된 것만** 싣는다(`_dohwa_text_usable`). 월담도화는 진도화의 시지
-    하위 유형이라 별도 가산하지 않는다.
+    사실만 풀이에 연결한다. 엔진 판정(유형·자리·기준·십성군)과 해석 문구(dohwa_text.json
+    특징·핵심·발현)를 **기본으로 함께 싣는다** — 검수는 실제 사용 결과(풀이)를 보고 판단하므로
+    reviewed 는 검토 상태 기록용일 뿐 노출 조건이 아니다(2026-10-13 데굴님 정정). 호출자는
+    돌려받은 문구 키를 노출 로그로 남겨 실답 검수 경로를 만든다. 월담도화는 진도화의 시지 하위
+    유형이라 별도 가산하지 않는다.
 
     노출 게이트(외적 인상 블록과 같은 결): 도화·매력·인상 직접 질문, 관계 도메인, 명식 분석 질문만.
     원국 판정만 다룬다(운 도화 판정은 기존 신살 경로 유지, 운의 십성 조합은 후속).
@@ -1032,20 +1024,16 @@ def dohwa_structure_lines(
                 f"{e.group_label}(본기 {e.ten_god})"
             )
             combo = texts[f"combo:{e.group.value}"]
-            if _dohwa_text_usable(combo):
-                keys.append(f"combo:{e.group.value}")
-                line += f" · 매력의 핵심: {combo['core']} · 발현 방식: {combo['manifestation']}"
+            keys.append(f"combo:{e.group.value}")
+            line += f" · 매력의 핵심: {combo['core']} · 발현 방식: {combo['manifestation']}"
             lines.append(line)
         lines.append(f"진도화 사용 규칙: {_DOHWA_RULE_JIN}")
     else:
         lines.append(_DOHWA_NONE_LINE)
     if profile.wolldam_status == "established":
         wd = texts["type:wolldam"]
-        line = "월담도화: 성립(시지 진도화)"
-        if _dohwa_text_usable(wd):
-            keys.append("type:wolldam")
-            line += f" — {wd['feature']}"
-        lines.append(f"{line}. {_DOHWA_RULE_WOLLDAM}")
+        keys.append("type:wolldam")
+        lines.append(f"월담도화: 성립(시지 진도화) — {wd['feature']}. {_DOHWA_RULE_WOLLDAM}")
     elif profile.wolldam_status == "undetermined":
         lines.append(
             "월담도화: 미확정(시주 미상) — 시지 도화 여부를 알 수 없으니 있다·없다로 말하지 말 것."
@@ -1055,15 +1043,11 @@ def dohwa_structure_lines(
         where = "·".join(
             f"{_DOHWA_SLOT_KO[m.position]} {m.branch}" for m in profile.sajeong_markers
         )
-        line = f"가도화(사정지): {where} — {_DOHWA_RULE_SAJEONG}"
-        if _dohwa_text_usable(sj):
-            keys.append("type:sajeong")
-            line += f" 성향: {sj['feature']}."
-        lines.append(line)
+        keys.append("type:sajeong")
+        lines.append(f"가도화(사정지): {where} — {_DOHWA_RULE_SAJEONG} 성향: {sj['feature']}.")
     lines.append(
         "서술 규칙: 자리가 여럿이면 자리별로 구분해 말하고 같은 매력을 겹쳐 키우지 말 것. 제공된 "
-        "판정·문구 범위를 넘어 매력의 크기나 이성 관계의 결과를 단정하지 말고, 해석 문구가 없는 "
-        "십성군의 의미를 자체 지식으로 늘려 말하지 말 것."
+        "판정·문구 범위를 넘어 매력의 크기나 이성 관계의 결과를 단정하지 말 것."
     )
     return lines, list(dict.fromkeys(keys))
 

@@ -405,9 +405,9 @@ class DohwaComboText(_AliasModel):
 
 
 class DohwaTextFile(_AliasModel):
-    """도화 유형·십성 조합 해석 사전 — 검수 승인(reviewed:true) 문구만 풀이에 쓴다.
+    """도화 유형·십성 조합 해석 사전 — 기본으로 풀이에 연결한다.
 
-    검수용 노출은 SAJU_DOHWA_TEXT_REVIEW_EXPOSE 플래그로만 켠다.
+    reviewed 는 검토 상태 기록용이며 노출 조건이 아니다(검수는 실제 사용 결과로 판단, 2026-10-13).
     """
 
     version: str

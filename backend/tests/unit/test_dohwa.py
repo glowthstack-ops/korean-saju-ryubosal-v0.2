@@ -2,9 +2,8 @@
 
 정비 기준: 글자 보유(사정지=가도화)와 도화 성립(진도화)을 구분하고 성립한 판정만 '도화'로 쓴다.
 월담도화=시지 진도화(하위 유형, 별도 가산 없음), 나체도화=판정 보류, 십성 조합=성립 지지 본기
-십성(일간 기준) 5군. 해석 문구는 **검수 승인(reviewed:true)된 것만** 싣는다 — 노출 로그는 검수를
-대신하지 못한다. 검수는 실제 이용 시 풀이를 봐야 가능하므로 검수 환경에서만
-SAJU_DOHWA_TEXT_REVIEW_EXPOSE 플래그로 검수 전 문구를 노출한다.
+십성(일간 기준) 5군. 해석 문구는 기본으로 싣는다 — 검수는 실제 사용 결과(풀이)로 판단하므로
+reviewed 는 기록용일 뿐 노출 조건이 아니며, 노출 로그(dohwa_text_exposed)로 실답을 찾는다.
 """
 
 from __future__ import annotations
@@ -16,7 +15,6 @@ from datetime import date
 import pytest
 
 from saju_api.services.manse_service import calculate
-from saju_engines import period_v2_config
 from saju_engines.compatibility_engine import _ATTRACTION_WEIGHT, analyze_compatibility
 from saju_engines.context_reducer import build_birth_summary
 from saju_engines.dictionaries import DohwaTextFile, _lint_dohwa_text
@@ -153,45 +151,31 @@ def test_block_gating(intent, question, shown):
     assert bool(lines) is shown
 
 
-def test_block_default_carries_facts_only_without_unreviewed_texts(monkeypatch):
-    """기본(검수용 노출 OFF) — 판정 사실·사용 규칙만 싣고 검수 전 해석 문구는 싣지 않는다."""
-    monkeypatch.setattr(period_v2_config, "DOHWA_TEXT_REVIEW_EXPOSE", False)
+def test_block_carries_texts_by_default():
+    """해석 문구는 기본으로 싣는다(reviewed:false 여도) — 성립 사실·문구·노출 키, 월담 가산 없음."""
     lines, keys = dohwa_structure_lines(analyze_dohwa(_chart(*_WOLLDAM)), _intent())
     text = "\n".join(lines)
     assert "진도화 성립: 월지 子 [일지 未 기준(亥卯未국)] — 관성도화(본기 편관)" in text
     assert "진도화 성립: 시지 卯 [연지 寅 기준(寅午戌국)] — 인성도화(본기 편인)" in text
-    assert "품격·신뢰·카리스마" not in text and "매력의 핵심" not in text
-    assert "외부로 확산되는 매력" not in text and "뚜렷한 개성·자기주장·눈에 띄는" not in text
-    assert text.count("월담도화: 성립") == 1
-    assert "별도의 추가 매력으로 세지 않는다" in text
-    assert "해석 문구가 없는 십성군의 의미를 자체 지식으로 늘려 말하지 말 것" in text
-    assert keys == []
-
-
-def test_block_review_expose_flag_carries_texts(monkeypatch):
-    """검수 환경(플래그 ON) — 검수 전 문구를 싣고 실린 문구 키를 돌려준다(월담 가산 없음 유지)."""
-    monkeypatch.setattr(period_v2_config, "DOHWA_TEXT_REVIEW_EXPOSE", True)
-    lines, keys = dohwa_structure_lines(analyze_dohwa(_chart(*_WOLLDAM)), _intent())
-    text = "\n".join(lines)
     assert "품격·신뢰·카리스마" in text and "신비로움·내면의 깊이·보호본능 자극" in text
     assert "월담도화: 성립(시지 진도화) — 외부로 확산되는 매력·폭넓은 관심과 유혹" in text
     assert text.count("월담도화: 성립") == 1
+    assert "별도의 추가 매력으로 세지 않는다" in text
+    assert "뚜렷한 개성·자기주장·눈에 띄는 왕지 성향" in text
     assert keys == ["combo:관성", "combo:인성", "type:wolldam", "type:sajeong"]
 
 
-def test_block_uses_reviewed_text_only(monkeypatch):
-    """검수 승인(reviewed:true)된 문구만 기본 환경에서 실린다 — 군별로 따로 판단."""
+def test_reviewed_flag_does_not_gate_exposure(monkeypatch):
+    """reviewed 는 검토 상태 기록용 — 값이 무엇이든 노출은 같다(2026-10-13 데굴님 정정)."""
     import saju_engines.dohwa as dohwa_mod
 
-    monkeypatch.setattr(period_v2_config, "DOHWA_TEXT_REVIEW_EXPOSE", False)
+    base_lines, base_keys = dohwa_structure_lines(analyze_dohwa(_chart(*_WOLLDAM)), _intent())
     texts = {k: dict(v) for k, v in load_dohwa_texts().items()}
-    texts["combo:관성"]["reviewed"] = True
+    for v in texts.values():
+        v["reviewed"] = True
     monkeypatch.setattr(dohwa_mod, "load_dohwa_texts", lambda: texts)
     lines, keys = dohwa_structure_lines(analyze_dohwa(_chart(*_WOLLDAM)), _intent())
-    text = "\n".join(lines)
-    assert "품격·신뢰·카리스마" in text  # 승인된 관성도화
-    assert "신비로움·내면의 깊이" not in text  # 미승인 인성도화
-    assert keys == ["combo:관성"]
+    assert (lines, keys) == (base_lines, base_keys)
 
 
 def test_block_sajeong_only_limits_negation_to_natal():
@@ -212,7 +196,7 @@ def test_block_hour_unknown_line():
     assert any(ln.startswith("월담도화: 미확정(시주 미상)") for ln in lines)
 
 
-def test_chat_logs_exposed_text_keys(monkeypatch):
+def test_chat_logs_exposed_text_keys():
     """채팅 구조 블록은 노출된 도화 문구 키를 스레드·턴과 함께 로그로 남긴다(실답 검수 경로).
 
     앱 로거는 propagate=False 라 caplog 로는 거짓 통과한다 — 로거에 직접 핸들러를 붙인다.
@@ -225,7 +209,6 @@ def test_chat_logs_exposed_text_keys(monkeypatch):
         def emit(self, record: logging.LogRecord) -> None:
             records.append(record)
 
-    monkeypatch.setattr(period_v2_config, "DOHWA_TEXT_REVIEW_EXPOSE", True)
     handler = _H()
     prev_level = chat_service._logger.level
     chat_service._logger.setLevel(logging.INFO)  # 테스트 환경 유효 레벨은 WARNING

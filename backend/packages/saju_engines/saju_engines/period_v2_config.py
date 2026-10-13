@@ -60,10 +60,6 @@ MONTH_COVERAGE_AUDIT_ENABLED: bool = _env_flag("SAJU_MONTH_COVERAGE_AUDIT_ENABLE
 # 관이면 관 계열 사건에 관운 강화 보정을 더한다. 점수·순위·사건 종류 불변. 월 등급 쪽은
 # saju_manse_analysis.luck.luck_cycles가 같은 환경변수를 따로 읽는다(패키지 의존 방향).
 HAP_MITIGATION_ENABLED: bool = _env_flag("SAJU_HAP_MITIGATION_ENABLED")
-# 도화 해석 문구 검수용 노출(2026-10-13 데굴님 확정) — 기본 OFF. 검수 승인(reviewed:true)된 문구만
-# 풀이에 쓰고, 검수는 실제 이용 시 풀이를 확인해야 가능하므로 검수 환경(베타)에서만 이 플래그로
-# 검수 전 문구를 노출한다. 노출 로그는 검수를 대신하지 않는다.
-DOHWA_TEXT_REVIEW_EXPOSE: bool = _env_flag("SAJU_DOHWA_TEXT_REVIEW_EXPOSE")
 # C6 B/C 세운-대운 맥락 실험(2026-10-08 데굴님 승인) — LuckPillar.daewoon_context_score 별도
 # 필드만 채운다. luck_score·라벨·기존 소비자 불변. 계산은 saju_manse_analysis.luck.luck_cycles 가
 # 같은 환경변수를 따로 읽는다.
@@ -174,7 +170,6 @@ def active_versions() -> dict[str, str | bool]:
         "event_process_dual_run_enabled": EVENT_PROCESS_DUAL_RUN_ENABLED,
         "month_coverage_audit_enabled": MONTH_COVERAGE_AUDIT_ENABLED,
         "hap_mitigation_enabled": HAP_MITIGATION_ENABLED,
-        "dohwa_text_review_expose": DOHWA_TEXT_REVIEW_EXPOSE,
         "relation_terms_v2_enabled": RELATION_TERMS_V2_ENABLED,
         "event_lexicon_enabled": EVENT_LEXICON_ENABLED,
         "structure_background_enabled": STRUCTURE_BACKGROUND_ENABLED,
