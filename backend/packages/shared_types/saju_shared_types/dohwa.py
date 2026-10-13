@@ -8,7 +8,9 @@
   자리를 함께 기록.
 - 월담도화: 시지에 진도화가 성립한 경우(진도화의 위치 하위 유형 — 별도 매력 가산 금지).
   시주 미상이면 미확정.
-- 나체도화: 제시 목록의 근거가 통일되지 않아 **판정 보류**(이 모델에 필드를 두지 않는다).
+- 나체도화(2026-10-13 데굴님 지시): 일지가 일간의 12운성 목욕(甲子·乙巳·庚午·辛亥 일주)이면
+  성립. 포스텔러 소개 견해(천충지충을 추가 요건으로 보는 입장)를 합쳐 일주와 천충지충인 원국
+  기둥 동반 여부를 함께 기록한다. 진도화와 별도 유형이며 매력 점수에 더하지 않는다.
 - 십성 조합: 도화가 성립한 지지의 본기를 일간 기준 십성으로 계산해 5군으로 분류, 자리마다 기록.
 """
 
@@ -64,6 +66,17 @@ class SajeongMarker(BaseModel):
     branch: str
 
 
+class NakedDohwa(BaseModel):
+    """나체도화 — 일지 목욕 일주 + 천충지충 동반 여부(2026-10-13 데굴님 지시)."""
+
+    day_ganji: str
+    # 일주와 천간충·지지충을 함께 이루는 원국 기둥(연주·월주·시주). 비면 미동반.
+    clash_positions: list[PillarSlot] = Field(default_factory=list)
+    # present=동반(두 견해 모두 성립) / absent=미동반(일지 목욕만으로 성립한다는 견해) /
+    # undetermined=알려진 기둥엔 없고 시주 미상이라 확정 불가.
+    clash_status: Literal["present", "absent", "undetermined"] = "absent"
+
+
 class DohwaProfile(BaseModel):
     """원국 도화 구조(운 미반영)."""
 
@@ -72,6 +85,7 @@ class DohwaProfile(BaseModel):
     # 월담도화 — 시지 진도화. 시주 미상이면 undetermined(없음으로 단정하지 않는다).
     wolldam_status: Literal["established", "not_established", "undetermined"] = "not_established"
     hour_known: bool = True
+    naked: NakedDohwa | None = None  # 나체도화 성립 시에만(진도화와 별도 유형, 가산 없음)
 
     @property
     def has_established(self) -> bool:

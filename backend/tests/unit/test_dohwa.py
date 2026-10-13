@@ -115,7 +115,8 @@ def test_texts_cover_types_and_groups_and_stay_unreviewed():
     """유형 3종·십성군 5종을 모두 싣고, 검수 전(reviewed:false)이어도 로더가 돌려준다."""
     texts = load_dohwa_texts()
     type_keys = {k for k in texts if k.startswith("type:")}
-    assert type_keys == {"type:sajeong", "type:jin", "type:wolldam"}
+    assert type_keys == {"type:sajeong", "type:jin", "type:wolldam", "type:naked"}
+    assert texts["type:naked"]["feature"] == "가식 없는 솔직함·꾸미지 않은 매력"
     assert {k for k in texts if k.startswith("combo:")} == {
         f"combo:{g.value}" for g in DohwaTenGodGroup
     }
@@ -471,3 +472,71 @@ def test_luck_dohwa_context_empty_without_dohwa_or_range():
         _range_intent(Granularity.DAY, "2026-10-01", "2026-11-30"), "연애운", set(),
     )
     assert too_long == []
+
+
+
+# ── 나체도화(2026-10-13 데굴님 지시) — 일지 목욕 정의 + 포스텔러 소개 견해(천충지충) 결합 ──
+_NAKED_PRESENT = (date(1980, 2, 21), "12:40:00")  # 庚申·戊寅·甲子·庚午 — 시주 庚午 천충지충
+_NAKED_ABSENT = (date(1980, 2, 21), "05:30:00")   # 庚申·戊寅·甲子·丙寅 — 천충지충 없음
+_NAKED_UNKNOWN_HOUR = (date(1980, 2, 21), None)   # 시주 미상
+
+
+def test_naked_days_are_exactly_bathing_day_pillars():
+    """일지가 일간의 12운성 목욕인 일주는 60갑자 중 甲子·乙巳·庚午·辛亥뿐이다(엔진값 기준)."""
+    from saju_engines.dictionaries import _expected_twelve_stage
+    from saju_shared_types.enums import Branch, Stem
+
+    stems, branches = "甲乙丙丁戊己庚辛壬癸", "子丑寅卯辰巳午未申酉戌亥"
+    days = {
+        stems[i % 10] + branches[i % 12] for i in range(60)
+        if _expected_twelve_stage(Stem(stems[i % 10]), Branch(branches[i % 12])) == "목욕"
+    }
+    assert days == {"甲子", "乙巳", "庚午", "辛亥"}
+
+
+@pytest.mark.parametrize(
+    ("spec", "status", "positions"),
+    [
+        (_NAKED_PRESENT, "present", ["hour"]),
+        (_NAKED_ABSENT, "absent", []),
+        (_NAKED_UNKNOWN_HOUR, "undetermined", []),
+    ],
+)
+def test_naked_dohwa_clash_status(spec, status, positions):
+    prof = analyze_dohwa(_chart(*spec))
+    assert prof is not None and prof.naked is not None
+    assert prof.naked.day_ganji == "甲子"
+    assert (prof.naked.clash_status, prof.naked.clash_positions) == (status, positions)
+
+
+def test_non_bathing_day_has_no_naked():
+    prof = analyze_dohwa(_chart(*_WOLLDAM))  # 丁未 일주
+    assert prof is not None and prof.naked is None
+
+
+@pytest.mark.parametrize(
+    ("spec", "phrase"),
+    [
+        (_NAKED_PRESENT, "천충지충 동반(시주) — 일지 목욕만으로 성립한다는 견해와 천충지충을 추가"),
+        (_NAKED_ABSENT, "천충지충 미동반 — 일지 목욕만으로 성립한다는 견해에 해당"),
+        (_NAKED_UNKNOWN_HOUR, "천충지충 동반 여부 미확정(시주 미상"),
+    ],
+)
+def test_naked_block_line(spec, phrase):
+    """블록 — 성립·견해 구분·성향 문구·별도 유형(가산 금지) 규칙, 노출 키."""
+    lines, keys = dohwa_structure_lines(analyze_dohwa(_chart(*spec)), _intent())
+    line = next(ln for ln in lines if ln.startswith("나체도화:"))
+    assert "성립(일지 목욕 — 甲子 일주)" in line and phrase in line
+    assert "가식 없는 솔직함·꾸미지 않은 매력" in line
+    assert "진도화와 별도 유형이다" in line
+    assert "type:naked" in keys
+
+
+def test_naked_not_added_to_impression_score():
+    """나체도화는 매력 점수에 더하지 않는다 — 외적 인상 도화계 신호는 진도화·홍염뿐."""
+    from saju_engines.external_impression import analyze_external_impression
+
+    prof = analyze_external_impression(_chart(*_NAKED_PRESENT))
+    codes = {s.code for s in prof.signals if s.category == "peach"}
+    assert codes <= {"DAY_BRANCH_PEACH", "ACTUAL_DOHWA_OR_HONGYEOM"}
+    assert not any("나체" in s.legacy_ko or "나체" in s.modern_ko for s in prof.signals)

@@ -12062,3 +12062,16 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
   사용 금지가 아니었음). 자료 표현을 "확인한 해당 자료에서는 …로 정의"로 한정. 정의 차이·근거 미확보로 이번 범위 미도입 종료.
 - 테스트: `test_dohwa.py` 6건(같은 날 총운·연애운 줄 동일, 게이트 3형, 총운 기간 중복 건너뜀, 질문 날짜만, 월·연 단위, 비해당·범위 초과).
 - 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=2fff583, 지문 동일, exit 0, `var/suite_20261013_dohwa6.log`, SAJU_ 환경변수 0개 셸). 백엔드 8888 재기동 반영.
+
+## 2026-10-13 — 나체도화 도입: 일지 목욕 정의 + 포스텔러 소개 견해(천충지충) 결합 (데굴님 지시)
+
+- 지시: "'일지 목욕'(甲子·乙巳·庚午·辛亥) 정의와 포스텔러 게시물의 의견을 합쳐서 나체도화건도 적용해."
+- 판정(`dohwa.analyze_dohwa` → `DohwaProfile.naked`): 일주 12운성(엔진 `twelve_unseong`)이 목욕이면 성립(60갑자 중 甲子·乙巳·庚午·辛亥뿐 — 테스트 고정).
+  포스텔러 견해를 합쳐 일주와 천충지충(天干四沖 甲庚·乙辛·丙壬·丁癸 + `BRANCH_CLASHES`)인 원국 기둥을 기록: present(두 견해 모두 성립)/absent(일지 목욕만으로
+  성립한다는 견해)/undetermined(시주 미상, 알려진 기둥에 없음). 丁亥·戊午는 정의에 해당하지 않아 제외. 운 기둥 천충지충은 범위 밖.
+- 사전 dohwa_text.json 1.1.0: 유형 `naked`(성향 "가식 없는 솔직함·꾸미지 않은 매력" — 데굴님 제시 표) 추가 → 항목 9개·해석 문구 8개. 스키마·lint 유형 4종.
+- 풀이: 원국 도화 블록에 "나체도화: 성립(일지 목욕 — ○○ 일주) · 견해 구분 · 성향 · 진도화와 별도 유형(합쳐 키우거나 점수처럼 더하지 말 것)" 1줄,
+  노출 키 `type:naked`. 나체도화만 있는 명식도 블록 노출. 외적 인상·결혼 자원·궁합 점수 불변(가산 없음 — 테스트 고정).
+- 테스트: `test_dohwa.py` 목욕 일주 4개 고정·천충지충 3상태·비목욕 일주 None·블록 3상태·외적 인상 비가산, 사전 유형 4종.
+- 1차 전체 스위트(`var/suite_20261013_naked.log`)는 TESTS_FAILED 10건 — 외적 인상 테스트의 스텁 명식에 `twelve_unseong` 필드가 없어 나체도화 판정이 AttributeError. `_naked_dohwa`가 필드 없는 입력은 판정하지 않도록 수정(실제 만세 결과엔 항상 있음).
+- 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=397c2e8, 지문 동일, exit 0, `var/suite_20261013_naked2.log`, SAJU_ 환경변수 0개 셸). 백엔드 8888 재기동 반영.

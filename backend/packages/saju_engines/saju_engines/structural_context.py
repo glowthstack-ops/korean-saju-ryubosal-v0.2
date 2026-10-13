@@ -972,6 +972,19 @@ _DOHWA_RULE_SAJEONG = (
     "子午卯酉 보유 표지일 뿐이다. 개성·자기주장 성향으로만 설명하고 도화 성립이나 이성적 매력의 "
     "직접 근거로 쓰지 않는다."
 )
+_DOHWA_RULE_NAKED = (
+    "진도화와 별도 유형이다 — 진도화 매력과 합쳐 키우거나 점수처럼 더하지 말 것."
+)
+#: 나체도화 천충지충 동반 상태 → 어느 견해에서 성립하는지.
+#: 데굴님 지시(2026-10-13): 일지 목욕 정의 + 포스텔러 소개 견해(천충지충 추가 요건) 결합.
+_NAKED_CLASH_KO = {
+    "present": "천충지충 동반({where}) — 일지 목욕만으로 성립한다는 견해와 천충지충을 추가 "
+               "요건으로 보는 견해 모두에서 성립",
+    "absent": "천충지충 미동반 — 일지 목욕만으로 성립한다는 견해에 해당(천충지충을 요건으로 보는 "
+              "견해에서는 미성립)",
+    "undetermined": "천충지충 동반 여부 미확정(시주 미상 — 알려진 기둥에는 없음)",
+}
+_PILLAR_KO = {"year": "연주", "month": "월주", "day": "일주", "hour": "시주"}
 _DOHWA_NONE_LINE = (
     "진도화 미확인 — 현재 분석 대상 원국에서 진도화가 확인되지 않음. 원국 진도화를 근거로 "
     "매력을 말하지 말되, 운에서 들어오는 도화나 이 블록이 판정하지 않는 다른 도화 유형까지 "
@@ -1002,7 +1015,9 @@ def dohwa_structure_lines(
     Returns:
         (LLM 입력 줄 목록, 실제로 실린 해석 문구 키 목록). 미노출이면 ([], []).
     """
-    if profile is None or not (profile.established or profile.sajeong_markers):
+    if profile is None or not (
+        profile.established or profile.sajeong_markers or profile.naked
+    ):
         return [], []
     allow = (
         _is_appearance_question(question)
@@ -1042,6 +1057,16 @@ def dohwa_structure_lines(
     elif profile.wolldam_status == "undetermined":
         lines.append(
             "월담도화: 미확정(시주 미상) — 시지 도화 여부를 알 수 없으니 있다·없다로 말하지 말 것."
+        )
+    if profile.naked is not None:
+        nk = texts["type:naked"]
+        keys.append("type:naked")
+        clash = _NAKED_CLASH_KO[profile.naked.clash_status].format(
+            where="·".join(_PILLAR_KO[s] for s in profile.naked.clash_positions)
+        )
+        lines.append(
+            f"나체도화: 성립(일지 목욕 — {profile.naked.day_ganji} 일주) · {clash} · 성향: "
+            f"{nk['feature']}. {_DOHWA_RULE_NAKED}"
         )
     if profile.sajeong_markers:
         sj = texts["type:sajeong"]

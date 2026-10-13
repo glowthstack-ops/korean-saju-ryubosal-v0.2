@@ -384,7 +384,7 @@ class IljuFile(_AliasModel):
 class DohwaTypeText(_AliasModel):
     """도화 유형 해석 1건 (interpretations/dohwa_text.json — 2026-10-13)."""
 
-    key: Literal["sajeong", "jin", "wolldam"]
+    key: Literal["sajeong", "jin", "wolldam", "naked"]
     name: str
     condition: str
     feature: str
@@ -412,7 +412,7 @@ class DohwaTextFile(_AliasModel):
 
     version: str
     note: str | None = None
-    types: list[DohwaTypeText] = Field(min_length=3, max_length=3)
+    types: list[DohwaTypeText] = Field(min_length=4, max_length=4)
     combos: list[DohwaComboText] = Field(min_length=5, max_length=5)
 
 
@@ -2806,11 +2806,11 @@ _DOHWA_GROUP_TEN_GODS: dict[str, set[str]] = {
 
 
 def _lint_dohwa_text(file: DohwaTextFile) -> list[str]:
-    """dohwa_text.json — 유형 3종·십성군 5종 정확 커버리지, 라벨·소속 십성 정합."""
+    """dohwa_text.json — 유형 4종·십성군 5종 정확 커버리지, 라벨·소속 십성 정합."""
     errors: list[str] = []
     head = "interpretations/dohwa_text.json"
-    if sorted(t.key for t in file.types) != ["jin", "sajeong", "wolldam"]:
-        errors.append(f"{head}: 유형은 sajeong·jin·wolldam 각 1건이어야 한다")
+    if sorted(t.key for t in file.types) != ["jin", "naked", "sajeong", "wolldam"]:
+        errors.append(f"{head}: 유형은 sajeong·jin·wolldam·naked 각 1건이어야 한다")
     if sorted(c.group for c in file.combos) != sorted(_DOHWA_GROUP_TEN_GODS):
         errors.append(f"{head}: 십성군 5종(비겁·식상·재성·관성·인성) 각 1건이어야 한다")
     for c in file.combos:

@@ -13,12 +13,14 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from saju_shared_types.constants import BRANCH_CLASHES
 from saju_shared_types.dohwa import (
     DohwaBase,
     DohwaEstablishment,
     DohwaProfile,
     DohwaTenGodGroup,
     LuckDohwa,
+    NakedDohwa,
     PillarSlot,
     SajeongMarker,
 )
@@ -29,6 +31,12 @@ from saju_shared_types.twelve_sinsal import branch_of_sinsal, trine_group_label
 
 #: 子午卯酉 — 사정지(왕지) 보유 표지. 신살 집계기 SAJEONG 과 같은 집합.
 _SAJEONG: frozenset[Branch] = frozenset({Branch.JA, Branch.O, Branch.MYO, Branch.YU})
+
+#: 天干四沖 — 용신 후보 모듈(`yongsin.candidates._STEM_CLASH_PAIRS`)과 같은 네 쌍.
+_STEM_CLASHES: frozenset[frozenset[str]] = frozenset({
+    frozenset({"甲", "庚"}), frozenset({"乙", "辛"}),
+    frozenset({"丙", "壬"}), frozenset({"丁", "癸"}),
+})
 
 #: 십성 → 십성군. 편관·정관은 관성, 편인·정인은 인성으로 묶는다.
 _TEN_GOD_GROUP: dict[str, DohwaTenGodGroup] = {
@@ -84,6 +92,7 @@ def analyze_dohwa(result: ManseV2Result) -> DohwaProfile | None:
         for position, pillar in slots
         if Branch(pillar.branch) in _SAJEONG
     ]
+    naked = _naked_dohwa(p.day, slots, hour_known)
     wolldam: Literal["established", "not_established", "undetermined"]
     if not hour_known:
         wolldam = "undetermined"
@@ -93,8 +102,36 @@ def analyze_dohwa(result: ManseV2Result) -> DohwaProfile | None:
         wolldam = "not_established"
     return DohwaProfile(
         established=established, sajeong_markers=markers,
-        wolldam_status=wolldam, hour_known=hour_known,
+        wolldam_status=wolldam, hour_known=hour_known, naked=naked,
     )
+
+
+def _naked_dohwa(
+    day: Pillar, slots: list[tuple[PillarSlot, Pillar]], hour_known: bool,
+) -> NakedDohwa | None:
+    """나체도화 — 일지가 일간의 12운성 목욕이면 성립, 천충지충 원국 기둥 동반 여부를 기록한다.
+
+    12운성은 만세 결과값(day.twelve_unseong)을 그대로 쓴다 — 60갑자 중 甲子·乙巳·庚午·辛亥뿐이다.
+    천충지충은 일주와 천간충(天干四沖)·지지충(BRANCH_CLASHES)을 동시에 이루는 다른 원국 기둥이다
+    (포스텔러 소개 견해 — 이를 추가 요건으로 보는 입장, 2026-10-13 데굴님 지시로 결합).
+    """
+    # 12운성이 없는 입력(부분 스텁 등)은 나체도화를 판정하지 않는다 — 실제 만세 결과에는 항상 있다.
+    if getattr(day, "twelve_unseong", "") != "목욕":
+        return None
+    clash: list[PillarSlot] = [
+        slot for slot, pl in slots
+        if slot != "day"
+        and frozenset({day.stem, pl.stem}) in _STEM_CLASHES
+        and frozenset({Branch(day.branch), Branch(pl.branch)}) in BRANCH_CLASHES
+    ]
+    status: Literal["present", "absent", "undetermined"]
+    if clash:
+        status = "present"
+    elif not hour_known:
+        status = "undetermined"
+    else:
+        status = "absent"
+    return NakedDohwa(day_ganji=day.ganji, clash_positions=clash, clash_status=status)
 
 
 def analyze_luck_dohwa(
