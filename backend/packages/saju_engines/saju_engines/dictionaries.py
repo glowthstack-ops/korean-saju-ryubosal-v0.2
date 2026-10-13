@@ -416,6 +416,34 @@ class DohwaTextFile(_AliasModel):
     combos: list[DohwaComboText] = Field(min_length=5, max_length=5)
 
 
+class TenGodRelationFamily(_AliasModel):
+    """가족 관계 항목 — 성별·특정 십성 조건(없으면 모두)."""
+
+    label: str
+    gender: Literal["male", "female"] | None = None
+    ten_gods: list[str] = Field(default_factory=list, alias="tenGods")
+
+
+class TenGodRelationItem(_AliasModel):
+    """십성군 → 나와의 관계 대상 1건 (interpretations/ten_god_relations.json — 2026-10-13)."""
+
+    group: Literal["비겁", "식상", "재성", "관성", "인성"]
+    ten_gods: list[str] = Field(alias="tenGods", min_length=2, max_length=2)
+    social: str
+    social_note: dict[str, str] = Field(default_factory=dict, alias="socialNote")
+    family: list[TenGodRelationFamily] = Field(default_factory=list)
+    basis: str = Field(min_length=10)
+    reviewed: bool
+
+
+class TenGodRelationsFile(_AliasModel):
+    """십성군 → 관계 대상 근거표. 사회적 관계는 직업·일반, 가족 관계는 가족·연애 질문에서만."""
+
+    version: str
+    note: str | None = None
+    items: list[TenGodRelationItem] = Field(min_length=5, max_length=5)
+
+
 class SinsalTextFile(_AliasModel):
     version: str
     note: str | None = None
@@ -2386,6 +2414,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/relations_text.json": RelationsTextFile,
     "interpretations/sinsal_text.json": SinsalTextFile,
     "interpretations/dohwa_text.json": DohwaTextFile,
+    "interpretations/ten_god_relations.json": TenGodRelationsFile,
     "interpretations/stems_branches_text.json": StemsBranchesTextFile,
     "interpretations/favorability_text.json": FavorabilityTextFile,
     "interpretations/relocation_ten_gods.json": RelocationTenGodsFile,
@@ -2818,6 +2847,24 @@ def _lint_dohwa_text(file: DohwaTextFile) -> list[str]:
             errors.append(f"{head}: {c.group} 라벨은 '{c.group}도화'여야 한다(현재 {c.label})")
         if set(c.ten_gods) != _DOHWA_GROUP_TEN_GODS.get(c.group, set()):
             errors.append(f"{head}: {c.group} 소속 십성 불일치 — {c.ten_gods}")
+    return errors
+
+
+def _lint_ten_god_relations(file: TenGodRelationsFile) -> list[str]:
+    """ten_god_relations.json — 십성군 5종 정확 커버리지·소속 십성·조건 십성 정합."""
+    errors: list[str] = []
+    head = "interpretations/ten_god_relations.json"
+    if sorted(i.group for i in file.items) != sorted(_DOHWA_GROUP_TEN_GODS):
+        errors.append(f"{head}: 십성군 5종(비겁·식상·재성·관성·인성) 각 1건이어야 한다")
+    for i in file.items:
+        members = _DOHWA_GROUP_TEN_GODS.get(i.group, set())
+        if set(i.ten_gods) != members:
+            errors.append(f"{head}: {i.group} 소속 십성 불일치 — {i.ten_gods}")
+        if not set(i.social_note) <= members:
+            errors.append(f"{head}: {i.group} socialNote 키가 소속 십성이 아니다")
+        for f in i.family:
+            if not set(f.ten_gods) <= members:
+                errors.append(f"{head}: {i.group} 가족 '{f.label}' 조건 십성이 소속 밖")
     return errors
 
 
@@ -3406,6 +3453,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_ilju(parsed))
         elif isinstance(parsed, DohwaTextFile):
             errors.extend(_lint_dohwa_text(parsed))
+        elif isinstance(parsed, TenGodRelationsFile):
+            errors.extend(_lint_ten_god_relations(parsed))
         elif isinstance(parsed, TenGodsTextFile):
             errors.extend(_lint_ten_gods_text(parsed))
         elif isinstance(parsed, TwelveStagesTextFile):

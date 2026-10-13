@@ -31,6 +31,7 @@ from saju_engines import (
     load_event_graph,
     period_v2_config,
 )
+from saju_engines.agent_relations import agent_relation_lines, detect_agent_question
 from saju_engines.assistant_commitments import (
     extract_commitments,
     match_commitments,
@@ -4001,6 +4002,81 @@ def _multi_day_focus_dates(intent: IntentJson) -> list[date]:
     return [start + timedelta(days=i) for i in range(span)]
 
 
+#: 관계 대상 질문 답변 지시(2026-10-13 데굴님 확정) — 근거표·천간/지지 병렬·가족 칸 제한.
+_AGENT_QUESTION_DIRECTIVE = (
+    "[관계 대상 질문] 사용자는 '누가'를 물었다. 첫 문장에서 [관계 대상] 블록의 관계 유형으로 "
+    "답하라 — 시기 나열로 대신하지 말 것. 실존 인물이나 특정 회사를 지목·단정하지 말고 관계 "
+    "유형과 그 근거(어느 기간의 어떤 십성)로만 말하며, 천간·지지의 관계 대상은 둘 다 가능한 "
+    "쪽으로 나란히 다룬다. 시기는 근거로 짧게 덧붙인다."
+)
+
+
+def _luck_pillar_for_label(birth: BirthInput, label: str) -> object | None:
+    """사건 후보 기간 라벨(YYYY / YYYY-MM / YYYY-MM-DD) → 그 기간의 운 기둥."""
+    try:
+        if len(label) == 4:
+            pls = luck_years(birth, [int(label)])
+        elif len(label) == 7:
+            pls = luck_months(birth, int(label[:4]))
+        elif len(label) >= 10:
+            pls = luck_days(birth, int(label[:4]), int(label[5:7]))
+        else:
+            return None
+    except (ValueError, IndexError):
+        return None
+    return next((pl for pl in pls if pl.label == label[: len(pl.label)]), None)
+
+
+def _agent_relation_context(
+    birth: BirthInput,
+    result: ManseV2Result,
+    intent: IntentJson,
+    question: str,
+    candidates: list,
+    current_month: str | None,
+    *,
+    thread_id: str | None = None,
+    turn_no: int | None = None,
+) -> list[str]:
+    """'누가 제안을 해올까' — 사건 후보 상위 기간(최대 2)의 운 십성을 관계 대상으로 옮긴 블록.
+
+    기간은 이번 턴 사건 후보 중 점수 상위 서로 다른 기간 2개, 후보가 없으면 현재 절기월.
+    사회적 관계만 쓰고 가족 관계는 관계(연애·가족) 도메인 질문에서만 붙인다(2026-10-13 확정).
+    """
+    if not detect_agent_question(question):
+        return []
+    periods: list[str] = []
+    for c in sorted(candidates, key=lambda c: -int(getattr(c, "score", 0))):
+        label = str(getattr(c, "period", ""))
+        if label and label not in periods:
+            periods.append(label)
+        if len(periods) >= 2:
+            break
+    if not periods and current_month:
+        periods = [current_month]
+    pillars = [pl for pl in (_luck_pillar_for_label(birth, lb) for lb in periods) if pl]
+    if not pillars:
+        return []
+    from saju_engines.event_scoring import favorability_map
+
+    gender = str(result.input_summary.get("gender", ""))
+    lines, keys = agent_relation_lines(
+        pillars, favorability_map(result), gender,
+        include_family=intent.domain is Domain.RELATIONSHIP,
+    )
+    if not lines:
+        return []
+    _logger.info(
+        "agent_relation_exposed thread=%s turn=%s periods=%s keys=%s",
+        thread_id, turn_no, periods, keys,
+    )
+    return [
+        "[관계 대상 — 사건 후보 기간의 운 십성을 나와의 관계 유형으로 옮긴 근거(엔진 값·근거표). "
+        "천간·지지 둘 다 가능한 관계 대상이며 역할을 나누지 않는다]",
+        *lines,
+    ]
+
+
 #: 질문 기간 운 도화 블록의 범위 상한 — 날짜 14일·월 12개·연 3개(무관한 기간까지 일괄 확대 금지).
 _LUCK_DOHWA_MAX_DAYS = 14
 _LUCK_DOHWA_MAX_MONTHS = 12
@@ -5872,6 +5948,14 @@ def chat(
     # 사건 보고형(2026-10-13) — 이미 겪은 사건을 전제로 앞으로의 흐름·대응을 답한다.
     if intent.dialogue_act == "reported_event":
         trailing.append(_REPORTED_EVENT_DIRECTIVE)
+    # 관계 대상 질문(2026-10-13) — '누가 제안을 해올까'에 운 십성을 나와의 관계 유형으로 옮긴 근거.
+    _agent_lines = _agent_relation_context(
+        birth, result, intent, question, list(payload.event_candidates), luck_month,
+        thread_id=thread_id, turn_no=state.turn_no if state is not None else None,
+    )
+    if _agent_lines:
+        trailing.extend(_agent_lines)
+        trailing.append(_AGENT_QUESTION_DIRECTIVE)
     # 총운 다변화 P2(2026-07-14) — 조망 서술 계약: 후보 존재 영역만, 집중은 집중으로
     # 명시, 미선정 영역은 '신호 없음' 단정 금지·생략.
     if _overview_mode:
