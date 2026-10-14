@@ -11,8 +11,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useGnb } from "@/components/providers/GnbProvider";
 import { useSelectedSubject } from "@/components/providers/SelectedSubjectProvider";
+import { RelationPicker } from "@/components/subject/RelationPicker";
 import { SubjectCard } from "@/components/subject/SubjectCard";
-import { deleteSubject, listSubjects } from "@/lib/subjects";
+import { kindForRelation } from "@/lib/relations";
+import { deleteSubject, listSubjects, updateSubject } from "@/lib/subjects";
 import type { SubjectSummary } from "@/lib/types";
 
 const UNDO_MS = 5000;
@@ -34,6 +36,9 @@ export default function SajusPage() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<SubjectSummary | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // '나와의 관계' 설정 시트(2026-10-14) — 대상 카드와 저장 상태.
+  const [relationTarget, setRelationTarget] = useState<SubjectSummary | null>(null);
+  const [relationSaving, setRelationSaving] = useState(false);
 
   const load = useCallback(() => {
     listSubjects()
@@ -84,6 +89,33 @@ export default function SajusPage() {
     setPending(null);
   }, [pending]);
 
+  // 관계 저장 — 전체 upsert 페이로드(서버가 관계→kind 파생·본인 유일성 적용). 저장 후 목록 재조회.
+  const saveRelation = useCallback(
+    async (relation: string | null, aliases: string[]) => {
+      if (!relationTarget) return;
+      setRelationSaving(true);
+      try {
+        await updateSubject(relationTarget.subject_id, {
+          kind: kindForRelation(relation, relationTarget.kind),
+          label: relationTarget.label,
+          birth: relationTarget.birth,
+          gender: relationTarget.gender,
+          relation_to_user: relation,
+          aliases,
+          is_minor: relationTarget.is_minor,
+          subscribed: relationTarget.subscribed,
+        });
+        setRelationTarget(null);
+        load();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "관계를 저장하지 못했습니다.");
+      } finally {
+        setRelationSaving(false);
+      }
+    },
+    [relationTarget, load],
+  );
+
   if (!ready || !isLoggedIn) return null;
 
   return (
@@ -117,6 +149,7 @@ export default function SajusPage() {
                 router.push(`/onboarding?mode=edit&subject=${x.subject_id}&next=/sajus`)
               }
               onDelete={startDelete}
+              onEditRelation={setRelationTarget}
               footer={
                 selected?.subjectId === s.subject_id ? (
                   <div>
@@ -139,6 +172,16 @@ export default function SajusPage() {
             />
           ))}
         </div>
+      )}
+
+      {relationTarget && (
+        <RelationPicker
+          subject={relationTarget}
+          others={(subjects ?? []).filter((s) => s.subject_id !== relationTarget.subject_id)}
+          saving={relationSaving}
+          onSave={saveRelation}
+          onClose={() => setRelationTarget(null)}
+        />
       )}
 
       {pending && (

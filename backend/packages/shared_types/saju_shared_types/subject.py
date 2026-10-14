@@ -16,6 +16,28 @@ from .birth_input import BirthInput
 ACTIVE_WINDOW_DAYS = 30  # 활성 대상 기준(docs/09 1장): 최근 30일 내 대화 이력
 
 
+#: 명식별 '나와의 관계' 키(2026-10-14 데굴님 승인, 17종). 별칭 해소
+#: (companion_alias.RELATION_SYNONYMS) 키와 같게 맞춰 "남편"·"엄마" 지칭이 등록 동반자로 바로
+#: 해소된다. 자유 문자열은 받지 않는다.
+RELATION_TO_USER_KEYS: tuple[str, ...] = (
+    "self", "spouse", "husband", "wife", "father", "mother", "child", "son", "daughter",
+    "brother", "sister", "lover", "friend", "coworker", "boss", "business_partner", "other",
+)
+RELATION_TO_USER_KO: dict[str, str] = {
+    "self": "본인", "spouse": "배우자", "husband": "남편", "wife": "아내", "father": "아버지",
+    "mother": "어머니", "child": "자녀", "son": "아들", "daughter": "딸", "brother": "형제",
+    "sister": "자매", "lover": "연인", "friend": "친구", "coworker": "동료", "boss": "상사",
+    "business_partner": "동업자", "other": "기타",
+}
+
+
+def kind_for_relation(relation: str | None, fallback: str) -> str:
+    """관계 키 → kind. 본인=self, 그 외 관계=companion, 관계 미설정이면 기존 kind 유지."""
+    if relation is None:
+        return fallback
+    return "self" if relation == "self" else "companion"
+
+
 class SubjectRecord(BaseModel):
     """저장된 대상 1명 — (subject_id) 기본키."""
 

@@ -400,7 +400,10 @@ interface Companion {
   companionId: string;
   name?: string;
   aliases: string[];            // "1호", "신랑", "아가" — 대화에서 학습 (A9)
-  relationToUser: RelationType;
+  relationToUser: RelationType;  // 2026-10-14 확정 키 17종: self·spouse·husband·wife·father·mother·child·son·daughter·
+                                 // brother·sister·lover·friend·coworker·boss·business_partner·other (자유 문자열 금지,
+                                 // 별칭 해소 동의어표 키와 동일). kind 는 관계에서 파생(self=본인, 그 외=companion).
+                                 // '본인'은 계정에 1명 — 다른 사주를 본인으로 바꾸면 기존 본인은 관계 미설정으로 강등.
   birth: { date: string; time?: string; calendarType: 'solar' | 'lunar'; birthplace?: string };
   gender?: 'M' | 'F';
   isMinor: boolean;             // 표현 제한 정책 연동 (docs/08 G2)

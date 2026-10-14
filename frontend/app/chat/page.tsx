@@ -22,6 +22,7 @@ import { readingFontClasses } from "@/lib/storage";
 import { useReadingFontSize } from "@/lib/useReadingFontSize";
 import { summaryToProfile } from "@/lib/subject-mapping";
 import { getPersona, getSubject, listSubjects } from "@/lib/subjects";
+import { relationLabel } from "@/lib/relations";
 import type {
   ChatApiResponse,
   ChatMessageDTO,
@@ -420,7 +421,7 @@ export default function ChatPage() {
       {showSwitch && (
         <Modal title="사주 변경" onClose={() => setShowSwitch(false)}>
           <div className="space-y-1.5">
-            <p className="text-xs text-gray-500">상담할 사주를 고르세요 (본인·동반자)</p>
+            <p className="text-xs text-gray-500">상담할 사주를 고르세요 (관계는 사주목록 카드에서 설정)</p>
             {subjects.length === 0 ? (
               <p className="text-xs text-gray-400">사주목록 불러오는 중…</p>
             ) : (
@@ -438,7 +439,7 @@ export default function ChatPage() {
                     <span className="block truncate">
                       {s.label}
                       <span className="ml-1 text-[11px] text-gray-400">
-                        {s.kind === "self" ? "본인" : "동반자"}
+                        {relationLabel(s)}
                       </span>
                     </span>
                     <span className="block text-[11px] text-gray-400">
@@ -484,7 +485,7 @@ export default function ChatPage() {
                     <span className="block truncate">
                       {s.label}
                       <span className="ml-1 text-[11px] text-gray-400">
-                        {s.relation_to_user ?? (s.kind === "self" ? "본인" : "동반자")}
+                        {relationLabel(s)}
                       </span>
                     </span>
                     <span className="block text-[11px] text-gray-400">{s.birth.birth_date}</span>
