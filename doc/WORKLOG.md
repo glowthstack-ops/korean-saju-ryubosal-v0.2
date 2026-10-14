@@ -12170,3 +12170,71 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 게이트: 아래 줄에 기록.
   lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=e225aa2, 지문 동일, exit 0, `var/gates_20261014_full5.log`).
   프론트 `tsc --noEmit` exit 0 · `npm run build` Compiled successfully(`var/frontend_build_20261014b.log`). full4 실행은 UI 좌우 정정으로 추적 파일이 바뀌어 중단·재실행. 백엔드 8888 재기동 반영, 미커밋.
+
+## 2026-10-14 — 비겁 용신 × 비겁 운 유입 → 직장 이동 시드 + 운 간여지동 해석 + 실사례 1건 등록 (데굴님 지시·승인)
+
+- 사건: 1980-11-22 09:40 서울 남(庚申·丁亥·己亥·己巳, 용신 土=비겁) — 2026-10 戊戌월(천간·지지 모두 겁재 = 운 간여지동)에 권고사직(2026-10-13 실로그).
+  수정 전 엔진: 그 달을 '강한 용신운 · 재물 변화(94) 우세'로 읽고 career_change 후보 없음. 브랜처 겁재 단독 규칙(재물 분탈·분쟁·무리한 독립)만 있고,
+  운 간여지동은 배율(1.25)·태그만, LLM 입력에 운 간여지동 표기·이동 해석 없음.
+- 규칙(데굴님 확정): 비겁이 용신인 명식에 비겁 운(세운·월운)이 들어오면 자의·타의 직장 이동 후보. 간여지동은 강하게 들어온 경우(기준점 최고), 약하게 들어와도
+  관성 충 등 다른 작용으로 풀이가 바뀔 수 있으므로 후보는 항상 만들고 강도만 나눈다 → `transit_ten_god_branching.json` `peer_yongsin_mobility_rules`
+  (same_god 68·same_group 58·stem_only 50·branch_only 44), `saju_engines.peer_mobility_seed`(브랜처 직후 합류 — MT1 시드와 같은 자리, 6계층 보정 공통).
+  상위 층 비겁 뿌리(대운 壬辰의 辰)는 근거 층 + `PEER_UPPER_SUPPORT_daewoon`. 1차 구현은 source_layers=[월운]만 넣어 '월운 단독' 억제(−6·등급 강등)에 걸렸고(58→44),
+  브랜처 관례(평가 스택 전체)로 맞춘 뒤 기준점을 올려 2026-10 career_change 최종 70대·2위권. 플래그 `SAJU_PEER_YONGSIN_MOBILITY_ENABLED` 기본 ON(health 노출).
+- 해석: `incoming_ten_god_note`에 운 간여지동 표기 + 비겁 용신 이동 문구(강/약 유입 구분) — 문구는 신규 사전 `interpretations/transit_peer_mobility_text.json`(3항목, 스키마·lint).
+  `event_process_types.json` '이동·교체·재편' reason_prefixes 에 `PEER_YONGSIN_MOBILITY`.
+- 실사례: `life_event_cases.jsonl` 첫 실사례 20261013_career_1(2026-10 career_change · 이동·교체·재편 · 금지 '반드시 이직/해고될 것'). 러너 통과.
+- 개인 캘리브레이션(데굴님 승인): subjects c5a155b9…(owner test1)에 career_change · 2026-10 · confirmed · delayed_outcome 1행 적재(지문=해당 후보).
+- 테스트: `test_peer_mobility_seed.py` 신설(규칙 로드·용신 확인·10월 same_god 후보·11월 stem 등급·8월 미생성·비겁 비용신 명식 미생성·플래그 OFF 불변·config 기본 ON·
+  해석 줄 4형·비용신 침묵·유입 분류·사전 lint). 미결: 사례집 85사례 회귀 변화는 전체 스위트로 확인.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=9d7da9b, 지문 동일, exit 0, `var/gates_20261014_full7.log`).
+  1차 실행(`full6.log`)은 ruff 2건 + `test_score_saturation` 1건(병합 기여 로그가 시드 점수 전체를 적어 '기여 합≈raw' 불변식 위반 → 실제 증분만 기록·단독 시드는 base 키) 실패 → 수정 후 재실행 통과.
+  사례집 85사례 회귀 포함 전체 통과(기존 픽스처 변화 없음). 백엔드 8888 재기동 반영(health `peer_yongsin_mobility_enabled: true`), 미커밋.
+
+## 2026-10-14 — 부동산 매도 '언제' 질문 지평 축소(3년) + 매도 어휘 라우팅 + 커버리지 교정 문단 로그 전용 (데굴님 승인)
+
+- 실로그(박여사 명식): ①"부동산은 언제쯤 팔릴까" → 사건 없음·general·open_when → 지평 면제 → 10년 digest(2026~2035)로 2031·2034년 서술, 후보 앵커 없어 LLM이 계약·문서 서술 창작.
+  ②"12개월안에 부동산이 팔릴일은 없을까" 답 끝에 "※ 엔진 기준으로 이 사건의 결정 단계…" 교정 문단 — 월 커버리지 감사의 격상 검사가 "도장을 찍는 결정은 한 템포 늦추고 2월의 기운을 활용"을
+  2월 결정 권고로 오탐('늦추' 미등재). 문구 자체도 사용자용이 아니었다.
+- 수정 1(파서): `is_real_estate_sale` — 매물 명사(부동산·아파트·주택·빌라·오피스텔·상가·건물·토지·땅·매물·집[조사]) + 매도 동사(팔·매도·매각·처분·매매·넘기·정리) 12자 내 결합 → 사건 contract_document(보조 wealth_change) + 재물 도메인
+  (EVENT_DOMAIN의 career 매핑을 쓰지 않음). 공유 EVENT_WORDS 불변.
+- 수정 2(지평, docs/16 §1·§2 개정): 개방형 '언제'라도 사건 키가 잡힌 거래형 생활 사건은 `transactional_when`(앞 12개월 월 단위 + 이후 2년 연 단위, 총 3년; 유력 구간 1~2개·특정 달 단정 금지·후보 있는 달만 실행 시기).
+  사건 키 없는 순수 '언제'는 2026-06-18 결정대로 10년 digest 유지.
+- 수정 3(감사): `_NEGATION_RE`에 늦추·보류·기다·넘기·다음으로·대신·이후로·뒤로. 채팅 경로 `_audit_month_coverage_answer`는 교정 문단을 답에 삽입하지 않고 로그(`notes(log-only)`)로만 — 2026-09-18 삽입 결정 철회(데굴님 승인).
+  `build_coverage_notes`·`patch_month_coverage`는 QA 도구로 보존.
+- 테스트: `test_real_estate_sale_routing.py` 신설(어휘 9형·라우팅·12개월 창·dry-run 3년 지평·후보 앵커·10년 digest 부재), `test_answer_horizon` 거래형/순수 '언제' 2건, `test_month_coverage_audit` 유보 문형·로그 전용 2건.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=9d7da9b, 지문 동일, exit 0, `var/gates_20261014_full9.log`).
+  1차 실행(`full8.log`)은 2026-06-18 동작(사건 있는 '언제' → 10년 digest)을 고정한 기존 테스트 4건(`test_conversation_date_fixes`·`test_lifetime_scan_routing`·
+  `test_relocation_destination_directive`·`test_timing_granularity_routing`)과 미사용 import 1건 실패 → 새 정책 기대(3년 지평·특정 달 단정 금지 유지·결합 표를 타임라인으로 인정)로 전환 후 통과.
+  백엔드 8888 재기동 반영, 미커밋.
+
+## 2026-10-14 — 명식별 '나와의 관계' 설정 (데굴님 지시·승인: 본인 유일성 강제·레거시 자동 변경 없음·17종)
+
+- 사고: 채팅 '동반자 추가' 모달에 다른 명식마다 '본인'이 붙었다. 위저드가 모든 사주를 kind=self 로 저장하고 관계 입력이 없어
+  `relation_to_user`가 비어 있었고, 모달은 kind 로 라벨을 만들었다. 관계어 지칭("남편이…")의 등록 동반자 해소도 같은 이유로 작동하지 않았다.
+- 서버: `saju_shared_types.subject.RELATION_TO_USER_KEYS`(17종)·`RELATION_TO_USER_KO`·`kind_for_relation`. `SubjectUpsert.relation_to_user` 키 검증(빈 문자열=미설정),
+  `effective_kind`(관계→kind 파생, 미설정이면 입력 kind). 본인 유일성 `demote_other_selves`(명시 본인만 강등, 레거시 kind=self·관계 없음은 불변) — create/update 저장 직전 적용.
+  키는 `companion_alias.RELATION_SYNONYMS` 키와 일치해 "남편" 지칭이 등록 동반자로 해소된다(테스트 고정).
+- 프론트: `lib/relations.ts`(옵션·라벨·kind 파생), `SubjectCard` 관계 칩(미설정="관계 설정" 유도), `RelationPicker` 시트(17종+미설정+호칭 별칭, 본인 충돌 경고),
+  사주목록 저장 배선(전체 upsert → 목록 재조회), 채팅 사주 변경·동반자 추가 모달 라벨=관계 한글("관계 미설정"), 위저드 edit 가 관계·별칭을 지우던 것 보존 + add/edit 1단계 '나와의 관계' 선택.
+- 문서: docs/02 E14 relationToUser 키 확정, docs/11 §3-b 신설. 후속: 즉석 입력 상대의 관계 선택(궁합 축 입력).
+- 테스트: `test_subject_relation.py`(키·라벨·동의어 정합, kind 파생 4형, 검증 거부·파생·레거시, 명시 본인만 강등, 별칭 인덱스 해소).
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=9d7da9b, 지문 동일, exit 0, `var/gates_20261014_full10.log`).
+  프론트 `tsc --noEmit` exit 0 · `npm run build` Compiled successfully(`var/frontend_build_20261014c.log`). 백엔드 8888 재기동 반영, 미커밋.
+
+## 2026-10-14 — 등록 동반자 관계 지칭 질문('어머니와의 관계')이 상대 단독 풀이로 빠지던 결함 (데굴님 지적)
+
+- 실로그(데굴 스레드, 어머니=박여사 등록·칩 첨부): "어머니와의 관계는 어때?"·"나와 어머니와의 관계를 풀어줘"가 "박여사님…"으로 시작하고 어머니 명식의
+  월주 모친궁(어머니의 어머니)을 서술했다. 범위 확인: 관계 지칭 문형에서만 발생 — '어머니랑 궁합'·'나랑 …'은 pairwise 정상, '어머니 건강운'·'어머니 사주 봐줘'는
+  의도대로 상대 단독, 본인 질문(+칩)은 본인 풀이에 궁합 블록이 덧붙는 '함께 풀이' 동작.
+- 원인: `ConversationEngine._subject_mode` — 1인칭 표지에 '나와·저와·나 사이'가 없고, 상대 1명+'관계/사이'는 '궁합'·명시 1인칭이 있을 때만 PAIRWISE.
+  관계어가 등록 동반자로 해소되면 subjects=[동반자]만 남아 SINGLE → build_effective_subjects companion_only → 본인 명식 교체.
+- 수정: `_self_ref`에 `(?<![가-힣])(나와|저와|저랑|저하고|저는|제가)`·`나 사이` 추가, 신규 `_WITH_RELATION_RE`(조사 와·과·랑·이랑·하고 + 관계·사이,
+  사이드/사이트/사이즈 제외)로 상대 1명·본인 미언급 문형을 PAIRWISE 로. '대인관계'(조사 없음)·상대 2명 문형은 불변.
+- 테스트: `test_relation_phrase_pairwise.py`(pairwise 6형·단독 유지 4형·본인 질문 불변), 기존 pairwise/couple/effective_subjects/alias 테스트 통과.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=9d7da9b, 지문 동일, exit 0, `var/gates_20261014_full11.log`).
+  백엔드 8888 재기동 반영, 미커밋.
