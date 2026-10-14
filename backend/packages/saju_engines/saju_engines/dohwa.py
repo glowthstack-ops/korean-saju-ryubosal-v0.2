@@ -13,7 +13,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from saju_shared_types.constants import BRANCH_CLASHES
+from saju_shared_types.constants import BRANCH_CLASHES, STEM_CLASHES
 from saju_shared_types.dohwa import (
     DohwaBase,
     DohwaEstablishment,
@@ -32,11 +32,8 @@ from saju_shared_types.twelve_sinsal import branch_of_sinsal, trine_group_label
 #: 子午卯酉 — 사정지(왕지) 보유 표지. 신살 집계기 SAJEONG 과 같은 집합.
 _SAJEONG: frozenset[Branch] = frozenset({Branch.JA, Branch.O, Branch.MYO, Branch.YU})
 
-#: 天干四沖 — 용신 후보 모듈(`yongsin.candidates._STEM_CLASH_PAIRS`)과 같은 네 쌍.
-_STEM_CLASHES: frozenset[frozenset[str]] = frozenset({
-    frozenset({"甲", "庚"}), frozenset({"乙", "辛"}),
-    frozenset({"丙", "壬"}), frozenset({"丁", "癸"}),
-})
+#: 天干四沖 — 공용 상수(`saju_shared_types.constants.STEM_CLASHES`).
+_STEM_CLASHES = STEM_CLASHES
 
 #: 십성 → 십성군. 편관·정관은 관성, 편인·정인은 인성으로 묶는다.
 _TEN_GOD_GROUP: dict[str, DohwaTenGodGroup] = {

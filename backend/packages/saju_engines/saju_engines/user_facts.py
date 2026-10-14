@@ -128,6 +128,22 @@ _REL_THIRD_PARTY_RE = re.compile(
 # 가정형 발화 배제 — "헤어지면 어떻게 될까"를 사실로 저장하지 않는다.
 _REL_HYPOTHETICAL_RE = re.compile(r"(?:[하지]면\s*(?:어떻|어떨|어찌)|다면)")
 
+# 직장 이탈 슬롯 가드(2026-10-14 검수) — 어휘만으로 기록하면 "해고 당할까"(걱정)·"남편이 해고됐어"
+# (제3자)·"직원을 해고하려는데"(고용주)까지 본인 실직 사실로 남아 이후 턴 내내 '재직 전제 금지'가
+# 주입된다(절대원칙 7). 본인이 겪은 완료형 보고만 기록한다.
+_JOB_FACT_KEY = "job_separation"
+_JOB_DONE_RE = re.compile(
+    r"받았|당했|됐|되었|했어|했고|했는데|했습니다|들었|잘렸|짤렸|잘림|짤림|쫓겨났|나가라고"
+)
+_JOB_HYPOTHETICAL_RE = re.compile(
+    r"당할까|될까|당하면|되면|하려는데|하려고|려면|안\s*당하|소문|가능성|걱정|두려|으면"
+)
+_JOB_THIRD_PARTY_RE = re.compile(
+    r"(?:남편|아내|와이프|신랑|친구|동생|언니|누나|형|오빠|엄마|아빠|어머니|아버지|부모님|동료"
+    r"|지인|딸|아들|직원|부하|팀원|후배|선배)(?:이|가|은|는|도|을|를)?\s*[^.!?\n]{0,10}?"
+    r"(?:해고|권고|정리|구조|실직|실업|퇴사|잘렸|짤렸|쫓겨)"
+)
+
 _SENT_SPLIT_RE = re.compile(r"[.!?\n]+")
 _MAX_QUOTE = 80
 _MAX_FACTS = 12  # 주입 캡과 별개의 저장 캡 — 오래된 누적 사실부터 밀어낸다.
@@ -164,6 +180,13 @@ def extract_user_facts(text: str, turn: int) -> list[UserFact]:
             # 관계 슬롯 가드(C-3) — 제3자·가정형 발화는 사용자 사실 원장에 넣지 않는다.
             if key in _REL_FACT_KEYS and (
                 _REL_THIRD_PARTY_RE.search(quote) or _REL_HYPOTHETICAL_RE.search(quote)
+            ):
+                continue
+            # 직장 이탈 슬롯 가드 — 본인의 완료형 보고만(가정·제3자·고용주 발화 제외).
+            if key == _JOB_FACT_KEY and (
+                not _JOB_DONE_RE.search(quote)
+                or _JOB_HYPOTHETICAL_RE.search(quote)
+                or _JOB_THIRD_PARTY_RE.search(quote)
             ):
                 continue
             seen.add((key, quote))

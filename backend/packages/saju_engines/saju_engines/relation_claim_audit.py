@@ -363,9 +363,25 @@ def _has_binding_referent(
         named: 문장이 직접 부르는 관계 라벨 집합.
         semantics: 이번 턴 관계 구조화 의미 전체.
     """
+    # ⓞ 묶임 어휘가 binding=NONE 관계를 주어·수단으로 직접 받으면("午戌반합으로 丙 정인이 묶여",
+    # "午戌반합이 … 묶여") 지시 대상이 있어도 그 관계의 역전 서술이다 — 면책하지 않는다
+    # (2026-10-14 검수: '丙 정인'을 덧붙이는 문형으로 ③ 불변식이 우회됐다). 쉼표·마침표로
+    # 절이 끊기면("…보조하지만, 丙 정인은 묶여") 수단 귀속으로 보지 않는다.
+    norm = _normalize_for_naming(text)
+    for sem in semantics:
+        if sem.binding_state is not BindingState.NONE or sem.relation_label not in named:
+            continue
+        for alias in _relation_name_aliases(sem):
+            if re.search(
+                re.escape(alias)
+                + r"\s*(?:으로|로|에\s*의해|때문에|이|가|은|는|도)"
+                + r"\s*[^,.;!?]{0,24}?(?:묶|붙잡|합거)",
+                norm,
+            ):
+                return False
     # ② 판정용 본문 — 호칭된 관계 라벨 자체는 걷어낸다. "巳午방합과 申戌방합이 서로 묶여"의
     # 巳·申은 방합 이름의 일부이지 巳申合 서술이 아니다(걷어내지 않으면 이 진짜 역전을 놓친다).
-    bare = _normalize_for_naming(text)
+    bare = norm
     for sem in semantics:
         if sem.relation_label in named:
             for alias in _relation_name_aliases(sem):

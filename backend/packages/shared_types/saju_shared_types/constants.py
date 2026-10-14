@@ -376,6 +376,14 @@ DIRECTIONAL_COMBINATIONS: list[tuple[frozenset[Branch], Element]] = [
 ]
 
 # 지지충 (六沖)
+#: 天干四沖 — 甲庚·乙辛·丙壬·丁癸(글자 문자열 쌍). 도화(나체도화 천충지충)·이벤트 엔진이 공유한다.
+#: 용신 후보 모듈(`saju_manse_analysis.yongsin.candidates._STEM_CLASH_PAIRS`)은 캘리브레이션
+#: 대상이라 자체 사본을 유지한다(내용 동일).
+STEM_CLASHES: frozenset[frozenset[str]] = frozenset({
+    frozenset({"甲", "庚"}), frozenset({"乙", "辛"}),
+    frozenset({"丙", "壬"}), frozenset({"丁", "癸"}),
+})
+
 BRANCH_CLASHES: set[frozenset[Branch]] = {
     frozenset({Branch.JA, Branch.O}),
     frozenset({Branch.CHUK, Branch.MI}),

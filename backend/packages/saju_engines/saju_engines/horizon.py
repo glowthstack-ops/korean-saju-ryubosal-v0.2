@@ -68,7 +68,10 @@ def resolve_horizon(question: str, intent: IntentJson) -> HorizonPolicy | None:
     if _OPEN_WHEN_RE.search(question):
         return None  # 개방형 시기 탐색 — 기존 10년 digest(연도 지정 유도) 유지
     # 직장 이탈 계열(해고·퇴사 통보·권고사직 — 한 계열, 2026-10-13)도 퇴사와 같은 구조 결정형이다.
-    if _STRUCTURAL_RE.search(question) or is_job_separation(question):
+    # 단 이미 겪은 보고일 때만 — "해고 당할까?"(미발생 걱정)는 전망형 경로로 둔다(2026-10-14 검수).
+    if _STRUCTURAL_RE.search(question) or (
+        is_job_separation(question) and intent.dialogue_act == "reported_event"
+    ):
         return HorizonPolicy(
             kind="structural",
             months_detail=3,

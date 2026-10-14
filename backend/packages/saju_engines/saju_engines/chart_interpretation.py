@@ -343,11 +343,20 @@ def build_luck_grounding(
     sinsal_lines: list[str] = []
     dohwa_text_keys: list[str] = []
     texts = _sinsal_text_by_name()
-    for s in (getattr(luck_pillar, "luck_sinsal", []) or [])[:3]:
+    # 상위 3개 절단은 사전 문구가 있는 신살만 센다(문구 없는 이름이 슬롯을 먹지 않게). 도화는
+    # 운 도화 줄(십성군·사용 규칙)의 유일한 근거라 3개 밖으로 밀리면 마지막 슬롯을 내준다
+    # (2026-10-14 검수: 길신 2개+사정지가 앞서면 도화가 4번째가 되어 연애운 줄과 달라졌다).
+    named: list[tuple[str, dict]] = []
+    for s in getattr(luck_pillar, "luck_sinsal", []) or []:
         name = getattr(s, "name", None) or (s.get("name") if isinstance(s, dict) else None)
         item = texts.get(name) if name else None
-        if item is None:
-            continue
+        if item is not None and name is not None:
+            named.append((name, item))
+    selected = named[:3]
+    dohwa_entry = next((e for e in named if e[0] == "도화"), None)
+    if dohwa_entry is not None and dohwa_entry not in selected:
+        selected = named[:2] + [dohwa_entry]
+    for name, item in selected:
         # 운 신살은 '체질'이 아니라 그 시기에 터지는 '사건' — fromLuck 우선(없으면 manifestation).
         body = item.get("fromLuck") or item["manifestation"]
         line = (

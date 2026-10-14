@@ -72,6 +72,7 @@ from saju_engines.event_engine_config import build_event_engine_v2
 from saju_engines.event_lexicon import event_narration_directive
 from saju_engines.horizon import horizon_directive, month_add, resolve_horizon
 from saju_engines.intent_event_filter import IntentEventFilter
+from saju_engines.job_separation import is_job_separation
 from saju_engines.lifetime_scan import (
     CHAT_TABLE_MAX_YEARS,
     PER_DECADE_CAP,
@@ -287,7 +288,7 @@ def _current_luck_month_detail(birth: BirthInput, today: date, timezone: str = "
         상세 문자열(간지 조회 실패 시 빈 문자열 — 상세 없이 bare 라벨만 쓰이는 폴백).
     """
     label = _current_luck_month(today, timezone)
-    ml = luck_months(birth, int(label[:4]))
+    ml = _luck_months_for_label(birth, label)
     mp = next((p for p in ml if p.label == label), None)
     if mp is None:
         return ""
@@ -380,7 +381,7 @@ def _date_solar_month_note(birth: BirthInput, target: date, timezone: str) -> st
         디렉티브 문자열(간지 조회 실패 시 빈 문자열).
     """
     label = _current_luck_month(target, timezone)
-    ml = luck_months(birth, int(label[:4]))
+    ml = _luck_months_for_label(birth, label)
     mp = next((p for p in ml if p.label == label), None)
     if mp is None:
         return ""
@@ -552,7 +553,7 @@ def _date_day_fortune_note(birth: BirthInput, dates: list[date], timezone: str) 
             days = []
         dp = next((p for p in days if p.label == tgt.isoformat()), None)
         label = _current_luck_month(tgt, timezone)
-        ml = luck_months(birth, int(label[:4]))
+        ml = _luck_months_for_label(birth, label)
         mp = next((p for p in ml if p.label == label), None)
         if dp is None:
             continue
@@ -753,8 +754,12 @@ _REPORTED_EVENT_DIRECTIVE = (
     "③ 사건은 사용자의 현실 사실로만 다룬다 — 사주·운 서술은 사건 이후 앞으로의 흐름에만 쓰고, "
     "사건이 일어난 이유·의미·목적을 운의 언어로 설명하는 문장(운이 그렇게 만들었다, 무엇을 위한 "
     "과정이다 류)은 쓰지 않는다. "
-    "④ 답의 중심은 [답변 지평] 기간 안의 흐름과 지금 할 일(정리·준비·다음 선택의 시기)이다. "
-    "해고·퇴사 통보·권고사직은 같은 계열(직장을 떠나게 된 사건)로 다루고, "
+    "④ 답의 중심은 [답변 지평] 기간 안의 흐름과 지금 할 일(정리·준비·다음 선택의 시기)이다."
+)
+# 직장 이탈 계열 꼬리 — 승진·이별 같은 다른 사건 보고에는 붙이지 않는다(2026-10-14 검수: 단일
+# 상수라 "오늘 승진했어"에도 '재직 전제 금지'가 붙었다).
+_REPORTED_JOB_SEPARATION_TAIL = (
+    " 해고·퇴사 통보·권고사직은 같은 계열(직장을 떠나게 된 사건)로 다루고, "
     "재직 중이라는 전제로 쓰지 말 것."
 )
 # 회고 질문 시제 강제 — is_retro여도 시제 지시가 없어 이벤트 후보·트리거류 미래 지향
@@ -909,6 +914,21 @@ def _period_fortune_type(intent: IntentJson, question: str) -> str | None:
     return None
 
 
+def _luck_year_for_label(label: str) -> int:
+    """절기월 라벨('YYYY-MM')이 들어 있는 `luck_months` 호출 연도.
+
+    `luck_months(birth, y)`는 입춘 기준 y-02 ~ (y+1)-01 열두 달을 돌려주므로 'YYYY-01'은
+    `luck_months(birth, YYYY-1)`에만 있다(2026-10-14 검수: 1월 총운·운 도화 조회가 빈 결과였다).
+    """
+    year = int(label[:4])
+    return year - 1 if label[5:7] == "01" else year
+
+
+def _luck_months_for_label(birth: BirthInput, label: str) -> list[LuckPillar]:
+    """라벨이 속한 절기 연도의 월운 12개(1월 라벨은 전년도 호출)."""
+    return luck_months(birth, _luck_year_for_label(label))
+
+
 def _build_period_fortune(
     birth: BirthInput, intent: IntentJson, today: date, fortune_type: str
 ) -> PeriodFortune | None:
@@ -963,7 +983,7 @@ def _build_period_fortune(
         tz = chart.time_correction.timezone if chart.time_correction else "Asia/Seoul"
         sm_start, sm_end = _solar_month_range(start, tz)
         if chart.luck_cycles is not None:
-            chart.luck_cycles.monthly_luck = luck_months(birth, year)
+            chart.luck_cycles.monthly_luck = _luck_months_for_label(birth, start)
             # 절기 월은 양력 두 달에 걸치므로 걸치는 달들의 일운을 합친다. PeriodSpec를
             # 절기 범위로 둬 _in_period가 절기 경계의 일운만 남긴다(주의/기회 시기 정합).
             days = luck_days(birth, sm_start.year, sm_start.month)
@@ -1591,7 +1611,7 @@ def _career_field_context(birth: BirthInput, result: ManseV2Result, today: date)
             incoming.append((str(today.year), year_pillars[0].stem_ten_god))
         tz = result.time_correction.timezone if result.time_correction else "Asia/Seoul"
         label = _current_luck_month(today, tz)
-        mp = next((p for p in luck_months(birth, int(label[:4])) if p.label == label), None)
+        mp = next((p for p in _luck_months_for_label(birth, label) if p.label == label), None)
         if mp is not None and mp.stem_ten_god:
             incoming.append((label, mp.stem_ten_god))
     except Exception:  # noqa: BLE001 — 통로 계산 실패가 분야 풀이를 막지 않는다
@@ -4017,7 +4037,7 @@ def _luck_pillar_for_label(birth: BirthInput, label: str) -> object | None:
         if len(label) == 4:
             pls = luck_years(birth, [int(label)])
         elif len(label) == 7:
-            pls = luck_months(birth, int(label[:4]))
+            pls = _luck_months_for_label(birth, label)
         elif len(label) >= 10:
             pls = luck_days(birth, int(label[:4]), int(label[5:7]))
         else:
@@ -4107,8 +4127,11 @@ def _luck_pillars_for_range(birth: BirthInput, tr: TimeRange) -> list:
             wanted = {
                 f"{y0 + (m0 - 1 + i) // 12}-{(m0 - 1 + i) % 12 + 1:02d}" for i in range(span)
             }
+            # luck_months(birth, y)는 입춘 기준 y-02 ~ (y+1)-01 — 'YYYY-01' 라벨은 전년도 호출에만
+            # 있다(2026-10-14 검수: "내년 1월 연애운" 단일 질문이 빈 결과였다).
+            years = {int(w[:4]) for w in wanted} | {int(w[:4]) - 1 for w in wanted if w[5:] == "01"}
             return [
-                pl for y in sorted({int(w[:4]) for w in wanted}) for pl in luck_months(birth, y)
+                pl for y in sorted(years) for pl in luck_months(birth, y)
                 if pl.label in wanted
             ]
         if tr.granularity is Granularity.YEAR:
@@ -5947,7 +5970,10 @@ def chat(
         trailing.append(_CONCLUSION_SUMMARY_DIRECTIVE)
     # 사건 보고형(2026-10-13) — 이미 겪은 사건을 전제로 앞으로의 흐름·대응을 답한다.
     if intent.dialogue_act == "reported_event":
-        trailing.append(_REPORTED_EVENT_DIRECTIVE)
+        trailing.append(
+            _REPORTED_EVENT_DIRECTIVE
+            + (_REPORTED_JOB_SEPARATION_TAIL if is_job_separation(question) else "")
+        )
     # 관계 대상 질문(2026-10-13) — '누가 제안을 해올까'에 운 십성을 나와의 관계 유형으로 옮긴 근거.
     _agent_lines = _agent_relation_context(
         birth, result, intent, question, list(payload.event_candidates), luck_month,
@@ -5987,7 +6013,8 @@ def chat(
         try:
             _sel_months = [
                 lp for lp in (
-                    luck_months(birth, today.year) + luck_months(birth, today.year + 1)
+                    _luck_months_for_label(birth, luck_month)
+                    + luck_months(birth, _luck_year_for_label(luck_month) + 1)
                 )
                 if lp.label >= luck_month
             ][:12]
@@ -6231,7 +6258,7 @@ def chat(
                 _sm_ganji = next(
                     (
                         pl.ganji
-                        for pl in luck_months(birth, int(_sm_label[:4]))
+                        for pl in _luck_months_for_label(birth, _sm_label)
                         if pl.label == _sm_label
                     ),
                     None,

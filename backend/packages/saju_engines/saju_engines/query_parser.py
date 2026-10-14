@@ -597,11 +597,43 @@ _REPORT_TIME_RE = re.compile(r"오늘|어제|그저께|그제|방금|아까|이�
 _REPORT_DONE_RE = re.compile(
     r"받았|당했|됐|되었|했어|했고|했는데|했습니다|들었|잘렸|짤렸|헤어졌|떨어졌|끝났|쫓겨났"
 )
+#: 소원형('됐으면 좋겠다') — 완료 보고가 아니다.
+_REPORT_WISH_RE = re.compile(r"(?:됐|되었|했)으면|어떻게\s*(?:됐|되었)")
 _FORWARD_ASK_RE = re.compile(
     r"(?:앞으로|이제|이제부터|향후)\s*(?:어떻게|뭘|무엇|무얼|어찌|어떡)"
     r"|어떻게\s*(?:하면|해야|대처|대응)|(?:뭘|무엇을|무얼)\s*해야|어떡하|어쩌면\s*좋"
 )
 _SENTENCE_SPLIT_RE = re.compile(r"[.!?\n]+")
+
+
+def _is_report_sentence(sent: str) -> bool:
+    """한 문장이 완료형 사건 보고인가 — '오늘·어제·방금 + 완료형' 또는 '직장 이탈 계열 + 완료형'.
+
+    '됐으면·되었으면'(소원형)은 완료 보고가 아니다(2026-10-14 검수: "오늘 면접 잘 됐으면 좋겠는데"가
+    보고로 잡혀 당일 창이 지워졌다).
+    """
+    if _REPORT_WISH_RE.search(sent):
+        return False
+    m = _REPORT_TIME_RE.search(sent)
+    if m and _REPORT_DONE_RE.search(sent[m.end():]):
+        return True
+    # 직장 이탈 계열은 날짜 표현이 없어도 완료형 보고면 사건 보고다('해고통보를 받았어').
+    return is_job_separation(sent) and bool(_REPORT_DONE_RE.search(sent))
+
+
+def report_sentences(text: str) -> list[str]:
+    """텍스트 안의 사건 보고 문장 목록(대응 질문 표지 조건은 보지 않는다)."""
+    return [s for s in _SENTENCE_SPLIT_RE.split(text) if s.strip() and _is_report_sentence(s)]
+
+
+def strip_report_sentences(text: str) -> str:
+    """사건 보고 문장을 뺀 나머지 — 보고 문장의 '오늘'은 사건 시점이지 대상 기간이 아니므로,
+    시점은 이 나머지에서만 읽는다(2026-10-14: 전체 시점을 지우면 '11월에 어떻게'의 11월까지
+    소실)."""
+    out = text
+    for s in report_sentences(text):
+        out = out.replace(s, " ", 1)
+    return out
 
 
 def detect_reported_event(text: str) -> bool:
@@ -614,14 +646,7 @@ def detect_reported_event(text: str) -> bool:
     """
     if not _FORWARD_ASK_RE.search(text):
         return False
-    for sent in _SENTENCE_SPLIT_RE.split(text):
-        m = _REPORT_TIME_RE.search(sent)
-        if m and _REPORT_DONE_RE.search(sent[m.end():]):
-            return True
-        # 직장 이탈 계열은 날짜 표현이 없어도 완료형 보고면 사건 보고다('해고통보를 받았어').
-        if is_job_separation(sent) and _REPORT_DONE_RE.search(sent):
-            return True
-    return False
+    return bool(report_sentences(text))
 
 
 # 주의점 어휘 — chart_caution 플래그(관리 프레임 지시문·시점 미승계).
@@ -1378,10 +1403,19 @@ def parse_message(
     # 사건 보고형 — 보고 문장의 날짜는 사건 시점으로만 남기고 대상 기간에서 뺀다. 대상은 '앞으로'
     # 이므로 시점 없는 미래 질문(답변 지평 정책)으로 흘려보내고, chat 은 dialogue_act 로 사건 보고형
     # 답변 지시를 붙인다(회고 모드로 뒤집지 않음).
+    # 2026-10-14 검수 수정: 보고 문장이 든 조각만 보고형으로 보고, 시점은 보고 문장을 뺀 나머지에서
+    # 다시 읽는다('11월에 어떻게' → 11월 유지, '12월 이사운' 조각은 보고형이 아니다).
     if detect_reported_event(text):
-        for _it in intents:
-            _it.time_range = None
-            _it.time_scope = TimeScope.TIMELESS
+        for _it, _piece in zip(intents, pieces, strict=True):
+            _residual = strip_report_sentences(_piece)
+            if _residual == _piece and len(pieces) > 1:
+                continue  # 보고 문장이 없는 다른 질문 조각 — 시점·행위 유지
+            _r_tr, _r_scope, _ = parse_time_with_constraints(
+                mask_inline_birth_spans(_residual, today), today, birth_year,
+                current_month_label, sunday_week,
+            )
+            _it.time_range = _r_tr
+            _it.time_scope = _r_scope if _r_tr else TimeScope.TIMELESS
             _it.dialogue_act = "reported_event"
     return ParsedMessage(
         intents=intents, output_style=style,

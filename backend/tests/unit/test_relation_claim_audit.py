@@ -615,3 +615,23 @@ def test_boon_tail_uses_plain_words(semantics):
     """흉이 눌리는 합거(寅亥合)는 '부담스러운 작용이 오히려 가벼워진다'로 쓴다."""
     claim = _by_label(semantics, "寅亥合").canonical_claim
     assert "그 덕분에 壬(임) 정재·甲(갑) 정관의 부담스러운 작용은 오히려 가벼워집니다." in claim
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "午戌반합으로 丙 정인이 묶여 火 작용이 둔해집니다.",
+        "巳午방합으로 丙 정인이 묶여 있어요.",
+        "세운 丙午의 정인 기운은 午戌반합으로 묶여 힘을 잃어요.",
+    ],
+)
+def test_binding_attributed_to_unbound_relation_is_violation_even_with_effect_target(
+    oct13_semantics, text
+):
+    """'丙 정인'을 덧붙여도 묶임을 반합·방합의 작용(…으로 묶여)으로 돌리면 ③ 위반이다.
+
+    2026-10-14 검수 반례.
+    """
+    kinds = {(v.relation_label, v.kind) for v in audit_relation_claims(text, oct13_semantics)}
+    assert kinds, text
+    assert all(k is RelationViolationKind.BINDING_ASSERTED_WHEN_NONE for _l, k in kinds)

@@ -42,7 +42,10 @@ def test_korean_count_matches_digit_window(korean, digits):
 
 @pytest.mark.parametrize(
     "text",
-    ["한 달에 한 번 운동하면 좋을까", "이 년은 별로", "올 한 해 운세", "세 달이 지나도 그대로야"],
+    [
+        "한 달에 한 번 운동하면 좋을까", "이 년은 별로", "올 한 해 운세", "세 달이 지나도 그대로야",
+        "앞으로 한달음에 달려갈까",  # 합성어 — 뒤에 한글이 바로 이어지면 기간이 아니다(2026-10-14)
+    ],
 )
 def test_non_period_phrases_unchanged(text):
     """기간 표지가 없는 빈도·관용 표현은 바꾸지 않는다."""

@@ -479,6 +479,11 @@ class ConversationEngine:
             and not any(getattr(i, "chart_caution", False) for i in parsed.intents)
             # 12신살 방위 활용 질문(책상·머리 방향)도 원국 연지 축 — 시점 미승계(docs/18).
             and not any(getattr(i, "direction_purpose", None) for i in parsed.intents)
+            # 사건 보고형('오늘 해고통보 받았어. 앞으로…')의 시점 없음은 '앞으로'라는 뜻이다 — 직전
+            # 창(특히 과거 회고 창)을 이으면 회고 지시와 보고형 지시가 함께 붙는다(2026-10-14 검수).
+            and not any(
+                getattr(i, "dialogue_act", None) == "reported_event" for i in parsed.intents
+            )
             # P2 승계 가드 — 직전 시점이 배제 창과 겹치면 오염 승계를 차단한다(배제 기간은
             # 절대 target으로 승격 금지). 시점 미확정으로 두면 broad/재질문 경로가 처리.
             and not overlaps_exclusions(tr_year_span(last.time_range), exclusions)

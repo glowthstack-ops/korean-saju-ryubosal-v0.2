@@ -1,9 +1,10 @@
 """도화 정비(2026-10-13 데굴님 확정) — 판정 조건·시주 미상·중복 가산·세 소비처 회귀 고정.
 
 정비 기준: 글자 보유(사정지=가도화)와 도화 성립(진도화)을 구분하고 성립한 판정만 '도화'로 쓴다.
-월담도화=시지 진도화(하위 유형, 별도 가산 없음), 나체도화=판정 보류, 십성 조합=성립 지지 본기
-십성(일간 기준) 5군. 해석 문구는 기본으로 싣는다 — 검수는 실제 사용 결과(풀이)로 판단하므로
-reviewed 는 기록용일 뿐 노출 조건이 아니며, 노출 로그(dohwa_text_exposed)로 실답을 찾는다.
+월담도화=시지 진도화(하위 유형, 별도 가산 없음), 나체도화=일지 목욕(천충지충 동반 여부 기록),
+십성 조합=성립 지지 본기 십성(일간 기준) 5군. 해석 문구는 기본으로 싣는다 — 검수는 실제 사용
+결과(풀이)로 판단하므로 reviewed 는 기록용일 뿐 노출 조건이 아니며, 노출 로그(dohwa_text_exposed)로
+실답을 찾는다.
 """
 
 from __future__ import annotations
@@ -112,7 +113,7 @@ def test_wolldam_not_established_when_hour_known():
 
 
 def test_texts_cover_types_and_groups_and_stay_unreviewed():
-    """유형 3종·십성군 5종을 모두 싣고, 검수 전(reviewed:false)이어도 로더가 돌려준다."""
+    """유형 4종·십성군 5종을 모두 싣고, 검수 전(reviewed:false)이어도 로더가 돌려준다."""
     texts = load_dohwa_texts()
     type_keys = {k for k in texts if k.startswith("type:")}
     assert type_keys == {"type:sajeong", "type:jin", "type:wolldam", "type:naked"}
@@ -540,3 +541,41 @@ def test_naked_not_added_to_impression_score():
     codes = {s.code for s in prof.signals if s.category == "peach"}
     assert codes <= {"DAY_BRANCH_PEACH", "ACTUAL_DOHWA_OR_HONGYEOM"}
     assert not any("나체" in s.legacy_ko or "나체" in s.modern_ko for s in prof.signals)
+
+
+# ── 2026-10-14 검수 반례 ─────────────────────────────────────────────────────────────────
+
+
+def test_luck_dohwa_line_survives_top3_cut():
+    """길신 2개+사정지가 앞서 도화가 4번째여도 총운 운 신살 줄에 운 도화 1줄이 실린다.
+
+    연애운 블록(`_luck_dohwa_context`)과 같은 줄이어야 한다 — 절단 순서 때문에 둘이 달랐다.
+    """
+    from saju_api.services import chat_service
+    from saju_api.services.manse_service import luck_days
+    from saju_engines.chart_interpretation import build_luck_grounding
+    from saju_shared_types.intent import Granularity
+
+    b = _birth(_WOLLDAM)
+    pl = next(p for p in luck_days(b, 2026, 1) if p.label.startswith("2026-01-05"))
+    names = [s.name for s in pl.luck_sinsal]
+    assert names.index("도화") >= 3  # 전제: 도화가 상위 3개 밖(태극귀인·문곡귀인·사정지 뒤)
+    chart = _chart(*_WOLLDAM)
+    g = build_luck_grounding(chart, pl)
+    assert len(g["sinsal_lines"]) <= 3 and g["dohwa_text_keys"] == ["luck_combo:인성"]
+    pf_line = next(ln for ln in g["sinsal_lines"] if "도화(운 진도화)" in ln)
+    ctx = chat_service._luck_dohwa_context(
+        b, chart, _range_intent(Granularity.DAY, "2026-01-05"), "연애운", set(),
+    )
+    assert ctx[1:] == [pf_line]
+
+
+def test_luck_pillars_for_range_covers_january_label():
+    """'YYYY-01' 절기월은 전년도 luck_months 에만 있다 — 단일 1월 질문도 운 기둥을 찾는다."""
+    from saju_api.services import chat_service
+    from saju_shared_types.intent import Granularity, TimeRange
+
+    b = _birth(_WOLLDAM)
+    for ym in ("2026-01", "2027-01"):
+        tr = TimeRange(type="absolute", granularity=Granularity.MONTH, start=ym, end=ym)
+        assert [p.label for p in chat_service._luck_pillars_for_range(b, tr)] == [ym]

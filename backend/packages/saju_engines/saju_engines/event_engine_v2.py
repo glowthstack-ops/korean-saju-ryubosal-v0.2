@@ -24,7 +24,13 @@ from saju_manse_analysis.structure.luck_geok_break import geok_break
 from saju_manse_analysis.structure.luck_structure_flags import resolve_luck_structure_flags
 from saju_manse_analysis.yongsin.operational_role_config import is_unfavorable_role
 
-from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT, main_hidden_stem, ten_god
+from saju_shared_types.constants import (
+    BRANCH_ELEMENT,
+    STEM_CLASHES,
+    STEM_ELEMENT,
+    main_hidden_stem,
+    ten_god,
+)
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.event_engine import (
     TEN_GOD_GROUP,
@@ -161,10 +167,7 @@ _FAV_ROLE: dict[str, PolarityRole] = {
 _GENERATES: dict[str, str] = {"木": "火", "火": "土", "土": "金", "金": "水", "水": "木"}
 # 천간충 4쌍(甲庚·乙辛·丙壬·丁癸) — 만세 calendar 관계 경로엔 없어 어댑터로 직접 계산한다
 # (manse_core 불변, CLAUDE.md "어댑터만 추가"). 천충지충 동시 퇴직 리스크 판정용(자료 13-1).
-_STEM_CLASH_PAIRS: frozenset[frozenset[str]] = frozenset({
-    frozenset({"甲", "庚"}), frozenset({"乙", "辛"}),
-    frozenset({"丙", "壬"}), frozenset({"丁", "癸"}),
-})
+_STEM_CLASH_PAIRS: frozenset[frozenset[str]] = STEM_CLASHES  # 天干四沖 공용 상수
 # 이직 분류(자료 12) — 최종 favorability 임계. 이하=압박성, 이상=기회성, 사이=중립.
 _JOBCHANGE_PRESSURE_TH = -0.2
 _JOBCHANGE_OPPORTUNITY_TH = 0.2

@@ -136,3 +136,34 @@ def test_chat_audit_skips_multi_person_answers(ctx_kwargs):
     """동반자 공동 풀이·궁합 답은 어느 사람의 자리인지 확정할 수 없어 건너뛴다."""
     text = "월지에 자리한 정관"
     assert chat_service._audit_ten_god_labels_answer(text, _ctx(**ctx_kwargs), "t") == text
+
+
+# ── 2026-10-14 검수 반례 ─────────────────────────────────────────────────────────────────
+
+# 받침 없는 교정어(정재)·받침 있는 교정어(정관)가 섞인 facts — 서술격 '이-' 처리 확인용.
+_FACTS_MIXED = {"month": ("정재", "申"), "day": ("정관", "亥")}
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("월지에 자리한 식신이죠.", "월지에 자리한 정재죠."),
+        ("월지 식신이지만 힘이 약해요.", "월지 정재지만 힘이 약해요."),
+        ("월지의 식신이네요.", "월지의 정재네요."),
+        ("월지 식신이면", "월지 정재면"),
+        ("월지 식신이다.", "월지 정재다."),
+        ("일지 정재죠.", "일지 정관이죠."),            # 역방향 — 받침 생기면 '이' 복원
+        ("일지 정재지만", "일지 정관이지만"),
+        ("월지 식신이 다 모여", "월지 정재가 다 모여"),  # 주격 '이/가'는 그대로 동작
+    ],
+)
+def test_predicative_josa_is_adjusted_not_turned_into_subject_marker(text, expected):
+    """서술격 '이죠·이지만·이네요·이면·이다'를 주격 '가'로 바꾸는 비문('정재가죠')을 내지 않는다."""
+    fixed, fixes = audit_ten_god_labels(text, _FACTS_MIXED)
+    assert fixed == expected and len(fixes) == 1
+
+
+@pytest.mark.parametrize("text", ["일지 亥에 든 정인(甲)의 기운", "일지에 든 편인"])
+def test_hidden_stem_description_is_not_corrected(text):
+    """'에 든'은 지장간 서술 — 자리 본기 십성으로 바꾸지 않는다."""
+    assert audit_ten_god_labels(text, _FACTS_MIXED) == (text, [])
