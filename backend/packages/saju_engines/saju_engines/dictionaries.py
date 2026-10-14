@@ -416,6 +416,24 @@ class DohwaTextFile(_AliasModel):
     combos: list[DohwaComboText] = Field(min_length=5, max_length=5)
 
 
+class PeerMobilityTextItem(_AliasModel):
+    """운 간여지동·비겁 용신 이동 해석 문구 1건 (transit_peer_mobility_text.json)."""
+
+    id: Literal["same_pillar", "peer_yongsin_mobility", "weak_inflow"]
+    condition: str
+    text: str = Field(min_length=20)
+    basis: str = Field(min_length=10)
+    reviewed: bool
+
+
+class PeerMobilityTextFile(_AliasModel):
+    """운 간여지동·비겁 용신 이동 문구 사전 — 세 항목 정확 커버리지(2026-10-14)."""
+
+    version: str
+    note: str | None = None
+    items: list[PeerMobilityTextItem] = Field(min_length=3, max_length=3)
+
+
 class TenGodRelationFamily(_AliasModel):
     """가족 관계 항목 — 성별·특정 십성 조건(없으면 모두)."""
 
@@ -2414,6 +2432,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/relations_text.json": RelationsTextFile,
     "interpretations/sinsal_text.json": SinsalTextFile,
     "interpretations/dohwa_text.json": DohwaTextFile,
+    "interpretations/transit_peer_mobility_text.json": PeerMobilityTextFile,
     "interpretations/ten_god_relations.json": TenGodRelationsFile,
     "interpretations/stems_branches_text.json": StemsBranchesTextFile,
     "interpretations/favorability_text.json": FavorabilityTextFile,
@@ -2832,6 +2851,20 @@ _DOHWA_GROUP_TEN_GODS: dict[str, set[str]] = {
     "비겁": {"비견", "겁재"}, "식상": {"식신", "상관"}, "재성": {"편재", "정재"},
     "관성": {"편관", "정관"}, "인성": {"편인", "정인"},
 }
+
+
+def _lint_peer_mobility_text(file: PeerMobilityTextFile) -> list[str]:
+    """transit_peer_mobility_text.json — 세 id 정확 커버리지·단정 어휘 금지."""
+    head = "interpretations/transit_peer_mobility_text.json"
+    ids = [it.id for it in file.items]
+    errors: list[str] = []
+    if sorted(ids) != ["peer_yongsin_mobility", "same_pillar", "weak_inflow"]:
+        errors.append(f"{head}: id 집합이 3종과 다름 — {ids}")
+    for it in file.items:
+        for bad in ("반드시", "확실히", "틀림없이", "무조건"):
+            if bad in it.text:
+                errors.append(f"{head}: {it.id} 문구에 단정 어휘 '{bad}'")
+    return errors
 
 
 def _lint_dohwa_text(file: DohwaTextFile) -> list[str]:
@@ -3453,6 +3486,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_ilju(parsed))
         elif isinstance(parsed, DohwaTextFile):
             errors.extend(_lint_dohwa_text(parsed))
+        if isinstance(parsed, PeerMobilityTextFile):
+            errors.extend(_lint_peer_mobility_text(parsed))
         elif isinstance(parsed, TenGodRelationsFile):
             errors.extend(_lint_ten_god_relations(parsed))
         elif isinstance(parsed, TenGodsTextFile):

@@ -81,6 +81,12 @@ def _ilju_by_ganji() -> dict[str, dict]:
 
 
 @lru_cache(maxsize=1)
+def _peer_mobility_text() -> dict[str, str]:
+    """운 간여지동·비겁 용신 이동 문구(id → text) — transit_peer_mobility_text.json."""
+    return {it["id"]: it["text"] for it in _load("transit_peer_mobility_text.json")["items"]}
+
+
+@lru_cache(maxsize=1)
 def _ten_god_by_name() -> dict[str, dict]:
     return {item["tenGod"]: item for item in _load("ten_gods_text.json")["items"]}
 
@@ -999,5 +1005,15 @@ def incoming_ten_god_note(
         elif fav == "기신":
             parts.append(_first_sentence(item["asGisin"]))
         body = " ".join(parts)
+    # 운 간여지동·비겁 용신 이동(2026-10-14 데굴님 확정) — 문구는 사전에서 고르기만 한다.
+    texts = _peer_mobility_text()
+    if stem_tg == branch_tg:
+        body += f" · 운 간여지동(천간·지지 모두 {stem_tg}): {texts['same_pillar']}"
+    peer_el = str(STEM_ELEMENT[dm])
+    peer_inflow = stem_el == peer_el or branch_el == peer_el
+    if peer_inflow and fav_map.get(peer_el) == "용신":
+        body += f" · {texts['peer_yongsin_mobility']}"
+        if not (stem_el == peer_el and branch_el == peer_el):
+            body += f" {texts['weak_inflow']}"
     guard = _operational_guard_suffix([stem_el, branch_el], op)
     return f"{body} {guard}".strip() if guard else body

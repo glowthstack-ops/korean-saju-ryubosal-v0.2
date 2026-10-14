@@ -143,6 +143,9 @@ def build_event_engine_v2(dictionaries_dir: Path, **overrides: Any) -> Any:
     kwargs["enable_resource_clash_renewal"] = (
         active_event_engine_flags().resource_clash_renewal
     )
+    from . import period_v2_config  # 지역 import — 모듈 로드 순서(테스트 monkeypatch) 유지
+
+    kwargs["enable_peer_mobility"] = period_v2_config.PEER_YONGSIN_MOBILITY_ENABLED
     kwargs.update(overrides)
     return EventEngineV2(dictionaries_dir, **kwargs)
 

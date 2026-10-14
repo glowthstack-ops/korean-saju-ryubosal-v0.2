@@ -107,6 +107,12 @@ RISK_AUX_AMPLIFIER_ENABLED: bool = _env_flag("SAJU_RISK_AUX_AMPLIFIER_ENABLED")
 # C5-1(2026-10-07 데굴님 승인): 연 단위 health_attention 후보를 건강 창 점수
 # (health_vulnerability)에서 파생해 기존 health.json 규칙 후보를 치환. OFF 면 기존 동작.
 HEALTH_WINDOW_CHANNEL_ENABLED: bool = _env_flag("SAJU_HEALTH_WINDOW_CHANNEL_ENABLED")
+# 비겁 용신 × 비겁 운 유입 → 직장·역할 이동(career_change) 시드(2026-10-14 데굴님 확정 규칙).
+# 기본 ON — 실사례(2026-10 戊戌월 권고사직) 기반 규칙이라 미설정은 켠 것으로 본다. 'false'로만 끈다.
+PEER_YONGSIN_MOBILITY_ENABLED: bool = (
+    os.environ.get("SAJU_PEER_YONGSIN_MOBILITY_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
+)
 
 # ── 버전 태그(계측·회귀 비교용) ─────────────────────────────────────────────
 FORTUNE_LOGIC_VERSION = "period_hierarchy_v2"
@@ -176,6 +182,7 @@ def active_versions() -> dict[str, str | bool]:
         "opportunity_enabled": OPPORTUNITY_ENABLED,
         "risk_aux_amplifier_enabled": RISK_AUX_AMPLIFIER_ENABLED,
         "health_window_channel_enabled": HEALTH_WINDOW_CHANNEL_ENABLED,
+        "peer_yongsin_mobility_enabled": PEER_YONGSIN_MOBILITY_ENABLED,
         "sewoon_daewoon_context_enabled": SEWOON_DAEWOON_CONTEXT_ENABLED,
         "transit_hidden_stem_enabled": TRANSIT_HIDDEN_STEM_ENABLED,
         # LLM 재호출은 설계상 존재하지 않는다(요청당 1회 고정) — 계측 계약으로 못박는다.

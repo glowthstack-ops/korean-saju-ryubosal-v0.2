@@ -218,6 +218,13 @@ compiled/
 
 이 사전이 없으면 모든 합·충이 무차별 이벤트가 된다. 용신=긍정 강화 / 희신=완만한 긍정 / 기신=부담·강제성 / 구신=손실·왜곡 / 한신=조건부.
 
+### interpretations/transit_peer_mobility_text.json + event_engine/transit_ten_god_branching.json `peer_yongsin_mobility_rules` (2026-10-14 데굴님 확정)
+
+- 규칙: **비겁(비견·겁재)이 용신인 명식에 세운·월운으로 비겁이 들어오면 직장·역할 이동(career_change) 후보를 생성**한다. 이동은 자의(독립·이직)·타의(권고사직·배치 전환) 양방이라 polarity 는 조건부. 간여지동(천간·지지 같은 십성)은 그 기운이 **강하게** 들어온 경우로 기준점이 가장 높고, 약하게(한쪽) 들어와도 관성과의 충 등 다른 작용으로 풀이가 바뀔 수 있어 후보는 항상 만들고 유입 강도만 나눈다(same_god 68 · same_group 58 · stem_only 50 · branch_only 44). 상위 층(대운·세운)에 비겁 뿌리가 있으면 근거 층(`candidate_source_layers`)과 reason `PEER_UPPER_SUPPORT_{layer}`에 적는다. 구현 `saju_engines.peer_mobility_seed`(브랜처 직후 합류 → 6계층 보정 공통), 플래그 `SAJU_PEER_YONGSIN_MOBILITY_ENABLED`(기본 ON).
+- 근거: 실사례 `life_event_cases.jsonl` 20261013_career_1 — 1980-11-22 09:40 서울 남(용신 土), 2026-10 戊戌월(겁재 간여지동) 권고사직. 수정 전 엔진은 그 달 career_change 후보가 없었고 '강한 용신운 · 재물 변화 우세'로 읽었다.
+- 해석 문구 사전 `transit_peer_mobility_text.json`(항목 3: same_pillar·peer_yongsin_mobility·weak_inflow): `chart_interpretation.incoming_ten_god_note`가 운 간여지동(천간·지지 같은 십성)과 비겁 용신 유입 조건에 맞는 문구를 고르기만 한다(작문 금지). validate가 3 id 정확 커버리지·단정 어휘(반드시·확실히·틀림없이·무조건)를 검사한다. 사건 유형 사전 `event_process_types.json` '이동·교체·재편'의 reason_prefixes 에 `PEER_YONGSIN_MOBILITY` 등록.
+- 개인 캘리브레이션: 같은 사건을 `subject_life_events`에 confirmed(delayed_outcome) 1행으로 적재(데굴님 승인) — 개인 시그니처 past_event_match 에 쓰인다.
+
 ### events/*.json (신호→이벤트 매핑 예)
 
 ```json

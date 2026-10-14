@@ -257,7 +257,9 @@
         "형충회합 재편"
       ],
       "match": {
-        "reason_prefixes": [],
+        "reason_prefixes": [
+          "PEER_YONGSIN_MOBILITY"
+        ],
         "signal_keywords": [
           "충",
           "역마",
