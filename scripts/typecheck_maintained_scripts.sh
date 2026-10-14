@@ -42,6 +42,8 @@ MAINTAINED=(
     scripts/audit_event_layer_ablation.py
     # 재현 기준선 — 설계 변경 전후를 같은 모집단으로 재측정한다
     scripts/audit_amhap_saturation.py
+    # 도화 정비 소비처 전후 비교 — 외적 인상 가중치 확정 전후 같은 모집단 재측정(2026-10-13)
+    scripts/compare_dohwa_consumers.py
     scripts/backtest_movement_timing.py
     scripts/audit_wealth_taxonomy_separability.py
     scripts/shadow_daewoon_hwa_post_selection.py

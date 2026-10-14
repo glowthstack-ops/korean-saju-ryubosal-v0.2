@@ -12,6 +12,7 @@ LLM 입력의 **고정 prefix**(캐시 대상)를 만든다. 규칙:
 from __future__ import annotations
 
 import json
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -34,6 +35,7 @@ from saju_shared_types.constants import (
     main_hidden_stem,
     ten_god,
 )
+from saju_shared_types.dohwa import LuckDohwa
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.llm_input import (
     ChartInterpretation,
@@ -42,6 +44,8 @@ from saju_shared_types.llm_input import (
     YongsinOperationalSummary,
 )
 from saju_shared_types.manse_result import ManseV2Result
+
+from .dohwa import analyze_luck_dohwa
 
 _DICT_DIR = Path(__file__).resolve().parents[3] / "dictionaries"
 _PALACE_KO = {"year": "연주", "month": "월주", "day": "일주", "hour": "시주"}
@@ -74,6 +78,12 @@ def _load(name: str) -> dict:
 @lru_cache(maxsize=1)
 def _ilju_by_ganji() -> dict[str, dict]:
     return {item["ganji"]: item for item in _load("ilju.json")["items"]}
+
+
+@lru_cache(maxsize=1)
+def _peer_mobility_text() -> dict[str, str]:
+    """운 간여지동·비겁 용신 이동 문구(id → text) — transit_peer_mobility_text.json."""
+    return {it["id"]: it["text"] for it in _load("transit_peer_mobility_text.json")["items"]}
 
 
 @lru_cache(maxsize=1)
@@ -337,18 +347,36 @@ def build_luck_grounding(
     # 운 신살은 들어온 운 레벨이 곧 시기·작용력 — 대운=장기 배경, 세운=올해, 월/일=단기.
     level_ko = _LUCK_LEVEL_KO.get(getattr(luck_pillar, "period_type", ""), "운")
     sinsal_lines: list[str] = []
+    dohwa_text_keys: list[str] = []
     texts = _sinsal_text_by_name()
-    for s in (getattr(luck_pillar, "luck_sinsal", []) or [])[:3]:
+    # 상위 3개 절단은 사전 문구가 있는 신살만 센다(문구 없는 이름이 슬롯을 먹지 않게). 도화는
+    # 운 도화 줄(십성군·사용 규칙)의 유일한 근거라 3개 밖으로 밀리면 마지막 슬롯을 내준다
+    # (2026-10-14 검수: 길신 2개+사정지가 앞서면 도화가 4번째가 되어 연애운 줄과 달라졌다).
+    named: list[tuple[str, dict]] = []
+    for s in getattr(luck_pillar, "luck_sinsal", []) or []:
         name = getattr(s, "name", None) or (s.get("name") if isinstance(s, dict) else None)
         item = texts.get(name) if name else None
-        if item is None:
-            continue
+        if item is not None and name is not None:
+            named.append((name, item))
+    selected = named[:3]
+    dohwa_entry = next((e for e in named if e[0] == "도화"), None)
+    if dohwa_entry is not None and dohwa_entry not in selected:
+        selected = named[:2] + [dohwa_entry]
+    for name, item in selected:
         # 운 신살은 '체질'이 아니라 그 시기에 터지는 '사건' — fromLuck 우선(없으면 manifestation).
         body = item.get("fromLuck") or item["manifestation"]
-        sinsal_lines.append(
+        line = (
             f"(보조·{level_ko} 유입) {name}: {_first_sentence(body, 110)} "
             f"양면 {_first_sentence(item['flipSide'], 80)}"
         )
+        if name == "도화":
+            # 운 도화 × 십성군(2026-10-13) — 기존 운 진도화 판정에 기준 지지·운 지지 본기 십성군과
+            # 십성군 문구(운에 적용된 설명)를 붙인다. 한 줄 1건 — 두 기준이 겹쳐도 가산 없음.
+            dohwa = luck_dohwa_sinsal_line(result, luck_pillar)
+            if dohwa is not None:
+                line, key = dohwa
+                dohwa_text_keys.append(key)
+        sinsal_lines.append(line)
 
     # 길흉 표현 제한(Phase 5b-2a) — 점수·순위 불변, 문장 강도만 clamp(단일 기간 블록만).
     # rollback: EXPRESSION_CLAMP_ENABLED=False 면 라인 미노출(즉시 off — 계산·shadow 무관).
@@ -376,7 +404,61 @@ def build_luck_grounding(
         "relation_lines": rel_lines,
         "sinsal_lines": sinsal_lines,
         "gongmang": gongmang,
+        "dohwa_text_keys": dohwa_text_keys,
     }
+
+
+#: 운 도화 사용 규칙 — 원국 도화와 구분(2026-10-13 데굴님 지시).
+_LUCK_DOHWA_RULE = (
+    "사용 규칙: 이 기간에 들어온 도화다 — 타고난 성향이나 평생의 매력으로 설명하지 말고 원국 "
+    "도화와 구분해 그 기간의 매력 노출·인연 기회로만 말할 것. 기준이 둘이어도 한 번만 다룰 것."
+)
+
+
+def luck_dohwa_sinsal_line(result: ManseV2Result, luck_pillar: object) -> tuple[str, str] | None:
+    """운 기둥 1개의 운 도화 줄 — 기간 총운 운 신살 줄과 주제별 기간 질문 블록이 공유한다.
+
+    두 경로가 같은 판정(sinsal_for_luck '도화')·같은 십성군·같은 기간 제한 규칙을 쓰도록 한 곳에서
+    만든다(2026-10-13). 운 도화가 아니면 None.
+
+    Returns:
+        (줄, 노출 문구 키 'luck_combo:{군}') 또는 None.
+    """
+    level_ko = _LUCK_LEVEL_KO.get(getattr(luck_pillar, "period_type", ""), "운")
+    ld = analyze_luck_dohwa(result, luck_pillar, level_ko.split("(")[0])
+    item = _sinsal_text_by_name().get("도화")
+    if ld is None or item is None:
+        return None
+    body = item.get("fromLuck") or item["manifestation"]
+    base = (
+        f"(보조·{level_ko} 유입) 도화: {_first_sentence(body, 110)} "
+        f"양면 {_first_sentence(item['flipSide'], 80)}"
+    )
+    return _luck_dohwa_line(ld, base)
+
+
+def _luck_dohwa_line(ld: LuckDohwa, base_line: str) -> tuple[str, str]:
+    """운 도화 줄 — 기간·운 지지·기준·십성군·십성군 문구(운에 적용된 설명)·사용 규칙.
+
+    해석 문구는 reviewed 와 무관하게 기본으로 싣는다(검수는 실제 사용 결과로 판단).
+
+    Returns:
+        (줄, 노출 문구 키 'luck_combo:{군}').
+    """
+    from .dohwa import load_dohwa_texts
+
+    slot_ko = {"year": "연지", "day": "일지"}
+    bases = "·".join(f"{slot_ko[b.slot]} {b.branch} 기준({b.trine}국)" for b in ld.bases)
+    combo = load_dohwa_texts()[f"combo:{ld.group.value}"]
+    head = base_line.split(":", 1)[0]  # '(보조·세운(올해) 유입) 도화'
+    rest = base_line.split(":", 1)[1].strip()
+    line = (
+        f"{head}(운 진도화): {ld.period_label} {ld.ganji}의 지지 {ld.branch} [{bases}] — "
+        f"{ld.group_label}(운 지지 본기 {ld.ten_god}, 원국 일간 기준) · 운에 적용된 설명 — "
+        f"매력의 핵심: {combo['core']} · 발현 방식: {combo['manifestation']} · {rest} · "
+        f"{_LUCK_DOHWA_RULE}"
+    )
+    return line, f"luck_combo:{ld.group.value}"
 
 
 def _first_sentence(text: str, limit: int = 160) -> str:
@@ -397,17 +479,59 @@ def _match_relation_item(relation_type: str, members: list[str]) -> dict | None:
     return candidates[0] if len(candidates) == 1 else None
 
 
+#: 서술 블록에서 생략하는 재물 주장 유형(2026-10-13 데굴님 확정 — ilju.json wealth_claims).
+#: 기준은 **문장 유형**이며 재성의 용희기구한과 무관하다(재성이 용·희신이어도 같은 규칙).
+#:   fortune_assertion — 일주만으로 재물복을 단정할 수 없다.
+#:   accumulation      — 축재 결과는 원국 전체와 운을 함께 봐야 해서 일주 블록이 말할 수 없다
+#:                       (재물 그릇·준비기 블록이 맡는다).
+#:   ability           — 능력 종류별로 필요한 근거가 다르다(수익 구조 ≠ 사업 판단력,
+#:                       수익 창출 ≠ 보존·관리). 현재 엔진은 그 수준까지 구분하지 못하므로
+#:                       근거 부족으로 생략한다.
+#: 유지: interest(관심·성향), cultural_symbol(띠 동물 상징 — 개인 재물복 근거로 쓰지 않는다는
+#: 규칙은 context_reducer 의 일주 자료 사용 규칙이 함께 싣는다).
+#: 생략은 문장 단위이며 고쳐 쓰지 않는다(새 문안 금지 — 원칙 10). 복합 문장은 무관한 장점도 함께
+#: 빠지므로 사전에 split_review 로 표시해 분리 감수 대상으로 남긴다.
+_ILJU_OMIT_CLAIM_TYPES: frozenset[str] = frozenset({"fortune_assertion", "accumulation", "ability"})
+
+
+def _ilju_omitted(entry: dict) -> dict[str, set[str]]:
+    """field → 생략할 원문 집합."""
+    out: dict[str, set[str]] = {}
+    for claim in entry.get("wealth_claims", []):
+        if claim["type"] in _ILJU_OMIT_CLAIM_TYPES:
+            out.setdefault(claim["field"], set()).add(claim["text"])
+    return out
+
+
+def _strip_sentences(text: str, sentences: set[str]) -> str:
+    """서사에서 태그된 문장을 통째로 걷어낸다(앞뒤 공백 정리, 나머지 문장은 그대로)."""
+    for sent in sentences:
+        text = text.replace(sent, "")
+    return re.sub(r"\s{2,}", " ", text).strip()
+
+
 def _serialize_ilju(entry: dict) -> str:
-    """일주 엔트리 → 프롬프트 텍스트(basis는 내부 근거라 제외)."""
+    """일주 엔트리 → 프롬프트 텍스트(basis·wealth_claims는 내부 근거라 제외).
+
+    재물 주장 태그 중 `_ILJU_OMIT_CLAIM_TYPES` 문장은 싣지 않는다 — LLM이 일주 일반 문장을
+    이 사람의 재물복·재물 능력으로 옮겨 쓰는 것을 막는다(2026-10-13 실답: 재성 구신 명식에
+    '타고난 재물 감각이 있는 명식'). 비워진 줄(밝은 면이 모두 생략 등)은 줄째 생략한다.
+    """
     animal = f"{entry['animal']['color']} {entry['animal']['name']}"
     traits = entry["traits"]
-    return "\n".join([
-        f"일주 {entry['ganji']} ({animal}) — {entry['imagery']}",
-        entry["narrative"],
-        "밝은 면: " + " / ".join(traits["light"]),
-        "그림자: " + " / ".join(traits["shadow"]),
-        f"배우자궁: {entry['spouse_palace_note']}",
-    ])
+    omit = _ilju_omitted(entry)
+    header = f"일주 {entry['ganji']} ({animal})"
+    if entry["imagery"] not in omit.get("imagery", set()):
+        header += f" — {entry['imagery']}"
+    light = [t for t in traits["light"] if t not in omit.get("traits.light", set())]
+    shadow = [t for t in traits["shadow"] if t not in omit.get("traits.shadow", set())]
+    lines = [header, _strip_sentences(entry["narrative"], omit.get("narrative", set()))]
+    if light:
+        lines.append("밝은 면: " + " / ".join(light))
+    if shadow:
+        lines.append("그림자: " + " / ".join(shadow))
+    lines.append(f"배우자궁: {entry['spouse_palace_note']}")
+    return "\n".join(lines)
 
 
 # 작동 역할 요약 token 절제(Phase 5a). warnings 최대 개수 + 누적 char 예산(토큰 proxy):
@@ -881,5 +1005,15 @@ def incoming_ten_god_note(
         elif fav == "기신":
             parts.append(_first_sentence(item["asGisin"]))
         body = " ".join(parts)
+    # 운 간여지동·비겁 용신 이동(2026-10-14 데굴님 확정) — 문구는 사전에서 고르기만 한다.
+    texts = _peer_mobility_text()
+    if stem_tg == branch_tg:
+        body += f" · 운 간여지동(천간·지지 모두 {stem_tg}): {texts['same_pillar']}"
+    peer_el = str(STEM_ELEMENT[dm])
+    peer_inflow = stem_el == peer_el or branch_el == peer_el
+    if peer_inflow and fav_map.get(peer_el) == "용신":
+        body += f" · {texts['peer_yongsin_mobility']}"
+        if not (stem_el == peer_el and branch_el == peer_el):
+            body += f" {texts['weak_inflow']}"
     guard = _operational_guard_suffix([stem_el, branch_el], op)
     return f"{body} {guard}".strip() if guard else body

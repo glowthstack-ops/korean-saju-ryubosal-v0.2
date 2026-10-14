@@ -1,11 +1,12 @@
 "use client";
 
-// 랜딩 — 사주목록 진입 + 무료(만세력·간지달력) / 로그인 전용(테마사주·AI상담) 구분.
+// 랜딩 — 무료(일주별 오늘의 운세·만세력·간지달력) / 로그인 전용(테마사주·AI상담) 구분.
+// 상단 소개 히어로(제목·설명·로그인 버튼)는 공간만 차지해 제거했다(화면수정안 2026-10-10).
+// 로그인·사주목록 진입은 GNB 드로어가 담당한다.
 
 import Link from "next/link";
 import { DailyHomeCard } from "@/components/daily/DailyHomeCard";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { useGnb } from "@/components/providers/GnbProvider";
 
 interface Service {
   href: string;
@@ -44,42 +45,9 @@ const PAID: Service[] = [
 
 export default function HomePage() {
   const { isLoggedIn } = useAuth();
-  const { openGnb } = useGnb();
 
   return (
     <div className="space-y-6">
-      <section className="rounded-lg bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-bold">류보살 v2</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          생년월일시만 입력하면 내 사주 명식부터 지금 흐르는 운, 주제별 깊은 풀이까지 한곳에서 볼 수
-          있어요. 사주와 운의 계산은 정해진 명리 규칙대로 정확하게 하고, AI는 그 결과를 알기 쉬운
-          말로 풀어드립니다.
-        </p>
-        {isLoggedIn ? (
-          <Link
-            href="/sajus"
-            className="mt-4 inline-block rounded bg-gray-800 px-4 py-2 text-sm text-white"
-          >
-            내 사주목록 →
-          </Link>
-        ) : (
-          // 비로그인 — 별도 안내 페이지 대신 사이드바(계정 패널)를 바로 연다.
-          <button
-            type="button"
-            onClick={openGnb}
-            className="mt-4 inline-block rounded bg-gray-800 px-4 py-2 text-sm text-white"
-          >
-            로그인
-          </button>
-        )}
-        {!isLoggedIn && (
-          <p className="mt-2 text-xs text-gray-400">
-            비회원은 만세력·간지달력을 기기당 1개 사주로 바로 이용할 수 있어요. 로그인하면 여러 사주를
-            저장하고 테마사주·AI상담을 이용할 수 있습니다.
-          </p>
-        )}
-      </section>
-
       <Section
         title="무료"
         subtitle="로그인 없이 이용 가능"

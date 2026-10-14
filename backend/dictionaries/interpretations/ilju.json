@@ -1,6 +1,6 @@
 {
-  "version": "1.0.1",
-  "note": "60갑자 일주 해석 사전 (docs/05 interpretations/ — v2.2.1). computed 블록은 만세력 엔진과 전수 교차검증되며, narrative·imagery는 basis(자평 통설)에서 도출 가능한 범위로만 집필한다. 단정 표현 금지. 일간 중심·상황 의존 해석 원칙 적용. 역접 연결(~지만/~보여도/~ㄴ데/~면서도)은 앞뒤가 반대 성질(장점↔약점)일 때만 쓰고, 둘 다 장점이면 \"A한 외면과 B한 내면을 함께 갖춘\"처럼 병렬로 쓴다(2026-10-01).",
+  "version": "1.1.0",
+  "note": "60갑자 일주 해석 사전 (docs/05 interpretations/ — v2.2.1). computed 블록은 만세력 엔진과 전수 교차검증되며, narrative·imagery는 basis(자평 통설)에서 도출 가능한 범위로만 집필한다. 단정 표현 금지. 일간 중심·상황 의존 해석 원칙 적용. 역접 연결(~지만/~보여도/~ㄴ데/~면서도)은 앞뒤가 반대 성질(장점↔약점)일 때만 쓰고, 둘 다 장점이면 \"A한 외면과 B한 내면을 함께 갖춘\"처럼 병렬로 쓴다(2026-10-01). 재물 주장 태그(wealth_claims, 1.1.0 — 2026-10-13): 재물 관련 문장을 유형(fortune_assertion·interest·ability·accumulation·cultural_symbol)으로 문장 단위 태그하고 복합 문장은 절별 의미(clauses)를 기록한다. 서술 블록은 재성 역할과 무관하게 문장 유형으로 생략 여부를 정한다(chart_interpretation). split_review=true는 무관한 장점이 함께 빠지는 복합 문장이라 분리 감수가 필요하다는 표시이며 명리적 부정 판정이 아니다.",
   "items": [
     {
       "ganji": "甲子",
@@ -28,6 +28,11 @@
       "spouse_palace_note": "일지 편재 — 활동적이고 유쾌한 인연과 맞는 자리. 함께 움직이고 함께 벌 때 화목해지는 구조.",
       "computed": { "iljiTenGod": "편재", "twelveStage": "쇠", "hiddenStems": ["癸", "辛", "己"] },
       "basis": "자평 통설: 乙木이 丑 중 己土 편재에 좌 — 재성 좌는 실리·활동 지향. 십이운성 쇠는 노련·신중의 단계. 물상은 동토(凍土)의 화초가 봄을 기다리는 전통 비유.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "푸른 소가 묵묵히 밭을 갈듯, 화려하게 떠벌리지 않으면서 실속은 야무지게 챙기는 타입이라 주변에서 '알고 보면 제일 단단한 사람'으로 통해요.", "type": "ability", "ability_kind": "practical_gain", "clauses": [{"text": "화려하게 떠벌리지 않음", "type": "other"}, {"text": "실속은 야무지게 챙기는 타입", "type": "ability"}, {"text": "알고 보면 제일 단단한 사람이라는 평판", "type": "other"}], "split_review": true },
+        { "field": "narrative", "text": "재물을 다루는 감각도 현실적이어서, 작은 것을 아껴 큰 것을 만드는 저력이 있어요.", "type": "ability", "ability_kind": "wealth_sense", "clauses": [{"text": "재물을 다루는 감각이 현실적", "type": "ability"}, {"text": "작은 것을 아껴 큰 것을 만드는 저력", "type": "ability"}] },
+        { "field": "traits.light", "text": "조용히 실속을 챙기는 현실 감각", "type": "ability", "ability_kind": "practical_gain" }
+      ],
       "reviewed": false
     },
     {
@@ -154,6 +159,10 @@
       "spouse_palace_note": "일지 편재 — 활동적이고 유쾌한 인연의 자리. 함께 일을 도모하고 함께 누릴 때 화목해지는 관계.",
       "computed": { "iljiTenGod": "편재", "twelveStage": "양", "hiddenStems": ["辛", "丁", "戊"] },
       "basis": "자평 통설: 甲木이 戌 中 戊土 편재에 좌 — 재성 좌는 수완·관리 지향. 戌은 화고(火庫)를 품은 가을 산의 물상. 십이운성 양은 양육·보호의 단계.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "재물을 다루는 수완이 통이 커서 푼돈보다 목돈의 흐름을 읽고, 일을 맡으면 자기 사업처럼 끌고 가는 주인의식이 있어요.", "type": "ability", "ability_kind": "business", "clauses": [{"text": "재물 수완·목돈의 흐름을 읽음", "type": "ability"}, {"text": "일을 맡으면 자기 일처럼 끌고 가는 주인의식", "type": "other"}], "split_review": true },
+        { "field": "traits.light", "text": "목돈의 흐름을 읽는 통 큰 수완", "type": "ability", "ability_kind": "business" }
+      ],
       "reviewed": false
     },
     {
@@ -168,6 +177,9 @@
       "spouse_palace_note": "일지 정인 — 배우자에게서 배움과 안식을 얻는 자리. 기댈 수 있는 깊은 대화가 애정의 핵심.",
       "computed": { "iljiTenGod": "정인", "twelveStage": "사", "hiddenStems": ["戊", "甲", "壬"] },
       "basis": "자평 통설: 乙木이 亥 中 壬水 정인에 좌 — 수생목의 부목(浮木) 기운을 경계하되 인성의 학문·감성 발달. 십이운성 사는 몰입·정적의 단계. 물상은 수면 위 연화(蓮花) 전통 비유.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "푸른 돼지는 복과 여유의 상징이에요.", "type": "cultural_symbol" }
+      ],
       "reviewed": false
     },
     {
@@ -196,6 +208,10 @@
       "spouse_palace_note": "일지 식신 — 배우자궁이 따뜻한 식탁 같은 자리. 함께 먹고 함께 일상을 가꾸는 데서 정이 깊어짐.",
       "computed": { "iljiTenGod": "식신", "twelveStage": "묘", "hiddenStems": ["癸", "辛", "己"] },
       "basis": "자평 통설: 丁火가 丑 中 己土 식신에 좌 — 식신 좌는 생산·돌봄·연구 지향. 십이운성 묘는 저장·몰두의 단계. 물상은 동야(冬夜)의 화로 전통 비유.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "무언가를 깊이 파고들어 연구하는 끈기가 있어 전문 분야에서 실력자가 되고, 살림이든 일이든 알뜰하게 챙기는 야무진 손끝을 갖췄어요.", "type": "ability", "ability_kind": "preservation", "clauses": [{"text": "연구하는 끈기·전문 분야 실력자", "type": "other"}, {"text": "살림이든 일이든 알뜰하게 챙기는 손끝", "type": "ability"}], "split_review": true },
+        { "field": "traits.light", "text": "알뜰하고 야무진 살림 솜씨", "type": "ability", "ability_kind": "preservation" }
+      ],
       "reviewed": false
     },
     {
@@ -266,6 +282,11 @@
       "spouse_palace_note": "일지 정재 — 성실하고 안정적인 가정을 지향하는 자리. 알뜰하게 함께 쌓아 가는 관계에서 행복을 느낌.",
       "computed": { "iljiTenGod": "정재", "twelveStage": "태", "hiddenStems": ["丙", "己", "丁"] },
       "basis": "자평 통설: 壬水가 午 中 丁火 정재에 좌 — 재성 좌는 실리·성실 지향, 수화 상제의 균형 매력. 십이운성 태는 구상·잉태의 단계. 물상은 강휘상영(江暉相映)의 전통 비유.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "사람을 끌어당기는 친화력이 있고, 일에서는 손에 잡히는 실속을 야무지게 챙기는 현실 감각이 빛나요.", "type": "ability", "ability_kind": "practical_gain", "clauses": [{"text": "사람을 끌어당기는 친화력", "type": "other"}, {"text": "실속을 챙기는 현실 감각", "type": "ability"}], "split_review": true },
+        { "field": "narrative", "text": "성실하게 흐르는 강물처럼 꾸준해서 재물도 차곡차곡 모이는 구조예요.", "type": "accumulation", "clauses": [{"text": "성실하고 꾸준함", "type": "other"}, {"text": "재물이 차곡차곡 모이는 구조", "type": "accumulation"}], "split_review": true },
+        { "field": "traits.light", "text": "손에 잡히는 실속을 챙기는 현실 감각", "type": "ability", "ability_kind": "practical_gain" }
+      ],
       "reviewed": false
     },
     {
@@ -336,6 +357,9 @@
       "spouse_palace_note": "일지 정관 — 반듯하고 존경할 수 있는 인연의 자리. 서로의 품격을 알아봐 주는 관계에서 깊어짐.",
       "computed": { "iljiTenGod": "정관", "twelveStage": "태", "hiddenStems": ["戊", "甲", "壬"] },
       "basis": "자평 통설: 丁火가 亥 中 壬水 정관에 좌 — 정관 좌는 품격·원칙 지향, 丁壬의 유정한 배합. 십이운성 태는 구상·잉태의 단계. 물상은 해상등화(海上燈火)의 전통 비유.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "붉은 돼지는 복을 부르는 풍요와 깊은 속을 함께 지닌 동물이에요.", "type": "cultural_symbol" }
+      ],
       "reviewed": false
     },
     {
@@ -350,6 +374,14 @@
       "spouse_palace_note": "일지 정재 — 성실하고 알뜰한 가정을 꾸리는 자리. 함께 모으고 함께 계획하는 데서 안정감을 느낌.",
       "computed": { "iljiTenGod": "정재", "twelveStage": "태", "hiddenStems": ["壬", "癸"] },
       "basis": "자평 통설: 戊土가 子 中 癸水 정재에 좌 — 재성 좌는 실리·관리 지향, 戊癸의 유정한 배합. 십이운성 태는 구상·잉태의 단계. 물상은 산중유천(山中幽泉)의 전통 비유.",
+      "wealth_claims": [
+        { "field": "imagery", "text": "큰 산속 깊은 곳에 숨은 옹달샘 — 묵직한 산의 겉과 맑은 재물의 샘이 흐르는 속을 함께 지닌 형상", "type": "fortune_assertion", "clauses": [{"text": "묵직한 산의 겉", "type": "other"}, {"text": "맑은 재물의 샘이 흐르는 속", "type": "fortune_assertion"}], "split_review": true },
+        { "field": "narrative", "text": "노란 쥐는 알뜰하게 곳간을 채우는 영리한 동물이에요.", "type": "cultural_symbol" },
+        { "field": "narrative", "text": "이 일주는 산속의 옹달샘이라, 듬직하고 과묵한 외면과 반짝이는 재물 감각·섬세한 계산이 흐르는 속을 함께 갖춘 반전형이에요.", "type": "ability", "ability_kind": "wealth_sense", "clauses": [{"text": "듬직하고 과묵한 외면", "type": "other"}, {"text": "재물 감각·섬세한 계산", "type": "ability"}], "split_review": true },
+        { "field": "narrative", "text": "차분히 관찰하다 좋은 기회를 조용히 잡아내는 눈썰미가 있고, 돈이든 정보든 새지 않게 관리하는 야무진 손끝을 갖췄어요.", "type": "ability", "ability_kind": "preservation", "clauses": [{"text": "차분히 관찰하는 눈썰미", "type": "other"}, {"text": "돈이든 정보든 새지 않게 관리", "type": "ability"}], "split_review": true },
+        { "field": "traits.light", "text": "새는 곳 없는 야무진 관리 감각", "type": "ability", "ability_kind": "preservation" },
+        { "field": "traits.shadow", "text": "아끼는 습관이 인색하게 비칠 수 있음", "type": "interest" }
+      ],
       "reviewed": false
     },
     {
@@ -364,6 +396,9 @@
       "spouse_palace_note": "일지 비견(간여지동) — 주관이 강한 두 사람의 자리. 서로의 영역과 속도를 존중하는 대등한 관계가 화목의 열쇠.",
       "computed": { "iljiTenGod": "비견", "twelveStage": "묘", "hiddenStems": ["癸", "辛", "己"] },
       "basis": "자평 통설: 己土가 丑 中 己土 비견에 좌한 간여지동 — 자립·주관 강화 구조. 丑은 금고(金庫)를 품은 동토라 축적·인내의 물상. 십이운성 묘는 저장·축적의 단계.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "손에 잡히는 것을 차곡차곡 쌓는 저축형 기질이라 시간이 갈수록 단단해져요.", "type": "ability", "ability_kind": "preservation", "clauses": [{"text": "차곡차곡 쌓는 저축형 기질", "type": "ability"}, {"text": "시간이 갈수록 단단해짐", "type": "other"}], "split_review": true }
+      ],
       "reviewed": false
     },
     {
@@ -378,6 +413,10 @@
       "spouse_palace_note": "일지 편재 — 활동적이고 화끈한 인연의 자리. 함께 일을 벌이고 함께 누리는 동적인 관계가 어울림.",
       "computed": { "iljiTenGod": "편재", "twelveStage": "절", "hiddenStems": ["戊", "丙", "甲"] },
       "basis": "자평 통설: 庚金이 寅 中 甲木 편재에 좌 — 절지 위 재성으로 모험적 수완·재기의 기운. 십이운성 절은 전환·리셋의 단계. 물상은 입림지부(入林之斧)의 전통 비유.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "이 일주는 숲에 길을 내는 도끼라, 생각이 서면 곧장 몸이 움직이는 행동파에 사업가적 수완까지 갖춘 개척자예요.", "type": "ability", "ability_kind": "business", "clauses": [{"text": "생각이 서면 곧장 움직이는 행동파·개척자", "type": "other"}, {"text": "사업가적 수완", "type": "ability"}], "split_review": true },
+        { "field": "traits.light", "text": "기회를 먼저 잡는 사업가적 수완", "type": "ability", "ability_kind": "business" }
+      ],
       "reviewed": false
     },
     {
@@ -392,6 +431,10 @@
       "spouse_palace_note": "일지 편재 — 생기 있고 유쾌한 인연의 자리. 상대를 다듬으려 하기보다 있는 그대로 즐길 때 화목.",
       "computed": { "iljiTenGod": "편재", "twelveStage": "절", "hiddenStems": ["甲", "乙"] },
       "basis": "자평 통설: 辛金이 卯 中 乙木 편재에 좌 — 절지 위 재성으로 섬세한 수완의 기운. 십이운성 절은 전환·리셋의 단계. 물상은 전지전정(剪枝剪定)의 가위 전통 비유.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "일과 재물을 다루는 감각도 꼼꼼해서 허투루 새는 것이 없어요.", "type": "ability", "ability_kind": "preservation", "clauses": [{"text": "일을 다루는 꼼꼼함", "type": "other"}, {"text": "재물이 허투루 새지 않음", "type": "ability"}], "split_review": true },
+        { "field": "traits.light", "text": "허투루 새지 않는 꼼꼼한 관리", "type": "ability", "ability_kind": "preservation" }
+      ],
       "reviewed": false
     },
     {
@@ -420,6 +463,12 @@
       "spouse_palace_note": "일지 정재 — 성실하고 알뜰한 인연의 자리. 현실을 함께 설계하는 든든한 동반자 관계가 어울림.",
       "computed": { "iljiTenGod": "정재", "twelveStage": "태", "hiddenStems": ["戊", "庚", "丙"] },
       "basis": "자평 통설: 癸水가 巳 中 丙火 정재에 좌 — 재성 좌는 실리·성실 지향, 巳 중 庚金의 암생(暗生)도 통설로 언급됨. 십이운성 태는 구상·잉태의 단계. 물상은 조하수무(朝霞水霧)의 전통 비유.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "이 일주는 아침 햇살 속의 물안개라, 부드럽고 사근사근한 분위기 뒤에 명민한 실리 감각을 감춘 영리한 분이에요.", "type": "ability", "ability_kind": "wealth_sense", "clauses": [{"text": "부드럽고 사근사근한 분위기", "type": "other"}, {"text": "명민한 실리 감각", "type": "ability"}], "split_review": true },
+        { "field": "narrative", "text": "눈치가 빠르고 상황 파악이 정확해서 어디서든 제 자리를 빨리 찾고, 재물 기회를 알아보는 감각이 밝아 알뜰하게 결실을 모아요.", "type": "ability", "ability_kind": "wealth_sense", "clauses": [{"text": "눈치·상황 파악이 정확함", "type": "other"}, {"text": "재물 기회를 알아보는 감각", "type": "ability"}, {"text": "알뜰하게 결실을 모음", "type": "accumulation"}], "split_review": true },
+        { "field": "traits.light", "text": "재물 기회를 알아보는 밝은 감각", "type": "ability", "ability_kind": "wealth_sense" },
+        { "field": "traits.shadow", "text": "실리 계산이 앞선다는 인상을 줄 수 있음", "type": "interest" }
+      ],
       "reviewed": false
     },
     {
@@ -448,6 +497,9 @@
       "spouse_palace_note": "일지 편재 — 활동적이고 현실적인 인연의 자리. 함께 부지런히 가꾸는 생활의 합이 좋은 관계.",
       "computed": { "iljiTenGod": "편재", "twelveStage": "양", "hiddenStems": ["丁", "乙", "己"] },
       "basis": "자평 통설: 乙木이 未 中 己土 편재에 좌 — 조토 위 화초로 강한 생활력·실리의 구조, 未는 목고(木庫)라 뿌리의 근거. 십이운성 양은 양육·축적의 단계. 물상은 한전약초(旱田藥草)의 전통 비유.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "재물을 다루는 손끝이 야무지고 부지런해서 살림이든 사업이든 알차게 키워요.", "type": "ability", "ability_kind": "preservation", "clauses": [{"text": "재물을 다루는 손끝이 야무짐", "type": "ability"}, {"text": "부지런함", "type": "other"}, {"text": "살림·사업을 알차게 키움", "type": "accumulation"}], "split_review": true }
+      ],
       "reviewed": false
     },
     {
@@ -462,6 +514,9 @@
       "spouse_palace_note": "일지 편재 — 유쾌하고 활동적인 인연의 자리. 함께 여행하고 함께 움직이는 동적인 관계가 어울림.",
       "computed": { "iljiTenGod": "편재", "twelveStage": "병", "hiddenStems": ["戊", "壬", "庚"] },
       "basis": "자평 통설: 丙火가 申 中 庚金 편재에 좌 — 재성 좌는 활동·수완 지향, 申은 이동·역동의 기운으로 통용됨. 십이운성 병은 공감·활동 전환의 단계. 물상은 추산석양광(秋山夕陽光)의 전통 비유.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "사교성이 좋고 화통해서 처음 보는 사람과도 금세 친해지고, 동시에 여러 일을 굴리는 멀티 능력과 재물 수완이 있어요.", "type": "ability", "ability_kind": "business", "clauses": [{"text": "사교성·화통함", "type": "other"}, {"text": "여러 일을 굴리는 멀티 능력", "type": "other"}, {"text": "재물 수완", "type": "ability"}], "split_review": true }
+      ],
       "reviewed": false
     },
     {
@@ -476,6 +531,10 @@
       "spouse_palace_note": "일지 편재 — 세련되고 생기 있는 인연의 자리. 서로의 취향을 존중하고 함께 누리는 관계가 어울림.",
       "computed": { "iljiTenGod": "편재", "twelveStage": "장생", "hiddenStems": ["庚", "辛"] },
       "basis": "자평 통설: 丁火가 酉 中 辛金 편재에 좌하고 酉에서 장생 — 촛불이 보석을 비추는 주옥세공의 구조로 안목·수완 발달. 물상은 촉화세공(燭火細工)의 전통 비유.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "재물 감각도 밝아 좋은 물건과 기회를 골라내는 눈이 있어요.", "type": "ability", "ability_kind": "wealth_sense" },
+        { "field": "traits.light", "text": "좋은 기회를 골라내는 재물 감각", "type": "ability", "ability_kind": "wealth_sense" }
+      ],
       "reviewed": false
     },
     {
@@ -504,6 +563,12 @@
       "spouse_palace_note": "일지 정재 — 배우자·재물 안정을 함께 지향하는 자리. 가정에 충실하고 알뜰하게 함께 쌓아 가는 관계에서 행복을 느낌.",
       "computed": { "iljiTenGod": "정재", "twelveStage": "태", "hiddenStems": ["戊", "甲", "壬"] },
       "basis": "자평 통설: 己土가 亥 中 壬水 정재에 좌 — 재성 좌는 실리·안정 지향, 전답 아래 강물이 흐르는 윤택한 땅의 구조. 십이운성 태는 잠재·구상의 단계. 물상은 전답하천(田畓河川)의 전통 비유.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "예의가 바르고 단정해서 어디를 가나 환영받고, 자신의 실속을 차분하게 챙길 줄 아는 영리함까지 겸비했어요.", "type": "ability", "ability_kind": "practical_gain", "clauses": [{"text": "예의 바르고 단정해 환영받음", "type": "other"}, {"text": "실속을 차분히 챙기는 영리함", "type": "ability"}], "split_review": true },
+        { "field": "narrative", "text": "노란 돼지는 예로부터 복을 불러오는 풍요로운 존재로 여겨져서, 타고난 재물 감각과 성실함을 함께 거머쥔 구조예요.", "type": "ability", "ability_kind": "wealth_sense", "clauses": [{"text": "노란 돼지는 복을 불러오는 존재", "type": "cultural_symbol"}, {"text": "타고난 재물 감각", "type": "ability"}, {"text": "성실함", "type": "other"}], "split_review": true },
+        { "field": "traits.light", "text": "실속을 차분히 챙기는 영리함", "type": "ability", "ability_kind": "practical_gain" },
+        { "field": "traits.light", "text": "타고난 재물 감각과 성실함", "type": "ability", "ability_kind": "wealth_sense", "clauses": [{"text": "타고난 재물 감각", "type": "ability"}, {"text": "성실함", "type": "other"}], "split_review": true }
+      ],
       "reviewed": false
     },
     {
@@ -532,6 +597,9 @@
       "spouse_palace_note": "일지 편인 — 서로의 내면을 알아봐 주는 인연의 자리. 말수가 적어도 깊이 통하는 관계가 어울림.",
       "computed": { "iljiTenGod": "편인", "twelveStage": "양", "hiddenStems": ["癸", "辛", "己"] },
       "basis": "자평 통설: 辛金이 丑 中 己土 편인에 좌 — 습토가 금을 기르고(토생금) 丑은 금고(金庫)라 보석이 땅에 저장된 구조. 십이운성 양은 양육·축적의 단계. 물상은 동토장옥(凍土藏玉)의 전통 비유.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "손끝이 야무져 허투루 쓰는 것이 없어요.", "type": "ability", "ability_kind": "preservation", "clauses": [{"text": "손끝이 야무짐", "type": "other"}, {"text": "허투루 쓰는 것이 없음", "type": "ability"}], "split_review": true }
+      ],
       "reviewed": false
     },
     {
@@ -574,6 +642,10 @@
       "spouse_palace_note": "일지 편재 — 통 크고 활동적인 인연의 자리. 함께 큰 그림을 그리는 동업자 같은 관계가 어울림.",
       "computed": { "iljiTenGod": "편재", "twelveStage": "쇠", "hiddenStems": ["乙", "癸", "戊"] },
       "basis": "자평 통설: 甲木이 辰 中 戊土 편재에 좌 — 옥토(습토) 위 재성으로 큰 재물 그릇의 구조, 辰 중 癸水·乙木이 뿌리가 됨. 십이운성 쇠는 노련·관리의 단계. 물상은 옥토거목(沃土巨木)의 전통 비유.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "이 일주는 옥토에 뿌리내린 거목이라, 자기 분야에서 큰 그릇을 키워 가는 뚝심과 사업 감각을 함께 갖춘 분이에요.", "type": "ability", "ability_kind": "business", "clauses": [{"text": "자기 분야에서 그릇을 키워 가는 뚝심", "type": "other"}, {"text": "사업 감각", "type": "ability"}], "split_review": true },
+        { "field": "traits.light", "text": "기회를 크게 키우는 사업 감각과 뚝심", "type": "ability", "ability_kind": "business", "clauses": [{"text": "기회를 키우는 사업 감각", "type": "ability"}, {"text": "뚝심", "type": "other"}], "split_review": true }
+      ],
       "reviewed": false
     },
     {
@@ -644,6 +716,11 @@
       "spouse_palace_note": "일지 식신 — 알뜰한 일상을 함께 가꾸는 자리. 소박하지만 풍성한 식탁 같은 관계가 어울림.",
       "computed": { "iljiTenGod": "식신", "twelveStage": "장생", "hiddenStems": ["庚", "辛"] },
       "basis": "자평 통설: 己土가 酉 中 辛金 식신에 좌하고 酉에서 장생 — 토생금의 생산 구조로 식신 장생은 복록의 통설. 물상은 추수전답(秋收田畓)의 전통 비유.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "노란 닭은 부지런히 모이를 거두는 알뜰한 동물이에요.", "type": "cultural_symbol" },
+        { "field": "narrative", "text": "이 일주는 추수의 들녘이라, 심은 만큼 거두는 정직한 생산성과 꼼꼼한 마무리 솜씨를 타고난 실속형이에요.", "type": "ability", "ability_kind": "practical_gain", "clauses": [{"text": "정직한 생산성·꼼꼼한 마무리 솜씨", "type": "other"}, {"text": "실속형", "type": "ability"}], "split_review": true },
+        { "field": "narrative", "text": "손끝에서 결과물이 차곡차곡 나오는 구조라 시간이 갈수록 곳간이 차요.", "type": "accumulation", "clauses": [{"text": "결과물이 차곡차곡 나옴", "type": "other"}, {"text": "시간이 갈수록 곳간이 참", "type": "accumulation"}], "split_review": true }
+      ],
       "reviewed": false
     },
     {
@@ -672,6 +749,9 @@
       "spouse_palace_note": "일지 상관 — 지적인 대화가 풍부한 관계를 원하는 자리. 서로의 총명함을 칭찬해 주는 관계가 오래감.",
       "computed": { "iljiTenGod": "상관", "twelveStage": "목욕", "hiddenStems": ["戊", "甲", "壬"] },
       "basis": "자평 통설: 辛金이 亥 中 壬水 상관에 좌 — 금수상관의 총명 구조, 도세주옥(淘洗珠玉)으로 물이 보석을 씻는 통설 물상. 십이운성 목욕은 매력·감각의 단계.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "흰 돼지는 복스럽고 영리한 동물이에요.", "type": "cultural_symbol" }
+      ],
       "reviewed": false
     },
     {
@@ -714,6 +794,10 @@
       "spouse_palace_note": "일지 비견(간여지동) — 곧은 나무 둘이 나란히 선 자리. 누가 위가 아니라 나란히 서는 대등함이 화목의 전부.",
       "computed": { "iljiTenGod": "비견", "twelveStage": "건록", "hiddenStems": ["戊", "丙", "甲"] },
       "basis": "자평 통설: 甲木이 寅 中 甲木 비견에 좌하고 寅에서 건록 — 간여지동의 강왕한 자립 구조. 물상은 임중지목(林中之木)의 우두머리 소나무 전통 비유.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "옳다고 믿는 길은 손해를 보더라도 가는 대쪽 기질이 있어 시간이 갈수록 '믿을 수 있는 사람'으로 우뚝 서고, 맨손으로 시작해도 제 힘으로 일가를 이루는 자수성가형이에요.", "type": "accumulation", "clauses": [{"text": "손해를 보더라도 옳은 길을 가는 대쪽 기질", "type": "other"}, {"text": "믿을 수 있는 사람으로 섬", "type": "other"}, {"text": "맨손으로 일가를 이루는 자수성가형", "type": "accumulation"}], "split_review": true },
+        { "field": "traits.light", "text": "맨손으로 일가를 이루는 자수성가 기질", "type": "accumulation" }
+      ],
       "reviewed": false
     },
     {
@@ -742,6 +826,9 @@
       "spouse_palace_note": "일지 식신 — 함께 가꾸고 함께 거두는 풍요로운 자리. 일상을 즐겁게 만드는 너그러운 관계.",
       "computed": { "iljiTenGod": "식신", "twelveStage": "관대", "hiddenStems": ["乙", "癸", "戊"] },
       "basis": "자평 통설: 丙火가 辰 中 戊土 식신에 좌 — 화생토의 생산 구조, 습토를 비춰 만물을 기르는 통설 물상. 십이운성 관대는 패기·격식의 단계. 물상은 춘양옥토(春陽沃土)의 전통 비유.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "베푼 빛이 곡식으로 돌아오듯 복록이 따르는 구조예요.", "type": "fortune_assertion" }
+      ],
       "reviewed": false
     },
     {
@@ -840,6 +927,9 @@
       "spouse_palace_note": "일지 겁재(간여지동) — 깊은 물 둘이 만난 자리. 서로의 바다를 헤아리려 하기보다 함께 흐르는 믿음이 화목의 열쇠.",
       "computed": { "iljiTenGod": "겁재", "twelveStage": "제왕", "hiddenStems": ["戊", "甲", "壬"] },
       "basis": "자평 통설: 癸水가 亥 中 壬水 겁재에 좌하고 亥에서 제왕 — 간여지동의 극왕한 수기 구조로 포용·직관 발달. 물상은 야우창해(夜雨滄海)의 전통 비유.",
+      "wealth_claims": [
+        { "field": "narrative", "text": "검은 돼지는 가장 깊은 물의 복을 품은 동물이에요.", "type": "cultural_symbol" }
+      ],
       "reviewed": false
     }
   ]

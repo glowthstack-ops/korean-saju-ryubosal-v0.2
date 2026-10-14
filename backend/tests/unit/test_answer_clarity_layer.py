@@ -42,6 +42,9 @@ def test_answer_clarity_directive_invariants() -> None:
         assert needle in ANSWER_CLARITY_DIRECTIVE, needle
     # 단정 금지 원칙과의 양립 명시 — 사건 성사·발생 단정 요구가 아님을 계약 안에서 밝힌다.
     assert "단정하라는 뜻이 아니다" in ANSWER_CLARITY_DIRECTIVE
+    # 결론 먼저(2026-10-12) — 첫 1~2문장은 원어 없는 일상어 결론, 원어 사용 횟수 제한.
+    assert "일상어 결론" in ANSWER_CLARITY_DIRECTIVE
+    assert "서너 번을 넘기지" in ANSWER_CLARITY_DIRECTIVE
 
 
 def test_answer_clarity_in_chat_prompt() -> None:
@@ -53,6 +56,9 @@ def test_answer_clarity_in_chat_prompt() -> None:
     )
     assert res.prompt_preview is not None
     assert "[명확한 답 계약" in res.prompt_preview
+    # 결론 우선·근거 압축(2026-10-12) — 챗 전용 상시 지시문.
+    assert "[결론 우선·근거 압축" in res.prompt_preview
+    assert "넘칠 때만 줄이는 상한" in res.prompt_preview
 
 
 def test_answer_clarity_in_report_prefix() -> None:
@@ -84,3 +90,14 @@ def test_report_neutral_chart_no_document_block() -> None:
     body = build_section_context(plan, _SPEC, data).body_prompt
     assert "[문서·계약 주의점" not in body
     assert "[문서·계약 대비 관점" not in body
+
+
+def test_ilju_summary_rule_is_conditional() -> None:
+    """일주 요약 규칙(2026-10-12 데굴님 지시) — 모든 답의 소개가 아니라 성향 설명이 필요한 때만."""
+    from saju_engines.context_reducer import _ILJU_SUMMARY_INSTRUCTION
+
+    assert "경우에만 인용" in _ILJU_SUMMARY_INSTRUCTION
+    assert "일주 문장을 쓰지 않는다" in _ILJU_SUMMARY_INSTRUCTION
+    assert "외모가 마음에 들어야 선택" in _ILJU_SUMMARY_INSTRUCTION
+    # 기존 인용 형태 규칙은 유지(사전 traits 1구절·서사 금지).
+    assert "'밝은 면'·'그림자' 구절 중" in _ILJU_SUMMARY_INSTRUCTION

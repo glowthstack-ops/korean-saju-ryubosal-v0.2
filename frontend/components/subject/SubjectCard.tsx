@@ -2,7 +2,9 @@
 
 // 사주 1건 카드 — 별명 + 생년월일시 + 용신/물상 등록여부 인디케이터 + (옵션)액션 버튼.
 // 목록(관리)과 게이트웨이(선택) 양쪽에서 재사용한다. 액션은 props 콜백으로 주입.
+// footer: 카드 하단 추가 영역(예: 선택 카드의 서비스 이동 버튼) — 주입한 경우에만 렌더.
 
+import { hasRelation, relationLabel } from "@/lib/relations";
 import type { SubjectSummary } from "@/lib/types";
 
 function formatBirth(s: SubjectSummary): string {
@@ -19,9 +21,13 @@ interface Props {
   onSelect?: (s: SubjectSummary) => void;
   onEdit?: (s: SubjectSummary) => void;
   onDelete?: (s: SubjectSummary) => void;
+  onEditRelation?: (s: SubjectSummary) => void; // '나와의 관계' 칩 클릭(2026-10-14)
+  footer?: React.ReactNode;
 }
 
-export function SubjectCard({ subject, active, onSelect, onEdit, onDelete }: Props) {
+export function SubjectCard({
+  subject, active, onSelect, onEdit, onDelete, onEditRelation, footer,
+}: Props) {
   const clickable = !!onSelect;
   return (
     <div
@@ -34,11 +40,23 @@ export function SubjectCard({ subject, active, onSelect, onEdit, onDelete }: Pro
         <div className="min-w-0">
           <p className="truncate font-semibold">
             {subject.label}
-            {subject.kind === "companion" && (
-              <span className="ml-1 rounded bg-purple-50 px-1.5 py-0.5 text-[10px] text-purple-600">
-                동반자
-              </span>
-            )}
+            {/* 나와의 관계 칩 — kind 로 '본인'을 추정하지 않는다(미설정이면 설정 유도). */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditRelation?.(subject);
+              }}
+              disabled={!onEditRelation}
+              title="나와의 관계 설정"
+              className={`ml-1 rounded px-1.5 py-0.5 text-[10px] ${
+                hasRelation(subject)
+                  ? "bg-purple-50 text-purple-600"
+                  : "border border-dashed border-gray-300 text-gray-400"
+              } ${onEditRelation ? "hover:ring-1 hover:ring-purple-300" : ""}`}
+            >
+              {hasRelation(subject) ? relationLabel(subject) : "관계 설정"}
+            </button>
           </p>
           <p className="mt-0.5 text-xs text-gray-500">{formatBirth(subject)}</p>
         </div>
@@ -74,6 +92,8 @@ export function SubjectCard({ subject, active, onSelect, onEdit, onDelete }: Pro
           )}
         </div>
       )}
+
+      {footer && <div className="mt-3">{footer}</div>}
     </div>
   );
 }

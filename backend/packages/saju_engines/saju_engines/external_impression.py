@@ -8,14 +8,15 @@ SSOT: ``doc/v2_2/EXTERNAL_IMPRESSION_SIGNAL.md``. 원국 구조(운 미반영)�
 핵심 조건(자막 복원 → 현대 재해석):
 - 금수상관(일간 金 + 원국 水): 관성 있으면 full(품격·호감), 없으면 약신호(청량·표현).
 - 식상 왕성: 표정·리액션·자기표현 매력(남녀 공통, 원문은 여성중심 legacy).
-- 도화계: 일지 도화(강) / 실제 도화·홍염 신살 / 단순 子午卯酉 존재(약) 3층 분리.
+- 도화계(2026-10-13 D안, 데굴님 확정): 일지 진도화(강 1.2) / 일지 외 진도화·홍염(1.0, 같은 진도화
+  중복 가산 없음). 子午卯酉 글자 보유(사정지)는 매력 점수에서 제외 — 성향 설명 전용.
 - 화기 왕성: 밝음·생기·무대성(남녀 공통, legacy).
 - 寅·亥: 생동감/부드러움 — 보조 톤(단독 노출 금지).
 """
 
 from __future__ import annotations
 
-from saju_manse_analysis.sinsal.sinsal_catalog import HONGYEOM, SAJEONG
+from saju_manse_analysis.sinsal.sinsal_catalog import HONGYEOM
 
 from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT
 from saju_shared_types.enums import Branch, Element, Stem
@@ -25,13 +26,8 @@ from saju_shared_types.external_impression import (
 )
 from saju_shared_types.manse_result import ManseV2Result
 
-# 도화(桃花) — 삼합 기준 왕지. 년지·일지 기준으로 목표 지지가 원국에 있으면 도화 성립.
-_DOHWA_TARGET: dict[Branch, Branch] = {
-    Branch.HAE: Branch.JA, Branch.MYO: Branch.JA, Branch.MI: Branch.JA,   # 亥卯未→子
-    Branch.IN: Branch.MYO, Branch.O: Branch.MYO, Branch.SUL: Branch.MYO,  # 寅午戌→卯
-    Branch.SA: Branch.O, Branch.YU: Branch.O, Branch.CHUK: Branch.O,      # 巳酉丑→午
-    Branch.SIN: Branch.YU, Branch.JA: Branch.YU, Branch.JIN: Branch.YU,   # 申子辰→酉
-}
+from .dohwa import analyze_dohwa
+
 _YIN_HAI: frozenset[Branch] = frozenset({Branch.IN, Branch.HAE})  # 寅·亥
 _OFFICER_GODS = frozenset({"정관", "편관"})
 
@@ -66,15 +62,6 @@ def _officer_visible(pillars: list) -> bool:
     )
 
 
-def _dohwa_present(year_b: Branch, day_b: Branch, all_branches: set[Branch]) -> bool:
-    """실제 도화 신살 — 년지·일지 기준 삼합 왕지가 원국에 있으면 성립."""
-    for base in (year_b, day_b):
-        target = _DOHWA_TARGET.get(base)
-        if target is not None and target in all_branches:
-            return True
-    return False
-
-
 def analyze_external_impression(result: ManseV2Result) -> ExternalImpressionProfile:
     """외적 인상·매력 신호를 판정한다(운 미반영, 원국 구조·성별 인지).
 
@@ -102,7 +89,6 @@ def analyze_external_impression(result: ManseV2Result) -> ExternalImpressionProf
     day_stem = Stem(day_pillar.stem)
     day_el = STEM_ELEMENT[day_stem]
     day_branch = Branch(day_pillar.branch)
-    year_branch = Branch(p.year.branch) if p.year is not None else day_branch
     all_branches = {Branch(pil.branch) for pil in pillars}
 
     ten_groups = fa.ten_gods.groups
@@ -146,38 +132,34 @@ def analyze_external_impression(result: ManseV2Result) -> ExternalImpressionProf
             note="표현이 강해 호불호가 생길 수 있음" if over else "",
         ))
 
-    # C3) 일지 도화 — 관계 장면에서 기억되는 인상(강, primary 1.2).
-    if day_branch in SAJEONG:
+    # 도화계 — 진도화(연지·일지 삼합국 년살 성립)만 매력 점수에 쓴다(2026-10-13 D안). 글자 보유
+    # (사정지 子午卯酉)는 성향 설명 전용이라 점수에서 뺐다. 기존 1.2·1.0 수치를 재사용했다는
+    # 사실만으로 가중 타당성이 확보되는 것은 아니며, 후보 비교(scripts/compare_dohwa_consumers.py)
+    # 에서 글자 신호를 모두 뺀 D안이 채택됐다.
+    dohwa = analyze_dohwa(result)
+    established = dohwa.established if dohwa is not None else []
+    day_jin = any(e.position == "day" for e in established)
+    other_jin = any(e.position != "day" for e in established)
+
+    # C3) 일지 진도화 — 관계 장면에서 기억되는 인상(강, primary 1.2).
+    if day_jin:
         signals.append(ExternalImpressionSignal(
             code="DAY_BRANCH_PEACH", category="peach",
-            legacy_ko="일지 도화성",
+            legacy_ko="일지 도화(진도화)",
             modern_ko="가까운 관계 안에서 인상이 쉽게 남고 상대가 호기심을 느끼기 쉬운 구조(관계적 "
                       "끌림 신호이며 외모 단정 아님)",
             weight=1.2, tier="primary",
         ))
 
-    # C4a) 실제 도화·홍염 신살 — 시선·호기심을 끄는 분위기(primary 1.0).
+    # C4a) 일지 외 진도화·홍염 — 시선·호기심을 끄는 분위기(primary 1.0). 일지 진도화는 C3 에서
+    # 이미 셌으므로 여기서 다시 세지 않는다(같은 진도화 중복 가산 금지).
     hongyeom = HONGYEOM.get(day_stem)
-    if _dohwa_present(year_branch, day_branch, all_branches) or (
-        hongyeom is not None and hongyeom in all_branches
-    ):
+    if other_jin or (hongyeom is not None and hongyeom in all_branches):
         signals.append(ExternalImpressionSignal(
             code="ACTUAL_DOHWA_OR_HONGYEOM", category="peach",
             legacy_ko="도화·홍염",
             modern_ko="사람들의 시선이나 호기심을 끄는 분위기 경향",
             weight=1.0, tier="primary",
-        ))
-
-    # C4b) 단순 子午卯酉 존재(일지 외) — 도화성 보조(약, secondary 0.3). 단독 notable 금지.
-    non_day_peach = any(
-        Branch(pil.branch) in SAJEONG for pil in (p.year, p.month, p.hour) if pil is not None
-    )
-    if non_day_peach:
-        signals.append(ExternalImpressionSignal(
-            code="NON_DAY_PEACH_BRANCH", category="peach",
-            legacy_ko="도화 글자(일지 외)",
-            modern_ko="도화성·왕지 분위기 보조 신호",
-            weight=0.3, tier="secondary",
         ))
 
     # C5) 화기 왕성 — 밝음·생기·무대성(남녀 공통, legacy). 심하게 손상(부족)되지 않은 火.

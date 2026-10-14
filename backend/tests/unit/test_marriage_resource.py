@@ -105,7 +105,7 @@ def test_lines_render_bond_signals() -> None:
         assert banned not in text
 
 
-# Task 1 — 일지 3분류 배우자궁 기질(왕지/생지/고지, 도화·역마·화개).
+# Task 1 — 일지 3분류 배우자궁 기질(왕지/생지/고지 — 글자 성향만, 신살 이름 없음).
 def test_day_branch_temperament_classification() -> None:
     """일지 지지가 왕지/생지/고지 중 하나로 일관되게 분류된다(비단정 라벨)."""
     from saju_manse_analysis.sinsal.sinsal_catalog import SAGO, SAJEONG, SASAENG
@@ -124,10 +124,12 @@ def test_day_branch_temperament_classification() -> None:
 
 
 def test_day_branch_temperament_on_profile() -> None:
-    """실사례 1961-09-30(일지 寅) → 생지(역마형)로 분류·라벨 노출."""
+    """실사례 1961-09-30(일지 寅) → 생지로 분류·라벨 노출. 글자 성향만 — 신살 이름(역마)·이동 지향은
+    쓰지 않는다(2026-10-13 — 역마는 상대 12신살 성립 시에만)."""
     mr = _profile("12:00")  # 丙寅 일주
     assert mr.day_branch_group == "saengji"
-    assert "생지" in mr.day_branch_tendency and "역마" in mr.day_branch_tendency
+    assert "생지" in mr.day_branch_tendency
+    assert "역마" not in mr.day_branch_tendency and "이동" not in mr.day_branch_tendency
 
 
 def test_day_branch_temperament_rendered_neutral() -> None:

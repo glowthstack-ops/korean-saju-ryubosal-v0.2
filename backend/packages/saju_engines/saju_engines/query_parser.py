@@ -40,6 +40,7 @@ from saju_shared_types.intent import (
 )
 
 from .challenge_detect import is_challenge
+from .job_separation import is_job_separation
 from .time_parser import WEEK_FRAME_SUN_SAT, parse_time_with_constraints
 from .yongsin_color import detect_asked_colors, is_color_question
 
@@ -48,6 +49,9 @@ from .yongsin_color import detect_asked_colors, is_color_question
 _DOMAIN_WORDS: dict[Domain, list[str]] = {
     Domain.CAREER: [
         "이직", "취업", "직장", "승진", "퇴사", "직업", "사업", "창업", "회사",
+        # 직장 이탈 계열(2026-10-13 데굴님 지시 — 해고·퇴사 통보·권고사직은 한 계열). '잘렸'처럼
+        # 동형어가 있는 표현은 job_separation 판정이 회사·직장과 붙은 경우만 잡는다.
+        "해고", "권고사직", "권고 사직", "정리해고", "구조조정", "희망퇴직", "실직", "실업",
         # 이직 **유입 경로** 어휘(2026-07-30 실사용 미탐지: '어제 들어온 헤드헌터
         # 제안은 받는게 맞을까?'가 general→too_broad로 빠졌다). '이직'이라는 낱말이
         # 없으면 domain이 비어 시점도 없는 결정 질문이 범위 좁힘 안내로 떨어진다.
@@ -582,6 +586,84 @@ def _detect_domains(text: str) -> list[Domain]:
 _CHART_SCOPE_RE = re.compile(
     r"(?:내|제|나의|저의|본인)\s*(?:사주|명식|원국)|(?:사주|명식|원국)\s*(?:에서|상|의|는)"
 )
+# 관리자 코드(F-n) 근거 질문(2026-10-10 데굴님 승인) — 건강 창 코드 표기의 근거를 묻는 질문.
+# 총운(Q1)으로 떨어지면 한 해 총운 지시문이 붙어 답이 연간 흐름으로 새므로, 건강 도메인 분석(Q2)
+# 으로 고정한다. Q5(사건 설명)는 chat 이 과거 방향(retro)으로 못박아 미래 연도에 맞지 않는다.
+SEVERE_CODE_QUESTION_RE = re.compile(r"(?:코드\s*)?F\s*-\s*[1-9]\b", re.IGNORECASE)
+# 사건 보고형(2026-10-13 데굴님 지시) — 이미 일어난 일을 알리고 앞으로의 대응을 묻는 질문.
+# "오늘 해고통보를 받았어. 앞으로 어떻게 하면 좋을까"의 '오늘'은 사건 시점이지 대상 기간이 아니다.
+# 대상 기간으로 잡으면 '그 날 하루 운세' 지시가 붙어 사건과 무관한 당일 운세로 답한다.
+_REPORT_TIME_RE = re.compile(r"오늘|어제|그저께|그제|방금|아까|이번\s*주|지난\s*주")
+_REPORT_DONE_RE = re.compile(
+    r"받았|당했|됐|되었|했어|했고|했는데|했습니다|들었|잘렸|짤렸|헤어졌|떨어졌|끝났|쫓겨났"
+)
+#: 소원형('됐으면 좋겠다') — 완료 보고가 아니다.
+_REPORT_WISH_RE = re.compile(r"(?:됐|되었|했)으면|어떻게\s*(?:됐|되었)")
+_FORWARD_ASK_RE = re.compile(
+    r"(?:앞으로|이제|이제부터|향후)\s*(?:어떻게|뭘|무엇|무얼|어찌|어떡)"
+    r"|어떻게\s*(?:하면|해야|대처|대응)|(?:뭘|무엇을|무얼)\s*해야|어떡하|어쩌면\s*좋"
+)
+_SENTENCE_SPLIT_RE = re.compile(r"[.!?\n]+")
+
+
+def _is_report_sentence(sent: str) -> bool:
+    """한 문장이 완료형 사건 보고인가 — '오늘·어제·방금 + 완료형' 또는 '직장 이탈 계열 + 완료형'.
+
+    '됐으면·되었으면'(소원형)은 완료 보고가 아니다(2026-10-14 검수: "오늘 면접 잘 됐으면 좋겠는데"가
+    보고로 잡혀 당일 창이 지워졌다).
+    """
+    if _REPORT_WISH_RE.search(sent):
+        return False
+    m = _REPORT_TIME_RE.search(sent)
+    if m and _REPORT_DONE_RE.search(sent[m.end():]):
+        return True
+    # 직장 이탈 계열은 날짜 표현이 없어도 완료형 보고면 사건 보고다('해고통보를 받았어').
+    return is_job_separation(sent) and bool(_REPORT_DONE_RE.search(sent))
+
+
+def report_sentences(text: str) -> list[str]:
+    """텍스트 안의 사건 보고 문장 목록(대응 질문 표지 조건은 보지 않는다)."""
+    return [s for s in _SENTENCE_SPLIT_RE.split(text) if s.strip() and _is_report_sentence(s)]
+
+
+def strip_report_sentences(text: str) -> str:
+    """사건 보고 문장을 뺀 나머지 — 보고 문장의 '오늘'은 사건 시점이지 대상 기간이 아니므로,
+    시점은 이 나머지에서만 읽는다(2026-10-14: 전체 시점을 지우면 '11월에 어떻게'의 11월까지
+    소실)."""
+    out = text
+    for s in report_sentences(text):
+        out = out.replace(s, " ", 1)
+    return out
+
+
+def detect_reported_event(text: str) -> bool:
+    """사건 보고형 질문인가 — 완료형 사건 보고가 있고 앞으로의 대응을 묻는다.
+
+    보고 = 한 문장에 '오늘·어제·방금 + 완료형' 또는 '직장 이탈 계열 + 완료형'.
+
+    결과를 묻는 질문('오늘 면접 봤는데 붙을까')이나 당일 운세 질문('오늘 운세 어때')은 대응
+    질문 표지가 없어 해당하지 않는다.
+    """
+    if not _FORWARD_ASK_RE.search(text):
+        return False
+    return bool(report_sentences(text))
+
+
+# 부동산 매도·매각 질문(2026-10-14 데굴님 승인) — '부동산은 언제쯤 팔릴까'가 사건 없음·general 로
+# 떨어져 개방형 '언제' 10년 digest 로 새고(2034년까지 서술) 후보 앵커도 없어 LLM이 계약·문서
+# 서술을 창작했다.
+# 매물 명사 + 매도 동사가 12자 안에 함께 올 때만(집안·집중 같은 동형어 차단). 공유 EVENT_WORDS 불변.
+_REAL_ESTATE_SALE_RE = re.compile(
+    r"(?:부동산|아파트|주택|빌라|오피스텔|상가|건물|토지|땅|매물|집(?=[이은을도\s]))"
+    r"[^.?!\n]{0,12}?(?:팔|매도|매각|처분|매매|넘기|정리)"
+)
+
+
+def is_real_estate_sale(text: str) -> bool:
+    """부동산 매도·매각 질문인가(매물 명사 + 매도 동사 결합)."""
+    return bool(_REAL_ESTATE_SALE_RE.search(text or ""))
+
+
 # 주의점 어휘 — chart_caution 플래그(관리 프레임 지시문·시점 미승계).
 _CAUTION_RE = re.compile(r"주의|조심|약점|단점|취약|리스크|문제점")
 
@@ -1234,7 +1316,19 @@ def parse_message(
         if re.search(r"직장\s*운", piece):
             event_key = EventKey.CAREER_CHANGE
             event_keys = [EventKey.PROMOTION]
+        # 직장 이탈 계열(해고·퇴사 통보·권고사직 등 — 한 계열, 2026-10-13 데굴님 지시)은 사건 어휘
+        # 목록에 없어도 '이직·직업 변화' 사건으로 본다(공유 EVENT_WORDS 는 건드리지 않는다).
+        if event_key is None and is_job_separation(piece or text):
+            event_key = EventKey.CAREER_CHANGE
+        # 부동산 매도·매각(2026-10-14) — 계약·문서 사건(보조 재물 변화) + 재물 도메인으로 앵커한다.
+        real_estate_sale = event_key is None and is_real_estate_sale(piece or text)
+        if real_estate_sale:
+            event_key = EventKey.CONTRACT_DOCUMENT
+            if not event_keys:
+                event_keys = [EventKey.WEALTH_CHANGE]
         domains = _detect_domains(piece) or _detect_domains(text)
+        if real_estate_sale and not domains:
+            domains = [Domain.WEALTH]  # EVENT_DOMAIN[contract_document]=career 를 쓰지 않는다
         # 도메인어가 없어도 이벤트가 잡히면 이벤트의 도메인을 따른다 — '취직 언제쯤?'처럼
         # 도메인 단어가 없는 질문이 general로 떨어져 재물운 등 일반 흐름으로 새지 않도록.
         if not domains and event_key is not None:
@@ -1324,6 +1418,28 @@ def parse_message(
             ):
                 _last.subjects = [SubjectRef(kind=SubjectKind.SELF, label="본인")]
                 _last.subject_mode = SubjectMode.SINGLE
+        # 관리자 코드(F-n) 근거 질문 — 건강 도메인 분석으로 고정(마지막 우선, 타 도메인 오염 차단).
+        if SEVERE_CODE_QUESTION_RE.search(piece):
+            _last.query_type = QueryType.DOMAIN_ANALYSIS
+            _last.domain = Domain.HEALTH
+            _last.domains = []
+    # 사건 보고형 — 보고 문장의 날짜는 사건 시점으로만 남기고 대상 기간에서 뺀다. 대상은 '앞으로'
+    # 이므로 시점 없는 미래 질문(답변 지평 정책)으로 흘려보내고, chat 은 dialogue_act 로 사건 보고형
+    # 답변 지시를 붙인다(회고 모드로 뒤집지 않음).
+    # 2026-10-14 검수 수정: 보고 문장이 든 조각만 보고형으로 보고, 시점은 보고 문장을 뺀 나머지에서
+    # 다시 읽는다('11월에 어떻게' → 11월 유지, '12월 이사운' 조각은 보고형이 아니다).
+    if detect_reported_event(text):
+        for _it, _piece in zip(intents, pieces, strict=True):
+            _residual = strip_report_sentences(_piece)
+            if _residual == _piece and len(pieces) > 1:
+                continue  # 보고 문장이 없는 다른 질문 조각 — 시점·행위 유지
+            _r_tr, _r_scope, _ = parse_time_with_constraints(
+                mask_inline_birth_spans(_residual, today), today, birth_year,
+                current_month_label, sunday_week,
+            )
+            _it.time_range = _r_tr
+            _it.time_scope = _r_scope if _r_tr else TimeScope.TIMELESS
+            _it.dialogue_act = "reported_event"
     return ParsedMessage(
         intents=intents, output_style=style,
         trace={  # P0 — 시점 해소 추적(파싱 계층)

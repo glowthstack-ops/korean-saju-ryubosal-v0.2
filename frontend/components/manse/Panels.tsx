@@ -6,6 +6,7 @@ import { Collapsible } from "@/components/layout/Collapsible";
 import { InfoTooltip } from "@/components/layout/InfoTooltip";
 import { ConsensusBadge, GhostOverlay, hourUnknownOf, isHourUnknown } from "./HourUnknown";
 import { fetchLuckMonths } from "@/lib/api";
+import { withoutBranchMarkers } from "@/lib/sinsal-display";
 import { ELEMENT_KO, elementLabel, elementStyle, ganjiKo } from "@/lib/elements";
 import { applyCalibrationToLuckCycles, applyCalibrationToLuckPillars } from "@/lib/luck-calibration";
 import {
@@ -837,7 +838,7 @@ export function StructurePanel({ result }: { result: ManseResult }) {
 }
 
 export function SinsalPanel({ result }: { result: ManseResult }) {
-  const sinsal = result.traditional_extras?.sinsal?.full_list ?? [];
+  const sinsal = withoutBranchMarkers(result.traditional_extras?.sinsal?.full_list ?? []);
   // 시주·일주·월주·연주 — 상단 명식과 동일한 순서로 자리별 박스 구분.
   const cols: [("hour" | "day" | "month" | "year"), string][] = [
     ["hour", "시주"], ["day", "일주"], ["month", "월주"], ["year", "연주"],
@@ -1012,10 +1013,10 @@ function LuckCol({
           흉방 {Array.from(new Set(folk.map((h) => h.direction))).join("·")}
         </span>
       )}
-      {sinsal && sinsal.length > 0 && (
+      {sinsal && withoutBranchMarkers(sinsal).length > 0 && (
         <div className="mt-0.5 w-full border-t border-gray-200 pt-0.5">
           <div className="flex flex-wrap justify-center gap-x-0.5 gap-y-px leading-tight">
-            {sinsal.map((s, i) => (
+            {withoutBranchMarkers(sinsal).map((s, i) => (
               <span
                 key={i}
                 title={sinsalTitle(s)}

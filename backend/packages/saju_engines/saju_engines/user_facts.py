@@ -77,6 +77,17 @@ _FACT_RULES: list[tuple[str, re.Pattern[str], bool]] = [
         ),
         False,
     ),
+    # 직장 이탈 진술(2026-10-13 데굴님 지시) — 해고·퇴사 통보·권고사직은 한 계열. 사용자가 직접 알린
+    # 사건이라 이후 턴에서 재직 전제(현 직장에서 인정 등)로 답하지 않게 남긴다. (단수 supersede)
+    (
+        "job_separation",
+        re.compile(
+            r"[^.!?\n]{0,16}?(?:해고|권고\s*사직|정리\s*해고|구조\s*조정|희망\s*퇴직|실직"
+            r"|퇴사\s*(?:통보|권고|권유|요구)|(?:회사|직장|일자리|일터)(?:에서)?\s*(?:잘렸|짤렸))"
+            r"[^.!?\n]{0,12}"
+        ),
+        True,
+    ),
     # 혼인 상태 정정 — "기혼이라고 했는데 이혼했어" (단수 supersede)
     ("marital_correction", re.compile(r"이혼했|사별했|재혼했"), True),
     # 배제 조건(2026-10-01 실로그 커튼 색: "붉은색은 좀 그래. 다른색을 추천해줘" 뒤 두 턴 만에 다시
@@ -117,6 +128,22 @@ _REL_THIRD_PARTY_RE = re.compile(
 # 가정형 발화 배제 — "헤어지면 어떻게 될까"를 사실로 저장하지 않는다.
 _REL_HYPOTHETICAL_RE = re.compile(r"(?:[하지]면\s*(?:어떻|어떨|어찌)|다면)")
 
+# 직장 이탈 슬롯 가드(2026-10-14 검수) — 어휘만으로 기록하면 "해고 당할까"(걱정)·"남편이 해고됐어"
+# (제3자)·"직원을 해고하려는데"(고용주)까지 본인 실직 사실로 남아 이후 턴 내내 '재직 전제 금지'가
+# 주입된다(절대원칙 7). 본인이 겪은 완료형 보고만 기록한다.
+_JOB_FACT_KEY = "job_separation"
+_JOB_DONE_RE = re.compile(
+    r"받았|당했|됐|되었|했어|했고|했는데|했습니다|들었|잘렸|짤렸|잘림|짤림|쫓겨났|나가라고"
+)
+_JOB_HYPOTHETICAL_RE = re.compile(
+    r"당할까|될까|당하면|되면|하려는데|하려고|려면|안\s*당하|소문|가능성|걱정|두려|으면"
+)
+_JOB_THIRD_PARTY_RE = re.compile(
+    r"(?:남편|아내|와이프|신랑|친구|동생|언니|누나|형|오빠|엄마|아빠|어머니|아버지|부모님|동료"
+    r"|지인|딸|아들|직원|부하|팀원|후배|선배)(?:이|가|은|는|도|을|를)?\s*[^.!?\n]{0,10}?"
+    r"(?:해고|권고|정리|구조|실직|실업|퇴사|잘렸|짤렸|쫓겨)"
+)
+
 _SENT_SPLIT_RE = re.compile(r"[.!?\n]+")
 _MAX_QUOTE = 80
 _MAX_FACTS = 12  # 주입 캡과 별개의 저장 캡 — 오래된 누적 사실부터 밀어낸다.
@@ -153,6 +180,13 @@ def extract_user_facts(text: str, turn: int) -> list[UserFact]:
             # 관계 슬롯 가드(C-3) — 제3자·가정형 발화는 사용자 사실 원장에 넣지 않는다.
             if key in _REL_FACT_KEYS and (
                 _REL_THIRD_PARTY_RE.search(quote) or _REL_HYPOTHETICAL_RE.search(quote)
+            ):
+                continue
+            # 직장 이탈 슬롯 가드 — 본인의 완료형 보고만(가정·제3자·고용주 발화 제외).
+            if key == _JOB_FACT_KEY and (
+                not _JOB_DONE_RE.search(quote)
+                or _JOB_HYPOTHETICAL_RE.search(quote)
+                or _JOB_THIRD_PARTY_RE.search(quote)
             ):
                 continue
             seen.add((key, quote))
@@ -221,9 +255,13 @@ _KEY_KO = {
     "folk_condition": "속설 조건",
     "excluded_option": "배제 조건",
     "user_claim": "사용자 명리 해석",
+    "job_separation": "직장 이탈(사용자 진술)",
 }
 # 라벨 뒤에 붙는 취급 주석 — 배제 조건은 대안 재제시 금지, 사용자 해석은 엔진 판정과 대조.
 _KEY_NOTE = {
+    "job_separation": (
+        "사용자가 직접 알린 사건(해고·퇴사 통보·권고사직 계열) — 재직 중이라는 전제로 답하지 말 것"
+    ),
     "excluded_option": "사용자가 거른 선택지 — 대안으로 다시 제시하지 말 것",
     "user_claim": (
         "사용자 자신의 해석 — 엔진 판정([원국·명식 구조]·용희기구한)과 대조해 "

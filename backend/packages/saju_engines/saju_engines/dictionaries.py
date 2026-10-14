@@ -178,6 +178,40 @@ class IljuComputed(_AliasModel):
     hidden_stems: list[str] = Field(alias="hiddenStems", min_length=1)
 
 
+#: 재물 주장 유형(2026-10-13 데굴님 확정) — 재성 역할이 아니라 **문장 유형**으로 서술 사용
+#: 여부를 정한다. fortune_assertion=재물복 단정 · interest=관심·성향 · ability=능력 평가 ·
+#: accumulation=축재 결과 · cultural_symbol=띠 동물 등 문화적 상징(개인 재물복 근거로 쓰지 않음).
+#: 절(clause)에는 other(재물 무관 장점)도 쓴다.
+IljuWealthClaimType = Literal[
+    "fortune_assertion", "interest", "ability", "accumulation", "cultural_symbol"
+]
+#: 능력 평가의 종류 — 사업 감각·수완 / 재물 감각(의미 광범위) / 보존·관리 / 실속 챙김(행동).
+#: 같은 '능력'이라도 필요한 근거가 다르다(수익 구조 ≠ 사업 판단력, 수익 창출 ≠ 보존·관리).
+IljuAbilityKind = Literal["business", "wealth_sense", "preservation", "practical_gain"]
+
+
+class IljuClaimClause(_AliasModel):
+    """복합 문장의 절 하나 — 절별 의미 기록(분리 감수용)."""
+
+    text: str = Field(min_length=2)
+    type: Literal[
+        "fortune_assertion", "interest", "ability", "accumulation", "cultural_symbol", "other"
+    ]
+
+
+class IljuWealthClaim(_AliasModel):
+    """일주 문장 1개의 재물 주장 태그 (ilju.json 1.1.0 — 2026-10-13)."""
+
+    field: Literal["imagery", "narrative", "traits.light", "traits.shadow"]
+    # 원문 그대로 — imagery·traits 는 전문 일치, narrative 는 문장 포함.
+    text: str = Field(min_length=4)
+    type: IljuWealthClaimType
+    ability_kind: IljuAbilityKind | None = None
+    clauses: list[IljuClaimClause] = Field(default_factory=list)
+    # 무관한 장점이 함께 빠지는 복합 문장 — 분리 감수 필요 표시(명리적 부정 판정이 아니다).
+    split_review: bool = False
+
+
 class IljuItem(_AliasModel):
     """60갑자 일주 해석 항목 (interpretations/ilju.json)."""
 
@@ -189,6 +223,7 @@ class IljuItem(_AliasModel):
     spouse_palace_note: str = Field(min_length=10)
     computed: IljuComputed
     basis: str = Field(min_length=10)
+    wealth_claims: list[IljuWealthClaim] = Field(default_factory=list)
     reviewed: bool
 
 
@@ -344,6 +379,87 @@ class IljuFile(_AliasModel):
     version: str
     note: str | None = None
     items: list[IljuItem] = Field(min_length=60, max_length=60)
+
+
+class DohwaTypeText(_AliasModel):
+    """도화 유형 해석 1건 (interpretations/dohwa_text.json — 2026-10-13)."""
+
+    key: Literal["sajeong", "jin", "wolldam", "naked"]
+    name: str
+    condition: str
+    feature: str
+    basis: str = Field(min_length=10)
+    reviewed: bool
+
+
+class DohwaComboText(_AliasModel):
+    """도화 × 십성군 조합 해석 1건 — 도화 성립 지지 본기의 십성(일간 기준)."""
+
+    group: Literal["비겁", "식상", "재성", "관성", "인성"]
+    label: str
+    ten_gods: list[str] = Field(alias="tenGods", min_length=2, max_length=2)
+    core: str
+    manifestation: str
+    basis: str = Field(min_length=10)
+    reviewed: bool
+
+
+class DohwaTextFile(_AliasModel):
+    """도화 유형·십성 조합 해석 사전 — 기본으로 풀이에 연결한다.
+
+    reviewed 는 검토 상태 기록용이며 노출 조건이 아니다(검수는 실제 사용 결과로 판단, 2026-10-13).
+    """
+
+    version: str
+    note: str | None = None
+    types: list[DohwaTypeText] = Field(min_length=4, max_length=4)
+    combos: list[DohwaComboText] = Field(min_length=5, max_length=5)
+
+
+class PeerMobilityTextItem(_AliasModel):
+    """운 간여지동·비겁 용신 이동 해석 문구 1건 (transit_peer_mobility_text.json)."""
+
+    id: Literal["same_pillar", "peer_yongsin_mobility", "weak_inflow"]
+    condition: str
+    text: str = Field(min_length=20)
+    basis: str = Field(min_length=10)
+    reviewed: bool
+
+
+class PeerMobilityTextFile(_AliasModel):
+    """운 간여지동·비겁 용신 이동 문구 사전 — 세 항목 정확 커버리지(2026-10-14)."""
+
+    version: str
+    note: str | None = None
+    items: list[PeerMobilityTextItem] = Field(min_length=3, max_length=3)
+
+
+class TenGodRelationFamily(_AliasModel):
+    """가족 관계 항목 — 성별·특정 십성 조건(없으면 모두)."""
+
+    label: str
+    gender: Literal["male", "female"] | None = None
+    ten_gods: list[str] = Field(default_factory=list, alias="tenGods")
+
+
+class TenGodRelationItem(_AliasModel):
+    """십성군 → 나와의 관계 대상 1건 (interpretations/ten_god_relations.json — 2026-10-13)."""
+
+    group: Literal["비겁", "식상", "재성", "관성", "인성"]
+    ten_gods: list[str] = Field(alias="tenGods", min_length=2, max_length=2)
+    social: str
+    social_note: dict[str, str] = Field(default_factory=dict, alias="socialNote")
+    family: list[TenGodRelationFamily] = Field(default_factory=list)
+    basis: str = Field(min_length=10)
+    reviewed: bool
+
+
+class TenGodRelationsFile(_AliasModel):
+    """십성군 → 관계 대상 근거표. 사회적 관계는 직업·일반, 가족 관계는 가족·연애 질문에서만."""
+
+    version: str
+    note: str | None = None
+    items: list[TenGodRelationItem] = Field(min_length=5, max_length=5)
 
 
 class SinsalTextFile(_AliasModel):
@@ -2315,6 +2431,9 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/twelve_stages_text.json": TwelveStagesTextFile,
     "interpretations/relations_text.json": RelationsTextFile,
     "interpretations/sinsal_text.json": SinsalTextFile,
+    "interpretations/dohwa_text.json": DohwaTextFile,
+    "interpretations/transit_peer_mobility_text.json": PeerMobilityTextFile,
+    "interpretations/ten_god_relations.json": TenGodRelationsFile,
     "interpretations/stems_branches_text.json": StemsBranchesTextFile,
     "interpretations/favorability_text.json": FavorabilityTextFile,
     "interpretations/relocation_ten_gods.json": RelocationTenGodsFile,
@@ -2727,6 +2846,61 @@ def _expected_twelve_stage(stem: Stem, branch: Branch) -> str:
     return TWELVE_STAGES[steps]
 
 
+#: 도화 십성군 → 소속 십성(엔진 saju_engines.dohwa 와 같은 묶음).
+_DOHWA_GROUP_TEN_GODS: dict[str, set[str]] = {
+    "비겁": {"비견", "겁재"}, "식상": {"식신", "상관"}, "재성": {"편재", "정재"},
+    "관성": {"편관", "정관"}, "인성": {"편인", "정인"},
+}
+
+
+def _lint_peer_mobility_text(file: PeerMobilityTextFile) -> list[str]:
+    """transit_peer_mobility_text.json — 세 id 정확 커버리지·단정 어휘 금지."""
+    head = "interpretations/transit_peer_mobility_text.json"
+    ids = [it.id for it in file.items]
+    errors: list[str] = []
+    if sorted(ids) != ["peer_yongsin_mobility", "same_pillar", "weak_inflow"]:
+        errors.append(f"{head}: id 집합이 3종과 다름 — {ids}")
+    for it in file.items:
+        for bad in ("반드시", "확실히", "틀림없이", "무조건"):
+            if bad in it.text:
+                errors.append(f"{head}: {it.id} 문구에 단정 어휘 '{bad}'")
+    return errors
+
+
+def _lint_dohwa_text(file: DohwaTextFile) -> list[str]:
+    """dohwa_text.json — 유형 4종·십성군 5종 정확 커버리지, 라벨·소속 십성 정합."""
+    errors: list[str] = []
+    head = "interpretations/dohwa_text.json"
+    if sorted(t.key for t in file.types) != ["jin", "naked", "sajeong", "wolldam"]:
+        errors.append(f"{head}: 유형은 sajeong·jin·wolldam·naked 각 1건이어야 한다")
+    if sorted(c.group for c in file.combos) != sorted(_DOHWA_GROUP_TEN_GODS):
+        errors.append(f"{head}: 십성군 5종(비겁·식상·재성·관성·인성) 각 1건이어야 한다")
+    for c in file.combos:
+        if c.label != f"{c.group}도화":
+            errors.append(f"{head}: {c.group} 라벨은 '{c.group}도화'여야 한다(현재 {c.label})")
+        if set(c.ten_gods) != _DOHWA_GROUP_TEN_GODS.get(c.group, set()):
+            errors.append(f"{head}: {c.group} 소속 십성 불일치 — {c.ten_gods}")
+    return errors
+
+
+def _lint_ten_god_relations(file: TenGodRelationsFile) -> list[str]:
+    """ten_god_relations.json — 십성군 5종 정확 커버리지·소속 십성·조건 십성 정합."""
+    errors: list[str] = []
+    head = "interpretations/ten_god_relations.json"
+    if sorted(i.group for i in file.items) != sorted(_DOHWA_GROUP_TEN_GODS):
+        errors.append(f"{head}: 십성군 5종(비겁·식상·재성·관성·인성) 각 1건이어야 한다")
+    for i in file.items:
+        members = _DOHWA_GROUP_TEN_GODS.get(i.group, set())
+        if set(i.ten_gods) != members:
+            errors.append(f"{head}: {i.group} 소속 십성 불일치 — {i.ten_gods}")
+        if not set(i.social_note) <= members:
+            errors.append(f"{head}: {i.group} socialNote 키가 소속 십성이 아니다")
+        for f in i.family:
+            if not set(f.ten_gods) <= members:
+                errors.append(f"{head}: {i.group} 가족 '{f.label}' 조건 십성이 소속 밖")
+    return errors
+
+
 def _lint_ilju(file: IljuFile) -> list[str]:
     """ilju.json 교차검증 — 60갑자 커버리지 + computed 블록 ↔ 만세력 계산 전수 대조."""
     errors: list[str] = []
@@ -2767,6 +2941,37 @@ def _lint_ilju(file: IljuFile) -> list[str]:
                 f"interpretations/ilju.json: {item.ganji} 띠 동물 {item.animal.name}"
                 f" ≠ {_BRANCH_ZODIAC[item.ganji[1]]}"
             )
+        errors += _lint_ilju_wealth_claims(item)
+    return errors
+
+
+def _lint_ilju_wealth_claims(item: IljuItem) -> list[str]:
+    """재물 주장 태그 교차검증 — 원문 존재·유형 정합·복합 문장 절 기록.
+
+    태그 원문이 사전 본문과 어긋나면 생략 규칙이 조용히 무력화되므로 lint 단계에서 막는다.
+    """
+    errors: list[str] = []
+    head = f"interpretations/ilju.json: {item.ganji} wealth_claims"
+    seen: set[tuple[str, str]] = set()
+    for claim in item.wealth_claims:
+        key = (claim.field, claim.text)
+        if key in seen:
+            errors.append(f"{head} 중복 태그 — {claim.text}")
+        seen.add(key)
+        if claim.field == "imagery":
+            found = claim.text == item.imagery
+        elif claim.field == "narrative":
+            found = claim.text in item.narrative
+        else:
+            found = claim.text in getattr(item.traits, claim.field.split(".", 1)[1])
+        if not found:
+            errors.append(f"{head} 원문 없음({claim.field}) — {claim.text}")
+        if (claim.type == "ability") != (claim.ability_kind is not None):
+            errors.append(f"{head} ability_kind 는 type=ability 에만(필수) — {claim.text}")
+        if claim.split_review and not any(
+            c.type in ("other", "cultural_symbol", "interest") for c in claim.clauses
+        ):
+            errors.append(f"{head} split_review 인데 재물 무관 절 기록 없음 — {claim.text}")
     return errors
 
 
@@ -3279,6 +3484,12 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_favorability(parsed))
         elif isinstance(parsed, IljuFile):
             errors.extend(_lint_ilju(parsed))
+        elif isinstance(parsed, DohwaTextFile):
+            errors.extend(_lint_dohwa_text(parsed))
+        if isinstance(parsed, PeerMobilityTextFile):
+            errors.extend(_lint_peer_mobility_text(parsed))
+        elif isinstance(parsed, TenGodRelationsFile):
+            errors.extend(_lint_ten_god_relations(parsed))
         elif isinstance(parsed, TenGodsTextFile):
             errors.extend(_lint_ten_gods_text(parsed))
         elif isinstance(parsed, TwelveStagesTextFile):

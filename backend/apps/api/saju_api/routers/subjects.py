@@ -11,12 +11,12 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from saju_engines.profile_store import ProfileStore
 from saju_engines.subject_store import SubjectStore
 from saju_shared_types.birth_input import BirthInput
-from saju_shared_types.subject import SubjectRecord
+from saju_shared_types.subject import RELATION_TO_USER_KEYS, SubjectRecord, kind_for_relation
 
 from ..deps import get_profile_store, get_subject_store, require_owner
 from ..services import precompute_service
@@ -29,7 +29,13 @@ Profiles = Annotated[ProfileStore, Depends(get_profile_store)]
 
 
 class SubjectUpsert(BaseModel):
-    """사주 생성/수정 입력 — subject_id·owner_id는 서버가 부여."""
+    """사주 생성/수정 입력 — subject_id·owner_id는 서버가 부여.
+
+    relation_to_user 는 '나와의 관계' 키 17종(`RELATION_TO_USER_KEYS`)만 받는다
+    (2026-10-14 데굴님 승인).
+    관계가 주어지면 kind 는 관계에서 파생한다(본인=self, 그 외=companion) — 클라이언트 kind 는 무시.
+    관계 미설정(None)이면 기존처럼 kind 를 그대로 쓴다(기존 레코드 자동 변경 없음).
+    """
 
     kind: str = Field(default="self", pattern=r"^(self|companion)$")
     label: str = Field(min_length=1, max_length=30)
@@ -39,6 +45,44 @@ class SubjectUpsert(BaseModel):
     aliases: list[str] = Field(default_factory=list)
     is_minor: bool = False
     subscribed: bool = False
+
+    @field_validator("relation_to_user")
+    @classmethod
+    def _relation_key(cls, v: str | None) -> str | None:
+        """관계 키 검증 — 빈 문자열은 미설정, 목록 밖 값은 거부."""
+        if v is None or v == "":
+            return None
+        if v not in RELATION_TO_USER_KEYS:
+            raise ValueError(f"relation_to_user 는 {RELATION_TO_USER_KEYS} 중 하나여야 합니다")
+        return v
+
+    @property
+    def effective_kind(self) -> str:
+        """관계에서 파생한 kind(관계 미설정이면 입력 kind)."""
+        return kind_for_relation(self.relation_to_user, self.kind)
+
+
+def demote_other_selves(
+    records: list[SubjectRecord], keep_subject_id: str
+) -> list[SubjectRecord]:
+    """'본인'(relation_to_user='self')은 계정에 1명 — 다른 명시 본인 레코드를
+    '관계 미설정·companion'으로 내린 사본 목록을 돌려준다(저장은 호출자). 관계 미설정
+    레거시(kind=self, relation None)는 건드리지 않는다(2026-10-14 결정: 자동 변경 없이 카드에서
+    설정 유도).
+    """
+    out: list[SubjectRecord] = []
+    for r in records:
+        if r.subject_id != keep_subject_id and r.relation_to_user == "self":
+            out.append(r.model_copy(update={"relation_to_user": None, "kind": "companion"}))
+    return out
+
+
+def _enforce_self_uniqueness(store: SubjectStore, owner_id: str, record: SubjectRecord) -> None:
+    """저장 직전 본인 유일성 적용 — 새 레코드가 본인이면 다른 명시 본인을 강등 저장한다."""
+    if record.relation_to_user != "self":
+        return
+    for demoted in demote_other_selves(store.list_all(owner_id), record.subject_id):
+        store.upsert(demoted)
 
 
 class SubjectSummary(BaseModel):
@@ -127,7 +171,7 @@ def create_subject(
     record = SubjectRecord(
         subject_id=uuid.uuid4().hex,
         owner_id=owner_id,
-        kind=body.kind,
+        kind=body.effective_kind,
         label=body.label,
         aliases=body.aliases,
         relation_to_user=body.relation_to_user,
@@ -136,6 +180,7 @@ def create_subject(
         is_minor=body.is_minor,
         subscribed=body.subscribed,
     )
+    _enforce_self_uniqueness(store, owner_id, record)
     store.upsert(record)
     # T0 사전계산 — 출생정보가 확정된 시점에 운 복합조합을 미리 쌓는다(docs/09).
     precompute_service.on_subject_upsert(record)
@@ -151,7 +196,7 @@ def update_subject(
     record = SubjectRecord(
         subject_id=subject_id,
         owner_id=owner_id,
-        kind=body.kind,
+        kind=body.effective_kind,
         label=body.label,
         aliases=body.aliases,
         relation_to_user=body.relation_to_user,
@@ -161,6 +206,7 @@ def update_subject(
         subscribed=body.subscribed,
         last_interaction_at=existing.last_interaction_at,
     )
+    _enforce_self_uniqueness(store, owner_id, record)
     store.upsert(record)
     # T0 무효화 + 재계산 — 출생정보가 바뀌었는데 옛 사전계산이 남으면 다른 사람의
     # 운을 보여주는 것과 같다(docs/09 무효화 규칙).

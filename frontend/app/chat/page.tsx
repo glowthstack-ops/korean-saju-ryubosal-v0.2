@@ -22,6 +22,7 @@ import { readingFontClasses } from "@/lib/storage";
 import { useReadingFontSize } from "@/lib/useReadingFontSize";
 import { summaryToProfile } from "@/lib/subject-mapping";
 import { getPersona, getSubject, listSubjects } from "@/lib/subjects";
+import { relationLabel } from "@/lib/relations";
 import type {
   ChatApiResponse,
   ChatMessageDTO,
@@ -420,7 +421,7 @@ export default function ChatPage() {
       {showSwitch && (
         <Modal title="사주 변경" onClose={() => setShowSwitch(false)}>
           <div className="space-y-1.5">
-            <p className="text-xs text-gray-500">상담할 사주를 고르세요 (본인·동반자)</p>
+            <p className="text-xs text-gray-500">상담할 사주를 고르세요 (관계는 사주목록 카드에서 설정)</p>
             {subjects.length === 0 ? (
               <p className="text-xs text-gray-400">사주목록 불러오는 중…</p>
             ) : (
@@ -438,7 +439,7 @@ export default function ChatPage() {
                     <span className="block truncate">
                       {s.label}
                       <span className="ml-1 text-[11px] text-gray-400">
-                        {s.kind === "self" ? "본인" : "동반자"}
+                        {relationLabel(s)}
                       </span>
                     </span>
                     <span className="block text-[11px] text-gray-400">
@@ -484,7 +485,7 @@ export default function ChatPage() {
                     <span className="block truncate">
                       {s.label}
                       <span className="ml-1 text-[11px] text-gray-400">
-                        {s.relation_to_user ?? (s.kind === "self" ? "본인" : "동반자")}
+                        {relationLabel(s)}
                       </span>
                     </span>
                     <span className="block text-[11px] text-gray-400">{s.birth.birth_date}</span>
@@ -565,6 +566,8 @@ export default function ChatPage() {
           <p className="pt-20 text-center text-sm text-gray-400">무엇이든 물어보세요.</p>
         )}
 
+        {/* 말풍선 꼬리 각(2026-10-14): 질문(오른쪽 정렬)=오른쪽 상단 각(rounded-tr-sm), 응답(왼쪽 정렬)=왼쪽 상단 각(rounded-tl-sm) —
+            좌우 정렬만으로는 화자 구분이 약해 모서리 모양으로도 구분한다. */}
         {messages.map((m, i) => (
           <div key={i} className={m.role === "user" ? "text-right" : "text-left"}>
             {m.role === "user" && m.companions && m.companions.length > 0 && (
@@ -577,12 +580,12 @@ export default function ChatPage() {
             <div
               className={
                 m.role === "user"
-                  ? `inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl bg-indigo-600 px-4 py-2 text-left ${bubbleFontCls} text-white`
+                  ? `inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-indigo-600 px-4 py-2 text-left ${bubbleFontCls} text-white`
                   : m.error
-                    ? `inline-block max-w-[95%] rounded-2xl bg-red-50 px-4 py-3 ${bubbleFontCls} text-red-700`
+                    ? `inline-block max-w-[95%] rounded-2xl rounded-tl-sm bg-red-50 px-4 py-3 ${bubbleFontCls} text-red-700`
                     : m.pending
                       ? "block max-w-[95%] py-1" // 대기 스켈레톤 — 말풍선 배경 없이 본문 폭 사용
-                      : `inline-block max-w-[95%] rounded-2xl bg-gray-100 px-4 py-3 ${bubbleFontCls} text-gray-800`
+                      : `inline-block max-w-[95%] rounded-2xl rounded-tl-sm bg-gray-100 px-4 py-3 ${bubbleFontCls} text-gray-800`
               }
             >
               {m.role === "user" ? (

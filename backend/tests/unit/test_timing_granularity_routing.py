@@ -90,10 +90,11 @@ def test_day_question_without_period_routes_to_day_pick() -> None:
     assert _YEAR_DIGEST_MARK not in t
 
 
-def test_vague_when_question_keeps_year_digest() -> None:
-    """입도 미지정 '언제' 질문은 기존 10년 digest 유지(2026-06-18 결정 보존)."""
+def test_vague_when_question_with_event_uses_transactional_horizon() -> None:
+    """입도 미지정 '언제' + 사건 키 → 3년 거래형 지평(2026-10-14). 입도 지시는 붙지 않는다."""
     t = _prompt("언제쯤 결혼할 수 있을까?")
-    assert _YEAR_DIGEST_MARK in t
+    assert _YEAR_DIGEST_MARK not in t
+    assert "[답변 지평] 이 질문의 답변 지평은 '앞 12개월 월 단위 + 이후 2년 연 단위(총 3년)'" in t
     assert _MONTH_PICK_MARK not in t
     assert _DAY_PICK_MARK not in t
 

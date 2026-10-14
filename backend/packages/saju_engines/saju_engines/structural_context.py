@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from saju_shared_types.daewoon_progression import DaewoonProgressionProfile
+from saju_shared_types.dohwa import DohwaProfile
 from saju_shared_types.external_impression import ExternalImpressionProfile
 from saju_shared_types.health_vulnerability import HealthVulnerabilityProfile
 from saju_shared_types.intent import Domain, IntentJson, QueryType
@@ -22,6 +23,7 @@ from .era_energy import era_curated_note, era_energy_profile
 from .health_vulnerability import (
     health_percentile_thresholds,
     health_risk_windows,
+    health_window_evidence,
     lifetime_health_scores,
     load_severe_codes,
     percentile_level,
@@ -289,7 +291,9 @@ ANSWER_CLARITY_DIRECTIVE = (
     "사용자는 답답해서 묻는다 — 정보 나열이 아니라 정리된 판단을 원한다.\n"
     "① 첫 문단에서 질문에 바로 답하라: 제공된 엔진 판정(길흉·유불리)을 근거로 유리/불리/"
     "조건부 중 하나를 명시적으로 선언하고, 핵심 시기 1~2개와 지금 할 행동 1개를 함께 담아라. "
-    "'문서운이 있어?'처럼 예/아니오형 질문이면 '있다/없다/조건부다'로 먼저 답한다. 이는 "
+    "'문서운이 있어?'처럼 예/아니오형 질문이면 '있다/없다/조건부다'로 먼저 답한다. 첫 1~2문장은 "
+    "간지·오행·용신·합충 같은 원어 없이 일상어 결론만으로 쓰고, 간지와 판정 용어는 그 뒤 근거 "
+    "문장에서 처음 등장시킨다(결론 먼저, 근거는 뒤에 짧게). 이는 "
     "사건의 성사·발생을 단정하라는 뜻이 아니다 — 유불리·방향의 판정은 단정이 아니라 제공된 "
     "데이터의 요약이다.\n"
     "② 판정·시기·행동을 말하는 문장에는 유보 표현('~수 있어요'·'~가능성이 보여요'·'~여지가 "
@@ -298,7 +302,9 @@ ANSWER_CLARITY_DIRECTIVE = (
     "불확실한 대목 **최대 두 문장**으로 제한한다 — 작성을 마친 뒤 '수 있'이 들어간 문장 "
     "수를 세어, 초과분은 단정형 서술이나 조건문('~의 조건은 X다')으로 고쳐 써라.\n"
     "③ 기신·구신·한신 같은 판정 용어를 나열하지 말고 결과어로 번역하라('실속이 새는 달'·"
-    "'부담으로 작동하는 기운'). 원어는 근거 설명에 필요한 최소만 쓴다.\n"
+    "'부담으로 작동하는 기운'). 간지·오행·용신·합반·합거·化 같은 원어는 근거 설명에 꼭 "
+    "필요한 곳에서만 쓰고 답 전체에서 서너 번을 넘기지 마라 — 같은 간지·관계를 여러 영역에서 "
+    "다룰 때 두 번째부터는 원어 대신 결과어로만 받는다.\n"
     "④ 중요한 것부터 서술하라 — 질문에 직결된 시기·신호를 먼저 충분히, 나머지는 뒤에 짧게. "
     "모든 달을 같은 비중으로 나열하지 마라.\n"
     "⑤ 끝맺음은 시스템 지시의 마무리 한 번에 담되, 오늘 취할 행동이 자연스러운 문장으로 "
@@ -476,8 +482,11 @@ def wealth_capacity_lines(wc: WealthCapacity, wealth_role: str | None = None) ->
     서술했으나 엔진 판정은 암장 식상 통로 **미성립**이었다. LLM이 ①일반 '발동 조건' 문장의
     '식상생재' ②준비기 블록의 '식상 동반(운 유입)' ③지장간 잠재 신호 블록을 합성한 결과. 그래서
     구조별 성립/미성립을 모두 적고, 발동 조건은 '운의 사건'임을 못박으며, 미성립 구조를 숨은·잠재
-    통로로 서술하는 것을 금지한다. `wealth_role`(재성 오행의 용희기구한)을 받으면 병기해 기·구신
-    재성의 미화("타고난 재물 감각")를 막는다.
+    통로로 서술하는 것을 금지한다. `wealth_role`(재성 오행의 용희기구한)을 받으면 병기하고, 그
+    역할이 재성 작용의 유불리이지 재물 능력의 유무가 아님을 함께 적는다 — 역할과 무관하게(용·희신
+    포함) 미화도 부정 단정도 막는다(2026-10-13 데굴님 확정, 기존 기·구신 한정 '부담·지출·관리의
+    결로 서술' 지시는 부정 단정을 유도해 교체). 일주 문장 쪽 규칙은 context_reducer
+    ILJU_WEALTH_USE_RULE 가 맡는다.
     """
     band = _CAPACITY_BAND_KO.get(wc.capacity_band, wc.capacity_band)
     present = ", ".join(wc.flags) if wc.flags else "두드러진 횡재 구조 약함"
@@ -499,10 +508,11 @@ def wealth_capacity_lines(wc: WealthCapacity, wealth_role: str | None = None) ->
         "미성립이면 '지장간에 숨은 식상생재' 같은 표현 금지). [표면 부족 오행의 잠재 신호] "
         "블록과 합성해 새 구조를 만들지 말 것.",
     ]
-    if wealth_role in ("기신", "구신"):
+    if wealth_role:
         lines.append(
-            f"재성이 {wealth_role}이므로 재물 유입을 '타고난 재물 감각·복'으로 미화하지 말고 "
-            "부담·지출·관리의 결로 서술할 것(용신과의 관계로 유불리를 말한다)."
+            f"재성 {wealth_role} 판정은 재성 작용이 이 구조에서 유리한지 불리한지에 대한 것이지 "
+            "재물 능력의 유무가 아니다 — 재성 역할만으로 재물을 미화하거나 부정적으로 "
+            "단정하지 말고, 일주 자료를 재물 판정의 근거로 쓰지 않는다([일주 자료 사용 규칙])."
         )
     return lines
 
@@ -608,7 +618,13 @@ def marriage_resource_lines(mr: MarriageResourceProfile) -> list[str]:
     if mr.spouse_star_absent:
         bond.append("배우자 별 미투출 — 인연을 스스로 만들어가는 능동형 구조(부재 단정 아님)")
     if mr.charm_present:
-        bond.append("도화·홍염 — 이성에게 매력적으로 비치고 끌림이 잦은 경향")
+        # 도화(진도화)·홍염을 각자 성립한 것만 이름으로 든다(글자 보유 사정지는 제외 — 2026-10-13).
+        charm = "·".join(
+            name for ok, name in (
+                (mr.dohwa_established, "도화(진도화 성립)"), (mr.hongyeom_present, "홍염"),
+            ) if ok
+        ) or "도화·홍염"
+        bond.append(f"{charm} — 이성에게 매력적으로 비치고 끌림이 잦은 경향")
     if mr.day_branch_tendency:
         bond.append(f"배우자궁(일지) 기질 {mr.day_branch_tendency}")
     if bond:
@@ -753,8 +769,12 @@ def health_lines(
             code = severe_event_code(w, thresholds, codes) if thresholds else None
             bg = f" {w.daewoon}대운" if w.daewoon else ""
             if code:
-                # C5-4(데굴님 지시): 금지 어휘 대신 관리자 전용 코드 문장으로만 표시 — 의미 비전달.
-                coded.append(f"- {w.period}년{bg}: {template.format(code=code)}")
+                # C5-4(데굴님 지시): 금지 어휘 대신 관리자 전용 코드 문장으로 표시 — 의미 비전달.
+                # 근거 병기(2026-10-10 데굴님 승인): 코드 근거 질문에 LLM이 다른 블록의 충·형·합을
+                # 끌어오던 결함 — 창 점수를 만든 운 글자·오행 관계만 덧붙인다(의미는 여전히 비공개).
+                evidence = health_window_evidence(w, result, hv, thresholds)
+                ev = f" [근거: {'; '.join(evidence)}]" if evidence else ""
+                coded.append(f"- {w.period}년{bg}: {template.format(code=code)}{ev}")
             else:
                 shown.append(f"- {w.period}년{bg}: {level} ({', '.join(w.reasons)})")
         if shown:
@@ -765,8 +785,11 @@ def health_lines(
             lines.extend(shown)
         if coded:
             lines.append(
-                "[관리자 코드 표기 — 아래 문장은 **문자 그대로 한 번만** 전달하고, 코드의 의미를 "
-                "추측·설명·완곡화하지 말 것. 질병명·사망·사고·수명 어휘로 바꾸지 말 것]"
+                "[관리자 코드 표기 — 코드 문장은 **문자 그대로 한 번만** 전달하고, 코드의 의미"
+                "(어떤 종류의 사건인지)를 추측·설명·완곡화하지 말 것. 질병명·사망·사고·수명 어휘로 "
+                "바꾸지 말 것. 코드의 근거를 물으면 각 줄의 [근거]에 적힌 운 글자·오행·취약 장기 "
+                "관계만으로 설명하고, 다른 블록의 충·형·합·원진·공망·신살을 코드 근거로 끌어오지 "
+                "말 것]"
             )
             lines.extend(coded)
     return lines
@@ -927,10 +950,136 @@ _IMPRESSION_DIRECT_KEYWORDS = (
 )
 
 
+def is_appearance_question(question: str) -> bool:
+    """외모·매력·인상·도화를 직접 묻는 질문인가 — 다른 모듈의 도화 관련 질문 판정용 공개 이름."""
+    return _is_appearance_question(question)
+
+
 def _is_appearance_question(question: str) -> bool:
     """질문이 외모·매력·인상을 직접 묻는가 — suppress 도메인에서도 노출 허용하는 예외 판정."""
     q = question or ""
     return any(kw in q for kw in _IMPRESSION_DIRECT_KEYWORDS)
+
+
+_DOHWA_SLOT_KO = {"year": "연지", "month": "월지", "day": "일지", "hour": "시지"}
+
+#: 도화 사용 규칙 — 데굴님 확정 정비 기준(2026-10-13)이라 사전 문구가 아니라 코드 정책이다.
+_DOHWA_RULE_JIN = (
+    "도화가 성립했다고 말할 근거는 진도화뿐이며, 기준 지지와 성립 자리를 함께 근거로 든다."
+)
+_DOHWA_RULE_WOLLDAM = "진도화의 시지 하위 유형이므로 별도의 추가 매력으로 세지 않는다."
+_DOHWA_RULE_SAJEONG = (
+    "子午卯酉 보유 표지일 뿐이다. 개성·자기주장 성향으로만 설명하고 도화 성립이나 이성적 매력의 "
+    "직접 근거로 쓰지 않는다."
+)
+_DOHWA_RULE_NAKED = (
+    "진도화와 별도 유형이다 — 진도화 매력과 합쳐 키우거나 점수처럼 더하지 말 것."
+)
+#: 나체도화 천충지충 동반 상태 → 어느 견해에서 성립하는지.
+#: 데굴님 지시(2026-10-13): 일지 목욕 정의 + 포스텔러 소개 견해(천충지충 추가 요건) 결합.
+_NAKED_CLASH_KO = {
+    "present": "천충지충 동반({where}) — 일지 목욕만으로 성립한다는 견해와 천충지충을 추가 "
+               "요건으로 보는 견해 모두에서 성립",
+    "absent": "천충지충 미동반 — 일지 목욕만으로 성립한다는 견해에 해당(천충지충을 요건으로 보는 "
+              "견해에서는 미성립)",
+    "undetermined": "천충지충 동반 여부 미확정(시주 미상 — 알려진 기둥에는 없음)",
+}
+_PILLAR_KO = {"year": "연주", "month": "월주", "day": "일주", "hour": "시주"}
+_DOHWA_NONE_LINE = (
+    "진도화 미확인 — 현재 분석 대상 원국에서 진도화가 확인되지 않음. 원국 진도화를 근거로 "
+    "매력을 말하지 말되, 운에서 들어오는 도화나 이 블록이 판정하지 않는 다른 도화 유형까지 "
+    "부정하지는 말 것."
+)
+
+
+def dohwa_structure_lines(
+    profile: DohwaProfile | None, intent: IntentJson, question: str = "",
+) -> tuple[list[str], list[str]]:
+    """[도화 구조] — 진도화(자리·기준·십성군)·월담도화·사정지(가도화)를 보조 자료로 싣는다.
+
+    정비 기준(2026-10-13 데굴님 확정): 글자 보유(사정지)와 도화 성립(진도화)을 구분하고 판정된
+    사실만 풀이에 연결한다. 엔진 판정(유형·자리·기준·십성군)과 해석 문구(dohwa_text.json
+    특징·핵심·발현)를 **기본으로 함께 싣는다** — 검수는 실제 사용 결과(풀이)를 보고 판단하므로
+    reviewed 는 검토 상태 기록용일 뿐 노출 조건이 아니다(2026-10-13 데굴님 정정). 호출자는
+    돌려받은 문구 키를 노출 로그로 남겨 실답 검수 경로를 만든다. 월담도화는 진도화의 시지 하위
+    유형이라 별도 가산하지 않는다.
+
+    노출 게이트(외적 인상 블록과 같은 결): 도화·매력·인상 직접 질문, 관계 도메인, 명식 분석 질문만.
+    원국 판정만 다룬다(운 도화 판정은 기존 신살 경로 유지, 운의 십성 조합은 후속).
+
+    Args:
+        profile: analyze_dohwa 결과(명식 없으면 None).
+        intent: 확정 intent.
+        question: 원문 질문(직접 질문 예외 판정).
+
+    Returns:
+        (LLM 입력 줄 목록, 실제로 실린 해석 문구 키 목록). 미노출이면 ([], []).
+    """
+    if profile is None or not (
+        profile.established or profile.sajeong_markers or profile.naked
+    ):
+        return [], []
+    allow = (
+        _is_appearance_question(question)
+        or intent.domain is Domain.RELATIONSHIP
+        or intent.query_type is QueryType.CHART_ANALYSIS
+    )
+    if not allow:
+        return [], []
+    from .dohwa import load_dohwa_texts
+
+    texts = load_dohwa_texts()
+    keys: list[str] = []
+    lines = [
+        "[도화 구조 — 원국 기준(운 미반영)·보조 자료. 결론의 근거로 쓰지 말고, 매력이 드러나는 "
+        "방식을 덧붙이는 데만 쓸 것]"
+    ]
+    if profile.established:
+        for e in profile.established:
+            bases = "·".join(
+                f"{_DOHWA_SLOT_KO[b.slot]} {b.branch} 기준({b.trine}국)" for b in e.bases
+            )
+            line = (
+                f"진도화 성립: {_DOHWA_SLOT_KO[e.position]} {e.branch} [{bases}] — "
+                f"{e.group_label}(본기 {e.ten_god})"
+            )
+            combo = texts[f"combo:{e.group.value}"]
+            keys.append(f"combo:{e.group.value}")
+            line += f" · 매력의 핵심: {combo['core']} · 발현 방식: {combo['manifestation']}"
+            lines.append(line)
+        lines.append(f"진도화 사용 규칙: {_DOHWA_RULE_JIN}")
+    else:
+        lines.append(_DOHWA_NONE_LINE)
+    if profile.wolldam_status == "established":
+        wd = texts["type:wolldam"]
+        keys.append("type:wolldam")
+        lines.append(f"월담도화: 성립(시지 진도화) — {wd['feature']}. {_DOHWA_RULE_WOLLDAM}")
+    elif profile.wolldam_status == "undetermined":
+        lines.append(
+            "월담도화: 미확정(시주 미상) — 시지 도화 여부를 알 수 없으니 있다·없다로 말하지 말 것."
+        )
+    if profile.naked is not None:
+        nk = texts["type:naked"]
+        keys.append("type:naked")
+        clash = _NAKED_CLASH_KO[profile.naked.clash_status].format(
+            where="·".join(_PILLAR_KO[s] for s in profile.naked.clash_positions)
+        )
+        lines.append(
+            f"나체도화: 성립(일지 목욕 — {profile.naked.day_ganji} 일주) · {clash} · 성향: "
+            f"{nk['feature']}. {_DOHWA_RULE_NAKED}"
+        )
+    if profile.sajeong_markers:
+        sj = texts["type:sajeong"]
+        where = "·".join(
+            f"{_DOHWA_SLOT_KO[m.position]} {m.branch}" for m in profile.sajeong_markers
+        )
+        keys.append("type:sajeong")
+        lines.append(f"가도화(사정지): {where} — {_DOHWA_RULE_SAJEONG} 성향: {sj['feature']}.")
+    lines.append(
+        "서술 규칙: 자리가 여럿이면 자리별로 구분해 말하고 같은 매력을 겹쳐 키우지 말 것. 제공된 "
+        "판정·문구 범위를 넘어 매력의 크기나 이성 관계의 결과를 단정하지 말 것."
+    )
+    return lines, list(dict.fromkeys(keys))
 
 
 def external_impression_lines(

@@ -93,6 +93,43 @@ def test_promotion_requires_decision_verb_and_no_allowed_month_in_sentence():
     assert audit_month_coverage(bad, rows, ()).promoted == []
 
 
+def test_deferral_sentence_is_not_promotion():
+    """'결정은 늦추고 2월 기운을 활용' — 결정을 미루는 유보 문형은 2월 결정 권고가 아니다.
+
+    2026-10-14 실로그 오탐.
+    """
+    rows = [r for r in _ROWS if r.period in ("2027-01", "2027-02")]
+    s = (
+        "내년 1월 辛丑(신축)월은 압박감이 큰 기신운이 섞여 있습니다. 이 시기에는 급한 마음에 "
+        "시세보다 낮은 가격으로 계약을 강요받거나 서류상의 번거로운 조정이 생길 수 있으니, "
+        "도장을 찍는 결정은 한 템포 늦추고 2월의 좋은 기운을 활용하시길 권합니다."
+    )
+    assert audit_month_coverage(s, rows, ("2026-10",)).promoted == []
+
+
+def test_chat_path_logs_notes_without_patching_answer(monkeypatch):
+    """채팅 경로는 교정 문단을 답에 끼우지 않는다(로그 전용, 2026-10-14 데굴님 승인)."""
+    import logging
+    from types import SimpleNamespace
+
+    from saju_api.services import chat_service
+
+    payload = SimpleNamespace(overview_mode=False, monthly_overview=_ROWS, event_candidates=[])
+    monkeypatch.setattr(chat_service.period_v2_config, "MONTH_COVERAGE_AUDIT_ENABLED", True)
+    monkeypatch.setattr(chat_service, "_candidate_periods", lambda _p: list(_ALLOWED))
+    records: list[logging.LogRecord] = []
+    handler = logging.Handler()
+    handler.emit = records.append  # type: ignore[method-assign]
+    chat_service._logger.addHandler(handler)
+    try:
+        out = chat_service._audit_month_coverage_answer(_BAD_ANSWER, payload, "t")
+    finally:
+        chat_service._logger.removeHandler(handler)
+    assert out == _BAD_ANSWER
+    assert audit_month_coverage(_BAD_ANSWER, _ROWS, _ALLOWED).passed is False  # 위반은 그대로 감지
+    assert any("notes(log-only)" in r.getMessage() for r in records)
+
+
 def test_notes_and_patch_insert_before_closing_question_without_deleting_body():
     """교정 문단은 되묻기 앞에 들어가고 본문은 그대로 남는다. 두 번째 실행은 통과한다."""
     audit = audit_month_coverage(_BAD_ANSWER, _ROWS, _ALLOWED)

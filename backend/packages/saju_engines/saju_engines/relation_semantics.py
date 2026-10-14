@@ -18,8 +18,14 @@ from saju_manse_analysis.relations.hap_modes import (
     resolve_stem_hap,
 )
 
-from saju_shared_types.constants import BRANCH_INDEX, STEM_INDEX
-from saju_shared_types.enums import Branch, Stem
+from saju_shared_types.constants import (
+    BRANCH_INDEX,
+    BRANCH_KO,
+    ELEMENT_KO,
+    STEM_INDEX,
+    STEM_KO,
+)
+from saju_shared_types.enums import Branch, Element, Stem
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.relation_semantics import (
     BindingState,
@@ -215,44 +221,140 @@ def derive_branch_semantics(r: BranchHapResolution) -> RelationSemantics:
     return sem
 
 
-def _build_canonical_claim(sem: RelationSemantics) -> str:
-    """엔진 확정값만으로 구성한 관계 서술 문장.
+#: 용희기구한 → 사용자용 쉬운 말. terminology.json 정의를 그대로 따른다(새 문안 금지 — 원칙 10).
+_ROLE_PLAIN: dict[str, str] = {
+    "용신": "가장 필요한 기운",
+    "희신": "도와주는 반가운 기운",
+    "기신": "부담스러운 기운",
+    "구신": "부담을 키우는 기운",
+    "한신": "큰 영향 없이 곁에 있는 기운",
+}
+#: 라벨 접미 한글화 — '合'만 바꾸고 '반합'·'방합'·'삼합'은 그대로 쓴다.
+_LABEL_SUFFIX_KO: dict[str, str] = {"合": "합"}
 
-    이 문장은 두 곳에서 같은 값으로 쓰인다 — ① 생성 전 LLM 입력(그대로 쓰거나 생략만
-    하도록 지시) ② 생성 후 역전 문장의 교체본. 프롬프트와 복구본이 같은 SSOT라
-    교체가 '예외 처리'가 아니라 정상 기능이 된다(2026-07-27 데굴님 확정).
+
+def _char_ko(c: str) -> str:
+    """간지 한 글자의 한글 음('巳' → '사'). 모르는 글자는 빈 문자열."""
+    if c in {x.value for x in Stem}:
+        return STEM_KO[Stem(c)]
+    if c in {x.value for x in Branch}:
+        return BRANCH_KO[Branch(c)]
+    return ""
+
+
+def _element_ko(el: str) -> str:
+    """오행 한 글자의 한글 음('水' → '수'). 모르는 값은 빈 문자열."""
+    try:
+        return ELEMENT_KO[Element(el)]
+    except ValueError:
+        return ""
+
+
+def _el_with_ro(el: str) -> str:
+    """오행 + 조사 '(으)로' — 한글 음 받침 기준('火로'·'木으로'). 'ㄹ' 받침·무받침은 '로'."""
+    ko = _element_ko(el)
+    if not ko:
+        return f"{el}(으)로"
+    jong = (ord(ko[-1]) - 0xAC00) % 28
+    return f"{el}로" if jong in (0, 8) else f"{el}으로"
+
+
+def _label_with_ko(sem: RelationSemantics) -> str:
+    """관계 라벨 + 한글 음 병기('巳申合(사신합)'·'午戌반합(오술반합)')."""
+    ko = "".join(_char_ko(c) for c in sem.members)
+    if len(ko) != len(sem.members):
+        return sem.relation_label
+    suffix = sem.relation_label[len("".join(sem.members)):]
+    return f"{sem.relation_label}({ko}{_LABEL_SUFFIX_KO.get(suffix, suffix)})"
+
+
+def _el_with_ko(el: str) -> str:
+    """오행 한글 병기('水(수)')."""
+    ko = _element_ko(el)
+    return f"{el}({ko})" if ko else el
+
+
+def _role_sentence(el: str, role: str | None) -> str:
+    """화신·강화 오행의 역할을 쉬운 말 + 원어 괄호로 붙인다. 역할이 없으면 생략.
+
+    '나에게'가 아니라 '이 사주에서'로 쓴다 — 동반자 사주 풀이에도 같은 문장이 실린다.
+    """
+    plain = _ROLE_PLAIN.get(role or "")
+    if not plain:
+        return ""
+    return f" 이 {el} 기운은 이 사주에서 {plain}({role})입니다."
+
+
+def _effect_target_ko(e: RelationEffect) -> str:
+    """억제 대상 표기 '丙(병) 정인'."""
+    ko = _char_ko(e.target)
+    name = f"{e.target}({ko})" if ko else e.target
+    return f"{name} {e.ten_god}".strip()
+
+
+def _build_canonical_claim(sem: RelationSemantics) -> str:
+    """엔진 확정값만으로 구성한 관계 서술 문장 — 일반 사용자용 쉬운 말(2026-10-13 개정).
+
+    이 문장은 세 곳에서 같은 값으로 쓰인다 — ① 생성 전 LLM 입력(그대로 쓰거나 생략만
+    하도록 지시) ② 생성 후 역전 문장의 교체본 ③ 안전 템플릿. 프롬프트와 복구본이 같은
+    SSOT라 교체가 '예외 처리'가 아니라 정상 기능이 된다(2026-07-27 데굴님 확정).
+
+    표현 원칙(2026-10-13 데굴님 승인): 용어를 모르는 사용자가 읽는 문장이므로 판정을 쉬운
+    말로 먼저 쓰고 원어(합거·합반·합화, 용희기구한)는 괄호로 한 번만 남긴다. 합거는 전문가
+    감수대로 '제거'가 아니라 '크게 약해짐'(완화)으로 쓴다. 역할 쉬운 말은 terminology.json
+    정의를 따른다. 간지·오행은 한글 음을 병기하고, 오행 뒤에 조사를 직접 붙이지 않고
+    '○(○) 기운으로'로 써서 '水으로' 류 오류를 없앤다. 감사기 키워드와의 정합: 묶임이 없는
+    관계에는 '붙잡·묶' 어휘를 쓰지 않고, 化가 아닌 관계의 '바뀌'는 항상 부정형으로만 쓴다.
+
+    Args:
+        sem: 관계 구조화 의미(엔진 판정 3축 + 효과).
+
+    Returns:
+        사용자에게 그대로 보여도 되는 한국어 확정 문장.
     """
     el = sem.transform_element or ""
-    role = f"({sem.role})" if sem.role else ""
-    head = f"{sem.relation_label}은 이번 판정에서 "
+    head = f"{_label_with_ko(sem)}은 이번 운에서 "
     if sem.formation_state is FormationState.NOT_FORMED:
-        body = "성립하지 않아 실질 작용이 없습니다."
+        body = "조건이 갖춰지지 않아 실제로 작용하지 않습니다."
     elif sem.binding_state is BindingState.REMOVED:
         # 합거는 엔진이 direction='away'로 명시한 경우에만 쓴다.
         body = (
-            f"{el}으로 합화한 것이 아니라 서로 묶이는 합반이며, "
-            "묶인 글자의 작용이 끌려가는 합거입니다."
-            if el else "서로 묶여 묶인 글자의 작용이 끌려가는 합거입니다."
+            "두 글자가 서로 붙잡혀, "
+            + (f"새로운 {_el_with_ko(el)} 기운으로 바뀌지는 않고 " if el else "")
+            + "붙잡힌 글자의 작용이 크게 약해집니다(합거)."
         )
     elif sem.binding_state is BindingState.BOUND:
-        body = (
-            f"{el}으로 합화한 것이 아니라 서로 묶이는 합반이며 化는 이루어지지 않았습니다."
-            if el else "서로 묶이는 합반이며 化는 이루어지지 않았습니다."
+        body = "두 글자가 서로 붙잡혀 각자의 작용이 둔해지지만, " + (
+            f"새로운 {_el_with_ko(el)} 기운으로 바뀌지는 않습니다(합반)."
+            if el else "그 이상의 변화는 없습니다(합반)."
         )
     elif sem.transformation_state is TransformationState.TRANSFORMED and el:
-        body = f"{el}{role}으로 합화합니다."
-    elif sem.formation_state is FormationState.PARTIAL and el:
-        # 반합·부분 방합 — 국 미완성. 묶임이 아니라 보조 강화다.
-        # '합화가 확정되지 않았다'로 쓰면 조건이 갖춰지면 化할 수 있는 미결 상태로
-        # 읽히므로, 판정 대상이 아님을 명시한다(2026-07-27 데굴님 지적).
         body = (
-            f"완전한 {el}국을 이루지는 않았지만 {el}{role} 작용을 보조적으로 강화합니다. "
-            "이는 국의 성립이나 합화(化) 판정은 아닙니다."
+            f"두 글자가 손을 잡고 {_el_with_ko(el)} 기운으로 바뀝니다(합화)."
+            + _role_sentence(el, sem.role)
+        )
+    elif sem.formation_state is FormationState.PARTIAL and el:
+        # 반합·부분 방합 — 국 미완성. 묶임이 아니라 보조 강화다. '합화 미확정'처럼 조건이
+        # 갖춰지면 化할 수 있는 미결 상태로 읽히지 않도록 化 어휘 자체를 쓰지 않는다
+        # (2026-07-27 데굴님 지적).
+        what = (
+            "같은 계절의 글자끼리 모였지만 세 글자가 다 모이지는 않아"
+            if sem.kind == "directional"
+            else "세 글자가 모여야 완성되는 조합 중 두 글자만 모여"
+        )
+        body = (
+            f"{what}, {_el_with_ko(el)} 기운을 조금 보태 주는 정도입니다."
+            + _role_sentence(el, sem.role)
         )
     elif sem.transformation_state is TransformationState.NOT_APPLICABLE and el:
-        body = f"{el}{role} 기운을 강화하는 것이며 합화(化)는 아닙니다."
+        what = (
+            "같은 계절의 글자 세 개가 모두 모여"
+            if sem.kind == "directional"
+            else "세 글자가 모두 모여"
+        )
+        body = f"{what} {_el_with_ko(el)} 기운을 크게 키웁니다." + _role_sentence(el, sem.role)
     else:
-        body = "엔진 판정상 추가 작용이 확인되지 않았습니다."
+        body = "눈에 띄는 추가 작용은 확인되지 않았습니다."
 
     boon = [e for e in sem.effects
             if e.effect is EffectKind.SUPPRESSED
@@ -262,11 +364,11 @@ def _build_canonical_claim(sem: RelationSemantics) -> str:
             and e.favorability is EffectFavorability.ADVERSE]
     tail = ""
     if boon:
-        names = "·".join(f"{e.target} {e.ten_god}".strip() for e in boon)
-        tail += f" 이로 인해 {names}의 불리한 작용은 오히려 완화됩니다."
+        names = "·".join(_effect_target_ko(e) for e in boon)
+        tail += f" 그 덕분에 {names}의 부담스러운 작용은 오히려 가벼워집니다."
     if harm:
-        names = "·".join(f"{e.target} {e.ten_god}".strip() for e in harm)
-        tail += f" 다만 {names}의 이로운 작용은 묶입니다."
+        names = "·".join(_effect_target_ko(e) for e in harm)
+        tail += f" 그 대신 {names}의 좋은 작용도 이번에는 힘을 덜 씁니다."
     return head + body + tail
 
 
@@ -280,7 +382,7 @@ def _fill_interpretations(sem: RelationSemantics) -> None:
         allowed.append("성립하지 않아 작용 없음")
         forbidden.append("성립했다고 서술")
         if el:
-            forbidden.append(f"{el}으로 합화했다고 서술")
+            forbidden.append(f"{_el_with_ro(el)} 합화했다고 서술")
     elif sem.binding_state is not BindingState.NONE:
         allowed.append("묶임(합반) — 化는 이루어지지 않음")
         if sem.binding_state is BindingState.REMOVED:
@@ -288,7 +390,7 @@ def _fill_interpretations(sem: RelationSemantics) -> None:
         else:
             forbidden.append("합거·제거로 단정(묶임까지만 판정됨)")
         if el:
-            forbidden.append(f"{el}으로 합화했다고 서술")
+            forbidden.append(f"{_el_with_ro(el)} 합화했다고 서술")
             forbidden.append(f"{el} 기운이 강해진다고 서술")
     elif sem.transformation_state is TransformationState.TRANSFORMED and el:
         allowed.append(f"{el}({sem.role or '역할 미상'})으로 합화")
@@ -297,10 +399,10 @@ def _fill_interpretations(sem: RelationSemantics) -> None:
     elif sem.formation_state is FormationState.PARTIAL and el:
         allowed.append(f"{el}({sem.role or '역할 미상'}) 작용의 보조적 강화(국 미완성)")
         forbidden.append("서로 묶였다·합거됐다고 서술(묶임 판정 없음)")
-        forbidden.append(f"{el}국이 성립했다·{el}으로 합화했다고 서술")
+        forbidden.append(f"{el}국이 성립했다·{_el_with_ro(el)} 합화했다고 서술")
     elif sem.transformation_state is TransformationState.NOT_APPLICABLE and el:
         allowed.append(f"{el} 기운 강화(化가 아니라 기존 오행 강화)")
-        forbidden.append(f"{el}으로 합화(化)했다고 서술")
+        forbidden.append(f"{_el_with_ro(el)} 합화(化)했다고 서술")
         forbidden.append("서로 묶였다·합거됐다고 서술(묶임 판정 없음)")
 
     for eff in sem.effects:

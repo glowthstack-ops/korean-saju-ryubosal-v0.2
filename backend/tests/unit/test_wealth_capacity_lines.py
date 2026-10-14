@@ -10,8 +10,9 @@ from __future__ import annotations
 
 from datetime import date
 
+import pytest
+
 from saju_api.services.manse_service import calculate
-from saju_engines.event_scoring import favorability_map
 from saju_engines.preparation_context import build_preparation_context
 from saju_engines.structural_context import preparation_context_lines, wealth_capacity_lines
 from saju_engines.wealth_capacity import analyze_wealth_capacity
@@ -39,21 +40,21 @@ def test_block_lists_absent_structures_and_forbids_synthesis() -> None:
     assert "성립 구조: " + ", ".join(wc.flags) in text
 
 
-def test_block_carries_wealth_role_and_guards_glorification() -> None:
-    """재성 오행의 용희기구한을 병기하고, 기·구신이면 미화 금지 문장을 붙인다."""
-    r = _result()
-    wc = analyze_wealth_capacity(r)
-    role = favorability_map(r).get(wc.wealth_element)
-    assert role in ("용신", "희신", "기신", "구신", "한신")
+@pytest.mark.parametrize("role", ["용신", "희신", "기신", "구신", "한신"])
+def test_block_carries_wealth_role_and_neutral_guard(role: str) -> None:
+    """재성 역할을 병기하고, 역할과 무관하게 '유불리 ≠ 재물 능력' 중립 규칙을 붙인다(2026-10-13).
+
+    기존(기·구신 한정 '부담·지출·관리의 결로 서술')은 부정 단정을 유도해 교체했다.
+    """
+    wc = analyze_wealth_capacity(_result())
     text = "\n".join(wealth_capacity_lines(wc, role))
     assert f"재성 {wc.wealth_element}의 역할: {role}" in text
-    if role in ("기신", "구신"):
-        assert "미화하지 말고" in text
-    else:
-        assert "미화하지 말고" not in text
+    assert f"재성 {role} 판정은 재성 작용이 이 구조에서 유리한지 불리한지에 대한 것이지" in text
+    assert "미화하거나 부정적으로 단정하지 말고" in text
+    assert "부담·지출·관리의 결로 서술" not in text
     # 역할 미지정 호출은 병기·가드 모두 없음(하위 호환).
     plain = "\n".join(wealth_capacity_lines(wc))
-    assert "의 역할:" not in plain and "미화하지 말고" not in plain
+    assert "의 역할:" not in plain and "부정적으로 단정" not in plain
 
 
 def test_preparation_line_marks_output_as_luck_not_natal() -> None:

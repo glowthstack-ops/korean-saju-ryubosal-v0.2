@@ -26,6 +26,7 @@ import {
   savePersona,
   updateSubject,
 } from "@/lib/subjects";
+import { kindForRelation, RELATION_OPTIONS } from "@/lib/relations";
 import {
   loadEotPreference, loadJaHourRulePreference, saveProfile as saveLocalProfile,
 } from "@/lib/storage";
@@ -38,6 +39,8 @@ type Mode = "add" | "edit" | "oneoff";
 interface Draft {
   profile: Profile | null;
   nickname: string;
+  relation: string | null; // 나와의 관계 키(2026-10-14) — edit 는 저장값 보존, add 는 선택
+  aliases: string[]; // 호칭 별칭 — edit 저장 시 보존(위저드가 지우지 않는다)
   yongsin: string | null;
   yongsinConfirmed: boolean;
   extended: ExtendedProfile;
@@ -47,6 +50,8 @@ interface Draft {
 const EMPTY: Draft = {
   profile: null,
   nickname: "",
+  relation: null,
+  aliases: [],
   yongsin: null,
   yongsinConfirmed: false,
   extended: {},
@@ -83,6 +88,8 @@ export function Wizard({ mode, subjectId, next }: { mode: Mode; subjectId?: stri
           setDraft({
             profile: summaryToProfile(subj),
             nickname: subj.label,
+            relation: subj.relation_to_user,
+            aliases: subj.aliases,
             yongsin: prof.confirmed_yongsin,
             yongsinConfirmed: prof.confirmed_yongsin !== null,
             extended: prof.extended ?? {},
@@ -122,11 +129,14 @@ export function Wizard({ mode, subjectId, next }: { mode: Mode; subjectId?: stri
           storedJaHourRule ?? loadJaHourRulePreference(),
         ),
       );
+      // 관계 → kind 파생(서버도 같은 규칙). 미설정이면 기존 동작(self) 유지. 별칭은 보존.
       const payload = {
-        kind: "self" as const,
+        kind: kindForRelation(d.relation, "self"),
         label: d.nickname,
         birth,
         gender: d.profile.gender,
+        relation_to_user: d.relation,
+        aliases: d.aliases,
       };
       const subj =
         mode === "edit" && subjectId
@@ -160,6 +170,12 @@ export function Wizard({ mode, subjectId, next }: { mode: Mode; subjectId?: stri
   if (step === 0) {
     return (
       <StepShell step={0} total={total} title="사주 입력" desc="별명과 생년월일시·출생지를 입력하세요.">
+        {mode !== "oneoff" && (
+          <RelationSelect
+            value={draft.relation}
+            onChange={(v) => setDraft((d) => ({ ...d, relation: v }))}
+          />
+        )}
         <StepBirth
           initialProfile={draft.profile ?? undefined}
           initialNickname={draft.nickname}
@@ -269,5 +285,29 @@ export function Wizard({ mode, subjectId, next }: { mode: Mode; subjectId?: stri
       </button>
       {error && <p className="text-sm text-red-500">{error}</p>}
     </StepShell>
+  );
+}
+
+// 나와의 관계 선택(2026-10-14) — 첫 사주면 '본인', 가족·지인 사주는 해당 관계. 미설정도 허용(카드에서 나중에 설정).
+function RelationSelect({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
+  return (
+    <label className="mb-3 block text-sm">
+      <span className="text-gray-700">나와의 관계</span>
+      <select
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)}
+        className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+      >
+        <option value="">미설정 (나중에 사주목록에서 설정)</option>
+        {RELATION_OPTIONS.map((o) => (
+          <option key={o.key} value={o.key}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <span className="mt-1 block text-xs text-gray-400">
+        본인은 계정에 한 명이에요. 채팅에서 &ldquo;남편은&rdquo;처럼 부르면 이 설정으로 찾아요.
+      </span>
+    </label>
   );
 }

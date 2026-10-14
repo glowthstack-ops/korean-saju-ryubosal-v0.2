@@ -11759,6 +11759,7 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 
 - 총운 job 4540fd5b(1978년생, RPT_FULL)가 `report_full_section: 입력 18247tok > 상한 18000tok`로 실패. 당일 1차 상향(15k→18k) 뒤 두 번째 초과.
 - `llm_guard.CALL_LIMITS` report_focus/full_section 20,000(출력 8,000·thinking 불변). docs/09 §8 표·주석 갱신. 세 번째 초과 시 명식 블록 압축 검토를 기록.
+- 실패한 job 4540fd5b(1978년생 총운)는 재실행하지 않는다 — 계획 없음(데굴님 결정, 2026-10-08). 상한 적용은 코드·재기동으로 확정.
 
 ## 2026-10-08 — CI 복구: production mypy 게이트 통일 · numpy 폴백 ignore · DB 없는 러너의 테스트 격리 (데굴님 승인, PR #1 main 머지 준비)
 
@@ -11825,3 +11826,415 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
   와 report_service(재물 섹션) 호출부가 `favorability_map` 역할 전달. `preparation_context_lines` 발현 후보 문구를 "그 해 운 천간에 식상 동반
   (운에서의 식상생재 유입 — 원국 구조 아님)"으로.
 - 테스트 `test_wealth_capacity_lines.py` 3건. 재물 그릇 판정 로직(`analyze_wealth_capacity`) 자체는 불변.
+
+## 2026-10-10 — 화면수정안(화면수정안_261010.pdf) 5건 반영: 명칭 Beta test·히어로 제거·드로어 통합·사주목록 이동 버튼 (데굴님 지시)
+
+- 명칭: 헤더 로고 '류보살 v2' → '류보살 Beta test'(`Gnb.tsx`), 브라우저 탭 제목(`app/layout.tsx`) 동일.
+- 홈(`app/page.tsx`): 상단 소개 히어로(제목·설명·로그인/내 사주목록 버튼·비회원 안내) 전체 제거 — 공간만 차지. 로그인·사주목록 진입은 드로어가 담당.
+- 드로어(`Gnb.tsx`·`AuthPanel.tsx`): '현재 선택된 사주' 블록은 로그인 시에만 렌더하고, 계정 표시(`{loginId}님`+로그아웃)와 한 블록으로 통합.
+  하단 계정 패널은 비로그인 전용(로그인 폼)으로 축소 — `AuthPanel`의 로그인 상태 분기 제거. 사주목록 페이지의 비로그인 URL 직접 진입 가드는
+  유지하되 '확인 중…' 문구는 제거(null).
+- 사주목록(`app/sajus/page.tsx`·`SubjectCard.tsx`): 선택 카드 내부 하단에 '이 사주로 보기' 행 + 테마사주/AI채팅상담 이동 버튼(2열, 모바일 대응).
+  딤드 레이어 없이 인라인 — `SubjectCard`에 optional `footer` 슬롯 추가, 다른 사용처(게이트웨이) 영향 없음.
+- 헤더 '○○ 기준 ⓘ' 팝오버 하단에 '사주목록 →' 이동 링크 추가(데굴님 추가 지시).
+- 후속(같은 날): 선택 카드 이동 버튼에 만세력 추가(3열), 버튼 내 화살표 제거(데굴님 지시).
+- 후속 2: 카드의 만세력 버튼은 게이트웨이(사주 재선택) 없이 `/manse/result?subject=<id>`로 직행 — 그 사주 기준으로 바로 열림(데굴님 지시).
+- 후속 3: 만세력 신살 패널·운 기둥 신살 줄에서 지지 유형 보유 표지(이동지·사정지·사고지) 비표시(`Panels.tsx` 렌더 필터, 백엔드 `BRANCH_MARKER_NAMES` 와 동일 목록). API 응답은 엔진이 쓰므로 불변. 간지달력도 같은 날 추가 지시로 제외 — 필터를 `lib/sinsal-display.ts`로 공용화해 만세력 패널·운 기둥·간지달력 상세 행·셀 칩 4곳에 적용.
+- 검증: `tsc --noEmit` 0, vitest 38 passed, production build 0(`var/frontend_build_20261010.log`). 백엔드 변경 없음.
+
+## 2026-10-10 — 관리자 코드(F-n) 근거 병기 + 코드 근거 질문 라우팅 (데굴님 지적·승인)
+
+- 실로그(데굴, 1980-11-22 09:40 구로구): "2031년에 F-2 코드의 위험이 있다고 알려준 근거를 알고 싶어" → 답이 2031년 총운(巳亥충·亥亥형·辰亥원진·공망)
+  으로 흘렀다. 원인 ①파서가 `fortune_overview`/general 로 분류해 '한 해 총운' 지시문이 붙음 ②`health_lines` 가 코드 줄에서 근거(`w.reasons`)를 빼고
+  "의미를 설명하지 말 것"만 지시해 LLM 이 인용할 근거가 없었음. 엔진의 실제 근거 = 취약 장기 심·혈관(火)을 세운 亥(水)·대운 壬(水)이 재공격 +
+  대운·세운 중첩, 창 48 ≥ 본인 p93(44) → F-2(천극지충·일간 입묘 없음). 2032 동일 F-2, 2033 은 일간 입묘 가세 70 → F-1.
+- `health_vulnerability.health_window_evidence(window, result, profile, thresholds)`: 창 룰 적중을 세운·대운 글자와 취약 장기·일간 관계로 번역
+  (새 명리 규칙 없음, `_period_reasons` 의 같은 오행 관계만 글자로 되짚음) + `percentile_top_label`(p97/93/85 → 상위 3/7/15%). 코드 의미는 비공개 유지.
+- `structural_context.health_lines`: 코드 줄에 `[근거: …]` 병기, 관리자 코드 지시문에 "근거 질문엔 [근거]만으로 설명, 다른 블록의 충·형·합·원진·
+  공망·신살 금지" 추가(채팅·리포트 공용).
+- `query_parser.SEVERE_CODE_QUESTION_RE`(`코드 F-n`/`F-n`) → `DOMAIN_ANALYSIS` + `HEALTH` 고정(파싱 꼬리, 마지막 우선). 승인안의 Q5(event_explanation)
+  대신 Q2 를 쓴 이유: chat 이 Q5 를 과거 방향(retro)으로 못박아 미래 연도 질문에 맞지 않음.
+- `chat_service._SEVERE_CODE_EVIDENCE_DIRECTIVE`(trailing): 답을 코드 줄 [근거]로만, 총운·타 블록 인용 금지, 관리 프레임 유지, 코드 줄 없는 해는 없다고만.
+- F-2 트리거(손상 장기 재공격 단독 허용, 10-07 034 교정)는 데굴님 결정대로 불변 — 2031 은 외적 신호 없이 재공격 단독으로 F-2 가 붙는다는 점 보고.
+- 테스트 `test_severe_code_evidence.py` 5건(정규식·라우팅·근거 문구·health_lines·dry-run 프롬프트). 게이트: lint `All checks passed`,
+  `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 결과는 아래 줄.
+  전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=8dffbaf, 지문 동일, exit 0; `var/suite_severe_code_20261010.log`). 백엔드 8888 재기동 반영.
+
+## 2026-10-12 — 채팅 답변 결론 우선·근거 압축 + 관계 확정 문장 중복 제거 (데굴님 지시·승인)
+
+- 지시: 사용자는 결과를 먼저 듣고 근거는 짧게 받는 것을 선호한다(단순·빠른 트렌드). 실답 '오늘의 운세'(1,215자): 첫 문장이 己未·己亥·土 용신으로
+  시작, 午未合 엔진 확정 문장(합반·합거·化)이 2·3문단에 동일 반복, 영역별 문단이 4~5문장씩 같은 비중.
+- `structural_context.ANSWER_CLARITY_DIRECTIVE`(챗·리포트 공용) ①에 "첫 1~2문장은 원어 없는 일상어 결론, 간지·용어는 뒤 근거 문장에서 처음" 추가,
+  ③에 간지·오행·용신·합반·합거·化 원어 서너 번 상한 + 두 번째부터 결과어.
+- `chat_service._RESULT_FIRST_BREVITY_DIRECTIVE`(챗 전용 trailing 상시): 결론 1~2문장 → 영역당 근거 1~2문장 → 마무리, 첫 문장 한자 0, 예문,
+  700~900자 목표(시스템 규칙 7 상한 1,500자·규칙 8 리터럴은 불변). `_OVERVIEW_COVERAGE_DIRECTIVE`: 최강 후보는 첫 문단 결론에, 나머지 영역 1~2문장.
+- `relation_claim_audit.canonical_claim_lines` 헤더에 "한 번만 인용" 추가 + `dedupe_canonical_claims()` 신설(전문 일치 중복만 첫 출현 유지, 결정론·재호출
+  없음). `chat_service._audit_relation_answer` 통과·패치 완료 두 출구에 적용. 테스트 3건(헤더·중복 제거·결과어 문장 불변) + 지시문 불변식 2건.
+- 실답 샘플 3회(1980-11-22 09:40 서울 남, 2026-10-12): 첫 문장 일상어 결론 전환 확인, 중복 0, 분량 934~1,292자(목표 700~900 미달 — 모델이 상한
+  1,500자를 목표로 삼음). 추가 조치는 아래 미결.
+- 후속(같은 날, 데굴님 결정) ①분량: 상한은 넘칠 때만 동작해야 하며 부족할 때 상한에 맞추려 늘리는 동작은 금지 — 상한 하향 대신 챗 지시문에서
+  '700~900자 목표'를 빼고 "필요한 만큼만, 1,500자는 넘칠 때만 줄이는 상한이지 채울 분량이 아니다"로 교체(규칙 7·`llm_guard` 불변).
+  ②감사 오귀속 수정 승인: `_normalize_for_naming`(괄호 한글 병기 제거 + 접미 앞 공백 제거)을 `_named_relations`에만 적용, 2자 관계에 '午未합'·
+  '未午합' 한자+한글 접미 별칭 추가. 글자 언급(`_mentions_char`)은 미적용. 테스트 4건(병기 3형 귀속·역전 검출 유지).
+- 실답 샘플 4회차: 1,026자, 첫 문장 일상어 결론, 중복 0, 병기 호칭 오귀속 0. 잔여 오탐 1종(기존): 관계 호칭 없는 문장('己未 기운 … 결정권이 강화')이
+  창 경로로 午未合 STRENGTHEN_ASSERTED_WHEN_SUPPRESSED 에 귀속 — 별도 검토 대상(미착수).
+- 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`
+  (start_head=end_head=d9670ab, 지문 동일, exit 0; 1차 `var/suite_result_first_20261012b.log`, 후속 포함 최종 `var/suite_result_first_20261012c.log`).
+  백엔드 8100 재기동 반영, 미커밋.
+
+## 2026-10-12 — 관계 감사 창 귀속 좁히기 + 일주 요약 인용 조건화 (데굴님 지시)
+
+- 창 귀속: `_RELATION_WORD`가 한글 1음절('합'·'충'·'형'·'파'·'해')을 그대로 매칭해 '집중합니다'·'종합해보면'·'뚜렷해지고'·'충분히'·'유형이'
+  같은 일상 어절이 관계 어휘로 읽혔다 → 관계를 말하지 않은 문장이 공유 글자(未·己)만으로 午未合에 귀속, STRENGTHEN_ASSERTED_WHEN_SUPPRESSED 교체
+  (실답 4회차). 한자(合沖刑破害)는 그대로, 한글은 관계 어휘로만 읽히는 활용·복합형(합을/합으로/합화/합거/반합·방합·삼합/충이/충돌/형살/파살/
+  해살/육해/원진 등)으로 한정, 종합·결합·보충·유형·돌파 류는 lookbehind로 제외. '해' 단독 불인정. 호칭 경로(①)·캐노니컬 문장 검출은 불변.
+  테스트 3건(2026-10-12 스택 fixture: 오탐 문장 2형 무위반·'합을 하여' 억제 대상 강화 검출 유지).
+- 일주 요약 규칙(`context_reducer._ILJU_SUMMARY_INSTRUCTION`): "일주는 '나'다 — 모든 답의 소개가 아니라 성격·성향·취향 설명이 풀이 이해에 필요한
+  경우에만 인용(연애·배우자·대인 태도·적성, 또는 일지 십성·배우자궁 줄과 묶어 결론 근거가 될 때 — 예: 일지가 정재이자 배우자 자리 → 외모가 마음에
+  들어야 선택하는 경향). 총운·시기·방향 답은 성향 없이 결론이 서면 일주 문장 금지" 전제 추가. 기존 인용 형태 규칙(traits 1구절·서사 금지·병렬 문형)은
+  유지. 방향 답 계약(sinsal_direction)의 '기질 한 문장' 참조는 그대로. 테스트 1건.
+- 실답 샘플 5회차(같은 명식·오늘의 운세): 감사 위반 0(병기 호칭·창 귀속 오탐 모두 해소), 일주 언급 1회(관계 문단, 이전 2~3회), 1,194자.
+- 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트는 아래 줄.
+  전체 스위트 `VALID_SUITE_PASS`(`var/suite_result_first_20261012d.log`, 결과는 세션 보고 참조). 백엔드 8100 재기동 반영, 미커밋.
+
+## 2026-10-13 — 관계 감사 '묶임 지시 대상' 오탐 수정 + 다관계 문장 국소 교정 + 안전 템플릿 노출 보완 (데굴님 지시·승인)
+
+- 사고: '오늘 운세를 알려줘'(1980-11-22 09:40 서울 남, 2026-10-13 庚申) 답이 안전 템플릿으로 통째 교체돼 "표현을 다듬지 않고 엔진 판정 그대로"
+  문구와 LLM 지시문('…혼동하지 말 것')·내부 점수('의사결정운 50 — …')가 그대로 노출. 로그: `relation_claim_audit result=violation
+  outcome=AMBIGUOUS_RELATION_FALLBACK kinds=[BINDING_ASSERTED_WHEN_NONE ×2] labels=[巳午방합, 申戌방합] ambiguous=1 unpatched=2 → safe_template`.
+- 원인(재현 확정 — 원문은 스레드 삭제로 소실, 해당 날짜 관계 의미를 `_build_period_fortune`로 재생성해 후보 문장 6형 감사): 엔진 판정은
+  巳申合=합거(丙 정인 억제), 午戌반합·巳午방합·申戌방합=보조 강화(묶임 없음). LLM이 巳申合의 결과를 결과어('丙 정인이 묶여')로 받으며 같은 문장에
+  두 방합을 호칭하면, 직접 호칭 배타 규칙이 '묶여'를 호칭된 방합들에 귀속 → 두 라벨 위반 → 한 문장에 둘이라 모호 → 답 전체 교체. 프롬프트의
+  "두 번째부터 결과어·영역당 1~2문장" 지시가 이 문형을 유도한다. '사신(巳申)합'(한글 음 뒤 한자 괄호)도 별칭 불일치로 같은 경로. 2026-10-02
+  辰酉合 사고와 동형(로그 내 안전 템플릿 발동 2건 모두 이 패턴).
+- 수정(`relation_claim_audit.py`): ①`_has_binding_referent` — 문장 안에 묶임 판정이 있는 관계의 정당한 지시 대상(직접 호칭 / 구성 글자가 같은
+  문장에 모두 — 호칭된 다른 관계 라벨 글자는 제외 / 억제 대상 글자+십성명 인접 '丙 정인')이 있으면 binding=NONE 관계에 ③을 걸지 않음. 세운 丙午의
+  丙 단독 언급은 면책 아님. 한계(수용): 같은 문장에서 "巳申合은 합거이고 午戌반합도 묶인다"처럼 둘 다 묶였다고 쓰면 후자를 놓침.
+  ②`_normalize_for_naming`에 한자 병기 괄호 제거 추가('사신(巳申)합' → 巳申合 직접 호칭). ③`patch_relation_claims` — 한 문장이 여러 관계를 위반하면
+  모호 폴백 대신 위반 관계 전부의 canonical 문장(semantics 순)으로 **그 문장만** 교체(`PATCHED_MULTI_RELATION`, `multi_patched_sentences`).
+  canonical 문장이 없는 관계가 섞인 경우만 모호로 남음. 원문 유지(fail-open) 금지 원칙 불변.
+- 안전 템플릿(`period_safe_template.py`): `PeriodFortune.solar_month_user_note`(사용자용 절기월 문장, `chat_service._build_period_fortune`에서 설정)
+  만 노출하고 프롬프트용 `solar_month_note`는 쓰지 않음. 내부 점수 슬롯(활용법·행동전략·일·돈·관계·건강, '점수 N'·'의사결정운')은 제외, 슬롯은
+  줄 단위 '· 이름 — 요약'. '운 입니다' 띄어쓰기·해요체 정리. canonical 문장 자체(합거+"다만 … 묶입니다" 꼬리)는 SSOT라 손대지 않음.
+- 테스트: `test_relation_claim_audit.py` 2026-10-13 스택 fixture + 오탐 4형 무위반·한자 병기 호칭·반합 진짜 역전 검출 유지·방합 둘 한 문장 다관계
+  교체, 기존 모호 테스트는 다관계 교체 기대로 전환 + canonical 없는 관계 혼입 시 모호 유지. `test_period_safe_template.py` 신설 4건(지시문·점수 비노출,
+  띄어쓰기, 사용자 문장 부재 시 대체 금지).
+- 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 결과는 아래 줄.
+  전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=3505f5f, 지문 동일, exit 0, `var/suite_20261013_audit.log`). 백엔드 8888 재기동 반영, 미커밋.
+
+## 2026-10-13 — 관계 확정 문장(canonical claim) 일반인용 쉬운 말 개정 (데굴님 지시·승인)
+
+- 지시: 확정 문장이 "이번 판정에서 水으로 합화한 것이 아니라 서로 묶이는 합반이며, 묶인 글자의 작용이 끌려가는 합거입니다. 다만 丙 정인의
+  이로운 작용은 묶입니다"처럼 용어 위주라 일반 사용자가 이해하기 어렵다. 이 문장은 LLM 입력·패치 교체본·안전 템플릿 세 곳에 그대로 쓰인다.
+- 표현 근거: 웹 검색(카페·칼럼 — 합거="합하여 날아감", 합반="합하여 묶여 있음", 합화="새로운 기운으로 변함", 방합="같은 계절 글자의 합",
+  반합="삼합 세 글자 중 두 글자")은 비유만 참고하고, 의미는 프로젝트 기준을 따름(합거=제거 아님·완화, 2026-09-18 전문가 감수). 역할 쉬운 말은
+  `terminology.json` 정의 그대로(용신=가장 필요한 기운, 희신=도와주는 반가운 기운, 기신=부담스러운 기운, 구신=부담을 키우는 기운, 한신=큰 영향
+  없이 곁에 있는 기운).
+- `relation_semantics._build_canonical_claim` 재작성: 판정을 쉬운 말로 먼저, 원어(합거·합반·합화·용희기구한)는 괄호 한 번. 라벨·오행·억제 대상에
+  한글 음 병기('巳申合(사신합)'·'水(수)'·'丙(병) 정인'). '이번 판정에서'→'이번 운에서'. 상태별: 합거="두 글자가 서로 붙잡혀, 새로운 ○ 기운으로
+  바뀌지는 않고 붙잡힌 글자의 작용이 크게 약해집니다(합거)", 합반="…각자의 작용이 둔해지지만 … 바뀌지는 않습니다(합반)", 합화="두 글자가 손을
+  잡고 ○ 기운으로 바뀝니다(합화)", 반합="세 글자가 모여야 완성되는 조합 중 두 글자만 모여 ○ 기운을 조금 보태 주는 정도", 부분 방합="같은 계절의
+  글자끼리 모였지만 세 글자가 다 모이지는 않아 …", 완성 방합="같은 계절의 글자 세 개가 모두 모여 ○ 기운을 크게 키웁니다", 역할="이 ○ 기운은 이
+  사주에서 …(희신)입니다"(동반자 풀이 대비 '나에게' 미사용), 꼬리=“그 덕분에 …의 부담스러운 작용은 오히려 가벼워집니다”/“그 대신 …의 좋은 작용도
+  이번에는 힘을 덜 씁니다”(구 '합거입니다. 다만 … 묶입니다' 의미 중복 해소). 감사기 정합: 묶임 없는 관계엔 '붙잡·묶' 미사용, 化 아닌 관계의 '바뀌'는
+  부정형만. 조사 오류 수정: 문장은 '○(○) 기운으로', 금지 해석 문구는 `_el_with_ro`('水로·火로·木으로').
+- 테스트: 실측 스택 4개(07-27·10-02·10-12·10-13, 관계 22건) 전체 감사 무위반(문단 분리·연결 두 형태), 문형 불변식(엔진 말투·조사 오류·병기·원어 1회·
+  묶임 없는 관계의 묶임 어휘·비化 관계의 '바뀝니다'), 사고일 문장 고정, 금지 문구 조사, 흉 완화 꼬리. 구 문구 고정 테스트 4건은 같은 판정을 새 문구로
+  확인하도록 전환.
+- 이번 범위 제외(데굴님 결정): 십성명(정인·편관 등) 쉬운 말 풀이, terminology.json에 합거·합반 항목 추가.
+- 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 결과는 아래 줄.
+  전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=3505f5f, 지문 동일, exit 0, `var/suite_20261013_plainclaims.log`). 백엔드 8888 재기동 반영, 미커밋.
+
+## 2026-10-13 — 일주 사전 재물 주장 문장 단위 태그 + 문장 유형 기준 생략 + 일주 자료 사용 규칙 (데굴님 지시·확정)
+
+- 사고: 재성 水=구신 명식(1980-11-22 09:40 서울 남)의 '오늘 운세' 답에 "타고난 재물 감각이 있는 명식이지만". 원인: 일주 사전 己亥의
+  서사·밝은 면("타고난 재물 감각과 성실함")이 [명식 해석 자료]에 사실처럼 실리고, 금지 지시는 100줄 뒤 횡재 그릇 블록에만(총운·재물 질문 한정)
+  있었다(2026-10-08 대응이 지시문 1줄뿐이라 원천이 남아 재발). 일주 인용 조건(총운엔 일주 문장 금지)도 지시문뿐이라 지켜지지 않았다.
+- 결정(데굴님, 외부 검토 의견 반영): 재성이 기·구신이면 재물 장점을 지운다는 규칙은 과도 — 재성의 희기와 재물 관심·능력·축재는 구분한다.
+  기준은 재성 역할이 아니라 **문장 유형**. 재물복 단정·축재 결과는 일주만으로 말할 수 없어 생략, 능력 평가는 종류별(사업 판단력 ≠ 수익 구조,
+  보존·관리 ≠ 수익 창출) 근거가 필요한데 현재 엔진이 그 수준을 구분하지 못해 근거 부족으로 생략, 관심·성향과 띠 동물 상징은 유지(상징은 개인
+  재물복 근거로 쓰지 않음). 복합 문장은 절별 의미를 기록하고 통째 생략은 명리적 부정 판정이 아닌 분리 감수 대상으로 남김. 사고 명식 예외 없음.
+- `ilju.json` 1.0.1→1.1.0: `wealth_claims` 태그 46건/22일주(ability 31·accumulation 5·fortune_assertion 2·interest 2·cultural_symbol 6,
+  split_review 24). 수집은 재물·실속·관리·자수성가 등 어휘 3차 스캔(1차 누락 6건 보충). `dictionaries.IljuWealthClaim`·`_lint_ilju_wealth_claims`
+  (원문 존재·ability_kind 정합·split_review 절 기록). `chart_interpretation._serialize_ilju`가 `_ILJU_OMIT_CLAIM_TYPES` 문장을 생략(고쳐 쓰지
+  않음, 비워진 물상·성향 줄은 줄째 생략). 채팅·리포트 공용 prefix라 두 경로 모두 적용.
+- `context_reducer.ILJU_WEALTH_USE_RULE` 신설 — 일주 블록 바로 뒤 항상(질문 종류·재성 역할 무관 상수, prefix 캐시 조건 유지): 일주 자료는 성향
+  설명이며 재물복·능력·축재 근거가 아님, 띠 동물 상징 동일, 유불리는 재성 역할·명식 구조·재물 그릇 판정으로, 시기·축재 결과는 운을 함께 확인,
+  용희기구한은 작용의 유불리이지 재물 능력·부유 가능성 판정이 아니므로 미화·부정 단정 금지. 금지 문형 예문은 싣지 않음.
+  `structural_context.wealth_capacity_lines`의 기·구신 한정 "부담·지출·관리의 결로 서술"(부정 단정 유도)을 역할 무관 중립 문장으로 교체.
+- 3번(생성 후 결정론 교정)은 보류 — 원천 제거로 충분한지 미확인 가정임을 docs/05에 명시.
+- 테스트: `test_ilju_wealth_claims.py` 신설(정책 상수, 태그 전수 스냅샷, 60일주 전수 생략·유지, 己亥·戊子 결과, 재성 역할 5종 표본 실경로
+  생략, lint 원문 드리프트·ability_kind·split 절 검출, prefix 규칙 위치·문구 중립성), `test_wealth_capacity_lines` 역할 5종 중립 문장으로 전환.
+  규칙 문구에 '구조 패턴'을 쓰자 prefix에 구조 패턴 블록이 없어야 한다는 기존 테스트가 걸려 '명식 구조'로 수정.
+- 문서: docs/05 ilju 규칙에 태그 스키마·생략 정책·감수 대기(戊子 서사, split_review 24건 표, ability 복원 근거 정의) 등록.
+- 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 결과는 아래 줄.
+  전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=3505f5f, 지문 동일, exit 0, `var/suite_20261013_iljuwealth.log`). 백엔드 8888 재기동 반영, 미커밋.
+
+## 2026-10-13 — 도화 정비: 글자 보유(사정지)와 도화 성립(진도화) 분리 + 십성 조합 + 소비처 정비 (데굴님 지시·확정)
+
+- 배경: 결혼 자원·궁합·외적 인상 세 소비처가 子午卯酉 글자 보유만으로 '도화'를 부여했다(엔진 신살은 2026-10-06부터 사정지/진도화를
+  분리했지만 소비처가 따라오지 않음). 데굴님 제시 규칙(가도화·진도화·나체도화·월담도화·십성 조합 5종)을 외부 검토 의견과 함께 확정한 정비 기준으로 반영.
+- 판정(`saju_engines.dohwa.analyze_dohwa`, 타입 `saju_shared_types.dohwa`): 진도화=연지·일지 삼합국 년살 지지가 원국 자리에 성립(기준 지지·
+  삼합국·자리 기록, 두 기준 겹치면 1건), 십성 조합=성립 지지 본기 십성(일간 기준)→비겁·식상·재성·관성·인성(관성도화·인성도화 표기, 자리마다),
+  월담도화=시지 진도화(하위 유형 표시, 건수·가산 없음, 시주 미상=undetermined), 사정지(가도화)=子午卯酉 보유 표지(성향 전용). 나체도화는 제시
+  6개 일주 근거 불일치(목욕 일주 4개 + 丁亥 태·戊午 제왕)로 판정 보류.
+- 해석 사전 `interpretations/dohwa_text.json` 1.0.0(유형 3·십성군 5, 데굴님 표 문구 그대로, reviewed:false) + 스키마·lint(커버리지·라벨·소속 십성).
+  **검수는 실제 사용자 이용 시 풀이를 봐야 가능**(데굴님 지시) — 문구를 풀이에 연결하고 노출 원장 로그 `dohwa_text_exposed`(chat: thread·turn·keys,
+  report: section·keys)로 실답 검수 경로를 확보. reviewed 플래그를 노출 차단 게이트로 쓰지 않는다.
+- 풀이 블록 `structural_context.dohwa_structure_lines`: 게이트=도화·매력·인상 직접 질문/관계 도메인/명식 분석(리포트는 결혼 자원 섹션). 진도화
+  자리·기준·십성군·핵심·발현, 월담 성립/미확정, 사정지 성향 전용, 진도화 없으면 "도화가 있다고 말하지 말 것", 자리별 구분·중복 가산·문구 밖 단정 금지.
+- 소비처: 결혼 자원 `charm_present`=진도화 또는 홍염(각자 조건, `dohwa_established`·`hongyeom_present` 신설, 플래그 문구가 성립한 것만 이름으로),
+  일지 왕지 기질 라벨 '도화형' 삭제. 궁합: 일지 子午卯酉→'서로 끌리는 매력' 제거, 개인 진도화는 `SINSAL_DOHWA` 보조 신호(끌림 점수 0, "상호 끌림
+  판정 아님"), 홍염 교차만 SINSAL_CHARM. 외적 인상: 새 수치 근거 없음 → 실운영 불변, 후보안 비교만.
+- 전후 비교 `scripts/compare_dohwa_consumers.py`(유지 스크립트 게이트 편입): 3,131명(1950~2009 7일 간격, 60일주 전부). 결혼 자원 도화 표기
+  70.1%→28.4%, 끌림 문장 77.9%→49.8%. 궁합 끌림 강 51.5%→7.7%(강→중 43.8%, 중→약 16.1%). 외적 인상 notable 이상 A 55.9%/B 47.7%/C 48.8%/
+  D 43.1%. 1차 실행은 9일 간격(60과 비서로소)이라 일지 辰戌丑未만 표집돼 무효 — 간격·커버리지 검사 추가 후 재측정.
+- 테스트: `test_dohwa.py` 신설(판정·기준 병합·사정지 비성립·월담 하위 유형·시주 미상·사전 lint·게이트 5형·블록 내용·노출 키·채팅 로그(로거 직접
+  핸들러+INFO)·결혼 자원·궁합 개인 신호), `test_compatibility_engine` 글자 기준 고정 단언을 새 기준으로 전환.
+- 남은 결정: 외적 인상 후보안(A 유지/B/C/D), 나체도화 목록 근거, 운 도화 십성 조합(후속), 결혼 자원 일지 기질 문장('왕지 — 이성 인연이 잦고 끌림이
+  빠르나…')과 생지·고지의 '역마형·화개형' 표기가 같은 글자 기준 문제를 안고 있음(이번 범위 밖).
+- 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 결과는 아래 줄.
+  전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=3505f5f, 지문 동일, exit 0, `var/suite_20261013_dohwa.log`). 백엔드 8888 재기동 반영, 미커밋.
+
+## 2026-10-13 — 도화 정비 2차: 외적 인상 D안·해석 문구 검수 게이트·왕지 문장 수정·십성 오기 검사 (데굴님 확정)
+
+- 결정(데굴님, 외부 검토 의견 반영): 판정 구조 유지 / 외적 인상 D안 / 궁합 끌림 감소 수용(복원 보정 금지 — 7.7%는 표본 결과일 뿐 정확도
+  검증 아님) / 해석 문구는 **검수 후 연결**(노출 로그는 검수를 대신하지 못함)[※ 이후 정정: 이 항목은 데굴님 지침이 아니라 붙여 넣은 외부 의견이었고 실행 불가능한 지침 — 아래 '기본 노출로 정정' 참조] / 원국 자리 십성 오기 생성 후 검사 / 왕지 이성 인연 문장 제거,
+  역마형·화개형은 별도 항목 / 나체도화 계속 보류(전체 목록 정의·출처·성립 조건 확인 후) / '도화 없음'은 현재 원국 진도화 미확인으로 한정.
+- 외적 인상 D안(`external_impression`): `DAY_BRANCH_PEACH`=일지 진도화 1.2, `ACTUAL_DOHWA_OR_HONGYEOM`=일지 외 진도화·홍염 1.0(같은 진도화
+  중복 가산 없음), `NON_DAY_PEACH_BRANCH`(글자 0.3) 제거, 글자 기준 헬퍼 삭제. 테스트 스텁의 '일지 午=도화' 전제를 연지 丑 기준 진도화로
+  고치고 글자만·일지 외 진도화 사례 추가. 비교 재실행으로 실운영(A)=D 확인(`var/compare_dohwa_20261013_post_D.txt`).
+- 검수 게이트: 사용 규칙(진도화만 '도화'·월담 가산 금지·사정지 성향 전용)은 확정 정책이라 코드 상수로 옮기고 사전 `usage` 필드 삭제
+  (dohwa_text.json 1.0.1). 해석 문구(특징·핵심·발현)는 `reviewed:true`만 싣고, 검수용 노출은 베타 플래그 `SAJU_DOHWA_TEXT_REVIEW_EXPOSE`
+  (기본 OFF, health beta_flags 노출)로만 — 검수는 실제 이용 시 풀이를 봐야 가능하므로 검수 환경에서 켜고 노출 로그로 답을 찾아 사람이 승인한다.
+  문구 없는 십성군의 의미를 자체 지식으로 늘리지 말라는 규칙 추가.
+- '도화 없음' 문구: "진도화 미확인 — 현재 분석 대상 원국에서 진도화가 확인되지 않음 … 운에서 들어오는 도화나 이 블록이 판정하지 않는 다른 도화
+  유형까지 부정하지는 말 것".
+- 결혼 자원 왕지 기질: "이성 인연이 잦고 끌림이 빠르나, 익숙해지면 마음이 먼저 식기 쉬운 결" → "개성·자기주장이 뚜렷해 관계에서도 '내 페이스'를
+  지키려는 결". 역마형·화개형 표기는 docs/05에 별도 항목으로 기록.
+- 십성 오기 검사(`saju_engines.ten_god_label_audit`): 원국 지지 자리어(연지·월지·일지·시지) 바로 뒤 십성·십성군을 엔진값과 대조, 명확한 불일치만
+  재호출 없이 교정하고 뒤 조사를 받침에 맞춤. 건너뜀: 자리어 나열·십성 나열·다른 간지 글자·운 표현 직후·천간 자리어(연간·월간 일상어 겹침)·
+  시주 미상·다인 답변(채팅 subject_blocks>1·relationship_context·궁합 블록 / 리포트 partner). 채팅 `finalize_answer_full`, 리포트 섹션 후처리.
+- 일주별 오늘의 운세 점검: 매력 채널은 일지 삼합 기준 오늘 지지=년살(1.0)·일간 홍염(0.8) 각자 조건이고 문구 사전에 도화·子午卯酉 문장이 없어
+  변경 불필요(글자 기준 경로 없음).
+- 테스트: `test_ten_god_label_audit.py` 신설(사고 문장·교정 3형+조사 3형·건너뜀 8형·시주 미상·실명식 정답표·채팅 단일/다인), `test_dohwa.py`
+  게이트(기본 사실만·검수 플래그·승인 문구만·부정 한정·왕지 문장), `test_external_impression.py` D안.
+- 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 사전 validate 통과, 전체 스위트 결과는 아래 줄.
+  전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=3505f5f, 지문 동일, exit 0, `var/suite_20261013_dohwa3.log`). 직전 실행(`suite_20261013_dohwa2.log`, TESTS_FAILED 14건)은 비교 스크립트용으로 .env 플래그를 export 한 셸에서 이어 돌린 **무효 실행** — 실패 전부 플래그 기본 OFF 전제 테스트였고, SAJU_ 환경변수 0개인 셸 재실행으로 확인. 백엔드 8888 재기동 반영.
+
+## 2026-10-13 — 도화 해석 문구 기본 노출로 정정 (데굴님 정정)
+
+- 경위: 도화 정비 2차에서 붙여 넣은 외부 검토 의견의 "검수 후 연결"을 데굴님 지침으로 오인해, 해석 문구를 `reviewed:true`만 싣는 게이트와 검수용
+  베타 플래그 `SAJU_DOHWA_TEXT_REVIEW_EXPOSE`(기본 OFF)를 넣고 커밋했다(ab49a5d). 같은 대화에서 데굴님이 직접 "검수는 실제 사용자 이용 시 풀이
+  내용을 확인해야 가능"이라고 했는데 그 충돌을 묻지 않고 플래그로 절충한 것이 원인. 데굴님: "검수 후 연결은 애초에 사용 불가능한 지침, 준 적 없다."
+- 정정: 게이트(`_dohwa_text_usable`)와 플래그(설정·health beta_flags 표기) 삭제. 해석 문구(특징·핵심·발현)는 기본으로 싣고 `reviewed`는 검토 상태
+  기록용(노출 조건 아님). 노출 로그 `dohwa_text_exposed`는 유지(실답 검수 경로). 사용 규칙 코드 상수는 유지. 사전 dohwa_text.json 1.0.2 note·스키마
+  docstring·docs/05 서술을 실제 경위대로 수정. 테스트: 기본 노출·reviewed 값과 무관한 노출·채팅 로그(플래그 없이) 확인.
+- 확인 요청 2건 대조: ①십성 오기 교정의 시주 미상 범위 — 시지만 제외하고 연지·월지·일지는 그대로 교정함을 테스트로 고정(만세 기둥·LLM 입력 기둥 상세
+  두 경로). ②문구 '8건' — 사전 항목은 8개(유형 3·십성군 5)지만 풀이에 실리는 해석 문구는 7개다(진도화 항목은 정의만 있고 풀이 문구로 쓰지 않음).
+  보고의 '8건'은 집계 오기.
+- 실답 1회에서 월지를 편관으로 쓴 것은 교정기 작동 증거가 아니다 — 교정 동작은 의도적 오기를 넣은 단위 테스트(사고 문장·교정 3형·조사 3형·채팅 경로)로 확인.
+  게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=ab49a5d, 지문 동일, exit 0, `var/suite_20261013_dohwa4.log`, SAJU_ 환경변수 0개 셸). 백엔드 8888 재기동 반영.
+
+## 2026-10-13 — 도화 후속 3건 종료(운 도화 십성군 구현·역마형/화개형 정리·나체도화 미도입) + 정책 표기 정리
+
+- 운 도화 × 십성군(구현): 기존 운 진도화 판정(sinsal_for_luck '도화') 재사용 → `dohwa.analyze_luck_dohwa`(기준 지지·운 지지 본기 십성=원국
+  일간 기준 `LuckPillar.branch_ten_god`) → `build_luck_grounding` 운 신살 줄 1줄(운 종류·기간·간지·기준·십성군·'운에 적용된 설명' 문구·사용 규칙:
+  그 기간의 매력 노출·인연 기회로만, 타고난 성향·평생 매력 금지, 원국 도화와 구분). 두 기준 겹쳐도 1건. `PeriodFortune.dohwa_text_keys` →
+  로그 `dohwa_text_exposed surface=chat_period`. 승인 게이트 없음.
+- 역마형·화개형(구현): 소비처 검색 결과 글자 기준 신살 이름은 결혼 자원 일지 기질뿐 — 생지 '역마형'·'변화·이동 지향', 고지 '화개형' 삭제(글자 성향만).
+  구조 패턴 역마형(驛馬刑)·이동지 충돌, 신살 사전 이동지·사고지 표지는 이미 성립 기준과 분리돼 있어 유지.
+- 나체도화(미도입): 포스텔러·网易号·무신·사주클래스 대조 — 일지 목욕(甲子·乙巳·庚午·辛亥)/천충지충 추가 요건/甲子+庚午 기둥 조합(裸形桃花)으로
+  기준이 갈리고 丁亥·戊午 근거 없음. 목욕 일주와 같은 개념으로 보지 않는 정비 기준상 확정 불가 → docs/05에 조사 기록·도입 조건 남기고 종료.
+- 정리: 사전 8개 항목·해석 문구 7개 표기 통일(docs/05·dohwa_text.json 1.0.3 note). 폐기 게이트·플래그 잔존 확인 — 코드·설정·env 0건(문서는 정정
+  경위만). WORKLOG 2차 항목의 '검수 후 연결'에 정정 표시.
+- 테스트: `test_dohwa.py` 운 도화 6건(판정 재사용·십성군, 비해당 None, 두 기준 1건·1줄·키, 운 범위 표기·문구·규칙, 원국/운 층 분리, PeriodFortune 키),
+  `test_marriage_resource` 생지 라벨(역마·이동 없음).
+- 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=e74aa48, 지문 동일, exit 0, `var/suite_20261013_dohwa5.log`, SAJU_ 환경변수 0개 셸). 백엔드 8888 재기동 반영.
+- 실답 근거: 재기동 전 서버(ab49a5d 교정기 포함)의 실답에서 `ten_god_label_fixed surface=chat fixes=[(월지, 정관, 편관)]`가 기록되고 답변이 "월지에 자리한 편관"으로 나감 — 십성 오기 교정기의 실사용 작동 확인.
+
+## 2026-10-13 — 주제별 기간 질문(연애·매력)에 운 도화 연결 + 나체도화 기록 정정
+
+- 연결: '10월 5일 연애운'처럼 기간이 있는 관계 도메인·도화/매력 직접 질문에 `_luck_dohwa_context`가 질문 기간(일 14일·월 12개·연 3개 이내)의 운 기둥
+  운 도화를 "[질문 기간 운 도화 — 원국 도화와 별개 층 … 질문한 기간에만 적용]" 블록으로 싣는다. 줄은 기간 총운과 공용 빌더
+  `luck_dohwa_sinsal_line`(판정·십성군·기간 규칙 동일). 기간 총운에 이미 실린 기간은 건너뜀(중복 금지). 무관한 주제는 제외. 로그 surface=chat_luck_range.
+- 나체도화 기록 정정: "목욕 일주와 같은 개념으로 보지 않기로 했다" → "목욕 일주라는 사실만으로 나체도화와 동일시하지 않고 출처별 정의를 확인"(목욕 기준
+  사용 금지가 아니었음). 자료 표현을 "확인한 해당 자료에서는 …로 정의"로 한정. 정의 차이·근거 미확보로 이번 범위 미도입 종료.
+- 테스트: `test_dohwa.py` 6건(같은 날 총운·연애운 줄 동일, 게이트 3형, 총운 기간 중복 건너뜀, 질문 날짜만, 월·연 단위, 비해당·범위 초과).
+- 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=2fff583, 지문 동일, exit 0, `var/suite_20261013_dohwa6.log`, SAJU_ 환경변수 0개 셸). 백엔드 8888 재기동 반영.
+
+## 2026-10-13 — 나체도화 도입: 일지 목욕 정의 + 포스텔러 소개 견해(천충지충) 결합 (데굴님 지시)
+
+- 지시: "'일지 목욕'(甲子·乙巳·庚午·辛亥) 정의와 포스텔러 게시물의 의견을 합쳐서 나체도화건도 적용해."
+- 판정(`dohwa.analyze_dohwa` → `DohwaProfile.naked`): 일주 12운성(엔진 `twelve_unseong`)이 목욕이면 성립(60갑자 중 甲子·乙巳·庚午·辛亥뿐 — 테스트 고정).
+  포스텔러 견해를 합쳐 일주와 천충지충(天干四沖 甲庚·乙辛·丙壬·丁癸 + `BRANCH_CLASHES`)인 원국 기둥을 기록: present(두 견해 모두 성립)/absent(일지 목욕만으로
+  성립한다는 견해)/undetermined(시주 미상, 알려진 기둥에 없음). 丁亥·戊午는 정의에 해당하지 않아 제외. 운 기둥 천충지충은 범위 밖.
+- 사전 dohwa_text.json 1.1.0: 유형 `naked`(성향 "가식 없는 솔직함·꾸미지 않은 매력" — 데굴님 제시 표) 추가 → 항목 9개·해석 문구 8개. 스키마·lint 유형 4종.
+- 풀이: 원국 도화 블록에 "나체도화: 성립(일지 목욕 — ○○ 일주) · 견해 구분 · 성향 · 진도화와 별도 유형(합쳐 키우거나 점수처럼 더하지 말 것)" 1줄,
+  노출 키 `type:naked`. 나체도화만 있는 명식도 블록 노출. 외적 인상·결혼 자원·궁합 점수 불변(가산 없음 — 테스트 고정).
+- 테스트: `test_dohwa.py` 목욕 일주 4개 고정·천충지충 3상태·비목욕 일주 None·블록 3상태·외적 인상 비가산, 사전 유형 4종.
+- 1차 전체 스위트(`var/suite_20261013_naked.log`)는 TESTS_FAILED 10건 — 외적 인상 테스트의 스텁 명식에 `twelve_unseong` 필드가 없어 나체도화 판정이 AttributeError. `_naked_dohwa`가 필드 없는 입력은 판정하지 않도록 수정(실제 만세 결과엔 항상 있음).
+- 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=397c2e8, 지문 동일, exit 0, `var/suite_20261013_naked2.log`, SAJU_ 환경변수 0개 셸). 백엔드 8888 재기동 반영.
+
+## 2026-10-13 — 사건 보고형 질문 라우팅 + 직장 이탈 계열(해고·퇴사 통보·권고사직) (데굴님 지시)
+
+- 실로그: "오늘 해고통보를 받았어. 앞으로 어떻게 하면 좋을까" → fortune_overview·general·당일(2026-10-13) 창으로 분류돼 '특정일 질문 — 답의 중심은 그 날'
+  지시와 총운 조망 지시가 붙고, 답이 "오늘은 업무적인 면에서 유리한 신호가 우세한 날"로 시작해 사건은 끝 한 줄로만 받았다. '오늘'을 빼면 too_broad 반려.
+- 원인: ①해고·실직·권고사직 등 어휘가 파서 직업 도메인·사건 판정·사실 원장 어디에도 없음 ②'오늘'은 사건 시점인데 대상 기간으로 잡혀 '앞으로'가 무시됨
+  (구조 결정형 지평 규칙도 시점 없는 질문에만 적용) ③사건 보고형 답변 계약 부재.
+- 직장 이탈 계열(데굴님: 해고·퇴사 통보·권고사직은 같은 계열): `saju_engines.job_separation`(해고·권고사직·정리해고·구조조정·희망퇴직·실직·실업·
+  퇴사 통보/권고/권유/요구·회사/직장에서 잘렸·짤렸 — '잘렸'은 회사·직장과 붙을 때만) 하나를 파서(직업 도메인 어휘·이직/직업 변화 사건 보강, 공유
+  EVENT_WORDS 불변)·지평(구조 결정형)·사실 원장(`job_separation` 단수 슬롯, 재직 전제 금지 주석)·답변 지시가 공유.
+- 사건 보고형(`query_parser.detect_reported_event`): 앞으로의 대응을 묻는 표지(앞으로/이제 어떻게·어떻게 하면/해야·뭘 해야·어떡하)가 있고, 한 문장에
+  '오늘·어제·방금 + 완료형' 또는 '직장 이탈 계열 + 완료형'이 있으면 날짜를 대상 기간에서 빼고 `dialogue_act="reported_event"`. chat 은 회고 모드로
+  뒤집지 않고(`_question_time_direction`) `_REPORTED_EVENT_DIRECTIVE`(사건을 첫 문장에 짧게 수용·당일 운세로 답 금지·당일 신호 역방향 위로 금지·사후
+  해석 금지·지평 안 흐름과 지금 할 일·같은 계열·재직 전제 금지)를 붙인다. 직업 외 사건('오늘 헤어졌어. 앞으로 어떻게…')에도 같은 규칙.
+- 회귀: '오늘 운세'(당일 유지)·'오늘 면접 봤는데 붙을까'(결과 질문 — 당일 유지)·'이직할까'·'머리 잘렸어'(직업 아님) 불변.
+- 테스트 `test_reported_event.py`(계열 5형 라우팅, 비보고 3형 불변, 관계 사건, 어휘 6형, 대응 표지 필수, 구조 결정형 지평, 사실 슬롯·블록, chat dry-run
+  프롬프트: 사건 보고형 지시 有·특정일/당일 운세/회고 모드 無·구조 결정형 지평).
+- 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=2da84d8, 지문 동일, exit 0, `var/suite_20261013_reported.log`, SAJU_ 환경변수 0개 셸). 백엔드 8888 재기동 반영.
+- 지시 ③ 문구를 금지 나열에서 범위 지정형("사건은 현실 사실로만, 사주 서술은 이후 흐름에만, 이유·의미·목적을 운의 언어로 설명하지 않음")으로 바꾼 뒤 재검증: 스위트 `VALID_SUITE_PASS`(`var/suite_20261013_reported2.log`, start_head=end_head=2da84d8, 지문 동일).
+- 실답(재기동 후 3회): 사건을 첫 문장에서 수용, 당일 운세 대신 12월·2027~2030 흐름과 준비 행동 중심으로 개선. **잔여**: 3회 모두 "비자발적 환경 변화의 과정", "더 나은 환경으로 나아가기 위해 기반을 다지는 과정으로 작동" 류 사후 의미 부여 문장이 남음 — 프롬프트 지시만으로는 막히지 않아 결정론 후처리가 필요(이번 범위 밖, 데굴님 결정 대기). "거머쥐게 될 것입니다" 같은 단정 어미도 1회 관찰.
+
+## 2026-10-13 — 관계 대상 질문('누가 제안을 해올까')에 운 십성 → 나와의 관계 유형 (데굴님 확정)
+
+- 실로그: 해고 후 대화의 마지막 질문 "누가 제안을 해올까?"에 답이 문서운·11월 시기만 말하고 '누구'를 답하지 않았다. 프롬프트엔 그 기간 십성(11월 己亥:
+  천간 己 비견·지지 亥 정재)이 있었지만 사람의 관계 유형으로 옮길 근거표가 없었다.
+- 데굴님 확정: 근거표(십성군 → 사회적 관계 / 가족 관계) 제안대로, 천간·지지 둘 다 가능한 관계 대상으로 나란히(역할 분리 없음), 가족 칸은 관계(가족·연애)
+  질문에서만.
+- 사전 `interpretations/ten_god_relations.json` 1.0.0: 비겁=동료·동기·친구·같은 업계 수평 관계(겁재=경쟁자이자 협력자)/형제자매, 식상=후배·부하·제자·내 기술을
+  필요로 하는 쪽/여성 자녀, 재성=거래처·고객·조건과 보상을 쥔 실무 쪽/남성 아내·편재 아버지, 관성=상사·회사·조직·기관/여성 남편·남성 자녀, 인성=선배·스승·
+  윗사람·추천인·후원자/어머니. 스키마·lint(5군·소속 십성·조건 십성).
+- 엔진 `saju_engines.agent_relations`: `detect_agent_question`('누가·누구한테서·어떤 사람이·어디서' + 제안·연락·도움·소개·추천·채용 등; '누가 이길까' 제외),
+  `relation_target`, `agent_relation_lines`(운 기둥 천간·지지 십성 + 용희기구한 역할 + 귀인 신살 보조 표기).
+- chat `_agent_relation_context`: 이번 턴 사건 후보 점수 상위 서로 다른 기간 2개(없으면 현재 절기월)의 운 기둥으로 "[관계 대상 — …]" 블록 +
+  `_AGENT_QUESTION_DIRECTIVE`(첫 문장에서 관계 유형으로 답, 시기 나열로 대신 금지, 실존 인물·특정 회사 지목·단정 금지, 천간·지지 병렬). 로그
+  `agent_relation_exposed`.
+- 실답(앞으로 2달안에 누가 취업 제안을 해올까?): "11월에 함께 발을 맞춰 일할 동료나 동종 업계 지인, 혹은 실무적인 보상 체계를 쥔 거래처 관계자를 통해…"로
+  시작 — 천간 비견·지지 정재 병렬, 시기는 근거로.
+- 잔여: '두 달'처럼 한글 수사 기간은 시점 파서가 못 읽는다('2달'은 2026-10~11). 별도 항목.
+- 테스트 `test_agent_relations.py`(판정 7형·근거표·천간/지지 병렬 줄·후보 상위 기간·가족 칸 관계 도메인 한정·비해당·현재 월 폴백·dry-run 프롬프트·lint).
+- 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 사전 validate 통과, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=94a580e, 지문 동일, exit 0, `var/suite_20261013_agent.log`, SAJU_ 환경변수 0개 셸). 백엔드 8888 재기동 반영.
+
+## 2026-10-13 — 한글 수사 기간 파싱('앞으로 두 달 안에') (데굴님 지시)
+
+- 결함: 시점 파서의 상대 기간 규칙(C8a 앞으로 N개월·C8 N개월 안에·C8c N개월 후·C8b 지난 N개월)이 숫자만 받아 '앞으로 두 달 안에'가 미파싱 → 12개월
+  지평으로 새서 관계 대상 후보가 2027년 2·5월로 나왔다('2달안에'는 2026-10~11 정상).
+- `time_parser.normalize_korean_counts`: 고유어 수사(한·두·세/석·네/넉·다섯~열두)+'달', 한자어 수사(일~십이)+'년'은 앞에 향후·앞으로·다가오는·지난·최근이
+  있거나 뒤에 안·이내·내·동안·간·후·뒤·이후·만에·정도·쯤·까지가 올 때만 숫자로, 한자어 수사+'개월'은 항상 숫자로 바꾼다. `parse_time`·
+  `parse_time_with_constraints` 입구에서 적용해 기존 숫자 규칙을 그대로 쓴다. '한 달에 한 번'·'이 년은'·'올 한 해'처럼 기간 표지 없는 표현은 불변.
+- 테스트 `test_time_parser_korean_counts.py`(한글/숫자 동일 창 8형, 불변 4형, 원 실로그 문장 = 2026-10~11). 기존 시점·파서·대화·지평 테스트 통과.
+- 실답("앞으로 두 달 안에 누가 취업 제안을 해올까?"): 창 2026-10~11, 관계 대상 후보 2026-11·2026(이전 2027-02·2027-05), 답은 "선배나 윗사람 혹은 비슷한 위치의 동료를 통해"로 시작.
+- 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=33734b7, 지문 동일, exit 0, `var/suite_20261013_kocount.log`, SAJU_ 환경변수 0개 셸). 백엔드 8888 재기동 반영.
+
+## 2026-10-14 — 2026-10-13 커밋 8건 검수 + 확정 결함 수정 (데굴님 지시·승인)
+
+- 검수: 어제 커밋(ab49a5d~e225aa2, 44파일) 을 영역 3개(관계 감사·일주·도화 정비 / 운 도화·나체도화 / 사건 보고 라우팅·관계 대상·한글 기간)로 나눠 검토하고
+  의심 지점은 전부 실행으로 재현했다. 게이트는 HEAD e225aa2 기준 전부 통과(`var/suite_20261014.log` VALID_SUITE_PASS)였으므로 아래는 **테스트가 못 잡은 결함**이다.
+  원인은 공통 — 단위 테스트가 설계 의도 경로만 고정하고 반례(가정형·제3자·명시 시점 동반·멀티턴 승계·절단 순서)를 넣지 않았다.
+- 수정 A(사건 보고형 라우팅): ①`user_facts` job_separation 슬롯 — 본인의 완료형 보고만 기록(가정형 "해고 당할까"·소문·제3자 "남편이 해고됐어"·고용주 "직원을 해고하려는데" 제외,
+  절대원칙 7). ②`query_parser` — 전체 intent 시점을 지우던 것을 '보고 문장을 뺀 나머지에서 재파싱'으로 바꿈(`report_sentences`·`strip_report_sentences`):
+  "오늘 해고통보 받았어. 11월에 어떻게"→11월 유지, "…그리고 12월 이사운은?"의 이사 조각은 보고형 아님·12월 유지. 소원형('됐으면')·결과 질문('어떻게 되었어')은 보고 아님.
+  ③`chat_service` 보고형 지시문을 범용 ①~④와 직장 이탈 꼬리(`_REPORTED_JOB_SEPARATION_TAIL`)로 분리 — 승진·이별 보고에 '재직 전제 금지'가 붙지 않음.
+  ④`conversation` 보고형 턴은 직전 시점 창을 승계하지 않음(과거 창 승계 시 회고+보고형 지시 동시 부착). ⑤`horizon` 구조 결정형은 직장 이탈 어휘+완료형 보고일 때만(미발생 걱정은 기존 경로).
+- 수정 B(운 도화): ①`chart_interpretation.build_luck_grounding` 운 신살 상위 3개 절단을 '사전 문구 있는 신살'만 세고 도화는 마지막 슬롯을 보장 — 1975-01-01 07:30 여 2026-01-05
+  일운(태극귀인·문곡귀인·사정지·도화·현침)에서 총운 줄에 도화가 빠져 연애운 블록과 달랐던 결함(명식 5개 표본 약 6% 일자). 글자 표지(사정지)는 빼지 않음(데굴님 미결정 — 기본값 유지).
+  ②`chat_service._luck_pillars_for_range` MONTH — 'YYYY-01'은 전년도 `luck_months`에만 있어 연도 집합에 y-1 포함("내년 1월 연애운" 빈 결과). 기존 `_build_period_fortune` monthly의 같은 패턴은 어제 범위 밖이라 **미수정·보고만**.
+- 수정 C(결정론 감사기): ①`ten_god_label_audit` 서술격 조사 쌍(이죠·이지·이네·이면·이다·이든·이야·이란)을 주격 '이/가'보다 먼저 대조('식신이죠'→'정재죠', 역방향 '정재죠'→'정관이죠'),
+  연결어 '에 든' 제거(지장간 서술 '일지 亥에 든 정인(甲)' 불변). ②`relation_claim_audit._has_binding_referent` — 묶임 어휘가 binding=NONE 관계를 주어·수단으로 직접 받으면
+  ("午戌반합으로 丙 정인이 묶여") '丙 정인' 지시 대상이 있어도 면책하지 않음(쉼표로 절이 끊긴 기존 오탐 4형은 무위반 유지).
+- 수정 D: `agent_relations._AGENT_RE` 배우자형(결혼·만나·인연·사귀·짝·배우자) 추가 + 제외 규칙(승부 '둘 중 누가 뽑힐까', 사용자 주체 '내가 누구한테·누구를 뽑아야');
+  `time_parser._KO_NATIVE_SPAN_RE` 뒤 한글 금지('한달음에'); `saju_shared_types.constants.STEM_CLASHES` 공용 상수(dohwa·event_engine_v2 참조, 용신 후보 모듈 사본은 캘리브레이션 대상이라 유지);
+  docs/05 나체도화 서술(유형 4종·'미도입' 경위→도입)·test_dohwa docstring 정정.
+- 테스트: 반례 전부를 각 파일에 추가 — `test_reported_event`(사실 슬롯 5형·명시 시점 2형·다중 조각·소원/결과 2형·미발생 지평·멀티턴 미승계·꼬리 분리),
+  `test_dohwa`(절단 생존·1월 라벨), `test_ten_god_label_audit`(서술격 8형·지장간 2형), `test_relation_claim_audit`(수단 귀속 3형), `test_agent_relations`(배우자·제외 6형), `test_time_parser_korean_counts`(합성어).
+- 미수정 잔여(보고): 미등록 육친 주격("남편이 해고됐어")을 본인 명식으로 푸는 기존 정책 — 사실 기록은 막았으나 라우팅은 그대로(대상 확인 질문은 별도 결정);
+  `_build_period_fortune` monthly 1월 라벨; `ten_god_relations.json` 편인=어머니(데굴님 확정표); `report_service` 섹션당 `analyze_dohwa` 2회(결정론·비용만).
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=e225aa2, 지문 동일, exit 0, `var/gates_20261014_full3.log`).
+  1·2차 실행(`gates_20261014_full.log`·`full2.log`)은 ruff 줄 길이·`zip strict` 지적으로 any_gate_failed=1 — 고친 뒤 최종 트리로 3차 재실행. 백엔드 8888 재기동 반영(프록시·DB 401·터널 200), 미커밋.
+
+
+## 2026-10-14 — 채팅 말풍선 꼬리 각 + 1월 절기월 라벨(기존 경로) + 육친 지칭 동작 확인 + 인성 가족 칸 정정 (데굴님 지시)
+
+- UI(`frontend/app/chat/page.tsx`): 좌우 정렬만으로는 화자 구분이 약해 질문 말풍선(오른쪽 정렬)은 **오른쪽 상단 각**(`rounded-tr-sm`), 응답 말풍선(왼쪽 정렬, 일반·오류)은
+  **왼쪽 상단 각**(`rounded-tl-sm`)으로 모서리를 세웠다. 1차 적용은 좌우가 반대였고 데굴님 지적으로 바로잡았다(각은 화자 쪽 바깥 모서리). 대기 스켈레톤은 배경 없음 유지.
+- 1월 라벨: `_luck_year_for_label`·`_luck_months_for_label` 신설 — `luck_months(birth, y)`가 입춘 기준 y-02~(y+1)-01 이라 'YYYY-01'은 전년도 호출에만 있다.
+  chat_service 의 라벨 기반 조회 전부(`_build_period_fortune` monthly·현재 절기월 상세/디렉티브·일운 상세·분야 통로·`_luck_grounding_for_label`·절기월 간지·
+  12개월 스윕·어제 고친 `_luck_pillars_for_range`) 를 이 헬퍼로 통일. "내년 1월 운세" 월 총운이 None 폴백으로 떨어지던 기존 결함 해소. 세운 경로의 `luck_months(birth, year)`는 연 라벨이라 그대로.
+- 육친 지칭("남편이 오늘 해고됐어"): 확인 질문을 추가하지 않는다(데굴님: 워킹 트리·뎁스 증가). 현재 동작 실측 — 등록 동반자(relation_to_user 동의어 '남편')면 그 명식으로,
+  미등록이면 기존 정책대로 본인 명식(unresolved 없음). 이 두 경로를 `test_reported_event` 에 고정. 사실 원장은 어제 가드로 어느 경로든 본인 실직으로 기록하지 않는다.
+- 인성 가족 칸: `ten_god_relations.json` 1.0.0 은 십성군 단위로 '어머니' 하나를 적어 편인까지 어머니로 읽혔다(출처는 ten_gods_text 정인 '어머니'를 군 전체에 올린 어제 작성분 — 명리 근거 아님).
+  1.0.1 — 정인=어머니, 편인=계모(통설, 데굴님 지적). validate 통과(111파일). `test_agent_relations` 에 두 십성 단언 추가.
+- 테스트: `test_luck_month_label_january.py` 신설(연도 변환 4형·라벨 포함 3형·1월 월 총운 2형), `test_reported_event` 육친 등록/미등록 2경로, `test_agent_relations` 인성 가족 칸.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=e225aa2, 지문 동일, exit 0, `var/gates_20261014_full5.log`).
+  프론트 `tsc --noEmit` exit 0 · `npm run build` Compiled successfully(`var/frontend_build_20261014b.log`). full4 실행은 UI 좌우 정정으로 추적 파일이 바뀌어 중단·재실행. 백엔드 8888 재기동 반영, 미커밋.
+
+## 2026-10-14 — 비겁 용신 × 비겁 운 유입 → 직장 이동 시드 + 운 간여지동 해석 + 실사례 1건 등록 (데굴님 지시·승인)
+
+- 사건: 1980-11-22 09:40 서울 남(庚申·丁亥·己亥·己巳, 용신 土=비겁) — 2026-10 戊戌월(천간·지지 모두 겁재 = 운 간여지동)에 권고사직(2026-10-13 실로그).
+  수정 전 엔진: 그 달을 '강한 용신운 · 재물 변화(94) 우세'로 읽고 career_change 후보 없음. 브랜처 겁재 단독 규칙(재물 분탈·분쟁·무리한 독립)만 있고,
+  운 간여지동은 배율(1.25)·태그만, LLM 입력에 운 간여지동 표기·이동 해석 없음.
+- 규칙(데굴님 확정): 비겁이 용신인 명식에 비겁 운(세운·월운)이 들어오면 자의·타의 직장 이동 후보. 간여지동은 강하게 들어온 경우(기준점 최고), 약하게 들어와도
+  관성 충 등 다른 작용으로 풀이가 바뀔 수 있으므로 후보는 항상 만들고 강도만 나눈다 → `transit_ten_god_branching.json` `peer_yongsin_mobility_rules`
+  (same_god 68·same_group 58·stem_only 50·branch_only 44), `saju_engines.peer_mobility_seed`(브랜처 직후 합류 — MT1 시드와 같은 자리, 6계층 보정 공통).
+  상위 층 비겁 뿌리(대운 壬辰의 辰)는 근거 층 + `PEER_UPPER_SUPPORT_daewoon`. 1차 구현은 source_layers=[월운]만 넣어 '월운 단독' 억제(−6·등급 강등)에 걸렸고(58→44),
+  브랜처 관례(평가 스택 전체)로 맞춘 뒤 기준점을 올려 2026-10 career_change 최종 70대·2위권. 플래그 `SAJU_PEER_YONGSIN_MOBILITY_ENABLED` 기본 ON(health 노출).
+- 해석: `incoming_ten_god_note`에 운 간여지동 표기 + 비겁 용신 이동 문구(강/약 유입 구분) — 문구는 신규 사전 `interpretations/transit_peer_mobility_text.json`(3항목, 스키마·lint).
+  `event_process_types.json` '이동·교체·재편' reason_prefixes 에 `PEER_YONGSIN_MOBILITY`.
+- 실사례: `life_event_cases.jsonl` 첫 실사례 20261013_career_1(2026-10 career_change · 이동·교체·재편 · 금지 '반드시 이직/해고될 것'). 러너 통과.
+- 개인 캘리브레이션(데굴님 승인): subjects c5a155b9…(owner test1)에 career_change · 2026-10 · confirmed · delayed_outcome 1행 적재(지문=해당 후보).
+- 테스트: `test_peer_mobility_seed.py` 신설(규칙 로드·용신 확인·10월 same_god 후보·11월 stem 등급·8월 미생성·비겁 비용신 명식 미생성·플래그 OFF 불변·config 기본 ON·
+  해석 줄 4형·비용신 침묵·유입 분류·사전 lint). 미결: 사례집 85사례 회귀 변화는 전체 스위트로 확인.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=9d7da9b, 지문 동일, exit 0, `var/gates_20261014_full7.log`).
+  1차 실행(`full6.log`)은 ruff 2건 + `test_score_saturation` 1건(병합 기여 로그가 시드 점수 전체를 적어 '기여 합≈raw' 불변식 위반 → 실제 증분만 기록·단독 시드는 base 키) 실패 → 수정 후 재실행 통과.
+  사례집 85사례 회귀 포함 전체 통과(기존 픽스처 변화 없음). 백엔드 8888 재기동 반영(health `peer_yongsin_mobility_enabled: true`), 미커밋.
+
+## 2026-10-14 — 부동산 매도 '언제' 질문 지평 축소(3년) + 매도 어휘 라우팅 + 커버리지 교정 문단 로그 전용 (데굴님 승인)
+
+- 실로그(박여사 명식): ①"부동산은 언제쯤 팔릴까" → 사건 없음·general·open_when → 지평 면제 → 10년 digest(2026~2035)로 2031·2034년 서술, 후보 앵커 없어 LLM이 계약·문서 서술 창작.
+  ②"12개월안에 부동산이 팔릴일은 없을까" 답 끝에 "※ 엔진 기준으로 이 사건의 결정 단계…" 교정 문단 — 월 커버리지 감사의 격상 검사가 "도장을 찍는 결정은 한 템포 늦추고 2월의 기운을 활용"을
+  2월 결정 권고로 오탐('늦추' 미등재). 문구 자체도 사용자용이 아니었다.
+- 수정 1(파서): `is_real_estate_sale` — 매물 명사(부동산·아파트·주택·빌라·오피스텔·상가·건물·토지·땅·매물·집[조사]) + 매도 동사(팔·매도·매각·처분·매매·넘기·정리) 12자 내 결합 → 사건 contract_document(보조 wealth_change) + 재물 도메인
+  (EVENT_DOMAIN의 career 매핑을 쓰지 않음). 공유 EVENT_WORDS 불변.
+- 수정 2(지평, docs/16 §1·§2 개정): 개방형 '언제'라도 사건 키가 잡힌 거래형 생활 사건은 `transactional_when`(앞 12개월 월 단위 + 이후 2년 연 단위, 총 3년; 유력 구간 1~2개·특정 달 단정 금지·후보 있는 달만 실행 시기).
+  사건 키 없는 순수 '언제'는 2026-06-18 결정대로 10년 digest 유지.
+- 수정 3(감사): `_NEGATION_RE`에 늦추·보류·기다·넘기·다음으로·대신·이후로·뒤로. 채팅 경로 `_audit_month_coverage_answer`는 교정 문단을 답에 삽입하지 않고 로그(`notes(log-only)`)로만 — 2026-09-18 삽입 결정 철회(데굴님 승인).
+  `build_coverage_notes`·`patch_month_coverage`는 QA 도구로 보존.
+- 테스트: `test_real_estate_sale_routing.py` 신설(어휘 9형·라우팅·12개월 창·dry-run 3년 지평·후보 앵커·10년 digest 부재), `test_answer_horizon` 거래형/순수 '언제' 2건, `test_month_coverage_audit` 유보 문형·로그 전용 2건.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=9d7da9b, 지문 동일, exit 0, `var/gates_20261014_full9.log`).
+  1차 실행(`full8.log`)은 2026-06-18 동작(사건 있는 '언제' → 10년 digest)을 고정한 기존 테스트 4건(`test_conversation_date_fixes`·`test_lifetime_scan_routing`·
+  `test_relocation_destination_directive`·`test_timing_granularity_routing`)과 미사용 import 1건 실패 → 새 정책 기대(3년 지평·특정 달 단정 금지 유지·결합 표를 타임라인으로 인정)로 전환 후 통과.
+  백엔드 8888 재기동 반영, 미커밋.
+
+## 2026-10-14 — 명식별 '나와의 관계' 설정 (데굴님 지시·승인: 본인 유일성 강제·레거시 자동 변경 없음·17종)
+
+- 사고: 채팅 '동반자 추가' 모달에 다른 명식마다 '본인'이 붙었다. 위저드가 모든 사주를 kind=self 로 저장하고 관계 입력이 없어
+  `relation_to_user`가 비어 있었고, 모달은 kind 로 라벨을 만들었다. 관계어 지칭("남편이…")의 등록 동반자 해소도 같은 이유로 작동하지 않았다.
+- 서버: `saju_shared_types.subject.RELATION_TO_USER_KEYS`(17종)·`RELATION_TO_USER_KO`·`kind_for_relation`. `SubjectUpsert.relation_to_user` 키 검증(빈 문자열=미설정),
+  `effective_kind`(관계→kind 파생, 미설정이면 입력 kind). 본인 유일성 `demote_other_selves`(명시 본인만 강등, 레거시 kind=self·관계 없음은 불변) — create/update 저장 직전 적용.
+  키는 `companion_alias.RELATION_SYNONYMS` 키와 일치해 "남편" 지칭이 등록 동반자로 해소된다(테스트 고정).
+- 프론트: `lib/relations.ts`(옵션·라벨·kind 파생), `SubjectCard` 관계 칩(미설정="관계 설정" 유도), `RelationPicker` 시트(17종+미설정+호칭 별칭, 본인 충돌 경고),
+  사주목록 저장 배선(전체 upsert → 목록 재조회), 채팅 사주 변경·동반자 추가 모달 라벨=관계 한글("관계 미설정"), 위저드 edit 가 관계·별칭을 지우던 것 보존 + add/edit 1단계 '나와의 관계' 선택.
+- 문서: docs/02 E14 relationToUser 키 확정, docs/11 §3-b 신설. 후속: 즉석 입력 상대의 관계 선택(궁합 축 입력).
+- 테스트: `test_subject_relation.py`(키·라벨·동의어 정합, kind 파생 4형, 검증 거부·파생·레거시, 명시 본인만 강등, 별칭 인덱스 해소).
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=9d7da9b, 지문 동일, exit 0, `var/gates_20261014_full10.log`).
+  프론트 `tsc --noEmit` exit 0 · `npm run build` Compiled successfully(`var/frontend_build_20261014c.log`). 백엔드 8888 재기동 반영, 미커밋.
+
+## 2026-10-14 — 등록 동반자 관계 지칭 질문('어머니와의 관계')이 상대 단독 풀이로 빠지던 결함 (데굴님 지적)
+
+- 실로그(데굴 스레드, 어머니=박여사 등록·칩 첨부): "어머니와의 관계는 어때?"·"나와 어머니와의 관계를 풀어줘"가 "박여사님…"으로 시작하고 어머니 명식의
+  월주 모친궁(어머니의 어머니)을 서술했다. 범위 확인: 관계 지칭 문형에서만 발생 — '어머니랑 궁합'·'나랑 …'은 pairwise 정상, '어머니 건강운'·'어머니 사주 봐줘'는
+  의도대로 상대 단독, 본인 질문(+칩)은 본인 풀이에 궁합 블록이 덧붙는 '함께 풀이' 동작.
+- 원인: `ConversationEngine._subject_mode` — 1인칭 표지에 '나와·저와·나 사이'가 없고, 상대 1명+'관계/사이'는 '궁합'·명시 1인칭이 있을 때만 PAIRWISE.
+  관계어가 등록 동반자로 해소되면 subjects=[동반자]만 남아 SINGLE → build_effective_subjects companion_only → 본인 명식 교체.
+- 수정: `_self_ref`에 `(?<![가-힣])(나와|저와|저랑|저하고|저는|제가)`·`나 사이` 추가, 신규 `_WITH_RELATION_RE`(조사 와·과·랑·이랑·하고 + 관계·사이,
+  사이드/사이트/사이즈 제외)로 상대 1명·본인 미언급 문형을 PAIRWISE 로. '대인관계'(조사 없음)·상대 2명 문형은 불변.
+- 테스트: `test_relation_phrase_pairwise.py`(pairwise 6형·단독 유지 4형·본인 질문 불변), 기존 pairwise/couple/effective_subjects/alias 테스트 통과.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=9d7da9b, 지문 동일, exit 0, `var/gates_20261014_full11.log`).
+  백엔드 8888 재기동 반영, 미커밋.

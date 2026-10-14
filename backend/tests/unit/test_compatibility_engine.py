@@ -58,13 +58,15 @@ def _chart(y: int, m: int, d: int, hm: str, gender: str):
 
 
 def test_sinsal_cross_is_auxiliary_neutral() -> None:
-    # 子酉 귀문 + 子 도화(사정지) → 보조 신호(NEUTRAL·auxiliary), 마찰/보완 방향 아님.
+    # 子酉 귀문 → 보조 신호(NEUTRAL·auxiliary), 마찰/보완 방향 아님.
     sigs = _sinsal_cross_signals(Stem.GAP, Stem.GAP, Branch.JA, Branch.YU)
     assert sigs, "신살 교차 신호가 나와야 한다"
     assert all(s.auxiliary and s.direction is CompatDirection.NEUTRAL for s in sigs)
     kinds = {s.kind for s in sigs}
     assert CompatSignalKind.SINSAL_FRICTION in kinds  # 귀문
-    assert CompatSignalKind.SINSAL_CHARM in kinds  # 도화
+    # 일지 子·酉(사정지) 글자 보유만으로는 도화 끌림을 붙이지 않는다(2026-10-13 도화 정비).
+    assert CompatSignalKind.SINSAL_CHARM not in kinds
+    assert CompatSignalKind.SINSAL_DOHWA not in kinds
 
 
 def test_sinsal_cross_excluded_from_counts() -> None:

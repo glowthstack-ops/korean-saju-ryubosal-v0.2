@@ -24,7 +24,13 @@ from saju_manse_analysis.structure.luck_geok_break import geok_break
 from saju_manse_analysis.structure.luck_structure_flags import resolve_luck_structure_flags
 from saju_manse_analysis.yongsin.operational_role_config import is_unfavorable_role
 
-from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT, main_hidden_stem, ten_god
+from saju_shared_types.constants import (
+    BRANCH_ELEMENT,
+    STEM_CLASHES,
+    STEM_ELEMENT,
+    main_hidden_stem,
+    ten_god,
+)
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.event_engine import (
     TEN_GOD_GROUP,
@@ -102,6 +108,11 @@ from .marriage_flow_modifier import (
     apply_marriage_gender_weight,
     detect_marriage_flow_activations,
 )
+from .peer_mobility_seed import (
+    load_peer_mobility_rule,
+    merge_peer_mobility_seeds,
+    produce_peer_mobility_seeds,
+)
 from .reality_context import RealityContext
 from .relation_palace_engine import RelationActivation, RelationPalaceEngine
 from .risk_auxiliary import apply_auxiliary_amplifiers, build_auxiliary_facts
@@ -161,10 +172,7 @@ _FAV_ROLE: dict[str, PolarityRole] = {
 _GENERATES: dict[str, str] = {"木": "火", "火": "土", "土": "金", "金": "水", "水": "木"}
 # 천간충 4쌍(甲庚·乙辛·丙壬·丁癸) — 만세 calendar 관계 경로엔 없어 어댑터로 직접 계산한다
 # (manse_core 불변, CLAUDE.md "어댑터만 추가"). 천충지충 동시 퇴직 리스크 판정용(자료 13-1).
-_STEM_CLASH_PAIRS: frozenset[frozenset[str]] = frozenset({
-    frozenset({"甲", "庚"}), frozenset({"乙", "辛"}),
-    frozenset({"丙", "壬"}), frozenset({"丁", "癸"}),
-})
+_STEM_CLASH_PAIRS: frozenset[frozenset[str]] = STEM_CLASHES  # 天干四沖 공용 상수
 # 이직 분류(자료 12) — 최종 favorability 임계. 이하=압박성, 이상=기회성, 사이=중립.
 _JOBCHANGE_PRESSURE_TH = -0.2
 _JOBCHANGE_OPPORTUNITY_TH = 0.2
@@ -223,6 +231,7 @@ class EventEngineV2:
         risk_mode: str | None = None,
         daewoon_hwa_mode: str = "current",
         enable_resource_clash_renewal: bool = False,
+        enable_peer_mobility: bool = True,
     ) -> None:
         """재설계 6계층 + 만세 신호 추출에 필요한 사전을 로드한다.
 
@@ -247,8 +256,17 @@ class EventEngineV2:
                 2026-08-10 승인). 운 충이 원국 인성 글자를 칠 때 문서 교체 계열
                 (contract_document/relocation/career_change) 가산 + 인성군 세력 게이트
                 (relation_target_ten_god_rules, reviewed:false). OFF면 기존 결과 불변.
+            enable_peer_mobility: 비겁 용신 × 비겁 운 유입 → career_change 시드(2026-10-14 데굴님
+                확정, 기본 ON). 규칙·점수는 브랜처 사전 `peer_yongsin_mobility_rules` 절.
+                OFF면 불변.
         """
         self._enable_mt1_awareness = enable_mt1_awareness
+        # 비겁 용신 × 비겁 운 → 직장 이동 시드(2026-10-14 데굴님 확정, 기본 ON). 규칙은 브랜처 사전
+        # `peer_yongsin_mobility_rules` 절 — OFF 또는 절 부재면 기존 결과 불변.
+        self._enable_peer_mobility = enable_peer_mobility
+        self._peer_mobility_rule = (
+            load_peer_mobility_rule(dictionaries_dir) if enable_peer_mobility else None
+        )
         self._enable_mt2_emergence = enable_mt2_emergence
         self._enable_mt3_directional = enable_mt3_directional
         self._mt4_mode = enable_mt4_subtype
@@ -591,6 +609,15 @@ class EventEngineV2:
                 *cands,
                 *produce_mt1_awareness_seeds(target, result, fav_map, marriage_flow.gender, label),
             ]
+        # 비겁 용신 × 비겁 유입 → career_change 시드(2026-10-14). 브랜처 직후 합류 → 6계층 보정·랭킹
+        # 공통 적용(관성 충 등 다른 작용이 뒤에서 풀이를 바꿀 수 있어야 한다는 데굴님 지시).
+        if self._peer_mobility_rule is not None:
+            cands = merge_peer_mobility_seeds(
+                cands,
+                produce_peer_mobility_seeds(
+                    signals, target_layer, result, fav_map, label, self._peer_mobility_rule,
+                ),
+            )
         if not cands:
             return []
         # 배우자성 성별 가중(③) — 남=재성·여=관성. 반대 성별 별만으로 뜬 결혼신호를 amplifier 전에

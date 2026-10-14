@@ -7,6 +7,7 @@ import { fetchLuckDays } from "@/lib/api";
 // 일운 오버레이 기준 사주 해석은 공통 resolver 사용(일주별 오늘의 운세 메인 카드와 동일 규칙):
 // 로그인=선택 사주(사주별 균시차·자시 규칙), 게스트=IndexedDB 프로필+기기 설정.
 import { buildTimeOptions } from "@/lib/subject-mapping";
+import { withoutBranchMarkers } from "@/lib/sinsal-display";
 import { resolveOverlayProfile } from "@/lib/use-current-ilju";
 import type { CalendarDay, CalendarMonth, LuckPillar, LuckSinsal, Profile } from "@/lib/types";
 
@@ -93,7 +94,8 @@ export function DateJump() {
 }
 
 // 신살/길신/흉성 칩(단색 회색, polarity는 툴팁).
-function SinsalChips({ items }: { items: LuckSinsal[] }) {
+function SinsalChips({ items: raw }: { items: LuckSinsal[] }) {
+  const items = withoutBranchMarkers(raw); // 지지 유형 표지(이동지·사정지·사고지) 비표시
   if (items.length === 0) return null;
   return (
     <div className="mt-px flex flex-wrap justify-center gap-x-0.5 leading-tight">
@@ -141,11 +143,11 @@ function DayDetail({ d, luck, onClose }: { d: CalendarDay; luck?: LuckPillar; on
             <div className="col-span-2 mt-1 border-t border-dashed border-gray-300 pt-1" />
             {row("십성(천간/지지)", `${luck.stem_ten_god} / ${luck.branch_ten_god}`)}
             {luck.twelve_unseong && row("십이운성", luck.twelve_unseong)}
-            {luck.luck_sinsal && luck.luck_sinsal.length > 0 && (
+            {luck.luck_sinsal && withoutBranchMarkers(luck.luck_sinsal).length > 0 && (
               <>
                 <span className="text-gray-400">신살/길흉</span>
                 <span className="flex min-w-0 flex-wrap gap-1">
-                  {luck.luck_sinsal.map((s, i) => (
+                  {withoutBranchMarkers(luck.luck_sinsal).map((s, i) => (
                     <span key={i} title={sinsalTitle(s)}
                       className={s.name === "복음"
                         ? "rounded border border-amber-300 px-1 text-xs font-medium text-amber-600"
@@ -258,7 +260,7 @@ export function CalendarGrid({ data }: { data: CalendarMonth }) {
                 </div>
               )}
               {/* 십이운성 아래 구분선: 길신 · 신살. */}
-              {luck?.luck_sinsal && luck.luck_sinsal.length > 0 && (
+              {luck?.luck_sinsal && withoutBranchMarkers(luck.luck_sinsal).length > 0 && (
                 <div className="w-full border-t border-dashed border-gray-300 mt-1 pt-1">
                   <SinsalChips items={luck.luck_sinsal} />
                 </div>

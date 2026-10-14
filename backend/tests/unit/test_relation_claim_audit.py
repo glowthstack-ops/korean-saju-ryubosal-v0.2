@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date
 
 import pytest
@@ -14,6 +15,7 @@ from saju_engines.relation_claim_audit import (
     RelationViolationKind,
     audit_relation_claims,
     canonical_claim_lines,
+    dedupe_canonical_claims,
     patch_relation_claims,
     split_sentences,
 )
@@ -91,7 +93,9 @@ def test_half_hap_is_not_binding(semantics):
     assert "묶" not in sem.canonical_claim
     assert "합반" not in sem.canonical_claim
     assert "합거" not in sem.canonical_claim
-    assert "보조적으로 강화" in sem.canonical_claim
+    assert "붙잡" not in sem.canonical_claim
+    # 보조 강화 — 쉬운 말 '조금 보태 주는 정도'(2026-10-13 개정, 구 '보조적으로 강화').
+    assert "조금 보태 주는 정도" in sem.canonical_claim
     assert any(e.effect is EffectKind.PARTIALLY_STRENGTHENED for e in sem.effects)
     # 엔진은 반합에 'transform'을 반환하지 않는다 → 化 미결이 아니라 판정 대상 아님.
     assert sem.transformation_state is TransformationState.NOT_APPLICABLE
@@ -148,23 +152,24 @@ def test_patch_fixes_and_survives_reaudit(semantics):
     assert patched.patched_count == 1
     assert patched.fully_repaired
     assert "더 강하게 만드니" not in patched.text
-    assert "합반" in patched.text
+    assert "합거" in patched.text  # 교체본 = 쉬운 말 확정 문장(원어는 괄호 한 번)
     assert audit_relation_claims(patched.text, semantics) == []
 
 
 def test_canonical_claim_states_engine_verdict(semantics):
-    """확정 문장은 엔진 판정(합반·합거·흉 제거)을 그대로 말한다."""
+    """확정 문장은 엔진 판정(묶임·합거·흉 완화)을 쉬운 말로 그대로 말한다(2026-10-13 개정)."""
     claim = _by_label(semantics, "寅亥合").canonical_claim
-    assert "합반" in claim
-    assert "합거" in claim
-    assert "완화" in claim  # 壬(구신)·甲(기신) 억제 = 유리
+    assert "서로 붙잡혀" in claim  # 묶임
+    assert "바뀌지는 않고" in claim  # 化 불성
+    assert "크게 약해집니다(합거)" in claim  # 합거 = 제거가 아니라 크게 약해짐
+    assert "오히려 가벼워집니다" in claim  # 壬(구신)·甲(기신) 억제 = 유리
 
 
 def test_prompt_uses_canonical_claim_not_only_prohibitions(semantics):
     """생성 전 입력에 확정 문장이 실린다 — 관계 사실은 자유 작문 대상이 아니다."""
     lines = canonical_claim_lines(semantics)
     assert any("관계 확정 문장" in ln for ln in lines)
-    assert any("합반" in ln for ln in lines)
+    assert any("합거" in ln for ln in lines)
 
 
 def test_patch_text_equals_prompt_claim(semantics):
@@ -228,11 +233,12 @@ def test_period_relation_semantics_uses_only_target_stack(monkeypatch):
         assert not outside, f"{sem.relation_label}에 요청 스택 밖 글자 {outside}"
 
 
-def test_ambiguous_sentence_is_not_patched_arbitrarily(semantics):
-    """한 문장이 여러 관계에 걸리면 임의 교체하지 않고 폴백으로 넘긴다.
+def test_multi_relation_sentence_is_replaced_with_all_canonical_claims(semantics):
+    """한 문장이 여러 관계에 걸리면 임의로 하나를 고르지 않고 **전부의** canonical 문장으로 바꾼다.
 
-    寅은 寅午반합·寅亥合·寅申충·寅巳해에 모두 참여하므로, 어느 관계 문장으로
-    바꿔야 하는지 확정할 수 없는 경우가 있다.
+    寅은 寅午반합·寅亥合·寅申충·寅巳해에 모두 참여하므로 한 문장이 둘 이상에 걸린다.
+    예전엔 이를 모호로 보고 답 전체를 안전 템플릿으로 교체했다(2026-10-02·10-13 실답) —
+    문장 하나 때문에 답 전체를 버리지 않도록 결정론 국소 교정으로 바꿨다(2026-10-13 승인).
     """
     from saju_engines.relation_claim_audit import PatchOutcome, RelationClaimViolation
 
@@ -246,10 +252,35 @@ def test_ambiguous_sentence_is_not_patched_arbitrarily(semantics):
         for label in ("寅亥合", "寅午반합")
     ]
     patched = patch_relation_claims(sentence, violations, semantics)
+    assert patched.patched_count == 2
+    assert patched.ambiguous_sentences == []
+    assert patched.multi_patched_sentences == [0]
+    assert patched.fully_repaired
+    assert patched.outcome is PatchOutcome.PATCHED_MULTI_RELATION
+    expected = " ".join(
+        s.canonical_claim for s in semantics if s.relation_label in {"寅亥合", "寅午반합"}
+    )
+    assert patched.text == expected  # semantics 순서로 전부, 임의 선택 없음
+
+
+def test_sentence_with_unknown_relation_stays_ambiguous(semantics):
+    """위반 라벨 중 canonical 문장이 없는 관계가 섞이면 교체본을 확정할 수 없어 모호로 남긴다."""
+    from saju_engines.relation_claim_audit import PatchOutcome, RelationClaimViolation
+
+    sentence = "해수(亥水)와 인목(寅木)이 얽혀 木이 강해집니다."
+    violations = [
+        RelationClaimViolation(
+            relation_label=label,
+            kind=RelationViolationKind.TRANSFORMATION_ASSERTED_WHEN_NOT,
+            sentence_index=0, sentence=sentence,
+        )
+        for label in ("寅亥合", "없는관계合")
+    ]
+    patched = patch_relation_claims(sentence, violations, semantics)
     assert patched.patched_count == 0
     assert patched.ambiguous_sentences == [0]
     assert patched.outcome is PatchOutcome.AMBIGUOUS_RELATION_FALLBACK
-    assert patched.text == sentence  # 임의 교체 금지
+    assert patched.text == sentence
 
 
 def test_split_sentences_preserves_offsets():
@@ -333,3 +364,274 @@ def test_real_reversals_still_caught_after_explicit_name_rule(
     violations = audit_relation_claims(text, shared_semantics)
     assert (label, kind) in {(v.relation_label, v.kind) for v in violations}
     assert {v.relation_label for v in violations} == {label}
+
+
+def test_prompt_header_limits_claim_to_single_citation(semantics):
+    """확정 문장 헤더는 '한 번만 인용'을 명시한다(2026-10-12 — 영역별 문단 복사 반복 차단)."""
+    header = canonical_claim_lines(semantics)[0]
+    assert "한 번만 인용" in header
+
+
+def test_dedupe_keeps_first_canonical_claim_only(semantics):
+    """같은 canonical claim이 두 번 그대로 실리면 첫 출현만 남고 문장 간격은 유지된다."""
+    claim = _by_label(semantics, "寅亥合").canonical_claim
+    text = f"오늘은 유리한 날이에요. {claim} 일에서는 막힌 것이 풀려요. {claim} 돈은 점검이 맞아요."
+    out = dedupe_canonical_claims(text, semantics)
+    assert out.count(claim) == 1
+    assert out == f"오늘은 유리한 날이에요. {claim} 일에서는 막힌 것이 풀려요. 돈은 점검이 맞아요."
+    # 중복이 없으면 원문 byte 그대로.
+    assert dedupe_canonical_claims(out, semantics) == out
+
+
+def test_dedupe_ignores_rephrased_claims(semantics):
+    """결과어로 바꿔 받은 문장은 전문 일치가 아니므로 건드리지 않는다."""
+    claim = _by_label(semantics, "寅亥合").canonical_claim
+    text = f"{claim} 그래서 묶인 글자의 작용이 끌려가는 흐름이 이어져요."
+    assert dedupe_canonical_claims(text, semantics) == text
+
+
+# ── 한글 병기 호칭 정규화(2026-10-12 실답 오귀속) ───────────────────────────────
+# '午未(오미) 합'·'巳午未(사오미) 방합'처럼 한자 뒤 괄호 음 병기 + 공백이 끼면 직접 호칭
+# 인식이 실패해 공유 글자 관계로 귀속됐다. 2026-10-02 스택(酉 공유 3관계)으로 재현한다.
+@pytest.mark.parametrize(
+    "text",
+    [
+        "辰酉(진유) 합은 이번 판정에서 서로 묶이는 합반이며 합거입니다.",
+        "巳酉(사유) 반합이 형성되며 金(금)의 기운이 보조적으로 강화됩니다.",
+        "申酉(신유)방합으로 金 기운이 강화됩니다.",
+    ],
+)
+def test_annotated_relation_name_counts_as_explicit_name(shared_semantics, text):
+    """괄호 병기·공백이 끼어도 호칭된 관계에만 귀속되어 공유 글자 관계 위반이 나지 않는다."""
+    assert audit_relation_claims(text, shared_semantics) == []
+
+
+def test_annotated_name_still_catches_real_reversal(shared_semantics):
+    """정규화는 귀속만 바로잡는다 — 호칭된 관계 자체의 역전은 그대로 검출된다."""
+    text = "辰酉(진유) 합으로 金이 강해져 식상의 기운이 살아납니다."
+    violations = audit_relation_claims(text, shared_semantics)
+    assert {(v.relation_label, v.kind) for v in violations} == {
+        ("辰酉合", RelationViolationKind.TRANSFORMATION_ASSERTED_WHEN_NOT)
+    }
+
+
+# ── 호칭 없는 문장의 창 귀속 좁히기(2026-10-12 데굴님 승인) ────────────────────────
+# 2026-10-12 스택 — 대운 壬辰 · 세운 丙午 · 월운 戊戌 · 일진 己未. 午未合이 己 비견·丁 편인을
+# 억제(SUPPRESSED)한다. 관계를 말하지 않은 문장('뚜렷해지고'·'집중합니다'·'종합해보면')이
+# 한글 1음절 관계 어휘에 걸려 未·己 공유로 午未合에 귀속, STRENGTHEN 위반으로 교체되던 오탐.
+_OCT12_STEMS = ["壬", "丙", "戊", "己"]
+_OCT12_BRANCHES = ["辰", "午", "戌", "未"]
+
+
+@pytest.fixture(scope="module")
+def oct12_semantics():
+    """午未合(합반·합거, 己·丁 억제)이 성립하는 2026-10-12 스택의 관계 구조화 의미."""
+    from saju_api.services.manse_service import calculate
+
+    chart = calculate(_BIRTH.model_copy(update={"reference_date": date(2026, 10, 12)}))
+    sems = collect_luck_relation_semantics(chart, _OCT12_STEMS, _OCT12_BRANCHES)
+    sem = _by_label(sems, "午未合")
+    assert any(e.effect is EffectKind.SUPPRESSED and e.target == "己" for e in sem.effects)
+    return sems
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # 실답 오탐 문장 그대로 — '뚜렷해지고'의 '해'가 관계 어휘로 읽혔다.
+        "세운 丙午(병오)가 배경에 있습니다. 오늘 유입된 己未(기미) 기운은 당신에게 꼭 필요한 "
+        "土(토) 용신의 힘으로, 본인의 주관이 뚜렷해지고 결정권이 강화되는 흐름을 만듭니다.",
+        # '집중합니다'·'종합해보면'·'충분히' — 일상 어절.
+        "丙午(병오) 세운 속 己未(기미) 일진은 己(기) 비견을 강하게 합니다. 종합해보면 충분히 "
+        "좋은 날이니 정리에 집중합니다.",
+    ],
+)
+def test_sentence_without_relation_word_is_not_window_attributed(oct12_semantics, text):
+    """관계 어휘가 없는 문장은 공유 글자가 창 안에 있어도 어느 관계에도 귀속되지 않는다."""
+    assert audit_relation_claims(text, oct12_semantics) == []
+
+
+def test_window_path_still_catches_strengthen_of_suppressed_target(oct12_semantics):
+    """진짜 관계 어휘('합을 하여')가 있으면 창 경로 귀속과 억제 대상 강화 검출은 유지된다."""
+    text = (
+        "세운의 午(오화)가 들어옵니다. 일진 未(미토)가 그와 합을 하여 己(기) 비견이 더 "
+        "강해지니 주도권이 커집니다."
+    )
+    violations = audit_relation_claims(text, oct12_semantics)
+    assert ("午未合", RelationViolationKind.STRENGTHEN_ASSERTED_WHEN_SUPPRESSED) in {
+        (v.relation_label, v.kind) for v in violations
+    }
+
+
+# ── 묶임 어휘의 정당한 지시 대상(2026-10-13 데굴님 승인) ──────────────────────────
+# 2026-10-13 스택 — 대운 壬辰 · 세운 丙午 · 월운 戊戌 · 일진 庚申. 巳申合=합거(丙 정인 억제),
+# 午戌반합·巳午방합·申戌방합=보조 강화(묶임 없음). 실답: "묶여"가 호칭된 두 방합에 귀속돼
+# BINDING_ASSERTED_WHEN_NONE ×2 → 모호 → 답 전체가 안전 템플릿으로 교체.
+_OCT13_STEMS = ["壬", "丙", "戊", "庚"]
+_OCT13_BRANCHES = ["辰", "午", "戌", "申"]
+
+
+@pytest.fixture(scope="module")
+def oct13_semantics():
+    """巳申合(합거·丙 억제)과 巳午방합·申戌방합이 함께 서는 2026-10-13 스택."""
+    from saju_api.services.manse_service import calculate
+
+    chart = calculate(_BIRTH.model_copy(update={"reference_date": date(2026, 10, 13)}))
+    sems = collect_luck_relation_semantics(chart, _OCT13_STEMS, _OCT13_BRANCHES)
+    assert {s.relation_label for s in sems} >= {"巳申合", "巳午방합", "申戌방합"}
+    sem = _by_label(sems, "巳申合")
+    assert sem.binding_state is BindingState.REMOVED
+    assert any(e.effect is EffectKind.SUPPRESSED and e.target == "丙" for e in sem.effects)
+    assert _by_label(sems, "巳午방합").binding_state is BindingState.NONE
+    return sems
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # 결과어 '묶여'(巳申合의 丙 억제) + 방합 두 라벨 호칭을 한 문장에 — 실답 오탐 형태.
+        "직장에서는 丙 정인이 묶여 있어 서류 확인이 느슨해질 수 있고, 巳午방합·申戌방합이 "
+        "보조하는 火·金 기운으로 체력은 받쳐 줘요.",
+        "巳午방합과 申戌방합은 火·金 기운을 보조적으로 강화하지만, 丙 정인은 묶여 있어 문서 "
+        "운은 기대를 낮추세요.",
+        # 한글 음 뒤 한자 병기 — '사신(巳申)합'은 巳申合 직접 호칭이다.
+        "사신(巳申)합으로 申과 巳가 묶여 丙 정인의 이로운 작용이 끌려가요. 巳午방합과 "
+        "申戌방합은 火·金 기운을 보조해요.",
+        # 호칭 없이 구성 글자만으로 巳申合을 받은 결과어 서술.
+        "일진 庚申의 申이 시지 巳와 만나 서로 묶이면서 丙 정인의 이로운 작용이 끌려가요. "
+        "그래도 午戌·巳午의 火 기운과 申戌의 金 기운이 보조적으로 받쳐 줘요.",
+    ],
+)
+def test_binding_word_with_legit_referent_is_not_attributed_to_unbound_relations(
+    oct13_semantics, text
+):
+    """묶임 판정이 있는 관계(巳申合)의 결과를 받은 '묶여'는 함께 불린 방합의 위반이 아니다."""
+    assert audit_relation_claims(text, oct13_semantics) == []
+
+
+def test_hanja_annotated_korean_name_counts_as_explicit_name(oct13_semantics):
+    """'사신(巳申)합'은 巳申合 직접 호칭 — 합거 서술이 다른 관계로 새지 않는다."""
+    from saju_engines.relation_claim_audit import _named_relations
+
+    assert _named_relations("사신(巳申)합으로 묶여요.", oct13_semantics) == {"巳申合"}
+    assert _named_relations("사신(巳申) 합이 합거예요.", oct13_semantics) == {"巳申合"}
+
+
+def test_real_binding_reversal_of_unbound_relation_still_caught(oct13_semantics):
+    """지시 대상 없이 반합을 묶였다고 쓰면 여전히 위반이다(세운 丙午의 丙 단독 언급은 면책 아님)."""
+    text = "세운 丙午의 午와 월운 戌이 午戌반합으로 서로 묶여 火 작용이 둔해집니다."
+    violations = audit_relation_claims(text, oct13_semantics)
+    assert {(v.relation_label, v.kind) for v in violations} == {
+        ("午戌반합", RelationViolationKind.BINDING_ASSERTED_WHEN_NONE)
+    }
+
+
+def test_two_unbound_relations_bound_in_one_sentence_are_both_replaced(oct13_semantics):
+    """방합 둘을 한 문장에서 묶였다고 쓰면 두 canonical 문장으로 **그 문장만** 교체된다.
+
+    답 전체를 안전 템플릿으로 바꾸던 예전 경로가 아니다.
+    """
+    from saju_engines.relation_claim_audit import PatchOutcome
+
+    bad = "巳午방합과 申戌방합이 서로 묶여 작용이 둔해집니다."
+    text = f"오늘은 평운이에요. {bad} 서류는 한 번 더 확인하세요."
+    violations = audit_relation_claims(text, oct13_semantics)
+    assert {v.relation_label for v in violations} == {"巳午방합", "申戌방합"}
+    patched = patch_relation_claims(text, violations, oct13_semantics)
+    assert patched.outcome is PatchOutcome.PATCHED_MULTI_RELATION
+    assert patched.text.startswith("오늘은 평운이에요. ")
+    assert patched.text.endswith(" 서류는 한 번 더 확인하세요.")
+    assert bad not in patched.text
+    for label in ("巳午방합", "申戌방합"):
+        assert _by_label(oct13_semantics, label).canonical_claim in patched.text
+    assert audit_relation_claims(patched.text, oct13_semantics) == []
+
+
+# ── 확정 문장 쉬운 말 개정(2026-10-13 데굴님 승인) ────────────────────────────────
+# 용어를 모르는 사용자가 읽는 문장 — 판정을 쉬운 말로 먼저, 원어는 괄호로 한 번만.
+# 실측 스택 4개(07-27·10-02·10-12·10-13)의 관계 22건 전부에 대해 불변식을 고정한다.
+_STACK_FIXTURES = ("semantics", "shared_semantics", "oct12_semantics", "oct13_semantics")
+_BAD_JOSA = re.compile(r"[水火土]으로|[木金]로(?![^\s])")
+
+
+@pytest.mark.parametrize("fixture_name", _STACK_FIXTURES)
+def test_plain_canonical_claims_pass_audit_as_a_whole(request, fixture_name):
+    """스택의 확정 문장 전부를 한 답에 실어도 감사 위반이 없다(자기 재발동·상호 오귀속 없음)."""
+    sems = request.getfixturevalue(fixture_name)
+    text = "\n\n".join(s.canonical_claim for s in sems)
+    assert audit_relation_claims(text, sems) == []
+    # 한 문단에 이어 붙여도(창 경로 ±2문장) 위반이 없다.
+    assert audit_relation_claims(" ".join(s.canonical_claim for s in sems), sems) == []
+
+
+@pytest.mark.parametrize("fixture_name", _STACK_FIXTURES)
+def test_plain_canonical_claim_wording_invariants(request, fixture_name):
+    """쉬운 말 문장 형태 — 엔진 말투 제거·조사 오류 없음·한글 병기·원어는 괄호 한 번."""
+    for sem in request.getfixturevalue(fixture_name):
+        claim = sem.canonical_claim
+        assert "이번 판정에서" not in claim
+        assert not _BAD_JOSA.search(claim), claim
+        assert claim.startswith(f"{sem.relation_label}(")  # 라벨 + 한글 음 병기
+        for term in ("합거", "합반", "합화"):
+            assert claim.count(term) <= 1, claim
+        assert "국을 이루" not in claim and "보조적으로 강화" not in claim
+        if sem.binding_state is BindingState.NONE:
+            assert "붙잡" not in claim and "묶" not in claim, claim
+        if sem.transformation_state is not TransformationState.TRANSFORMED:
+            assert "바뀝니다" not in claim, claim
+
+
+def test_plain_claims_for_oct13_incident(oct13_semantics):
+    """2026-10-13 사고일 문장 고정 — 합거는 '제거'가 아니라 '크게 약해짐', 역할은 쉬운 말+괄호."""
+    claims = {s.relation_label: s.canonical_claim for s in oct13_semantics}
+    assert claims["巳申合"] == (
+        "巳申合(사신합)은 이번 운에서 두 글자가 서로 붙잡혀, 새로운 水(수) 기운으로 바뀌지는 "
+        "않고 붙잡힌 글자의 작용이 크게 약해집니다(합거). 그 대신 丙(병) 정인의 좋은 작용도 "
+        "이번에는 힘을 덜 씁니다."
+    )
+    assert claims["丁壬合"] == (
+        "丁壬合(정임합)은 이번 운에서 두 글자가 손을 잡고 木(목) 기운으로 바뀝니다(합화). "
+        "이 木 기운은 이 사주에서 부담스러운 기운(기신)입니다."
+    )
+    assert claims["午戌반합"].startswith(
+        "午戌반합(오술반합)은 이번 운에서 세 글자가 모여야 완성되는 조합 중 두 글자만 모여, "
+        "火(화) 기운을 조금 보태 주는 정도입니다."
+    )
+    assert claims["巳午방합"].startswith(
+        "巳午방합(사오방합)은 이번 운에서 같은 계절의 글자끼리 모였지만 세 글자가 다 모이지는 않아"
+    )
+    assert "제거" not in claims["巳申合"]
+
+
+def test_forbidden_phrases_use_correct_particle(oct13_semantics):
+    """금지 해석 문구의 조사 — '水로·火로'(받침 없음), '木으로·金으로'(받침)."""
+    joined = " ".join(f for s in oct13_semantics for f in s.forbidden_interpretations)
+    assert "水으로" not in joined and "火으로" not in joined
+    assert "水로 합화했다고 서술" in joined
+    assert "火로 합화했다고 서술" in joined
+
+
+def test_boon_tail_uses_plain_words(semantics):
+    """흉이 눌리는 합거(寅亥合)는 '부담스러운 작용이 오히려 가벼워진다'로 쓴다."""
+    claim = _by_label(semantics, "寅亥合").canonical_claim
+    assert "그 덕분에 壬(임) 정재·甲(갑) 정관의 부담스러운 작용은 오히려 가벼워집니다." in claim
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "午戌반합으로 丙 정인이 묶여 火 작용이 둔해집니다.",
+        "巳午방합으로 丙 정인이 묶여 있어요.",
+        "세운 丙午의 정인 기운은 午戌반합으로 묶여 힘을 잃어요.",
+    ],
+)
+def test_binding_attributed_to_unbound_relation_is_violation_even_with_effect_target(
+    oct13_semantics, text
+):
+    """'丙 정인'을 덧붙여도 묶임을 반합·방합의 작용(…으로 묶여)으로 돌리면 ③ 위반이다.
+
+    2026-10-14 검수 반례.
+    """
+    kinds = {(v.relation_label, v.kind) for v in audit_relation_claims(text, oct13_semantics)}
+    assert kinds, text
+    assert all(k is RelationViolationKind.BINDING_ASSERTED_WHEN_NONE for _l, k in kinds)
