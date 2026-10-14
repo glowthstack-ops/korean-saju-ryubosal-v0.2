@@ -52,7 +52,9 @@ def test_non_relocation_question_unaffected() -> None:
 
 
 def _has_timeline(t: str) -> bool:
-    return ("[연도별 흐름" in t) or ("[월별 요약" in t)
+    # 지평 결합 표([운 흐름 요약])도 타임라인이다 — 거래형 '언제' 질문은 3년 지평 표를 쓴다
+    # (2026-10-14).
+    return ("[연도별 흐름" in t) or ("[월별 요약" in t) or ("[운 흐름 요약" in t)
 
 
 def test_decided_move_suppresses_timeline_blocks() -> None:

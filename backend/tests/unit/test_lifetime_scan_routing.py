@@ -64,11 +64,12 @@ def test_regex_trigger_without_stage_vocab() -> None:
 # ── 비발동 — 기존 경로 불변 ──────────────────────────────────
 
 
-def test_vague_future_keeps_year_digest() -> None:
-    """막연한 미래 질문은 기존 10년 digest 유지(2026-06-18 결정 보존)."""
+def test_vague_future_with_event_is_not_lifetime_scan() -> None:
+    """사건 키 있는 막연한 '언제' 질문은 인생 단계 스캔이 아니라 3년 거래형 지평(2026-10-14)."""
     p = _prompt("언제쯤 결혼할 수 있을까?")
     assert _LIFETIME_MARK not in p
-    assert _YEAR_DIGEST_MARK in p
+    assert _YEAR_DIGEST_MARK not in p
+    assert "[답변 지평] 이 질문의 답변 지평은 '앞 12개월 월 단위 + 이후 2년 연 단위(총 3년)'" in p
 
 
 def test_explicit_year_not_lifetime() -> None:

@@ -649,6 +649,21 @@ def detect_reported_event(text: str) -> bool:
     return bool(report_sentences(text))
 
 
+# 부동산 매도·매각 질문(2026-10-14 데굴님 승인) — '부동산은 언제쯤 팔릴까'가 사건 없음·general 로
+# 떨어져 개방형 '언제' 10년 digest 로 새고(2034년까지 서술) 후보 앵커도 없어 LLM이 계약·문서
+# 서술을 창작했다.
+# 매물 명사 + 매도 동사가 12자 안에 함께 올 때만(집안·집중 같은 동형어 차단). 공유 EVENT_WORDS 불변.
+_REAL_ESTATE_SALE_RE = re.compile(
+    r"(?:부동산|아파트|주택|빌라|오피스텔|상가|건물|토지|땅|매물|집(?=[이은을도\s]))"
+    r"[^.?!\n]{0,12}?(?:팔|매도|매각|처분|매매|넘기|정리)"
+)
+
+
+def is_real_estate_sale(text: str) -> bool:
+    """부동산 매도·매각 질문인가(매물 명사 + 매도 동사 결합)."""
+    return bool(_REAL_ESTATE_SALE_RE.search(text or ""))
+
+
 # 주의점 어휘 — chart_caution 플래그(관리 프레임 지시문·시점 미승계).
 _CAUTION_RE = re.compile(r"주의|조심|약점|단점|취약|리스크|문제점")
 
@@ -1305,7 +1320,15 @@ def parse_message(
         # 목록에 없어도 '이직·직업 변화' 사건으로 본다(공유 EVENT_WORDS 는 건드리지 않는다).
         if event_key is None and is_job_separation(piece or text):
             event_key = EventKey.CAREER_CHANGE
+        # 부동산 매도·매각(2026-10-14) — 계약·문서 사건(보조 재물 변화) + 재물 도메인으로 앵커한다.
+        real_estate_sale = event_key is None and is_real_estate_sale(piece or text)
+        if real_estate_sale:
+            event_key = EventKey.CONTRACT_DOCUMENT
+            if not event_keys:
+                event_keys = [EventKey.WEALTH_CHANGE]
         domains = _detect_domains(piece) or _detect_domains(text)
+        if real_estate_sale and not domains:
+            domains = [Domain.WEALTH]  # EVENT_DOMAIN[contract_document]=career 를 쓰지 않는다
         # 도메인어가 없어도 이벤트가 잡히면 이벤트의 도메인을 따른다 — '취직 언제쯤?'처럼
         # 도메인 단어가 없는 질문이 general로 떨어져 재물운 등 일반 흐름으로 새지 않도록.
         if not domains and event_key is not None:

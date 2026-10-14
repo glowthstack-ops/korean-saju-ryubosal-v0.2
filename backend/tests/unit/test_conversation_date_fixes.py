@@ -212,11 +212,12 @@ def test_questioning_or_possessive_not_affirmation() -> None:
     assert eng.link_question(state, "네 사주 봐줘").is_follow_up is False
 
 
-def test_vague_period_uses_ten_year_year_digest() -> None:
-    """막연한 시점 질문은 올해부터 10년 연(세운) digest + 대운 교운기 + 연도 지정 유도로 답한다.
+def test_vague_period_with_event_uses_three_year_transactional_horizon() -> None:
+    """사건 키가 잡힌 막연한 '때' 질문은 3년 거래형 지평(앞 12개월 + 2년 연 단위)으로 답한다.
 
-    특정 연·월 미지정('결혼 때를 알고 싶어')에서 현재 연도 12개월로 좁혀 특정 달을 단정하던
-    결함 보완(2026-06-18). 명시 연도 질문은 기존 월 단위 상세를 유지한다.
+    2026-06-18(12개월로 좁혀 특정 달 단정 → 10년 digest)의 보완 목적은 '특정 달 단정 금지' 지시와
+    3년 창으로 유지한다(2026-10-14 데굴님 승인 — 10년 digest는 사건 키 없는 '언제'에만).
+    명시 연도 질문은 기존 월 단위 상세를 유지한다.
     """
     from saju_api.services.chat_service import chat
     from saju_shared_types.birth_input import BirthInput
@@ -224,17 +225,17 @@ def test_vague_period_uses_ten_year_year_digest() -> None:
     b = BirthInput(
         calendar_type="solar", birth_date=date(1980, 11, 22), birth_time="09:40",
         birth_place_name="서울", gender="male", reference_date=date(2026, 6, 18))
-    # 막연한 시점 → 연 digest 경로.
     vague = chat(b, "결혼을 둘러싼 계약과 거처 정리가 같이 움직이는 때를 알고 싶어",
                  dry_run=True, today=date(2026, 6, 18))
     p = vague.prompt_preview or ""
-    assert "[월별 요약" not in p                  # 12개월 표 미생성
-    assert "어느 해를 더 자세히" in p             # 연도 지정 유도 지시문
-    assert "대운 흐름(배경)" in p                 # 대운 배경 + 교운기
-    assert "교운기" in p
-    # 명시 연도 질문은 기존 월 단위 상세(연 digest 지시문 미적용).
+    assert "[답변 지평] 이 질문의 답변 지평은 '앞 12개월 월 단위 + 이후 2년 연 단위(총 3년)'" in p
+    assert "특정 달을 단정하지 말고" in p         # 2026-06-18 보완 목적 유지
+    assert "어느 해를 더 자세히" not in p         # 10년 digest 지시문 아님
+    assert "[운 흐름 요약 — 앞 12개월은 월 단위, 이후 3개년은" in p
+    # 명시 연도 질문은 기존 월 단위 상세(지평·연 digest 지시문 미적용).
     specific = chat(b, "2027년 결혼운 어때?", dry_run=True, today=date(2026, 6, 18))
-    assert "어느 해를 더 자세히" not in (specific.prompt_preview or "")
+    sp = specific.prompt_preview or ""
+    assert "어느 해를 더 자세히" not in sp and "[답변 지평]" not in sp
 
 
 def test_weekly_question_surfaces_daily_overview() -> None:

@@ -12,7 +12,7 @@ from datetime import date
 import pytest
 
 import saju_api.services.chat_service as chat_service
-from saju_engines.horizon import month_add, resolve_horizon
+from saju_engines.horizon import horizon_directive, month_add, resolve_horizon
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.intent import IntentJson
 
@@ -54,6 +54,24 @@ def test_resolve_long_term_returns_none() -> None:
     """명시적 장기 질문(대운·인생 흐름)은 정책 밖 — 기존 10년 digest 유지."""
     assert resolve_horizon("내 대운 흐름이 궁금해", _intent()) is None
     assert resolve_horizon("장기적으로 인생 흐름이 어떻게 될까", _intent()) is None
+
+
+def test_open_when_with_event_key_gets_three_year_transactional_horizon() -> None:
+    """개방형 '언제' + 사건 키(거래형 생활 사건) → 앞 12개월 + 2년(총 3년), 10년 digest 아님.
+
+    2026-10-14 데굴님 승인.
+    """
+    p = resolve_horizon(
+        "부동산은 언제쯤 팔릴까", _intent(domain="wealth", event_key="contract_document"),
+    )
+    assert p is not None and p.kind == "transactional_when"
+    assert (p.months_detail, p.years_span, p.natal_fit) == (12, 3, False)
+    assert "단정하지 말" in horizon_directive(p) and "총 3년" in p.label
+
+
+def test_open_when_without_event_key_keeps_year_digest() -> None:
+    """사건 키 없는 순수 '언제' 질문은 2026-06-18 결정대로 10년 digest(None) 유지."""
+    assert resolve_horizon("언제쯤 좋아질까", _intent(domain="general")) is None
 
 
 def test_resolve_domain_default_consumes_rewriter_dict() -> None:

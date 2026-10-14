@@ -46,7 +46,7 @@ class HorizonPolicy:
     0=연 digest 없음). natal_fit: 원국 적합성 중심 구성(구조 결정형).
     """
 
-    kind: str  # immediate | venture | structural | domain_default
+    kind: str  # immediate | venture | structural | domain_default | transactional_when
     months_detail: int
     years_span: int
     natal_fit: bool
@@ -66,7 +66,19 @@ def resolve_horizon(question: str, intent: IntentJson) -> HorizonPolicy | None:
     ):
         return None
     if _OPEN_WHEN_RE.search(question):
-        return None  # 개방형 시기 탐색 — 기존 10년 digest(연도 지정 유도) 유지
+        # 개방형 시기 탐색. 사건 키가 잡힌 거래형 생활 사건(매도·계약·이사·취업 등)은 3년 전망 지평
+        # (2026-10-14 데굴님 승인 — '부동산은 언제쯤 팔릴까'가 10년 digest 로 2034년까지 서술).
+        # 2026-06-18 우려(12개월로 좁히면 특정 달 단정)는 3년 창 + 단정 금지 지시로 받는다.
+        # 사건 키가 없는 순수 '언제' 질문은 기존 10년 digest(연도 지정 유도) 유지.
+        if intent.event_key is not None:
+            return HorizonPolicy(
+                kind="transactional_when",
+                months_detail=12,
+                years_span=3,
+                natal_fit=False,
+                label="앞 12개월 월 단위 + 이후 2년 연 단위(총 3년)",
+            )
+        return None
     # 직장 이탈 계열(해고·퇴사 통보·권고사직 — 한 계열, 2026-10-13)도 퇴사와 같은 구조 결정형이다.
     # 단 이미 겪은 보고일 때만 — "해고 당할까?"(미발생 걱정)는 전망형 경로로 둔다(2026-10-14 검수).
     if _STRUCTURAL_RE.search(question) or (
@@ -119,6 +131,12 @@ def horizon_directive(policy: HorizonPolicy) -> str:
             "이 질문은 인생 구조를 바꾸는 결정이다 — ① 원국 기준 적합성(격국·용신·성향)을 "
             "먼저 판단하고 ② 현재 대운 배경 ③ 향후 5년 연 단위 흐름 ④ 당장 3개월의 "
             "움직임 순으로 구성하라."
+        )
+    elif policy.kind == "transactional_when":
+        parts.append(
+            "사용자는 '언제'를 물었다 — 앞 12개월은 월 단위로 짚고 그 뒤 2년은 연(세운) 단위 큰 "
+            "줄기만 요약하라. 결론은 유력 구간 1~2개로 말하되 특정 달을 단정하지 말고, 사건 후보가 "
+            "있는 달만 실행·계약 가능 시기로 들 것."
         )
     elif policy.years_span and policy.months_detail:
         parts.append(

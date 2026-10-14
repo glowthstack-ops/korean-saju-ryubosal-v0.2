@@ -92,7 +92,6 @@ from saju_engines.marriage_marker_shadow import detect_marriage_marker_shadow
 from saju_engines.month_coverage_audit import (
     audit_month_coverage,
     build_coverage_notes,
-    patch_month_coverage,
 )
 from saju_engines.movement_timing_shadow import detect_movement_timing_shadow
 from saju_engines.output_wealth_term import fix_wealth_generation_term
@@ -6982,8 +6981,9 @@ def _audit_month_coverage_answer(answer: str, payload: LlmInput, thread_id: str 
     """P0 월 커버리지 감사(2026-09-18 데굴님 지시) — 누락·격상을 결정론으로 보정한다.
 
     **LLM 재호출은 하지 않는다**(재생성 철회 확정). 검사 ① 엔진이 지목한 기반 최고 달이
-    답변에 없으면, ② 이벤트 후보에 없는 달에 결정 권고(수락·계약·실행)를 붙였으면 위반이고,
-    교정은 엔진 확정값으로 만든 문단을 되묻기 앞에 삽입하는 것뿐이다(본문 삭제 없음).
+    답변에 없으면, ② 이벤트 후보에 없는 달에 결정 권고(수락·계약·실행)를 붙였으면 위반이다.
+    2026-10-14 데굴님 승인으로 교정 문단은 **답에 삽입하지 않고 로그로만** 남긴다(사용자용 문장이
+    아니었고, '늦추고' 유보 문형 오탐도 있었다). 삽입 함수(`patch_month_coverage`)는 QA 도구로 보존.
     총운(overview) 모드는 유력 달 순위가 서술 골격이 아니라 대상에서 뺀다.
 
     Args:
@@ -7018,7 +7018,10 @@ def _audit_month_coverage_answer(answer: str, payload: LlmInput, thread_id: str 
         [list(x.periods) for x in audit.loss_overclaims],
         thread_id,
     )
-    return patch_month_coverage(answer, notes)
+    # 2026-10-14 데굴님 승인: 교정 문단('※ 엔진 기준…')은 사용자용 문장이 아니라 답에 끼우지 않고
+    # 로그로만 남긴다. 원인은 앞단(사건 후보 앵커·지평 지시)이 막고, 감사는 관측·QA 용도로 유지한다.
+    _logger.warning("month_coverage_audit notes(log-only) thread=%s notes=%s", thread_id, notes)
+    return answer
 
 
 def _union_relation_semantics(
