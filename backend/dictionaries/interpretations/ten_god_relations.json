@@ -1,11 +1,11 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "note": "십성군 → 나와의 관계 대상 (2026-10-13 데굴님 확정). '누가 제안을 해올까'처럼 관계 대상을 묻는 질문에 운에서 들어오는 십성을 사람의 관계 유형으로 옮기는 근거표. 사회적 관계는 직업·일반 질문에, 가족 관계는 가족·연애 질문에서만 쓴다. 천간·지지 십성을 둘 다 '가능한 관계 대상'으로 나란히 보여 주며 역할을 나누지 않는다. 실존 인물 특정·단정 금지. reviewed 는 검토 상태 기록용이며 노출 조건이 아니다.",
   "items": [
     { "group": "비겁", "tenGods": ["비견", "겁재"], "social": "동료·동기·친구·같은 업계의 수평 관계", "socialNote": { "겁재": "경쟁자이자 협력자" }, "family": [{ "label": "형제자매" }], "basis": "비겁=나와 같은 오행 — 형제·동료(자평 통설, ten_gods_text 비견 core '동료, 형제').", "reviewed": false },
     { "group": "식상", "tenGods": ["식신", "상관"], "social": "후배·부하·제자·내 기술을 필요로 하는 쪽", "socialNote": {}, "family": [{ "label": "자녀", "gender": "female" }], "basis": "식상=일간이 생하는 기운 — 아랫사람·산출(자평 통설), 여성 명식의 자녀성.", "reviewed": false },
     { "group": "재성", "tenGods": ["편재", "정재"], "social": "거래처·고객·조건과 보상을 쥔 실무 쪽", "socialNote": {}, "family": [{ "label": "아내", "gender": "male" }, { "label": "아버지", "tenGods": ["편재"] }], "basis": "재성=일간이 극하는 기운 — 재물·거래(자평 통설), 남성 명식의 처성, 편재=부친.", "reviewed": false },
     { "group": "관성", "tenGods": ["편관", "정관"], "social": "상사·회사·조직·기관", "socialNote": {}, "family": [{ "label": "남편", "gender": "female" }, { "label": "자녀", "gender": "male" }], "basis": "관성=일간을 극하는 기운 — 직위·조직(자평 통설), 여성 명식의 부성·남성 명식의 자녀성.", "reviewed": false },
-    { "group": "인성", "tenGods": ["편인", "정인"], "social": "선배·스승·윗사람·추천인·후원자", "socialNote": {}, "family": [{ "label": "어머니" }], "basis": "인성=일간을 생하는 기운 — 학문·후원(자평 통설, ten_gods_text 편인 '스승'·정인 '어머니').", "reviewed": false }
+    { "group": "인성", "tenGods": ["편인", "정인"], "social": "선배·스승·윗사람·추천인·후원자", "socialNote": {}, "family": [{ "label": "어머니", "tenGods": ["정인"] }, { "label": "계모", "tenGods": ["편인"] }], "basis": "인성=일간을 생하는 기운 — 학문·후원(자평 통설, ten_gods_text 편인 '스승'·정인 '어머니'). 가족 칸은 통설대로 정인=어머니, 편인=계모(2026-10-14 데굴님 지적 — 1.0.0은 십성군 단위로 '어머니'만 적어 편인까지 어머니로 읽혔다).", "reviewed": false }
   ]
 }

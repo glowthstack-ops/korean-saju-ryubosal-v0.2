@@ -56,6 +56,9 @@ def test_relation_target_table():
     assert relation_target("편재", "male", True).endswith("/ 가족: 아내·아버지")
     assert relation_target("정재", "female", True) == "거래처·고객·조건과 보상을 쥔 실무 쪽"
     assert relation_target("식신", "male", True) == "후배·부하·제자·내 기술을 필요로 하는 쪽"
+    # 인성 가족 칸(1.0.1, 2026-10-14 데굴님 지적): 통설대로 정인=어머니, 편인=계모.
+    assert relation_target("정인", "female", True).endswith("/ 가족: 어머니")
+    assert relation_target("편인", "male", True).endswith("/ 가족: 계모")
     assert relation_target("", "male", True) == ""
 
 
@@ -128,3 +131,19 @@ def test_lint_catches_bad_relation_table():
     data["items"][2]["family"].append({"label": "외삼촌", "tenGods": ["정관"]})
     errors = _lint_ten_god_relations(TenGodRelationsFile.model_validate(data))
     assert any("조건 십성이 소속 밖" in e for e in errors)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("누가 내 배우자가 될까", True),            # 배우자형 '누가' — 가족 칸 경로
+        ("어떤 사람이 내 짝이 될까", True),
+        ("누구랑 결혼할까", True),
+        ("둘 중 누가 뽑힐까", False),               # 승부·순위 비교
+        ("직원을 누구를 뽑아야 할까", False),        # 사용자가 행위 주체
+        ("내가 누구한테 연락하면 좋을까", False),
+    ],
+)
+def test_detect_agent_question_spouse_and_exclusions(text, expected):
+    """2026-10-14 검수 — 배우자형은 잡고, 승부·사용자 주체 질문은 관계 대상 질문이 아니다."""
+    assert detect_agent_question(text) is expected

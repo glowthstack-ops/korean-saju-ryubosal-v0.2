@@ -12126,3 +12126,47 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 테스트 `test_time_parser_korean_counts.py`(한글/숫자 동일 창 8형, 불변 4형, 원 실로그 문장 = 2026-10~11). 기존 시점·파서·대화·지평 테스트 통과.
 - 실답("앞으로 두 달 안에 누가 취업 제안을 해올까?"): 창 2026-10~11, 관계 대상 후보 2026-11·2026(이전 2027-02·2027-05), 답은 "선배나 윗사람 혹은 비슷한 위치의 동료를 통해"로 시작.
 - 게이트: lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=33734b7, 지문 동일, exit 0, `var/suite_20261013_kocount.log`, SAJU_ 환경변수 0개 셸). 백엔드 8888 재기동 반영.
+
+## 2026-10-14 — 2026-10-13 커밋 8건 검수 + 확정 결함 수정 (데굴님 지시·승인)
+
+- 검수: 어제 커밋(ab49a5d~e225aa2, 44파일) 을 영역 3개(관계 감사·일주·도화 정비 / 운 도화·나체도화 / 사건 보고 라우팅·관계 대상·한글 기간)로 나눠 검토하고
+  의심 지점은 전부 실행으로 재현했다. 게이트는 HEAD e225aa2 기준 전부 통과(`var/suite_20261014.log` VALID_SUITE_PASS)였으므로 아래는 **테스트가 못 잡은 결함**이다.
+  원인은 공통 — 단위 테스트가 설계 의도 경로만 고정하고 반례(가정형·제3자·명시 시점 동반·멀티턴 승계·절단 순서)를 넣지 않았다.
+- 수정 A(사건 보고형 라우팅): ①`user_facts` job_separation 슬롯 — 본인의 완료형 보고만 기록(가정형 "해고 당할까"·소문·제3자 "남편이 해고됐어"·고용주 "직원을 해고하려는데" 제외,
+  절대원칙 7). ②`query_parser` — 전체 intent 시점을 지우던 것을 '보고 문장을 뺀 나머지에서 재파싱'으로 바꿈(`report_sentences`·`strip_report_sentences`):
+  "오늘 해고통보 받았어. 11월에 어떻게"→11월 유지, "…그리고 12월 이사운은?"의 이사 조각은 보고형 아님·12월 유지. 소원형('됐으면')·결과 질문('어떻게 되었어')은 보고 아님.
+  ③`chat_service` 보고형 지시문을 범용 ①~④와 직장 이탈 꼬리(`_REPORTED_JOB_SEPARATION_TAIL`)로 분리 — 승진·이별 보고에 '재직 전제 금지'가 붙지 않음.
+  ④`conversation` 보고형 턴은 직전 시점 창을 승계하지 않음(과거 창 승계 시 회고+보고형 지시 동시 부착). ⑤`horizon` 구조 결정형은 직장 이탈 어휘+완료형 보고일 때만(미발생 걱정은 기존 경로).
+- 수정 B(운 도화): ①`chart_interpretation.build_luck_grounding` 운 신살 상위 3개 절단을 '사전 문구 있는 신살'만 세고 도화는 마지막 슬롯을 보장 — 1975-01-01 07:30 여 2026-01-05
+  일운(태극귀인·문곡귀인·사정지·도화·현침)에서 총운 줄에 도화가 빠져 연애운 블록과 달랐던 결함(명식 5개 표본 약 6% 일자). 글자 표지(사정지)는 빼지 않음(데굴님 미결정 — 기본값 유지).
+  ②`chat_service._luck_pillars_for_range` MONTH — 'YYYY-01'은 전년도 `luck_months`에만 있어 연도 집합에 y-1 포함("내년 1월 연애운" 빈 결과). 기존 `_build_period_fortune` monthly의 같은 패턴은 어제 범위 밖이라 **미수정·보고만**.
+- 수정 C(결정론 감사기): ①`ten_god_label_audit` 서술격 조사 쌍(이죠·이지·이네·이면·이다·이든·이야·이란)을 주격 '이/가'보다 먼저 대조('식신이죠'→'정재죠', 역방향 '정재죠'→'정관이죠'),
+  연결어 '에 든' 제거(지장간 서술 '일지 亥에 든 정인(甲)' 불변). ②`relation_claim_audit._has_binding_referent` — 묶임 어휘가 binding=NONE 관계를 주어·수단으로 직접 받으면
+  ("午戌반합으로 丙 정인이 묶여") '丙 정인' 지시 대상이 있어도 면책하지 않음(쉼표로 절이 끊긴 기존 오탐 4형은 무위반 유지).
+- 수정 D: `agent_relations._AGENT_RE` 배우자형(결혼·만나·인연·사귀·짝·배우자) 추가 + 제외 규칙(승부 '둘 중 누가 뽑힐까', 사용자 주체 '내가 누구한테·누구를 뽑아야');
+  `time_parser._KO_NATIVE_SPAN_RE` 뒤 한글 금지('한달음에'); `saju_shared_types.constants.STEM_CLASHES` 공용 상수(dohwa·event_engine_v2 참조, 용신 후보 모듈 사본은 캘리브레이션 대상이라 유지);
+  docs/05 나체도화 서술(유형 4종·'미도입' 경위→도입)·test_dohwa docstring 정정.
+- 테스트: 반례 전부를 각 파일에 추가 — `test_reported_event`(사실 슬롯 5형·명시 시점 2형·다중 조각·소원/결과 2형·미발생 지평·멀티턴 미승계·꼬리 분리),
+  `test_dohwa`(절단 생존·1월 라벨), `test_ten_god_label_audit`(서술격 8형·지장간 2형), `test_relation_claim_audit`(수단 귀속 3형), `test_agent_relations`(배우자·제외 6형), `test_time_parser_korean_counts`(합성어).
+- 미수정 잔여(보고): 미등록 육친 주격("남편이 해고됐어")을 본인 명식으로 푸는 기존 정책 — 사실 기록은 막았으나 라우팅은 그대로(대상 확인 질문은 별도 결정);
+  `_build_period_fortune` monthly 1월 라벨; `ten_god_relations.json` 편인=어머니(데굴님 확정표); `report_service` 섹션당 `analyze_dohwa` 2회(결정론·비용만).
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=e225aa2, 지문 동일, exit 0, `var/gates_20261014_full3.log`).
+  1·2차 실행(`gates_20261014_full.log`·`full2.log`)은 ruff 줄 길이·`zip strict` 지적으로 any_gate_failed=1 — 고친 뒤 최종 트리로 3차 재실행. 백엔드 8888 재기동 반영(프록시·DB 401·터널 200), 미커밋.
+
+
+## 2026-10-14 — 채팅 말풍선 꼬리 각 + 1월 절기월 라벨(기존 경로) + 육친 지칭 동작 확인 + 인성 가족 칸 정정 (데굴님 지시)
+
+- UI(`frontend/app/chat/page.tsx`): 좌우 정렬만으로는 화자 구분이 약해 질문 말풍선(오른쪽 정렬)은 **오른쪽 상단 각**(`rounded-tr-sm`), 응답 말풍선(왼쪽 정렬, 일반·오류)은
+  **왼쪽 상단 각**(`rounded-tl-sm`)으로 모서리를 세웠다. 1차 적용은 좌우가 반대였고 데굴님 지적으로 바로잡았다(각은 화자 쪽 바깥 모서리). 대기 스켈레톤은 배경 없음 유지.
+- 1월 라벨: `_luck_year_for_label`·`_luck_months_for_label` 신설 — `luck_months(birth, y)`가 입춘 기준 y-02~(y+1)-01 이라 'YYYY-01'은 전년도 호출에만 있다.
+  chat_service 의 라벨 기반 조회 전부(`_build_period_fortune` monthly·현재 절기월 상세/디렉티브·일운 상세·분야 통로·`_luck_grounding_for_label`·절기월 간지·
+  12개월 스윕·어제 고친 `_luck_pillars_for_range`) 를 이 헬퍼로 통일. "내년 1월 운세" 월 총운이 None 폴백으로 떨어지던 기존 결함 해소. 세운 경로의 `luck_months(birth, year)`는 연 라벨이라 그대로.
+- 육친 지칭("남편이 오늘 해고됐어"): 확인 질문을 추가하지 않는다(데굴님: 워킹 트리·뎁스 증가). 현재 동작 실측 — 등록 동반자(relation_to_user 동의어 '남편')면 그 명식으로,
+  미등록이면 기존 정책대로 본인 명식(unresolved 없음). 이 두 경로를 `test_reported_event` 에 고정. 사실 원장은 어제 가드로 어느 경로든 본인 실직으로 기록하지 않는다.
+- 인성 가족 칸: `ten_god_relations.json` 1.0.0 은 십성군 단위로 '어머니' 하나를 적어 편인까지 어머니로 읽혔다(출처는 ten_gods_text 정인 '어머니'를 군 전체에 올린 어제 작성분 — 명리 근거 아님).
+  1.0.1 — 정인=어머니, 편인=계모(통설, 데굴님 지적). validate 통과(111파일). `test_agent_relations` 에 두 십성 단언 추가.
+- 테스트: `test_luck_month_label_january.py` 신설(연도 변환 4형·라벨 포함 3형·1월 월 총운 2형), `test_reported_event` 육친 등록/미등록 2경로, `test_agent_relations` 인성 가족 칸.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=e225aa2, 지문 동일, exit 0, `var/gates_20261014_full5.log`).
+  프론트 `tsc --noEmit` exit 0 · `npm run build` Compiled successfully(`var/frontend_build_20261014b.log`). full4 실행은 UI 좌우 정정으로 추적 파일이 바뀌어 중단·재실행. 백엔드 8888 재기동 반영, 미커밋.
