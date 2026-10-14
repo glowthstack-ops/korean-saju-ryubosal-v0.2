@@ -66,7 +66,9 @@ from .user_facts import extract_user_facts, merge_user_facts
 # 대상 정정(A10) — subject 교체 + 동일 intent 재실행.
 # 'X와의 관계/사이' 문형 — 상대 1명 + 조사(와·과·랑·이랑·하고) + 관계·사이.
 # 사이드/사이트/사이즈/사이클은 제외.
-_WITH_RELATION_RE = re.compile(r"(?:와|과|랑|이랑|하고)의?\s*(?:관계|사이)(?!드|트|즈|클)")
+_WITH_RELATION_RE = re.compile(
+    r"(?:와|과|랑|이랑|하고)의?\s*(?:(?:나의|내|저의|제)\s*)?(?:관계|사이)(?!드|트|즈|클)"
+)
 _CORRECTION_RE = re.compile(r"헷갈려|헷갈렸|잘못\s*봤|다시\s*체크|아니\s.*사주")
 # 정책 라우트 query_type — 약한 후속 상속 대상에서 제외(주제가 아니라 정책이므로).
 _POLICY_QTYPES = frozenset({
@@ -733,7 +735,7 @@ class ConversationEngine:
         # 한글 금지.
         _self_ref = bool(re.search(
             r"나랑|나하고|내가|나\s*vs|나\s*대\b|우리\s*둘|나는"
-            r"|(?<![가-힣])(?:나와|저와|저랑|저하고|저는|제가)|(?<![가-힣])나\s*사이",
+            r"|(?<![가-힣])(?:나와|저와|저랑|저하고|저는|제가|나의|저의)|(?<![가-힣])나\s*사이",
             text,
         ))
         _compare_kw = re.search(r"궁합|잘\s*맞|안\s*맞|비교|어울리|사이|관계", text)

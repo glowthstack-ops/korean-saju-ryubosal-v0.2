@@ -33,9 +33,12 @@ class IntentEventFilter:
             self._include[domain] = set(spec.get("include", []))
             self._deprioritize[domain] = set(spec.get("exclude_or_deprioritize", []))
         self._overlays: dict[str, set[str] | None] = {}
+        self._overlay_exclude: dict[str, set[str]] = {}
         for ctx, spec in raw.get("context_overlays", {}).items():
             inc = spec.get("include")
-            self._overlays[ctx] = None if inc == "all" else set(inc or [])
+            # include 없이 exclude 만 둔 오버레이(비연애 관계 등)는 포함 제한 없이 제외만 적용.
+            self._overlays[ctx] = None if inc == "all" or inc is None else set(inc or [])
+            self._overlay_exclude[ctx] = set(spec.get("exclude", []))
 
     def filter[T: _HasEventKey](
         self, candidates: list[T], domain: str | None, context: str | None = None
@@ -50,6 +53,10 @@ class IntentEventFilter:
         if overlay is not None:
             kept = [c for c in out if str(c.event_key) in overlay]
             out = kept or out
+        excl = self._overlay_exclude.get(context or "", set())
+        if excl:
+            kept = [c for c in out if str(c.event_key) not in excl]
+            out = kept or out  # 전부 걸러지면 원본 유지(차단 금지)
         return out
 
     def domain_includes(self, domain: str | None) -> set[str]:

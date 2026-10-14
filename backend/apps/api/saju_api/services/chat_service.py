@@ -128,6 +128,8 @@ from saju_engines.relationship_hints import (
     SAFETY_GUARDS,
     infer_relation_type,
     is_competition,
+    is_non_romantic_relation,
+    non_romantic_frame_directive,
     perspective_hints_for,
 )
 from saju_engines.rewriter import QueryAssessment, assess
@@ -3854,9 +3856,14 @@ def _structural_context(
     *,
     thread_id: str | None = None,
     turn_no: int | None = None,
+    relation_frame: str | None = None,
+    frame_companion_label: str | None = None,
 ) -> list[str]:
     """질문 도메인에 맞는 구조 해석 블록(누출 안전 한글). intent 미확정(general)=총운으로 간주해
     모든 블록을, 확정 도메인은 해당 블록만 표면화한다(2026-06-16 사용자 확정).
+
+    relation_frame 이 비연애 관계 유형(부모·자식 등)이면 관계 도메인의 연애·결혼 블록(배우자성·결혼
+    자원·혼기·연애↔결혼 통합)을 싣지 않고 관계 유형 프레임 지시를 붙인다(2026-10-14).
 
     리포트와 동일한 structural_context 포맷터를 재사용해 표면화 일관성·누출 방지를 유지한다.
     외적 인상·매력 신호는 자체 allowlist(관계·총운·명식분석·외모 직접질문)로 별도 게이트한다.
@@ -3904,7 +3911,12 @@ def _structural_context(
             ))
     if general or domain in (Domain.WEALTH, Domain.CAREER):
         out += wealth_status_lines(analyze_wealth_status_lean(result))
-    if general or domain is Domain.RELATIONSHIP:
+    if (general or domain is Domain.RELATIONSHIP) and relation_frame is not None:
+        # 비연애 관계(부모·자식·친구·직장) — 연애·결혼 블록 대신 관계 유형 프레임 + 궁위 관계망만.
+        out += palace_network_lines(analyze_palace_network(result), domain)
+        out.append(non_romantic_frame_directive(relation_frame, frame_companion_label or "상대"))
+        out.append(RELATIONSHIP_SELF_AWARENESS_DIRECTIVE)
+    elif general or domain is Domain.RELATIONSHIP:
         # 배우자성 성별 가드를 결혼 블록과 항상 동반 — general로 분류된 관계 질문('언제 만나' 등)도
         # 남=재성·여=관성 기준을 받게 한다(2026-06-22 데굴님 지적: GENERAL은 가드 누락이던 결함).
         out.append(spouse_star_directive(str(result.input_summary.get("gender", "unknown"))))
@@ -4740,6 +4752,25 @@ def chat(
         companion_alias_index,
         question=question,
     )
+    # 비연애 관계 프레임(2026-10-14 데굴님 지적) — 해소·첨부된 동반자가 1명 이상이고 관계 유형이
+    # 가족·친구·직장이면 연애·결혼 블록(배우자성·결혼 자원·인연 시기·결혼 신호 후보)을 싣지 않는다.
+    # 동반자 없는 질문은 기존 그대로("부모님이 반대하는데 결혼할 수 있을까"를 가족 프레임으로
+    # 오판하지 않는다).
+    _frame_companion = next(
+        (e for e in plan.effective_subjects if e.role != "self"), None,
+    )
+    _relation_frame = (
+        infer_relation_type(
+            question, _frame_companion.relation_to_user, [str(d) for d in intent.domains],
+        )[0]
+        if _frame_companion is not None else None
+    )
+    # 관계 맥락 질문에서만 프레임을 켠다 — '어머니 건강운'(건강 도메인)엔 관계 프레임을 붙이지
+    # 않는다.
+    non_romantic_frame = is_non_romantic_relation(_relation_frame) and _is_relationship_context(
+        intent, question,
+    )
+    _event_filter_context = "non_romantic_relation" if non_romantic_frame else None
 
     # 능력 탐문('너 집 계약 절차 알아?')·절차 질문('계약 순서가 어떻게 돼?') — 사주 질문이
     # 아니므로 명식·이벤트 엔진·LLM을 호출하지 않고 절차 지식팩으로 즉답한다(2026-07-22
@@ -5172,7 +5203,9 @@ def chat(
             return False
 
         candidates = [c for c in all_scored if _in_horizon(c.period)]
-        candidates = _get_intent_filter().filter(candidates, str(intent.domain))
+        candidates = _get_intent_filter().filter(
+            candidates, str(intent.domain), _event_filter_context,
+        )
         scope_h: list[EventKey] = plan.graph_scope or [c.event_key for c in candidates[:5]]
         bundles = _get_graph().retrieve(scope_h)
     elif lifetime_scan and _lt_hi_y:
@@ -5181,14 +5214,18 @@ def chat(
         candidates = [
             c for c in year_scored if len(c.period) == 4 and _lo_s <= c.period <= _hi_s
         ]
-        candidates = _get_intent_filter().filter(candidates, str(intent.domain))
+        candidates = _get_intent_filter().filter(
+            candidates, str(intent.domain), _event_filter_context,
+        )
         scope_lt: list[EventKey] = plan.graph_scope or [c.event_key for c in candidates[:5]]
         bundles = _get_graph().retrieve(scope_lt)
     elif vague_future:
         # 세운(연) 중심 — 월 후보는 빼서 LLM이 10년 연 단위 흐름에 집중하게 한다.
         lo, hi = str(today.year), str(today.year + 9)
         candidates = [c for c in year_scored if len(c.period) == 4 and lo <= c.period <= hi]
-        candidates = _get_intent_filter().filter(candidates, str(intent.domain))
+        candidates = _get_intent_filter().filter(
+            candidates, str(intent.domain), _event_filter_context,
+        )
         scope_v: list[EventKey] = plan.graph_scope or [c.event_key for c in candidates[:5]]
         bundles = _get_graph().retrieve(scope_v)
     else:
@@ -5272,7 +5309,9 @@ def chat(
                 ]
         # 의도 필터(intent_event_filter) — 질문 도메인과 무관한 후보를 억제한다.
         # 빈 결과를 만들지 않으며(fallback 원본 유지), general 도메인은 전부 통과.
-        candidates = _get_intent_filter().filter(candidates, str(intent.domain))
+        candidates = _get_intent_filter().filter(
+            candidates, str(intent.domain), _event_filter_context,
+        )
         # Graph Retrieval — plan의 graphScope만(전체 검색 금지).
         scope: list[EventKey] = plan.graph_scope or [c.event_key for c in candidates[:5]]
         bundles = _get_graph().retrieve(scope)
@@ -5537,6 +5576,8 @@ def chat(
         _structural_context(
             result, intent, today, question,
             thread_id=thread_id, turn_no=state.turn_no if state is not None else None,
+            relation_frame=_relation_frame if non_romantic_frame else None,
+            frame_companion_label=(_frame_companion.label if _frame_companion else None),
         )
         if not plan.per_subject else None
     )
@@ -5747,6 +5788,12 @@ def chat(
     _profile_facts, _living_room_facing = profile_context_for(
         subject_id, str(intent.domains[0]) if intent.domains else "general"
     )
+    # 비연애 관계 프레임 — 필터 뒤에 더해진 후보(관계 도메인 보강분 등)까지 포함해 연애·결혼 신호를
+    # 최종 목록에서 뺀다(2026-10-14). 세운 '선별: 결혼 신호'·결혼 근거 줄의 원천이 이 목록이다.
+    if _event_filter_context:
+        candidates = _get_intent_filter().filter(
+            candidates, str(intent.domain), _event_filter_context,
+        )
     payload = build_llm_input(
         question,
         intent,
@@ -6337,9 +6384,17 @@ def chat(
     # 가장 유리한 시기 하나(연·반기·계절)로. 만날 장소·경로는 사주로 단정 불가(과도한 구체화 금지).
     # 단 사용자가 '달'을 명시하면 '연·계절로 제시' 지시가 질문 입도와 충돌하므로(실사례 오답의
     # 한 축, 2026-07-03) 월 단위 변형을 쓴다 — 비택일·장소 단정 금지 원칙은 유지.
-    if _is_relationship_context(intent, question):
+    if _is_relationship_context(intent, question) and not non_romantic_frame:
         trailing.append(
             _MEETING_TIMING_MONTH_DIRECTIVE if timing_gran == "month" else _MEETING_TIMING_DIRECTIVE
+        )
+    # 비연애 관계 프레임 지시(2026-10-14) — pairwise 는 구조 블록이 생략되므로 여기서 붙인다.
+    # 등록 관계가 어머니면 "박여사와의 관계"처럼 호칭으로 물어도 부모·자식 프레임이다(데굴님 지시).
+    if non_romantic_frame and _relation_frame is not None:
+        trailing.append(
+            non_romantic_frame_directive(
+                _relation_frame, _frame_companion.label if _frame_companion else "상대",
+            )
         )
     # 인연 출처 — '주변 사람 vs 새로운 사람' 질문이면 합·도화=가까운 / 충·역마=새 인연 근거(비단정).
     if _is_partner_source_question(question):

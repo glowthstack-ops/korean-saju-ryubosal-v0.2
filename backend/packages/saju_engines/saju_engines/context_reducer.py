@@ -108,6 +108,7 @@ from .marriage_telemetry import build_marriage_telemetry, emit_marriage_telemetr
 from .month_coverage_audit import best_quality_rows
 from .opportunity_engine import EVENT_DOMAINS, detect_opportunities, format_opportunity_notes
 from .relation_claim_audit import canonical_claim_lines
+from .relationship_hints import is_non_romantic_relation
 from .sinsal_direction import (
     ASKED_DIRECTION_DIRECTIVE,
     DIRECTION_ANSWER_DIRECTIVE,
@@ -2648,6 +2649,12 @@ def serialize_llm_input(payload: LlmInput) -> str:
     _rel_focus = _intent.domain.value == "relationship" or "relationship" in {
         str(d) for d in _intent.domains
     }
+    # 비연애 관계(부모·자식·친구·직장) pairwise 는 결혼 단계 라인·결혼 출력 가드를 싣지 않는다
+    # (2026-10-14 데굴님 지적 — 어머니와의 관계 질문에 '결혼 답변 출력 가드'가 붙었다).
+    if payload.relationship_context is not None and is_non_romantic_relation(
+        payload.relationship_context.relation_type
+    ):
+        _rel_focus = False
     lines.append("")
     # ── 동적 suffix (질문마다 변경) ──────────────────────────────
     if payload.reference is not None:

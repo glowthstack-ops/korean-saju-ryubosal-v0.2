@@ -12238,3 +12238,21 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 게이트: 아래 줄에 기록.
   lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=9d7da9b, 지문 동일, exit 0, `var/gates_20261014_full11.log`).
   백엔드 8888 재기동 반영, 미커밋.
+
+## 2026-10-14 — 가족 관계 질문에 연애·결혼 프레임이 붙던 결함 + '어머니와 나의 관계' 문형 (데굴님 지적)
+
+- 실로그(어머니=박여사 등록·첨부): "어머니와 나의 관계는?" → ①'나의'가 1인칭 표지에 없어 상대 단독 풀이("박여사님…") ②pairwise 가 돼도 관계 도메인이면
+  배우자성·결혼 자원·혼기·인연 시기 지시·결혼 신호 후보·결혼 출력 가드가 그대로 붙어 "연애와 결혼의 흐름"으로 답했다. 데굴님: 호칭('박여사')으로 물어도
+  등록 관계(어머니)대로 부모·자식 답이 나와야 한다.
+- 대상 모드: `_self_ref`에 '나의·저의', `_WITH_RELATION_RE`가 'X와 나의 관계'(와·과·랑 + 나의/내 + 관계·사이)도 pairwise.
+- 비연애 관계 프레임(`relationship_hints.NON_ROMANTIC_RELATION_TYPES`: parent_child·family·friend·coworker·business_partner·boss·subordinate):
+  해소·첨부 동반자 1명 이상 + `infer_relation_type`(질문 키워드 > 등록 relation_to_user) 이 비연애 + 관계 맥락 질문일 때만 켠다(동반자 없는 질문·'어머니 건강운'은 불변).
+  켜지면 ①`_structural_context` 관계 분기가 배우자성·결혼 자원·혼기·연애↔결혼 통합 대신 궁위 관계망+프레임 지시 ②인연·만남 시기 지시 미부착
+  ③후보 목록에 `intent_event_filter` 'non_romantic_relation' 오버레이(exclude: marriage_signal·new_relationship·childbirth — exclude 오버레이 지원 추가)를
+  필터 뒤 += 추가분까지 포함해 build_llm_input 직전 재적용(세운 '선별: 결혼 신호'·결혼 근거 줄 원천) ④context_reducer `_rel_focus` 가 비연애 relationship_context 면
+  False(결혼 단계 라인·결혼 출력 가드 비렌더) ⑤trailing 에 `non_romantic_frame_directive`(관계 유형 한글·관점 힌트, 연애 어휘 금지) — pairwise 는 구조 블록이 생략되므로 여기.
+  `_RELATION_TO_USER`에 'lover'→romance 추가(관계 키 17종 정합).
+- 테스트: `test_relation_phrase_pairwise.py`(문형 7형 pairwise·단독 4형·본인 불변 + 프레임 4형(호칭 포함)·건강운 비부착·연인 대조군), `test_intent_filter_non_romantic_overlay.py`.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=711b7b9, 지문 동일, exit 0, `var/gates_20261014_full12.log`).
+  백엔드 8888 재기동 반영, 미커밋.

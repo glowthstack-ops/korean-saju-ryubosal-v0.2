@@ -52,7 +52,7 @@ _RELATION_TO_USER: dict[str, str] = {
     "sibling": "family", "brother": "family", "sister": "family",
     "friend": "friend", "coworker": "coworker", "business_partner": "business_partner",
     # 2026-07-03 확장 — 테마 관계 선택 값 그대로 저장·전달되는 경우(identity).
-    "romance": "romance", "crush": "crush", "fiance": "fiance",
+    "romance": "romance", "lover": "romance", "crush": "crush", "fiance": "fiance",
     "divorcing": "divorcing", "affair": "affair",
     "boss": "boss", "subordinate": "subordinate",
     "parent_child": "parent_child", "family": "family",
@@ -207,6 +207,38 @@ def infer_relation_type(
         if d == "relationship":
             return "romance", "intent_domain"
     return "unknown", "unknown"
+
+
+#: 연애·결혼 프레임이 아닌 관계 유형(2026-10-14 데굴님 지적: 등록 어머니와의 관계 질문에 연애·결혼
+#: 블록이 붙어 "연애와 결혼의 흐름"으로 답했다). 이 유형이면 배우자성·결혼 자원·인연 시기·결혼 신호
+#: 후보를 싣지 않고 관계 유형 프레임 지시를 붙인다.
+NON_ROMANTIC_RELATION_TYPES: frozenset[str] = frozenset({
+    "parent_child", "family", "friend", "coworker", "business_partner", "boss", "subordinate",
+})
+RELATION_TYPE_KO: dict[str, str] = {
+    "parent_child": "부모·자식", "family": "가족(형제·자매·친척)", "friend": "친구",
+    "coworker": "직장 동료", "business_partner": "동업자", "boss": "상사",
+    "subordinate": "부하 직원",
+    "spouse": "배우자", "romance": "연인", "crush": "호감 상대", "fiance": "약혼자",
+    "divorcing": "이혼 진행 상대", "affair": "불륜 상대", "unknown": "미확정",
+}
+
+
+def is_non_romantic_relation(relation_type: str | None) -> bool:
+    """관계 유형이 연애·결혼 프레임 밖(가족·친구·직장)인가."""
+    return relation_type in NON_ROMANTIC_RELATION_TYPES
+
+
+def non_romantic_frame_directive(relation_type: str, companion_label: str) -> str:
+    """비연애 관계 질문의 프레임 고정 지시 — 연애·결혼 어휘·신호 사용 금지 + 관점 힌트."""
+    ko = RELATION_TYPE_KO.get(relation_type, relation_type)
+    hints = " · ".join(perspective_hints_for(relation_type))
+    return (
+        f"[관계 유형 — {ko}: 본인과 {companion_label}] 이 질문은 연애·결혼 질문이 아니다. "
+        "연애운·결혼운·배우자·인연·만남·궁합 점수 같은 연애 프레임 어휘와 결혼 신호를 쓰지 말고, "
+        f"두 사람의 {ko} 관계로만 서술할 것(관점: {hints}). 제공된 두 명식의 궁합 신호는 "
+        "성격·소통·역할 분담의 결로 옮겨 설명한다."
+    )
 
 
 def perspective_hints_for(relation_type: str) -> list[str]:
