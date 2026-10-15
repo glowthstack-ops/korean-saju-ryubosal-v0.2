@@ -112,6 +112,8 @@ def test_no_assertive_expressions_in_content() -> None:
     ):
         for item in _load(name)["items"]:
             targets += [item[field] for field in fields]
+            if name == "twelve_stages_text.json":  # 궁위별 서사(2026-10-15)도 같은 금지 규칙
+                targets += list(item["natal_by_palace"].values())
     violations = [
         (text[:40], bad)
         for text in targets

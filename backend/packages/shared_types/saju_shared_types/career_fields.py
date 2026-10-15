@@ -54,6 +54,27 @@ class YongsinModifier(BaseModel):
     reading: str
 
 
+class ConditionRule(BaseModel):
+    """격국·신살 조건층 규칙(2026-10-15, 외부 교재 기타절) — 보조 신호, 단독 확정 금지."""
+
+    model_config = ConfigDict(extra="forbid")
+    id: str
+    field: str
+    signal: str
+    condition: str
+    jobs: list[str] = Field(min_length=1)
+
+
+class ConditionHit(BaseModel):
+    """성립한 조건 규칙 + 근거(글자·오행)."""
+
+    id: str
+    field: str
+    condition: str
+    evidence: str
+    jobs: list[str] = Field(default_factory=list)
+
+
 class Thresholds(BaseModel):
     model_config = ConfigDict(extra="forbid")
     note: str = ""
@@ -79,6 +100,7 @@ class CareerFieldDict(BaseModel):
     combinations: list[Combination]
     yongsin_modifiers: list[YongsinModifier]
     thresholds: Thresholds = Field(default_factory=Thresholds)
+    conditions: list[ConditionRule] = Field(default_factory=list)
 
 
 class ProminentTenGod(BaseModel):
@@ -119,4 +141,5 @@ class CareerFieldFacts(BaseModel):
     combinations: list[CombinationHit] = Field(default_factory=list)
     modifiers: list[YongsinModifier] = Field(default_factory=list)
     incoming: list[IncomingChannel] = Field(default_factory=list)
+    conditions: list[ConditionHit] = Field(default_factory=list)
     principles: list[str] = Field(default_factory=list)

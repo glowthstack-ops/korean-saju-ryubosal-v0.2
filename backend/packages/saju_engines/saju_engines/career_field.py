@@ -18,13 +18,127 @@ from saju_shared_types.career_fields import (
     CareerFieldDict,
     CareerFieldFacts,
     CombinationHit,
+    ConditionHit,
     IncomingChannel,
     ProminentTenGod,
 )
+from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT
+from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.manse_result import ManseV2Result
 
 from .direction_suggestion import build_direction_facts
+from .event_scoring import favorability_map
 from .structure_patterns import detect_structure_patterns
+
+# ── 격국·신살 조건층(2026-10-15, 외부 교재 기타절 번역) — 보조 신호, 단독 확정 금지 ──
+_HYEONCHIM = {"甲", "辛", "卯", "午", "申"}
+_PUNISH_SETS = ({"寅", "巳", "申"}, {"丑", "戌", "未"})
+_FIRE_TRINE = {"寅", "午", "戌"}
+_STORAGE_LIFE = {"辰", "戌", "巳", "亥"}
+_FAVORABLE_ROLES = {"용신", "희신"}
+
+
+def _letter_element(ch: str) -> str:
+    try:
+        return str(STEM_ELEMENT[Stem(ch)])
+    except ValueError:
+        try:
+            return str(BRANCH_ELEMENT[Branch(ch)])
+        except ValueError:
+            return ""
+
+
+def _evaluate_conditions(
+    result: ManseV2Result, dictionary: CareerFieldDict, group_pct: dict[str, float],
+) -> list[ConditionHit]:
+    """사전 `conditions` 의 signal 을 원국 사실로 판정한다(근거 문자열 동반). 점수 아님."""
+    p = result.pillars
+    if p is None:
+        return []
+    pillars = [x for x in (p.year, p.month, p.day, p.hour) if x is not None]
+    stems = [x.stem for x in pillars]
+    branches = [x.branch for x in pillars]
+    letters = stems + branches
+    day = p.day_master
+    fav = favorability_map(result)
+    sa = result.structure_analysis
+    inters = list(sa.interactions) if sa is not None else []
+    clash_members = {m for i in inters if i.relation_type == "clash" for m in i.members}
+    punish_members = {m for i in inters if i.relation_type == "punishment" for m in i.members}
+    trine_members = {m for i in inters if i.relation_type == "three_harmony" for m in i.members}
+    strong = dictionary.thresholds.strong_pct
+
+    def fav_of(ch: str) -> bool:
+        return fav.get(_letter_element(ch)) in _FAVORABLE_ROLES
+
+    def fav_el(el: str) -> bool:
+        return fav.get(el) in _FAVORABLE_ROLES
+
+    hits: list[ConditionHit] = []
+    for rule in dictionary.conditions:
+        ev = ""
+        s = rule.signal
+        if s == "hyeonchim_favorable":
+            got = [c for c in letters if c in _HYEONCHIM]
+            if len(got) >= 2 and any(fav_of(c) for c in got):
+                ev = "현침 글자 " + "·".join(dict.fromkeys(got)) + " 중 희용신 오행 있음"
+        elif s == "three_punishment_favorable":
+            for ps in _PUNISH_SETS:
+                got = sorted(punish_members & ps)
+                if len(got) >= 2 and any(fav_of(c) for c in got):
+                    ev = "형 " + "·".join(got) + " 의 오행이 희용신"
+                    break
+        elif s == "fire_day_or_yong":
+            if day == "丙":
+                ev = "丙 일간"
+            elif fav_el("火"):
+                ev = "火 희용신"
+        elif s == "fire_trine_or_byeongjeong":
+            if day in ("丙", "丁"):
+                ev = f"{day} 일간"
+            elif _FIRE_TRINE <= trine_members:
+                ev = "寅午戌 화국"
+            elif len([b for b in branches if b in _STORAGE_LIFE]) >= 3:
+                ev = "辰戌巳亥 " + "·".join(b for b in branches if b in _STORAGE_LIFE)
+        elif s == "jeong_day_or_peer_many":
+            if day == "丁":
+                ev = "丁 일간"
+            elif group_pct.get("peer", 0.0) >= strong:
+                ev = f"비겁 {group_pct.get('peer', 0.0):.0f}%"
+        elif s == "metal_yong":
+            if fav_el("金"):
+                ev = "金 희용신"
+        elif s == "earth_water_yong":
+            got = [el for el in ("土", "水") if fav_el(el)]
+            if got:
+                ev = "·".join(got) + " 희용신"
+        elif s == "military_signals":
+            mil = [c for c in stems if c in ("戊", "庚", "壬")]
+            punish = next((sorted(punish_members & ps) for ps in _PUNISH_SETS
+                           if len(punish_members & ps) >= 2), [])
+            storage = [b for b in branches if b in _STORAGE_LIFE]
+            if len(mil) >= 2:
+                ev = "천간 " + "·".join(mil)
+            elif punish:
+                ev = "형 " + "·".join(punish)
+            elif len(storage) >= 3:
+                ev = "辰戌巳亥 " + "·".join(storage)
+        elif s == "yongsin_clashed":
+            got = sorted(c for c in clash_members if fav_of(c))
+            if got:
+                ev = "충에 걸린 희용신 지지 " + "·".join(got)
+        elif s == "wood_yong_jinsul_clash":
+            if fav_el("木") and {"辰", "戌"} <= clash_members:
+                ev = "木 희용신 + 辰戌 충"
+        elif s == "water_yong_output":
+            if fav_el("水") and group_pct.get("output", 0.0) >= strong:
+                ev = f"水 희용신 + 식상 {group_pct.get('output', 0.0):.0f}%"
+        if ev:
+            hits.append(ConditionHit(
+                id=rule.id, field=rule.field, condition=rule.condition, evidence=ev,
+                jobs=list(rule.jobs),
+            ))
+    return hits
 
 _DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries"
 #: 로마자(TenGod enum) ↔ 한글 — direction facts 의 역할 표는 로마자 키.
@@ -157,6 +271,8 @@ def build_career_field_facts(
             ))
     hit_ids = _evaluate_modifiers(dictionary, group_pct, roles, facts.strength_band)
     facts.modifiers = [m for m in dictionary.yongsin_modifiers if m.id in hit_ids]
+    # 격국·신살 조건층(2026-10-15) — 보조 신호(단독 확정 금지), 근거 글자·오행 동반.
+    facts.conditions = _evaluate_conditions(result, dictionary, group_pct)
     for label, tg in incoming or []:
         inc_spec = dictionary.ten_gods.get(tg)
         if inc_spec is None:
@@ -170,7 +286,10 @@ def build_career_field_facts(
 
 def render_career_field_lines(facts: CareerFieldFacts) -> list[str]:
     """LLM 입력 블록 — 사실만(점수 아님). 빈 근거면 빈 목록."""
-    if not facts.prominent and not facts.combinations and not facts.incoming:
+    if (
+        not facts.prominent and not facts.combinations and not facts.incoming
+        and not facts.conditions
+    ):
         return []
     lines = ["[직업 분야 근거 — 엔진 확정(십성 기능 표, 판정 아님)]"]
     head = f"일간 {facts.day_master}" if facts.day_master else ""
@@ -193,6 +312,16 @@ def render_career_field_lines(facts: CareerFieldFacts) -> list[str]:
         )
     for m in facts.modifiers:
         lines.append(f"- 용희신 조건 성립: {m.condition} → {m.reading}")
+    if facts.conditions:
+        lines.append(
+            "[격국·신살 조건 — 보조 신호(통설, 단독 확정 금지). 위 십성 기능과 맞물릴 때만 분야를 "
+            "좁히는 근거로 쓸 것]"
+        )
+        for cond in facts.conditions:
+            lines.append(
+                f"- {cond.field}: {cond.condition} — 근거 {cond.evidence} → "
+                f"직업군 {', '.join(cond.jobs)}"
+            )
     for inc in facts.incoming:
         role = f"({inc.role})" if inc.role else ""
         groups = ", ".join(inc.job_groups)

@@ -54,8 +54,12 @@ def test_relation_target_table():
     assert relation_target("정관", "female", True).endswith("/ 가족: 남편")
     assert relation_target("정관", "male", True).endswith("/ 가족: 자녀")
     assert relation_target("편재", "male", True).endswith("/ 가족: 아내·아버지")
-    assert relation_target("정재", "female", True) == "거래처·고객·조건과 보상을 쥔 실무 쪽"
-    assert relation_target("식신", "male", True) == "후배·부하·제자·내 기술을 필요로 하는 쪽"
+    # 1.0.2(2026-10-15): 외부 교재 육친표 누락 칸 — 여명 재성=시어머니, 남명 식신=장인·장모.
+    assert relation_target("정재", "female", True).endswith("/ 가족: 시어머니")
+    assert relation_target("식신", "male", True).endswith("/ 가족: 장인·장모")
+    assert relation_target("상관", "male", True) == "후배·부하·제자·내 기술을 필요로 하는 쪽"
+    assert relation_target("편관", "male", True).endswith("/ 가족: 자녀·조부")
+    assert relation_target("정인", "male", True).endswith("/ 가족: 어머니·장모")
     # 인성 가족 칸(1.0.1, 2026-10-14 데굴님 지적): 통설대로 정인=어머니, 편인=계모.
     assert relation_target("정인", "female", True).endswith("/ 가족: 어머니")
     assert relation_target("편인", "male", True).endswith("/ 가족: 계모")

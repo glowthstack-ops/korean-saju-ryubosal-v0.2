@@ -4,7 +4,7 @@
   "reviewed": false,
   "runtime_status": "ACTIVE",
   "review_status": "PENDING",
-  "review_note": "2026-09-10 데굴님 제공 자료를 그대로 옮긴 참고표. 학파마다 세부 배속이 다르며 검증된 직업 적성 분류가 아니다. runtime_status=ACTIVE — 채팅 '어떤 분야/직종' 질문의 근거 블록에 쓰인다(점수·판정 아님, 서술 근거 전용).",
+  "review_note": "2026-09-10 데굴님 제공 자료를 그대로 옮긴 참고표. 학파마다 세부 배속이 다르며 검증된 직업 적성 분류가 아니다. runtime_status=ACTIVE — 채팅 '어떤 분야/직종' 질문의 근거 블록에 쓰인다(점수·판정 아님, 서술 근거 전용). 2026-10-15 conditions(격국·신살 조건층 11종, 외부 교재 기타절 번역) 추가 — 보조 신호(단독 확정 금지), 데굴님 '적용 후 감수'.",
   "principles": [
     "십성은 직업명 자체보다 '어떤 기능과 방식으로 일하는가'에 연결해 해석한다.",
     "실제 직업은 여러 십성의 기능이 겹친다. 예: 개발자는 구현·제작에서 식신, 새로운 설계에서 상관, 전문 기술 탐구에서 편인, 안정성과 규정 준수에서 정관으로 해석할 수 있다 — '개발자=편인'처럼 하나로 고정하면 직무 차이를 놓친다.",
@@ -420,5 +420,130 @@
     "excess_pct": 30.0,
     "prominent_pct": 10.0,
     "prominent_top_n": 3
-  }
+  },
+  "conditions": [
+    {
+      "id": "medical_hyeonchim",
+      "field": "의약계",
+      "signal": "hyeonchim_favorable",
+      "condition": "현침 글자(甲·辛·卯·午·申)가 둘 이상이고 그 오행이 희용신",
+      "jobs": [
+        "의료·간호",
+        "치과·시술",
+        "약학",
+        "침구·한방"
+      ]
+    },
+    {
+      "id": "legal_three_punishment",
+      "field": "법조·관계",
+      "signal": "three_punishment_favorable",
+      "condition": "寅巳申·丑戌未 형이 있고 그 오행이 희용신(형권을 쓰는 자리)",
+      "jobs": [
+        "법조",
+        "감사·규제",
+        "수사·조사",
+        "행정 집행"
+      ]
+    },
+    {
+      "id": "education_fire",
+      "field": "교육계",
+      "signal": "fire_day_or_yong",
+      "condition": "丙 일간이거나 火가 희용신",
+      "jobs": [
+        "교육·강의",
+        "학원·연수",
+        "코칭"
+      ]
+    },
+    {
+      "id": "spiritual_fire",
+      "field": "역술·종교·상담",
+      "signal": "fire_trine_or_byeongjeong",
+      "condition": "丙·丁 일간 또는 寅午戌 화국, 또는 辰戌巳亥가 셋 이상",
+      "jobs": [
+        "상담·명리",
+        "종교·수행",
+        "심리·치유"
+      ]
+    },
+    {
+      "id": "media_jeong",
+      "field": "언론·방송",
+      "signal": "jeong_day_or_peer_many",
+      "condition": "丁 일간이거나 비겁이 강함",
+      "jobs": [
+        "언론",
+        "방송·콘텐츠",
+        "홍보"
+      ]
+    },
+    {
+      "id": "machinery_metal",
+      "field": "기계·금속",
+      "signal": "metal_yong",
+      "condition": "金이 희용신",
+      "jobs": [
+        "기계·장비",
+        "금속·공업",
+        "자동차·조선",
+        "보석·세공"
+      ]
+    },
+    {
+      "id": "brokerage_earth_water",
+      "field": "중개·유통",
+      "signal": "earth_water_yong",
+      "condition": "土 또는 水가 희용신",
+      "jobs": [
+        "부동산 중개",
+        "유통·물류",
+        "무역 중개"
+      ]
+    },
+    {
+      "id": "military_police",
+      "field": "군경·보안",
+      "signal": "military_signals",
+      "condition": "戊·庚·壬 천간이 둘 이상이거나 寅巳申·丑戌未 형, 또는 辰戌巳亥가 셋 이상",
+      "jobs": [
+        "군·경찰",
+        "보안·경비",
+        "소방·안전"
+      ]
+    },
+    {
+      "id": "transport_yongsin_clash",
+      "field": "운수·이동",
+      "signal": "yongsin_clashed",
+      "condition": "희용신 오행의 지지가 원국 충에 걸림",
+      "jobs": [
+        "운수·운송",
+        "항공·해운 실무",
+        "출장이 잦은 영업"
+      ]
+    },
+    {
+      "id": "apparel_wood_jinsul",
+      "field": "의류·섬유",
+      "signal": "wood_yong_jinsul_clash",
+      "condition": "木이 희용신이고 辰戌 충이 있음",
+      "jobs": [
+        "의류·패션",
+        "섬유·디자인"
+      ]
+    },
+    {
+      "id": "food_marine_water_output",
+      "field": "해운·요식",
+      "signal": "water_yong_output",
+      "condition": "水가 희용신이고 식상이 강함",
+      "jobs": [
+        "요식·식품",
+        "해운·수산",
+        "숙박·서비스"
+      ]
+    }
+  ]
 }

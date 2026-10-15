@@ -255,6 +255,8 @@ class TwelveStageTextItem(_AliasModel):
     incoming: str
     basis: str
     reviewed: bool
+    # 궁위별 원국 서사(2026-10-15, 외부 교재 4장 번역) — year/month/day/hour 4칸 필수.
+    natal_by_palace: dict[str, str]
 
 
 class RelationTextItem(_AliasModel):
@@ -618,6 +620,38 @@ class TwelveStagesTextFile(_AliasModel):
     version: str
     note: str | None = None
     items: list[TwelveStageTextItem] = Field(min_length=12, max_length=12)
+
+
+class RelationPalacePairItem(_AliasModel):
+    """원국 충·파·해의 궁위 쌍 서사 1건 (relation_palace_pairs_text.json, 2026-10-15)."""
+
+    kind: Literal["clash", "break", "harm"]
+    pair: Literal["year-month", "year-day", "year-hour", "month-day", "month-hour", "day-hour"]
+    pair_ko: str
+    text: str = Field(min_length=15)
+    reviewed: bool
+
+
+class RelationPalacePairsFile(_AliasModel):
+    version: str
+    reviewed: bool
+    note: str | None = None
+    items: list[RelationPalacePairItem] = Field(min_length=18, max_length=18)
+
+
+class VoidTenGodItem(_AliasModel):
+    """원국 공망 글자의 본기 십성별 서사 1건 (void_ten_god_text.json, 2026-10-15)."""
+
+    ten_god: str
+    text: str = Field(min_length=15)
+    reviewed: bool
+
+
+class VoidTenGodTextFile(_AliasModel):
+    version: str
+    reviewed: bool
+    note: str | None = None
+    items: list[VoidTenGodItem] = Field(min_length=10, max_length=10)
 
 
 class RelationsTextFile(_AliasModel):
@@ -2430,6 +2464,8 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/ilju.json": IljuFile,
     "interpretations/ten_gods_text.json": TenGodsTextFile,
     "interpretations/twelve_stages_text.json": TwelveStagesTextFile,
+    "interpretations/relation_palace_pairs_text.json": RelationPalacePairsFile,
+    "interpretations/void_ten_god_text.json": VoidTenGodTextFile,
     "interpretations/relations_text.json": RelationsTextFile,
     "interpretations/sinsal_text.json": SinsalTextFile,
     "interpretations/dohwa_text.json": DohwaTextFile,
@@ -2987,11 +3023,57 @@ def _lint_ten_gods_text(file: TenGodsTextFile) -> list[str]:
 
 
 def _lint_twelve_stages_text(file: TwelveStagesTextFile) -> list[str]:
-    """twelve_stages_text.json — 십이운성 12종 정확 커버리지(엔진 상수 기준)."""
+    """twelve_stages_text.json — 12종 정확 커버리지(엔진 상수 기준) + 궁위별 4칸·단정 금지."""
+    head = "interpretations/twelve_stages_text.json"
     got = {item.stage for item in file.items}
     if got != set(TWELVE_STAGES):
-        return [f"interpretations/twelve_stages_text.json: 운성 커버리지 불일치 — {sorted(got)}"]
-    return []
+        return [f"{head}: 운성 커버리지 불일치 — {sorted(got)}"]
+    errors: list[str] = []
+    for item in file.items:
+        if set(item.natal_by_palace) != {"year", "month", "day", "hour"}:
+            errors.append(f"{head}: {item.stage} natal_by_palace 키는 year/month/day/hour 4칸")
+        for palace, text in item.natal_by_palace.items():
+            if len(text.strip()) < 15:
+                errors.append(f"{head}: {item.stage}/{palace} 문장이 너무 짧다")
+            for bad in ("반드시", "확실히", "틀림없이", "무조건"):
+                if bad in text:
+                    errors.append(f"{head}: {item.stage}/{palace} 단정 어휘 '{bad}'")
+    return errors
+
+
+_ASSERTIVE_WORDS = ("반드시", "확실히", "틀림없이", "무조건")
+
+
+def _lint_relation_palace_pairs(file: RelationPalacePairsFile) -> list[str]:
+    """relation_palace_pairs_text.json — 3종 × 6쌍 정확 커버리지·단정 어휘 금지."""
+    head = "interpretations/relation_palace_pairs_text.json"
+    errors: list[str] = []
+    got = {(it.kind, it.pair) for it in file.items}
+    kinds = ("clash", "break", "harm")
+    pairs = ("year-month", "year-day", "year-hour", "month-day", "month-hour", "day-hour")
+    want = {(k, p) for k in kinds for p in pairs}
+    if got != want:
+        errors.append(f"{head}: kind×pair 커버리지 불일치 — 누락 {sorted(want - got)}")
+    for it in file.items:
+        for bad in _ASSERTIVE_WORDS:
+            if bad in it.text:
+                errors.append(f"{head}: {it.kind}/{it.pair} 단정 어휘 '{bad}'")
+    return errors
+
+
+def _lint_void_ten_god_text(file: VoidTenGodTextFile) -> list[str]:
+    """void_ten_god_text.json — 10십성 정확 커버리지·단정 어휘 금지."""
+    head = "interpretations/void_ten_god_text.json"
+    errors: list[str] = []
+    got = {it.ten_god for it in file.items}
+    want = {"비견", "겁재", "식신", "상관", "편재", "정재", "편관", "정관", "편인", "정인"}
+    if got != want:
+        errors.append(f"{head}: 십성 커버리지 불일치 — {sorted(got ^ want)}")
+    for it in file.items:
+        for bad in _ASSERTIVE_WORDS:
+            if bad in it.text:
+                errors.append(f"{head}: {it.ten_god} 단정 어휘 '{bad}'")
+    return errors
 
 
 def _lint_stems_branches_text(file: StemsBranchesTextFile) -> list[str]:
@@ -3497,6 +3579,10 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_ten_gods_text(parsed))
         elif isinstance(parsed, TwelveStagesTextFile):
             errors.extend(_lint_twelve_stages_text(parsed))
+        elif isinstance(parsed, RelationPalacePairsFile):
+            errors.extend(_lint_relation_palace_pairs(parsed))
+        elif isinstance(parsed, VoidTenGodTextFile):
+            errors.extend(_lint_void_ten_god_text(parsed))
         elif isinstance(parsed, RelationsTextFile):
             errors.extend(_lint_relations_text(directory, parsed))
         elif isinstance(parsed, StemsBranchesTextFile):
