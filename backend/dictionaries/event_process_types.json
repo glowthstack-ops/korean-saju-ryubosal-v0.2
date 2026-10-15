@@ -258,7 +258,8 @@
       ],
       "match": {
         "reason_prefixes": [
-          "PEER_YONGSIN_MOBILITY"
+          "PEER_YONGSIN_MOBILITY",
+          "PEER_GISIN_MOBILITY"
         ],
         "signal_keywords": [
           "충",

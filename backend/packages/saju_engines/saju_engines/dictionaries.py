@@ -419,7 +419,7 @@ class DohwaTextFile(_AliasModel):
 class PeerMobilityTextItem(_AliasModel):
     """운 간여지동·비겁 용신 이동 해석 문구 1건 (transit_peer_mobility_text.json)."""
 
-    id: Literal["same_pillar", "peer_yongsin_mobility", "weak_inflow"]
+    id: Literal["same_pillar", "peer_yongsin_mobility", "peer_gisin_mobility", "weak_inflow"]
     condition: str
     text: str = Field(min_length=20)
     basis: str = Field(min_length=10)
@@ -427,11 +427,12 @@ class PeerMobilityTextItem(_AliasModel):
 
 
 class PeerMobilityTextFile(_AliasModel):
-    """운 간여지동·비겁 용신 이동 문구 사전 — 세 항목 정확 커버리지(2026-10-14)."""
+    """운 간여지동·비겁 용신/기신 이동 문구 사전 — 네 항목 정확 커버리지(2026-10-14, 기신 대칭
+    2026-10-15)."""
 
     version: str
     note: str | None = None
-    items: list[PeerMobilityTextItem] = Field(min_length=3, max_length=3)
+    items: list[PeerMobilityTextItem] = Field(min_length=4, max_length=4)
 
 
 class TenGodRelationFamily(_AliasModel):
@@ -2854,12 +2855,14 @@ _DOHWA_GROUP_TEN_GODS: dict[str, set[str]] = {
 
 
 def _lint_peer_mobility_text(file: PeerMobilityTextFile) -> list[str]:
-    """transit_peer_mobility_text.json — 세 id 정확 커버리지·단정 어휘 금지."""
+    """transit_peer_mobility_text.json — 네 id 정확 커버리지·단정 어휘 금지(기신 대칭 2026-10-15).
+    """
     head = "interpretations/transit_peer_mobility_text.json"
     ids = [it.id for it in file.items]
     errors: list[str] = []
-    if sorted(ids) != ["peer_yongsin_mobility", "same_pillar", "weak_inflow"]:
-        errors.append(f"{head}: id 집합이 3종과 다름 — {ids}")
+    expected = ["peer_gisin_mobility", "peer_yongsin_mobility", "same_pillar", "weak_inflow"]
+    if sorted(ids) != expected:
+        errors.append(f"{head}: id 집합이 4종과 다름 — {ids}")
     for it in file.items:
         for bad in ("반드시", "확실히", "틀림없이", "무조건"):
             if bad in it.text:

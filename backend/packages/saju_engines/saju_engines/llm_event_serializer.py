@@ -55,6 +55,9 @@ _REASON_PREFIX_KO: dict[str, str] = {
     # 인성 동요 신호(2026-08-10, relation_target_ten_god_rules) — 일반 REL_ 보다 앞.
     "REL_CHUNG_RESOURCE_RENEWAL": "문서 교체 자극(기존 계약·문서를 깨고 갈아타는 흐름)",
     "REL_CHUNG_RESOURCE_UNROOTED": "문서 동요(받치는 힘 약함 — 성사보다 흔들림·지연 배경)",
+    # 2026-10-15 — 용신 품질군 차등(유익형 가중)·운↔운 충 보조 근거. FLAT 코드는 감사용이라 미등록.
+    "YONG_TIER_FAVORABLE": "용신 유익형 가중(유익한 발현 후보 우선)",
+    "TRANSIT_CLASH": "운끼리 충(변화 보조 근거)",
     "REL_": "관계 발동",
     "FLOW_GEN": "상생 흐름",
     "FLOW_REVERSE": "역행 흐름",

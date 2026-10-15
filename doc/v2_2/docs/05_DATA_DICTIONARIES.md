@@ -225,6 +225,20 @@ compiled/
 - 해석 문구 사전 `transit_peer_mobility_text.json`(항목 3: same_pillar·peer_yongsin_mobility·weak_inflow): `chart_interpretation.incoming_ten_god_note`가 운 간여지동(천간·지지 같은 십성)과 비겁 용신 유입 조건에 맞는 문구를 고르기만 한다(작문 금지). validate가 3 id 정확 커버리지·단정 어휘(반드시·확실히·틀림없이·무조건)를 검사한다. 사건 유형 사전 `event_process_types.json` '이동·교체·재편'의 reason_prefixes 에 `PEER_YONGSIN_MOBILITY` 등록.
 - 개인 캘리브레이션: 같은 사건을 `subject_life_events`에 confirmed(delayed_outcome) 1행으로 적재(데굴님 승인) — 개인 시그니처 past_event_match 에 쓰인다.
 
+### event_engine/transit_ten_god_branching.json `favorable_role_tiering` · `transit_clash_mobility_support` (2026-10-15 데굴님 승인)
+
+- 배경: `YongiQualityEngine`이 같은 극성(용신·희신·강한 용신)의 **모든** 후보에 `polarity_rules` 배율을 곱해, 상관 용신의 충돌·이탈(career_change 41)·편관 용신의 압박·편인 용신의 보류가 용신이라는 이유로 더 강해지고 발표·취업·입학 같은 유익형은 뒤에 남았다(외부 검토 지적, 2026-10-15). 사건 '종류'는 십성이 정하고 용·기신은 유불리라는 원칙은 유지하되, **역할에 따른 후보 순위 조정**을 허용한다.
+- `favorable_role_tiering`: 용신 역할(`roles`)일 때 **유입 십성별 유익형 사건 목록**(`favorable_events_by_ten_god`, 10십성)에 든 후보에만 모드 배율(`modes`: a=1.10 / b=1.20)을 곱하고 그 외는 1.00. 기존 `polarity_rules` 배율은 이 모드에서 쓰지 않는다(한 곳에서만 곱한다 — 중복 곱 금지). 기신 쪽(quality_flip)은 불변. 기존 단일 운 규칙에 없는 유익형은 `extra_base_events`(편관→promotion 26·편인→creative_output 26)로 모드가 켜졌을 때만 브랜처 기본 후보에 더한다. 출산은 현실 게이트 대상이라 유익형에 넣지 않고, '자립·협력·문제 해결·책임 수행·전문성 활용'은 사건 키가 아니라 작용이라 `yonggi_quality_matrix.json` 용신 문구가 담는다. 용신이라는 이유만으로 취업·승진·입학을 자동 우선하지 않는다(기본점·관계 근거 유지). reason `YONG_TIER_FAVORABLE`(한글 "용신 유익형 가중") / `YONG_TIER_FLAT`(감사용). 구현 `saju_engines.favorable_role_tiering` + `YongiQualityEngine(tiering, tier_mode)` + `TenGodEventBrancher(extra_base_events)`. 플래그 `SAJU_YONG_TIERED_MULTIPLIER_MODE`(off 기본 / a / b — `validate_flags`가 그 외 값을 거부). 비겁 용신 이동 시드(`peer_yongsin_mobility_rules`)와 기준점은 불변 — 그 후보는 유익형 목록 밖이라 모드에서 FLAT(1.00).
+- `transit_clash_mobility_support`: 거버닝 스택의 **서로 다른 운 층 사이 지지 충**(대운 壬辰↔월운 戊戌 辰戌충 등)을 이동형 후보(`events`: career_change·relocation)의 **보조 근거**로 `bonus`(4)만큼 후보당 1회 가산한다. 운↔운 충은 층간 충(계층형 grounding)·재물 충개고·합화 상태에서는 이미 계산되지만 사건 점수의 관계 보정(`RelationPalaceEngine`)은 운↔원국 궁위 충만 다뤄 직장·소속 변화 후보에 닿지 않았다. 그 충만으로 '무엇이 변하는가'를 특정하지 않으며, 같은 충을 같은 사건 안에서 여러 이름으로 반복 가산하지 않는다(쌍 전부를 reason 1건 `TRANSIT_CLASH_{층}{지지}-{층}{지지}`에 기록, 한글 "운끼리 충(변화 보조 근거)"). 궁위 관계 보정과 같은 raw 단계(용신 배율 앞)에 둔다. 구현 `saju_engines.transit_clash_support`, 플래그 `SAJU_TRANSIT_CLASH_SUPPORT_ENABLED`(기본 OFF).
+- 값은 명리의 확정 수치가 아니라 초기 설계값이다. `scripts/casebook_replay.py --yong-tier-mode {off,a,b} [--transit-clash-support]`로 85사례를 같은 셸에서 재생해 비교하고(시점이 있는 outcome 의 상위 3 적중·방향 오탐, 미기록은 확인 불가로 제외), 적중이 늘면서 오탐이 늘지 않는 안을 택하되 같으면 배율이 작은 a안. 측정 결과는 WORKLOG 2026-10-15 참조. 두 사전 절 모두 reviewed:false.
+
+### event_engine/transit_ten_god_branching.json `peer_gisin_mobility_rules` + 유익형 근거 코드 (2026-10-15 데굴님 확정)
+
+- 유익·불익의 기준(데굴님): 이동이 자발인가 타의인가가 아니라 **이동 뒤 흐름이 좋은가**. 떠밀려 나가도 그 덕에 맞는 자리로 가면 복이 될 수 있고, 스스로 택해도 화가 될 수 있다. 주체는 미상(`[이동 주체 미상]` 지시문)으로 두고, 흐름은 용신·기신이 정한다.
+- 유익형 편입: `favorable_role_tiering.favorable_reason_prefixes = ["PEER_YONGSIN_MOBILITY"]` — 비겁 용신 이동 시드는 사건 키(career_change)로는 흉형과 구분되지 않아 **근거 코드**로 유익형을 인정한다(`FavorableTieringRule.is_favorable(..., reason_codes)`). 모드 a 에서 실사례 2026-10 이동 후보 66→73(순위 2위 유지). 품질은 '기회 가능성'이지 결과 확정이 아니며 문구도 "나쁘지 않게 흐를 수 있다"까지만.
+- 기신 대칭 시드 `peer_gisin_mobility_rules`(id `PEER_GISIN_MOBILITY`, `favorability_any: ["기신"]`, 그 외 용신 절과 동일 — 층 세운·월운, 기준점 same_god 68·same_group 58·stem_only 50·branch_only 44): 비겁이 기신인 명식에 비겁 운이 들어오면 경쟁·분탈 압박 속의 이동(불익) 후보. 극성 자리표시 GI, 길흉은 뒤 계층 기신 품질 반전(압박·손실·충돌). 해석 문구 `transit_peer_mobility_text.json` `peer_gisin_mobility`(4 id 정확 커버리지로 lint 갱신), `event_process_types.json` '이동·교체·재편' reason_prefixes 에 등록. 구현 `peer_mobility_seed.load_peer_mobility_rule(dicts, GISIN_SECTION)` + `EventEngineV2(enable_peer_gisin_mobility)`, 플래그 `SAJU_PEER_GISIN_MOBILITY_ENABLED`(기본 ON). 실사례 없음 — 85사례 재생에서 시점 있는 outcome 적중 23/오탐 8 불변, 연도 top-1 career_change 3957→4050·social_conflict 107→95(분포만 이동).
+- 검증 픽스처: 1985-05-20 10:00 서울 남(己未 일주, 土=기신) — 2026-10 戊戌(겁재·겁재)에 PEER_GISIN_MOBILITY·PEER_INFLOW_SAME_GOD 후보, 용신 실사례(1980-11-22)에는 기신 시드 없음, 한신·희신·구신 비겁은 문구 침묵.
+
 ### events/*.json (신호→이벤트 매핑 예)
 
 ```json

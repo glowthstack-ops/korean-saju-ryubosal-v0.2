@@ -1011,8 +1011,11 @@ def incoming_ten_god_note(
         body += f" · 운 간여지동(천간·지지 모두 {stem_tg}): {texts['same_pillar']}"
     peer_el = str(STEM_ELEMENT[dm])
     peer_inflow = stem_el == peer_el or branch_el == peer_el
-    if peer_inflow and fav_map.get(peer_el) == "용신":
-        body += f" · {texts['peer_yongsin_mobility']}"
+    peer_role = fav_map.get(peer_el)
+    if peer_inflow and peer_role in ("용신", "기신"):
+        # 기신 대칭(2026-10-15 데굴님 확정) — 이동 뒤 흐름이 나쁜 쪽. 문구는 사전에서 고르기만 한다.
+        key = "peer_yongsin_mobility" if peer_role == "용신" else "peer_gisin_mobility"
+        body += f" · {texts[key]}"
         if not (stem_el == peer_el and branch_el == peer_el):
             body += f" {texts['weak_inflow']}"
     guard = _operational_guard_suffix([stem_el, branch_el], op)

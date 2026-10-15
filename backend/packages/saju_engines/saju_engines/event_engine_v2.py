@@ -90,6 +90,7 @@ from .daewoon_background import (
 from .event_ranker import EventRanker, RankContext
 from .event_scoring import daewoon_transition_boost, favorability_map
 from .exam_outcome_modifier import ExamOutcomeModifier
+from .favorable_role_tiering import load_favorable_tiering
 from .ganji_calendar import relation_hits
 from .layer_evidence_scope import normalize_layers
 from .layer_flow_modifier import LayerFlowModifier
@@ -109,6 +110,7 @@ from .marriage_flow_modifier import (
     detect_marriage_flow_activations,
 )
 from .peer_mobility_seed import (
+    GISIN_SECTION,
     load_peer_mobility_rule,
     merge_peer_mobility_seeds,
     produce_peer_mobility_seeds,
@@ -127,6 +129,11 @@ from .risk_engine import (
     build_raw_period_facts,
 )
 from .ten_god_brancher import TenGodEventBrancher, TransitSignal
+from .transit_clash_support import (
+    apply_transit_clash_support,
+    load_transit_clash_rule,
+    transit_clashes,
+)
 from .twelve_stage_modifier import TwelveStageModifier
 from .wealth_activation_modifier import WealthActivationModifier
 from .wealth_capacity import analyze_wealth_capacity, detect_wealth_activations
@@ -232,6 +239,9 @@ class EventEngineV2:
         daewoon_hwa_mode: str = "current",
         enable_resource_clash_renewal: bool = False,
         enable_peer_mobility: bool = True,
+        enable_peer_gisin_mobility: bool = True,
+        yong_tier_mode: str = "off",
+        enable_transit_clash_support: bool = False,
     ) -> None:
         """재설계 6계층 + 만세 신호 추출에 필요한 사전을 로드한다.
 
@@ -259,6 +269,16 @@ class EventEngineV2:
             enable_peer_mobility: 비겁 용신 × 비겁 운 유입 → career_change 시드(2026-10-14 데굴님
                 확정, 기본 ON). 규칙·점수는 브랜처 사전 `peer_yongsin_mobility_rules` 절.
                 OFF면 불변.
+            enable_peer_gisin_mobility: 비겁 기신 × 비겁 운 유입 → career_change 시드(용신 시드의
+                대칭, 2026-10-15 데굴님 확정, 기본 ON). 사전 `peer_gisin_mobility_rules` 절.
+                OFF면 불변.
+            yong_tier_mode: 용신 배율 품질군 차등(2026-10-15 데굴님 승인). 'off'(기본)=기존 일괄
+                배율 / 'a'·'b'=유입 십성별 유익형 후보만 모드 배율(1.10/1.20), 그 외 1.00 + 사전
+                `favorable_role_tiering.extra_base_events`(편관 promotion·편인 creative_output)
+                브랜처 합류. off 면 불변.
+            enable_transit_clash_support: 운↔운 충(대운↔월운 辰戌충 등) → 이동형 후보
+                (career_change·relocation) 보조 가산(2026-10-15 승인, 선택 항목, 기본 OFF). 후보당
+                1회·사전 상수. OFF면 불변.
         """
         self._enable_mt1_awareness = enable_mt1_awareness
         # 비겁 용신 × 비겁 운 → 직장 이동 시드(2026-10-14 데굴님 확정, 기본 ON). 규칙은 브랜처 사전
@@ -266,6 +286,12 @@ class EventEngineV2:
         self._enable_peer_mobility = enable_peer_mobility
         self._peer_mobility_rule = (
             load_peer_mobility_rule(dictionaries_dir) if enable_peer_mobility else None
+        )
+        # 기신 대칭 시드(2026-10-15) — 용신 시드와 같은 자리에서 합류, 길흉은 기신 품질 반전이
+        # 정한다.
+        self._peer_gisin_rule = (
+            load_peer_mobility_rule(dictionaries_dir, GISIN_SECTION)
+            if enable_peer_gisin_mobility else None
         )
         self._enable_mt2_emergence = enable_mt2_emergence
         self._enable_mt3_directional = enable_mt3_directional
@@ -306,12 +332,27 @@ class EventEngineV2:
         except FileNotFoundError:
             # fresh-clone graceful — risks/ 사전이 없으면 위험 엔진만 비활성(기존 기능 무영향).
             self._risk = None
-        self._brancher = TenGodEventBrancher(dictionaries_dir)
+        # 용신 품질군 차등(2026-10-15) — 모드가 켜졌을 때만 규칙을 읽고 유익형 기본 후보를
+        # 브랜처에 더한다.
+        self._tiering = (
+            load_favorable_tiering(dictionaries_dir) if yong_tier_mode != "off" else None
+        )
+        self._yong_tier_mode = yong_tier_mode if self._tiering is not None else "off"
+        self._brancher = TenGodEventBrancher(
+            dictionaries_dir,
+            extra_base_events=self._tiering.extra_base_events if self._tiering else (),
+        )
+        # 운↔운 충 이동형 보조 가산(2026-10-15, 선택 항목) — OFF 또는 절 부재면 불변.
+        self._transit_clash_rule = (
+            load_transit_clash_rule(dictionaries_dir) if enable_transit_clash_support else None
+        )
         self._stage = TwelveStageModifier(dictionaries_dir)
         self._flow = LayerFlowModifier(dictionaries_dir)
         self._gate = AddendumGateModifier()
         self._relpalace = RelationPalaceEngine(dictionaries_dir)
-        self._yongi = YongiQualityEngine(dictionaries_dir)
+        self._yongi = YongiQualityEngine(
+            dictionaries_dir, tiering=self._tiering, tier_mode=self._yong_tier_mode,
+        )
         self._exam = ExamOutcomeModifier(dictionaries_dir)
         self._career_mobility = CareerMobilityModifier(dictionaries_dir)
         self._wealth_act = WealthActivationModifier()
@@ -611,13 +652,14 @@ class EventEngineV2:
             ]
         # 비겁 용신 × 비겁 유입 → career_change 시드(2026-10-14). 브랜처 직후 합류 → 6계층 보정·랭킹
         # 공통 적용(관성 충 등 다른 작용이 뒤에서 풀이를 바꿀 수 있어야 한다는 데굴님 지시).
-        if self._peer_mobility_rule is not None:
-            cands = merge_peer_mobility_seeds(
-                cands,
-                produce_peer_mobility_seeds(
-                    signals, target_layer, result, fav_map, label, self._peer_mobility_rule,
-                ),
-            )
+        for _peer_rule in (self._peer_mobility_rule, self._peer_gisin_rule):
+            if _peer_rule is not None:
+                cands = merge_peer_mobility_seeds(
+                    cands,
+                    produce_peer_mobility_seeds(
+                        signals, target_layer, result, fav_map, label, _peer_rule,
+                    ),
+                )
         if not cands:
             return []
         # 배우자성 성별 가중(③) — 남=재성·여=관성. 반대 성별 별만으로 뜬 결혼신호를 amplifier 전에
@@ -707,6 +749,12 @@ class EventEngineV2:
             renewal_enabled=self._enable_resource_clash_renewal,
             ten_god_group_powers=group_powers,
         )
+        # 운↔운 충(대운↔월운 등) — 이동형 후보 보조 가산(2026-10-15 승인, 기본 OFF). 궁위 관계
+        # 보정과 같은 raw 단계에 둔다(용신 배율 앞). 후보당 1회·쌍 전부를 reason 1건에 기록.
+        if self._transit_clash_rule is not None:
+            cands = apply_transit_clash_support(
+                cands, transit_clashes(stack), self._transit_clash_rule,
+            )
         # 용신 품질 — 시점 유입 글자 오행의 용기신 역할. 본 천간이 합화(化)면 化神 오행으로 길흉
         # 판단(生剋制化 우선 — 사건 종류는 불변, 길흉만 化神 기준). 대운 배경 합화는 제외(국소).
         # 生剋制化 우선순위(化 > 制): 합화면 化神 길흉, 아니면 합거(기신 무력화) 여부를 본다.
