@@ -1977,6 +1977,7 @@ AUX_ADVERSE_POLARITY_ROLES: frozenset[str] = frozenset({"GI", "GI_STRONG", "HAN_
 AUX_STRUCTURE_FLAGS: frozenset[str] = frozenset({
     "luck_gaedu", "luck_jeolgak", "chunggeun_useful", "tonggwan_absent",
     "rescue_damaged", "special_breach",
+    "life_branch_clash",  # 사생지(寅申巳亥) 충(2026-10-15, 교재 기타절)
 })
 AUX_HAP_FLAGS: frozenset[str] = frozenset({
     "stem_harmed", "branch_harmed", "stem_mitigated", "branch_mitigated",

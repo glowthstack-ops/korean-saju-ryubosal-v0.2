@@ -814,6 +814,10 @@ class EventEngineV2:
         if period_v2_config.STRUCTURE_BACKGROUND_ENABLED:
             # A2(2026-09-18 승인) — 충근·개두절각·통관 부재·구응 손상·특수격 역행(favorability만).
             cands = _apply_luck_structure_flags(cands, target, result, fav_map)
+        if period_v2_config.DOUBLE_CLASH_FLAG_ENABLED:
+            # 이중 충(2026-10-15, 교재 2장·기타절 '원국 충이 있는데 운이 또 충하면 큰 화·충 둘은
+            # 불가') — favorability 만 소폭 감점, 점수·순위·사건 종류 불변.
+            cands = _apply_double_clash_flag(cands, target, result, hits)
         # 시험·합격·취업 결과 길흉 — 십성 구조 합·불 패턴으로 favorability만 보정(점수 불변,
         # 자료 9-3·9-4). 극성 NEUTRAL이어도 적용되도록 yongi 블록 밖에서 호출한다.
         cands = self._exam.apply(cands, present_gods)
@@ -1600,6 +1604,48 @@ def _apply_structure_background(
             "reason_codes": [*c.reason_codes, *reasons],
             **({"contributions": {**c.contributions, "fav_adj": round(prev + delta, 4)}}
                if delta else {}),
+        }))
+    return out
+
+
+def _apply_double_clash_flag(
+    cands: list[EventCandidateV2],
+    target: LuckPillar,
+    result: ManseV2Result,
+    hits: list[RelationHit],
+) -> list[EventCandidateV2]:
+    """이중 충 표지(2026-10-15) — 원국 충 쌍에 든 지지를 운 지지가 다시 충하면 fav_adj 소폭 감점.
+
+    교재(2장·기타절): 원국에 충이 있는데 운에서 또 충하면 큰 화, 충 하나는 괜찮아도 둘은 불가.
+    점수·순위·사건 종류는 건드리지 않고 favorability(fav_adj)만 STRUCTURE_PILLAR_PENALTY 의
+    절반을 뺀다. 측정은 85사례 방향 오탐으로.
+    """
+    sa = result.structure_analysis
+    if sa is None or not target.branch:
+        return cands
+    natal_clash = {m for i in sa.interactions if i.relation_type == "clash" for m in i.members}
+    if not natal_clash:
+        return cands
+    struck = sorted({
+        ref.branch for h in hits if h.type is RelationType.BRANCH_CLASH
+        for ref in h.natal_refs if ref.side == "natal" and ref.branch in natal_clash
+    })
+    if not struck:
+        return cands
+    code = f"沖_이중충_{target.branch}→{''.join(struck)}"
+    delta = -period_v2_config.STRUCTURE_PILLAR_PENALTY / 2
+    out: list[EventCandidateV2] = []
+    for c in cands:
+        if code in c.reason_codes:
+            out.append(c)
+            continue
+        prev = c.contributions.get("fav_adj", 0.0)
+        out.append(c.model_copy(update={  # provenance-audit: not-risk (EventCandidateV2)
+            "reason_codes": [*c.reason_codes, code],
+            # double_clash 키는 감사용(뒤 모디파이어가 fav_adj 를 덮어써도 적용 사실이 남는다).
+            "contributions": {
+                **c.contributions, "fav_adj": round(prev + delta, 4), "double_clash": delta,
+            },
         }))
     return out
 

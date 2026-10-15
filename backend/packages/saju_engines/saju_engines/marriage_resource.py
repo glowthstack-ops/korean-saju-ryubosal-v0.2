@@ -436,6 +436,34 @@ def analyze_marriage_resource(
     )
     spouse_star_excess = spouse_pct >= 30.0 or spouse_visible_count >= 3
     spouse_star_absent = not spouse_star_present
+    # 여명 부성 대체 후보(2026-10-15, 교재 기타절 '부성 선정 기준') — 설명 전용.
+    spouse_star_substitute: str | None = None
+    spouse_star_substitute_basis: str | None = None
+    if gender == "female":
+        officer_pct = float(groups.get("officer", 0.0))
+        resource_pct = float(groups.get("resource", 0.0))
+        peer_pct = float(groups.get("peer", 0.0))
+        output_pct = float(groups.get("output", 0.0))
+        strong_band = fa.strength.band in ("중화신강", "신강", "태신강")
+        if officer_pct >= 30.0:
+            spouse_star_substitute, spouse_star_substitute_basis = (
+                "인성",
+                f"관성 태왕({officer_pct:.0f}%) — 인성이 관을 설기해 받는 자리를 부성으로 본다",
+            )
+        elif spouse_star_absent or officer_pct < 8.0:
+            spouse_star_substitute, spouse_star_substitute_basis = (
+                "재성", "관성이 약하거나 드러나지 않음 — 관을 생하는 재성을 부성으로 본다",
+            )
+        elif peer_pct >= 30.0 and not has_resource:
+            spouse_star_substitute, spouse_star_substitute_basis = (
+                "식상", f"비겁 중중({peer_pct:.0f}%)·인성 없음 — 설기하는 식상을 부성으로 본다",
+            )
+        elif strong_band and resource_pct >= 30.0 and output_pct < 5.0:
+            spouse_star_substitute, spouse_star_substitute_basis = (
+                "재성",
+                f"신왕·인성 중중({resource_pct:.0f}%)·식상 없음 — 인성을 제어하는 재성을 부성으로 "
+                "본다",
+            )
     # 도화·홍염 — 각자의 성립 조건으로 구분한다(2026-10-13 도화 정비). 도화는 진도화(연지·일지
     # 삼합 기준 년살) 성립만 인정하고, 子午卯酉 글자 보유(사정지)만으로는 도화를 부여하지 않는다.
     # 홍염은 일간 기준 홍염 지지가 원국에 있을 때.
@@ -539,6 +567,8 @@ def analyze_marriage_resource(
         wealth_palace_clash=wealth_palace_clash,
         spouse_star_excess=spouse_star_excess,
         spouse_star_absent=spouse_star_absent,
+        spouse_star_substitute=spouse_star_substitute,
+        spouse_star_substitute_basis=spouse_star_substitute_basis,
         charm_present=charm_present,
         dohwa_established=dohwa_established,
         hongyeom_present=hongyeom_present,

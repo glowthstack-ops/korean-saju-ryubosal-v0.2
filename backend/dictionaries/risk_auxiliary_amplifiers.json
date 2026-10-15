@@ -343,6 +343,28 @@
       "strength": 0.2,
       "labelKo": "이동 상징 신살(역마·지살류)이 흉한 흐름과 겹침 — 일정·이동 계획의 차질 배경",
       "note": "역마는 중립 — 흉 극성 동반일 때만 부담 배경."
+    },
+    {
+      "id": "AUX_HLT_LIFE_BRANCH_CLASH",
+      "riskFamilyIn": [
+        "vitality_load",
+        "existing_condition",
+        "recovery_capacity",
+        "accident_injury",
+        "mobility_safety"
+      ],
+      "polarityRoleIn": [
+        "GI",
+        "GI_STRONG",
+        "HAN_BAD"
+      ],
+      "structureIn": [
+        "life_branch_clash"
+      ],
+      "strength": 0.2,
+      "labelKo": "사생지(寅申巳亥) 충이 흉한 흐름과 겹쳐 건강·안전 쪽 부담이 조금 더 커질 수 있음(통설 — 관리·검진 권장 수준)",
+      "note": "2026-10-15 외부 교재 기타절: 사생지는 충을 받으면 병·사망 가능성이 언급되나 단정 금지 — 건강·사고 family 후보가 이미 있고 흉 극성일 때만 보조 증폭.",
+      "reviewed": false
     }
   ]
 }

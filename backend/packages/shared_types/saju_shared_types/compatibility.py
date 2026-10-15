@@ -26,6 +26,8 @@ class CompatSignalKind(StrEnum):
     TEN_GOD_TO_SELF = "ten_god_to_self"        # 상대 일간 기준 본인 일간의 십성
     TEN_GOD_COMPLEMENT = "ten_god_complement"  # 내게 약한 십성군을 상대가 채워줌(보완 끌림)
     YONGSIN_SUPPORT = "yongsin_support"        # 상대 오행이 본인 용·희신 보완
+    ELEMENT_COMPLEMENT = "element_complement"  # 내게 결핍된 오행을 상대가 강하게 가짐(2026-10-15)
+    SEASON_COMPLEMENT = "season_complement"    # 여름생↔겨울생 조후 보완 / 같은 극계절 쏠림(보조)
     YONGSIN_BURDEN = "yongsin_burden"          # 상대 오행이 본인 기·구신 강화
     SINSAL_CHARM = "sinsal_charm"              # 홍염 교차 끌림(보조 — 가볍게)
     # 개인 도화(진도화 성립) — 그 사람이 매력적으로 비치기 쉬운 결(보조). 두 사람의 상호 끌림

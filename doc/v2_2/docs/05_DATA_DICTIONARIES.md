@@ -238,6 +238,15 @@ compiled/
 - 노출: `chart_interpretation._build_excerpts`가 기둥마다 `kind=twelve_stage_palace`, key "연주 운성 장생" 형식으로 한 줄씩 명식 해석 자료에 싣는다(채팅 구조 블록·리포트 명식 prefix 공용, 시주 미상이면 시주 줄 없음). 문체·서사 전용 — 점수·후보 비개입. 토큰 축소 경로(excerpts[:4])에서는 뒤 순서라 먼저 잘린다.
 - lint: 4칸 필수·15자 이상·단정 어휘 금지(`_lint_twelve_stages_text`), 단정 표현 테스트(`test_interpretations_dict`)에 포함. reviewed:false — 실답 노출 로그로 감수.
 
+### 외부 교재 대조 P2 — 궁합 보완 2신호·여명 부성 대체 설명층·이중 충 표지·사생지 충 보조 (2026-10-15 데굴님 '권고대로')
+
+- 궁합(`compatibility_engine._element_season_signals`): ①결핍 오행 보완 — 한쪽 오행 비중 <5% 를 상대가 ≥20% 로 가지면 `ELEMENT_COMPLEMENT`(보완, 끌림 가중 1) ②계절(조후) 보완 — 월지 계절이 여름↔겨울이면 `SEASON_COMPLEMENT`(보완), 둘 다 여름/겨울이면 '조후 쏠림' 보조(중립). 교재 기타절 '없는 오행을 가진 상대', '여름생은 겨울생과'. 궁합 정답 데이터가 없어 실답 감수로만 검증.
+- 여명 부성 대체(`MarriageResourceProfile.spouse_star_substitute/_basis`): 관성 ≥30% → 인성 / 관성 미투출·<8% → 재성 / 비겁 ≥30%·인성 없음 → 식상 / 신왕·인성 ≥30%·식상 <5% → 재성. **설명 전용** — 배우자 별(여=관성)·점수·판정 불변, 배우자 블록에 "부성 대체 후보(통설·설명 전용)" 한 줄. 점수 반영 여부는 감수 후 별도 결정.
+- 이중 충 표지(`event_engine_v2._apply_double_clash_flag`, 플래그 `SAJU_DOUBLE_CLASH_FLAG_ENABLED` 기본 ON): 원국 충 쌍에 든 지지를 운 지지가 다시 충하면 전 후보 fav_adj −STRUCTURE_PILLAR_PENALTY/2(=−0.05), reason `沖_이중충_{운지}→{원국지}`, 기록 키 `contributions.double_clash`. 점수·순위·사건 종류 불변(85사례 방향 오탐으로 측정 — 결과는 WORKLOG).
+- 사생지 충 보조(`risk_auxiliary` 구조 플래그 `life_branch_clash` + `risk_auxiliary_amplifiers.json` `AUX_HLT_LIFE_BRANCH_CLASH` strength 0.2): 운 지지가 원국 지지와 寅申·巳亥 충이면 건강·사고 family 후보(흉 극성)에만 보조 증폭. 교재 '사생지 충=병·사망' 은 단정 금지로 번역.
+- 합성 감사(용신 9규칙·격국 조건, 보고서만): `var/audit_textbook_rules_20261015.md`, 요약은 `EXTERNAL_TEXT_GAP_WAHNJAESKY.md` §8.
+- 테스트 `test_textbook_p2_20261015.py` 5건, `test_risk_auxiliary_amplifiers` 16항목.
+
 ### event_engine/transit_ten_god_branching.json `yearly_ten_god_signal_rules` — 세운 육신별 사건 신호 5계열 (2026-10-15, 외부 교재 6장 대조)
 
 - 교재 6장 '세운 육신별 사건표'(비겁·재성·관성·인성·식상년)를 브랜처 단일 운 규칙 10종·조합 규칙과 대조한 결과 대부분은 이미 대응(겁재=손재·분쟁, 재성=재물·계약·혼인, 관성=취업·승진·소송, 인성=문서·학업, 식상=표현·직업 전환). 우리 규칙에 없던 5계열만 보조 규칙으로 — 값은 초기 설계값·감수 대상.

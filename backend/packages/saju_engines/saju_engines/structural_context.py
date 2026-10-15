@@ -604,6 +604,13 @@ def marriage_resource_lines(mr: MarriageResourceProfile) -> list[str]:
         f"배우자 별({mr.spouse_star}): {spouse}",
         wealth_line,
     ]
+    if mr.spouse_star_substitute:
+        # 여명 부성 대체 후보(2026-10-15) — 통설 설명 전용. 점수·판정·배우자 별 자체는 불변.
+        lines.append(
+            f"부성 대체 후보(통설·설명 전용, 점수 비개입): {mr.spouse_star_substitute} — "
+            f"{mr.spouse_star_substitute_basis}. 배우자 별({mr.spouse_star})과 함께 두 축으로 "
+            "읽을 것"
+        )
     if mr.hour_resource_role:
         lines.append(f"시주 자원 역할: {mr.hour_resource_role}")
     # 배우자 인연 결(중립·비낙인 — 궁합 자료 ⑤⑥): '바람둥이/과부상' 류 낙인 금지, 경향으로만.

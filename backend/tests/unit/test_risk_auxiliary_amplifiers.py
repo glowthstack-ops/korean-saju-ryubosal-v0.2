@@ -86,7 +86,7 @@ def shadow_on(chart):
 
 def test_dictionary_contract_and_lint() -> None:
     items = load_auxiliary_amplifiers(_DICTS)
-    assert len(items) == 15
+    assert len(items) == 16  # 2026-10-15 AUX_HLT_LIFE_BRANCH_CLASH(사생지 충) 추가
     assert validate_dictionaries(_DICTS) == []
     ids = [it.id for it in items]
     assert len(ids) == len(set(ids))
@@ -232,7 +232,7 @@ def test_engine_flag_gate_and_byte_invariance(shadow_off, shadow_on) -> None:
 
 def test_presentation_carries_aux_labels(shadow_off, shadow_on) -> None:
     labels = auxiliary_labels(_DICTS)
-    assert len(labels) == 15
+    assert len(labels) == 16
     payload_on = build_risk_payload(shadow_on)
     payload_off = build_risk_payload(shadow_off)
     assert payload_on is not None and payload_off is not None

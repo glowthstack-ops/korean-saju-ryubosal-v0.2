@@ -119,6 +119,11 @@ PEER_GISIN_MOBILITY_ENABLED: bool = (
     os.environ.get("SAJU_PEER_GISIN_MOBILITY_ENABLED", "true").strip().lower()
     in ("1", "true", "yes")
 )
+# 이중 충 표지(2026-10-15, 교재 2장·기타절) — favorability 만, 기본 ON(점수 불변이라 적중 영향
+# 없음).
+DOUBLE_CLASH_FLAG_ENABLED: bool = (
+    os.environ.get("SAJU_DOUBLE_CLASH_FLAG_ENABLED", "true").strip().lower() in ("1", "true", "yes")
+)
 # 세운 육신별 사건 신호 5계열(외부 교재 6장 대조, 2026-10-15) — 기본 ON(데굴님 원칙: 적용 후 감수).
 YEARLY_TEN_GOD_SIGNALS_ENABLED: bool = (
     os.environ.get("SAJU_YEARLY_TEN_GOD_SIGNALS_ENABLED", "true").strip().lower()
@@ -209,6 +214,7 @@ def active_versions() -> dict[str, str | bool]:
         "peer_yongsin_mobility_enabled": PEER_YONGSIN_MOBILITY_ENABLED,
         "peer_gisin_mobility_enabled": PEER_GISIN_MOBILITY_ENABLED,
         "yearly_ten_god_signals_enabled": YEARLY_TEN_GOD_SIGNALS_ENABLED,
+        "double_clash_flag_enabled": DOUBLE_CLASH_FLAG_ENABLED,
         "yong_tiered_multiplier_mode": YONG_TIERED_MULTIPLIER_MODE,
         "transit_clash_support_enabled": TRANSIT_CLASH_SUPPORT_ENABLED,
         "sewoon_daewoon_context_enabled": SEWOON_DAEWOON_CONTEXT_ENABLED,
