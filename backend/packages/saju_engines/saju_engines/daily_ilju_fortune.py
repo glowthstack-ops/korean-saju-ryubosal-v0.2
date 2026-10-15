@@ -840,6 +840,7 @@ def _headline(
     seed_base: str,
     salt: int,
     romance_scope: bool = False,
+    love_line: bool = False,
     rotation_key: str = "",
     day_ordinal: int | None = None,
     tone: DayTone | None = None,
@@ -870,6 +871,9 @@ def _headline(
             표현은 일반 관계(대화·접점)이고, 연애 맥락은 이 게이트를 통과한 카드에서만
             쓴다 — 상대의 존재·행동·마음을 전제하지 않기 위해서다.
         tone: 오늘의 결(`day_tone`). None 이면 결 층을 쓰지 않는다.
+        love_line: '오늘의 연애' 줄 조립이면 True — 결과 문장을 연애 전용 결 풀
+            (`stage_results_by_stage[스테이지].romance_good/caution`)에서 우선 고른다(2026-10-15).
+            풀이 없는 과거 스냅샷은 종전 공용 풀(바이트 불변).
     """
     generic_kind = "caution" if band == "s1" else "good"
     generic = dicts.templates["generic"][generic_kind]
@@ -899,11 +903,12 @@ def _headline(
             (ev.get("sipseong_actions") or {}).get(tone.sipseong)
             or (ev.get("tone_actions") or {}).get(tone.sipseong_group)
         )
-        stage_results = (
-            (dicts.templates.get("stage_results_by_stage") or {})
-            .get(tone.stage, {})
-            .get(generic_kind)
-        ) or (
+        by_stage = (dicts.templates.get("stage_results_by_stage") or {}).get(tone.stage, {})
+        # '오늘의 연애' 줄은 연애 전용 결 풀(romance_good/caution)을 우선 쓴다(2026-10-15 데굴님
+        # 지적: 공용 胎 문장 "아직 작은 생각이 크게 자랄 흐름이에요"가 연애 줄 끝에 붙었다).
+        # 연애 풀이 없는 과거 계약 스냅샷(dict.v1.13 이하)은 종전대로 공용 풀 — 바이트 불변.
+        romance_results = by_stage.get(f"romance_{generic_kind}") if love_line else None
+        stage_results = romance_results or by_stage.get(generic_kind) or (
             (dicts.templates.get("stage_results") or {})
             .get(tone.stage_channel, {})
             .get(generic_kind)
@@ -989,7 +994,9 @@ def _love_line(
     if pick is None:
         return None
     # 기존 문장 조합 machinery 재사용(스타일·중복 회피 동일). love seed로 분리.
-    return _headline(dicts, pick.event_key, band, seed_base + "|love", 0, tone=tone)
+    return _headline(
+        dicts, pick.event_key, band, seed_base + "|love", 0, tone=tone, love_line=True,
+    )
 
 
 def _lucky_place(

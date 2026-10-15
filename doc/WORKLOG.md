@@ -12256,3 +12256,55 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 게이트: 아래 줄에 기록.
   lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=711b7b9, 지문 동일, exit 0, `var/gates_20261014_full12.log`).
   백엔드 8888 재기동 반영, 미커밋.
+
+## 2026-10-15 — 2026-10-14 커밋 8건 범위 검수: 한 사례만 고치고 지나간 연관 건 3건 수정 (데굴님 지시·승인)
+
+- 검수: 어제 커밋(21fdb68~baf2e68)을 "같은 결함 계열인데 한 사례만 고쳤는가" 기준으로 대조. 비겁 용신 시드(채팅·리포트 공용, 해석 문구 3호출점 반영),
+  1인칭 표지 정규식(한 곳), 관계 키 17종 매핑, 비연애 프레임(리포트는 relation_context_lines 기존)은 문제 없음. 아래 3건은 같은 증상이 남아 있었다.
+- 수정 1(부동산 거래 어휘, `query_parser`): 매도만 넣어 매수('아파트는 언제쯤 살 수 있을까'·'집을 언제 사면')와 점포 양도('가게는 언제 넘기는 게')가
+  여전히 사건 없음·general·open_when → 10년 digest 로 샜다(실측). `_REAL_ESTATE_NOUN` 공용화 + `_REAL_ESTATE_PURCHASE_RE`(거주 '살다'·'살게 될까'·'살만할까'
+  제외) + `is_real_estate_purchase`·`is_real_estate_trade`, 라우팅은 trade 로 통일(계약·문서 + 재물). docs/16 §1·§2 갱신. '차' 매수는 동형어(茶·차이)라 제외.
+- 수정 2(1월 라벨, `chat_service`): 라벨 조회는 어제 헬퍼로 통일했지만 롤링 창의 연도 집합으로 `luck_months(y)`를 부르던 지평 결합 표·12개월 롤링 경로는
+  'YYYY-01'로 시작하는 창(현재 절기월이 1월인 1/5~2/3경)에서 첫 달이 빠졌다(`luck_months(2027)`에 2027-01 없음 실측). `_luck_months_covering(birth, labels)`
+  신설(라벨별 `_luck_year_for_label`·중복 제거)로 두 경로 + 어제의 `_luck_pillars_for_range` MONTH 분기를 통일. report_service 예측창 주입은 calculate 기본
+  12개월과 겹쳐 실영향 없어 보류.
+- 수정 3(풀이 내역 라벨, `report.py`·`SubjectRef`·프론트): 채팅 모달은 relation_to_user 로 바꿨지만 `job_summary`는 kind=="self"→'본인'이었고,
+  `buildReportSpec`이 주 대상을 항상 kind:self 로 보내며 SubjectGateway 는 아무 명식이나 주 대상으로 고르므로 어머니 총운이 "박여사(본인)"으로 떴다.
+  `SubjectRef.relation_to_user`(주 대상 등록 관계 키, 프론트가 `?? ""` 로 항상 전송) + `_self_relation_label`(키 한글 / ""=관계 미설정 / 필드 없는 레거시 잡만 '본인').
+  docs/11 §3-b 갱신.
+- 데굴님 질문(용신·기신 응용) 확인 결과: 사건 종류는 십성 단일 운 규칙(SINGLE_* 10종)이 정하고 용·기신은 `polarity_rules` 배율 + `YongiQualityEngine`
+  품질(길/손실·충돌·압박)만 바꾼다("사건 타입은 바꾸지 않는다"). 비겁만 용신일 때 사건 종류(분탈→이동)를 바꾸는 규칙이 추가된 상태. 상관·편관·편인
+  용신 운, 정관·정인·식신 기신 운의 사건 종류 전환은 미구현 — 명리 규칙이라 결정 대기(원칙 10).
+- 테스트: `test_real_estate_sale_routing`(매수 어휘 13형·점포 3형·라우팅 2형), `test_luck_month_label_january`(1월 시작 창 3형),
+  `test_report_job_summary`(관계 키·미설정·레거시 4형).
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=baf2e68, 지문 동일, exit 0, `var/suite_20261015.log`).
+  프론트 `tsc --noEmit` exit 0(`var/frontend_tsc_20261015.log`) · `npm run build` Compiled successfully(`var/frontend_build_20261015.log`). 백엔드 8000 재기동 반영, 미커밋.
+
+## 2026-10-15 — 용신 배율 품질군 차등 + 십성별 유익형 후보 + 운↔운 충 이동형 보조 가산 (데굴님 승인, 외부 검토 반영) + 85사례 off/a/b 측정 + 자발·비자발 라이브 확인
+
+- 경위: 데굴님 질문("다른 십성이 용신일 때 용신 운", "십성별 기신운")에 대한 확인 — 사건 종류는 단일 운 규칙(SINGLE_* 10종)이 정하고 용·기신은 `polarity_rules` 배율·`YongiQualityEngine` 품질만 바꾼다(비겁 용신→이동만 예외). 외부 검토(데굴님 붙여넣기, 지침 아님)가 "전환표를 채우지 말고 십성별 후보를 균형 복원·역할에 따라 순위 조정"을 권고했고, 처음 제안한 '직접 근거 3점 미만 상위 노출 차단' 게이트는 비겁 이동 시드를 다시 막는 모순이라 검토 스스로 철회. 데굴님이 "선택항목까지 모두 승인".
+- 확인 사실: ①용신 배율은 같은 극성의 모든 후보에 일괄 곱한다(보류·압박 후보의 순위도 같이 오르고 서술만 MIXED로 누그러짐). ②실사례(1980-11-22 09:40 서울 남) 2026-10 戊戌월의 辰戌충은 대운 壬辰↔월운 戊戌 **운끼리 충** — 사전계산 층간 충·재물 충개고(`detect_wealth_activations`)·합화 상태에서는 계산되지만 `RelationPalaceEngine`은 운↔원국 궁위 충만 다뤄 이동 후보 근거에 없었다(계산 누락 아님·사건 근거 제외). 戌·辰은 원국 직장 구조(己 일간 관성 木=亥 지장간 甲)를 건드리지 않는다.
+- 구현(플래그 전부 기본 OFF → 운영 출력 불변):
+  ①`transit_ten_god_branching.json` `favorable_role_tiering` — 용신 역할(YONG·HEE·YONG_STRONG) 후보 중 유입 십성별 유익형 사건(10십성 목록)만 모드 배율(a 1.10 / b 1.20), 그 외 1.00. 기존 `polarity_rules` 배율은 이 모드에서 쓰지 않아 중복 곱 없음. `extra_base_events`(편관 promotion 26·편인 creative_output 26)는 모드 ON 때만 브랜처 기본 후보에 합류. `saju_engines.favorable_role_tiering` 신설, `YongiQualityEngine(tiering, tier_mode)`·`TenGodEventBrancher(extra_base_events)` 확장, reason `YONG_TIER_FAVORABLE`/`_FLAT`, 플래그 `SAJU_YONG_TIERED_MULTIPLIER_MODE`(off/a/b, `validate_flags` 거부).
+  ②`transit_clash_mobility_support` — 거버닝 스택 층간 지지 충 → career_change·relocation 후보당 1회 +4(쌍 전부 reason 1건 `TRANSIT_CLASH_daewoon辰-wolwoon戌`), 궁위 관계 보정과 같은 raw 단계. `saju_engines.transit_clash_support` 신설, 플래그 `SAJU_TRANSIT_CLASH_SUPPORT_ENABLED`.
+  ③`event_engine_config` kwargs·`period_v2_config` active_versions(health 노출)·`llm_event_serializer` 한글 라벨 2종·`scripts/casebook_replay.py --yong-tier-mode {off,a,b} [--transit-clash-support]`. docs/05 절 추가.
+- 실사례 스모크(2026-10): a안 — 이동(비겁 시드, 유익형 밖→FLAT) 74→66·2위 유지, 보류 67→60, 관계변화 67→59, 재물 94 유지. 충 보조 ON — 이동 74→79, 재물 불변, 충 없는 2026-08 불변.
+- 85사례 재생(같은 셸, `var/casebook_replay/subjects_20261015_{tier_off,tier_a,tier_b,clash}.jsonl`, 시점(when) 있는 outcome 45건 기준 상위 3 적중·방향 오탐, 미기록은 확인 불가 제외):
+  off 적중 23 / 방향 오탐 8 · a 22 / 9 · b 22 / 9 · clash 23 / 8. a·b 모두 CASE-071/R(marriage '-') 적중 1건 상실·오탐 1건 증가 — "적중이 늘면서 오탐이 늘지 않는 안" 기준에 **둘 다 미달 → OFF 유지**(채택 보류). 분포 효과는 확인됨: 연도별 top-1 에서 career_change 3957→3231(a)→2773(b), preparation_delay 896→700→573, marriage_signal 150→77→72 감소, job_gain 1513→1802→1949·contract 2748→3090→3354 증가. 충 보조는 85사례 적중·분포에 영향 없음(0/0). 데이터 한계: 사례집 outcome 은 고서·사례집 기록이라 시점 있는 건이 45건뿐 — 현대 실사례(사건·연월 기록) 축적 전에는 값 확정 불가.
+- ④ 자발·비자발 라이브 확인(실사례 명식, "10월 직장 이동이 있을까? 내가 원해서 나가는 걸까, 회사가 내보내는 걸까?", 운영 플래그): 답이 "외부의 강요에 의한 이탈이라기보다 … 자발적인 성격이 강하며", "단순히 밀려나는 것이 아니라 본인이 주도"로 **주체를 단정**(실제 권고사직). 입력 계약(이동 문구 '자의·타의 모두·단정 금지', 극성 '조건부')은 지켜졌고 답변 단계에서 '강한 용신운'을 근거로 자발로 해석 — 검증 실패 1/1. 교정은 새 프롬프트 규칙(이동 주체 미상 지시문 + 로그 전용 결정론 감사)이라 데굴님 승인 대기.
+- 테스트: `test_yong_tiered_multiplier.py` 신설 14건(사전 로드·OFF byte-identical·합성 후보 정확 배율·중복 곱 없음·기신 불변·파이프라인 태그 1회·FLAT yongi 0·extra 후보 ON 전용·층간 충 수집·실사례 +4 1회·재물 불변·충 없는 달 불변·config 거부·한글 라벨).
+- 게이트: 아래 줄에 기록.
+- ④ 교정(데굴님 승인 "교정변경안을 승인"): `chat_service` `_MOBILITY_AGENCY_DIRECTIVE`("[이동 주체 미상] … 자발·타의는 사주로 특정 불가, 용신운·강한 운·주도권을 근거로 본인 의지 추정·'밀려나는 것이 아니다' 금지, 둘 다 열어 둔 '걸릴 수 있는 기간', 물으면 사주로는 정해지지 않는다, 확인된 [사용자 제공 사실]만") — 질문이 주체(자발·스스로·원해서·내보내·잘리·권고사직·해고·타의·자의·밀려·떠밀)를 묻거나 LLM 입력 후보에 career_change 가 있을 때 trailing 에 부착(`_mobility_agency_directive_needed`). `_audit_mobility_agency_answer` — 로그 전용 결정론 감사(재호출·교체 없음): 자발 단정("자발적…강하", "본인의 의지…바탕", "본인이 주도")·타의 부정("밀려나는 것이 아니", "강요…아니/보다")·타의 단정("권고사직…가능성이 높") 어구를 `mobility_agency_audit result=violation|pass` 로 남긴다. `ChatPostprocessContext.question` 필드 추가(두 생성 지점 전달). 리포트 이동 섹션 부착 여부는 미결(데굴님).
+  테스트 `test_mobility_agency_directive.py` 5건(필요 판정 5형·라이브 실패 문장 포착/완화 문장 통과·로그 전용·dry-run 부착·비대상 미부착).
+- ④ 리포트 동일 적용(데굴님 지시 "리포트에도 동일하게"): 지시문·감사 어구를 `saju_engines.mobility_agency`(SSOT)로 옮기고 채팅은 별칭으로 유지. `report_service.luck_block` 이벤트 후보 블록 뒤 + P1 named view 경로(`_policy_evidence` 뒷받침 후보에 career_change 가 있거나 뷰 id 가 `career_transition`(J-04·J-05 실측: DIRECT 뷰는 뒷받침 후보에 이동 사건을 싣지 않고 클러스터로만 냄))에 `[이동 주체 미상]` 부착. 섹션 생성 직후 `mobility_agency_audit surface=report` 로그 전용 감사(본문 불변). 테스트 `test_mobility_agency_report.py` 2건(luck_block 부착/미부착·후보 블록 OFF 미부착, J-04 부착·J-02 미부착).
+- 오늘의 운세 문장 교정(데굴님 지적 "아직 작은 생각이 크게 자랄 흐름이에요"): 위치는 `daily_phrase_templates.json` `stage_results_by_stage.TAE.good[1]` — 12운성 胎 단계의 '결과 결' 문장으로 **사건 공용**(연애 전용 아님, 재물·직장 카드에도 붙음). 데굴님 제안문("작은 인연이 깊어질 수 있어요")은 연애 전용이라 이 자리에 넣으면 다른 카드에서 어긋나 공용 문장 "작게 품은 생각이 크게 자랄 수 있어요."로 교정(胎=잉태·구상 의미 유지, 형제 문장 결 일치). `compiled/daily_fortune_dict.v1.14.json` in-place 재빌드(문구만·사건 증감 없음 — §22-8 in-place 선례, 버전 범프 없음; 이미 생성·캐시된 보드는 그대로, 다음 선생성분부터 반영). 드리프트·결 층 테스트 통과.
+- 게이트: 아래 줄에 기록.
+- 오늘의 운세 — 연애 줄 전용 결 풀(데굴님 사례 "💕 오늘의 연애: … 아직 작은 생각이 크게 자랄 흐름이에요"): 원인은 `_love_line`이 헤드라인과 같은 `_headline(tone=…)`을 재사용해 **공용** 12운성 결과 풀을 그대로 쓴 것. 문장 하나 교정으로는 다른 胎·양·장생 공용 문장이 연애 줄에 또 붙으므로 사전에 `stage_results_by_stage[*].romance_good/romance_caution`(12×2, 각 2문장 — TAE good 에 데굴님 제안문 "작은 인연이 깊어질 수 있어요." 채택) 추가, `_headline(love_line=True)`가 연애 풀을 우선 쓰고 풀이 없는 과거 계약 스냅샷(dict.v1.13 이하)은 종전 공용 풀(바이트 불변). 헤드라인·일반 카드 불변. 공용 胎 문장은 앞서 "작게 품은 생각이 크게 자랄 수 있어요."로 교정 유지. dict.v1.14 in-place 재빌드(문구 층만). docs/17 §23-2 3차 항목. 테스트 `test_daily_tone_layer` 3건 추가(12×2 커버리지·공용 풀과 비중복 / 현재 계약 보드 연애 줄 끝 문장 ∈ 연애 풀·∉ 공용 풀 / 과거 계약 보드 불변) — 1차 작성분의 목욕 caution 중복 문장 1건을 테스트가 잡아 교체.
+- 게이트: 아래 줄에 기록.
+  (위 2026-10-15 항목 전부 — 품질군 차등·충 보조·④ 교정 채팅/리포트·오늘의 운세 문장·연애 결 풀 — 한 트리로 검증)
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=baf2e68, 지문 동일, exit 0, `var/suite_20261015e.log`).
+  중간 실행 b·c·d 는 후속 수정(④ 교정→리포트 적용→연애 결 풀)으로 트리가 바뀌어 중단·재실행. 백엔드 8000 재기동 반영(플래그 전부 기본 OFF·health 노출), 미커밋.
+- 유익형 편입 + 기신 대칭 시드(데굴님 확정 "진행하고, 기신쪽 대칭 시드도 추가하자"): 유익·불익 기준은 '이동 뒤 흐름이 좋은가'(주체 자발·타의 아님 — 떠밀려도 맞는 자리로 가면 복, 스스로 택해도 화일 수 있다). ①`favorable_role_tiering.favorable_reason_prefixes=["PEER_YONGSIN_MOBILITY"]` — 비겁 용신 이동 시드는 근거 코드로 유익형(`is_favorable(..., reason_codes)`), 모드 a 실사례 66→73·2위 유지(품질은 '기회 가능성'·문구 "나쁘지 않게 흐를 수 있다"까지). ②`peer_gisin_mobility_rules`(id PEER_GISIN_MOBILITY, favorability_any 기신, 기준점·층 용신 절과 동일) + `peer_mobility_seed.load_peer_mobility_rule(dicts, GISIN_SECTION)`(극성 자리표시 GI) + `EventEngineV2(enable_peer_gisin_mobility)`·플래그 `SAJU_PEER_GISIN_MOBILITY_ENABLED`(기본 ON) + 문구 `peer_gisin_mobility`(모델 Literal·4항목·lint 갱신, `incoming_ten_god_note` 기신 분기) + `event_process_types` 등록. 85사례 재생(gisin_on): 시점 있는 outcome 적중 23/오탐 8 불변, 연도 top-1 career_change 3957→4050·social_conflict 107→95. 픽스처 1985-05-20 10:00 남(己未·土 기신, 2026-10 戊戌 겁재·겁재). 테스트 `test_peer_mobility_seed` 4건 추가(규칙 대칭·기신 명식 시드+압박 품질·플래그 OFF/용신 명식 미생성·기신 문구), 침묵 테스트는 한신·희신·구신으로, `test_yong_tiered_multiplier` 실사례 FAVORABLE 단언. validate 통과. docs/05 절 추가.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=baf2e68, 지문 동일, exit 0, `var/suite_20261015f.log`). 백엔드 8000 재기동 반영(health `peer_gisin_mobility_enabled: true`), 미커밋.
