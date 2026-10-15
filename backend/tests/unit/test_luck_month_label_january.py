@@ -43,3 +43,18 @@ def test_monthly_period_fortune_for_january(label):
     )
     pf = chat_service._build_period_fortune(_BIRTH, intent, date(2026, 10, 14), "monthly")
     assert pf is not None and pf.period_label == label
+
+
+@pytest.mark.parametrize(
+    "labels",
+    [
+        ["2027-01", "2027-02", "2027-03"],  # 현재 절기월이 1월인 때의 지평 결합 표(앞 3개월)
+        ["2026-01"],
+        ["2026-11", "2026-12", "2027-01", "2027-02"],  # 연 경계를 넘는 12개월 롤링 창 일부
+    ],
+)
+def test_luck_months_covering_includes_january_start(labels):
+    """창의 연도 집합만 모으면 'YYYY-01' 첫 달이 빠지던 롤링 창 반례(2026-10-15)."""
+    got = [p.label for p in chat_service._luck_months_covering(_BIRTH, labels)]
+    assert set(labels) <= set(got)
+    assert got == sorted(got) and len(got) == len(set(got))

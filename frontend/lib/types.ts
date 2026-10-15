@@ -239,6 +239,9 @@ export interface SubjectRef {
   inline_birth?: InlineBirthDTO | null;
   // 기준(self)과의 관계 — RELATION_OPTIONS 값. 궁합(RP) 풀이 방향에 반영(미지정=중립 톤).
   relation_type?: string | null;
+  // 주 대상(self) 자신의 등록 관계 키(relation_to_user 17종) — 풀이 내역 목록 라벨용.
+  // 주 대상은 계정 본인이 아닐 수 있어 kind 로 '본인'을 추정하지 않는다. ""=관계 미설정.
+  relation_to_user?: string | null;
 }
 
 export interface ReportSpec {

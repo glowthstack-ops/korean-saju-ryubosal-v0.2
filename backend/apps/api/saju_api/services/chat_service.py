@@ -15,6 +15,7 @@ import logging
 import re
 import time
 from collections import Counter
+from collections.abc import Iterable
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -89,6 +90,12 @@ from saju_engines.luck_hierarchy_render import (
     render_v2_slot_status,
 )
 from saju_engines.marriage_marker_shadow import detect_marriage_marker_shadow
+from saju_engines.mobility_agency import (
+    AGENCY_CLAIM_RES,
+    MOBILITY_AGENCY_DIRECTIVE,
+    mobility_agency_claims,
+    mobility_agency_directive_needed,
+)
 from saju_engines.month_coverage_audit import (
     audit_month_coverage,
     build_coverage_notes,
@@ -763,6 +770,40 @@ _REPORTED_JOB_SEPARATION_TAIL = (
     " 해고·퇴사 통보·권고사직은 같은 계열(직장을 떠나게 된 사건)로 다루고, "
     "재직 중이라는 전제로 쓰지 말 것."
 )
+# 이동 주체 미상(2026-10-15 데굴님 승인) — 라이브 실측: 이동 후보 문구는 '자의·타의 모두·단정
+# 금지'이고 극성도 '조건부'였는데, 답이 "강한 용신운"을 근거로 "외부 강요가 아니라 자발적 성격이
+# 강하다"·"밀려나는 것이 아니라 본인이 주도"로 주체를 단정했다(실제는 권고사직). 입력 계약은
+# 지켜지고 답변 단계에서 깨지므로 지시문 + 로그 전용 결정론 감사(재호출·교체 없음)로 막는다.
+# SSOT 는 saju_engines.mobility_agency(채팅·리포트 공용, 2026-10-15). 이름은 기존 호출부 호환용.
+_MOBILITY_AGENCY_DIRECTIVE = MOBILITY_AGENCY_DIRECTIVE
+_AGENCY_CLAIM_RES = AGENCY_CLAIM_RES
+_mobility_agency_directive_needed = mobility_agency_directive_needed
+
+
+def _audit_mobility_agency_answer(
+    answer: str, payload: LlmInput, question: str, thread_id: str | None,
+) -> str:
+    """이동 주체 단정 감사(2026-10-15) — **로그 전용**. LLM 재호출·문장 교체는 하지 않는다.
+
+    Args:
+        answer: 정규화·관계 감사까지 마친 답변.
+        payload: 이번 턴 LLM 입력(이벤트 후보 보유).
+        question: 이번 턴 질문.
+        thread_id: 스레드 식별자(로깅).
+
+    Returns:
+        답변 원문 그대로.
+    """
+    if not answer or not _mobility_agency_directive_needed(question, payload.event_candidates):
+        return answer
+    hits = mobility_agency_claims(answer)
+    if hits:
+        _logger.warning(
+            "mobility_agency_audit result=violation thread=%s hits=%s", thread_id, hits[:6],
+        )
+    else:
+        _logger.info("mobility_agency_audit result=pass thread=%s", thread_id)
+    return answer
 # 회고 질문 시제 강제 — is_retro여도 시제 지시가 없어 이벤트 후보·트리거류 미래 지향
 # 디렉티브에 묻혀 과거 사건을 예측처럼 서술하던 결함 교정(2026-07-21 데굴님 실로그).
 _RETRO_TENSE_DIRECTIVE = (
@@ -790,6 +831,8 @@ class ChatPostprocessContext(BaseModel):
     call_type: str = "chat_single"
     system: str | None = None
     owner_id: str | None = None
+    # 이번 턴 질문 원문 — 이동 주체 감사(2026-10-15)가 주체 질문 여부를 본다. 미전달이면 "".
+    question: str = ""
 
 
 class ChatResponse(BaseModel):
@@ -928,6 +971,23 @@ def _luck_year_for_label(label: str) -> int:
 def _luck_months_for_label(birth: BirthInput, label: str) -> list[LuckPillar]:
     """라벨이 속한 절기 연도의 월운 12개(1월 라벨은 전년도 호출)."""
     return luck_months(birth, _luck_year_for_label(label))
+
+
+def _luck_months_covering(birth: BirthInput, labels: Iterable[str]) -> list[LuckPillar]:
+    """라벨 집합을 전부 담는 절기 연도들의 월운(라벨 중복 없이, 연·월 순).
+
+    창의 연도 집합만 모아 `luck_months(birth, y)`를 부르면 'YYYY-01'로 시작하는 창의 첫 달이
+    빠진다(2026-10-15 검수: 현재 절기월이 1월인 기간의 지평 결합 표·12개월 롤링 창). 라벨마다
+    `_luck_year_for_label`로 연도를 정한다.
+    """
+    seen: set[str] = set()
+    out: list[LuckPillar] = []
+    for y in sorted({_luck_year_for_label(lb) for lb in labels}):
+        for pl in luck_months(birth, y):
+            if pl.label not in seen:
+                seen.add(pl.label)
+                out.append(pl)
+    return out
 
 
 def _build_period_fortune(
@@ -1705,6 +1765,8 @@ def finalize_answer_full(
             answer, ctx.payload.period_fortune, thread_id, ctx.payload.extra_period_fortunes,
         )
         answer = _audit_month_coverage_answer(answer, ctx.payload, thread_id)
+        # 이동 주체 단정 감사(2026-10-15) — 로그 전용, 답 불변.
+        answer = _audit_mobility_agency_answer(answer, ctx.payload, ctx.question, thread_id)
         answer = _audit_ten_god_labels_answer(answer, ctx, thread_id)
     return finalize_answer_text(answer, thread_id)
 
@@ -4138,13 +4200,8 @@ def _luck_pillars_for_range(birth: BirthInput, tr: TimeRange) -> list:
             wanted = {
                 f"{y0 + (m0 - 1 + i) // 12}-{(m0 - 1 + i) % 12 + 1:02d}" for i in range(span)
             }
-            # luck_months(birth, y)는 입춘 기준 y-02 ~ (y+1)-01 — 'YYYY-01' 라벨은 전년도 호출에만
-            # 있다(2026-10-14 검수: "내년 1월 연애운" 단일 질문이 빈 결과였다).
-            years = {int(w[:4]) for w in wanted} | {int(w[:4]) - 1 for w in wanted if w[5:] == "01"}
-            return [
-                pl for y in sorted(years) for pl in luck_months(birth, y)
-                if pl.label in wanted
-            ]
+            # 'YYYY-01' 라벨은 전년도 호출에만 있다(2026-10-14 검수: "내년 1월 연애운" 빈 결과).
+            return [pl for pl in _luck_months_covering(birth, wanted) if pl.label in wanted]
         if tr.granularity is Granularity.YEAR:
             y0, y1 = int(start[:4]), int(end[:4])
             if not (0 <= y1 - y0 < _LUCK_DOHWA_MAX_YEARS):
@@ -5358,9 +5415,7 @@ def chat(
         horizon_months = _rolling_months(
             int(luck_month[:4]), int(luck_month[5:7]), horizon.months_detail
         )
-        monthly_all = []
-        for yr in sorted({int(mm[:4]) for mm in horizon_months}):
-            monthly_all += luck_months(chart_birth, yr)
+        monthly_all = _luck_months_covering(chart_birth, horizon_months)
         result_win = result.model_copy(deep=True)
         assert result_win.luck_cycles is not None
         result_win.luck_cycles.monthly_luck = monthly_all
@@ -5454,10 +5509,7 @@ def chat(
         elif window_months is not None:
             # 롤링 창은 달력 연도 경계를 넘으므로(예: 2026-06~2027-05) 닿는 연도별
             # 월운을 on-demand로 합쳐 스코어한다. 월운은 기본 미래 12개월만 계산됨.
-            years_needed = sorted({int(mm[:4]) for mm in window_months})
-            monthly_all = []
-            for yr in years_needed:
-                monthly_all += luck_months(chart_birth, yr)
+            monthly_all = _luck_months_covering(chart_birth, window_months)
             result_win = result.model_copy(deep=True)
             assert result_win.luck_cycles is not None
             result_win.luck_cycles.monthly_luck = monthly_all
@@ -6020,6 +6072,9 @@ def chat(
             _REPORTED_EVENT_DIRECTIVE
             + (_REPORTED_JOB_SEPARATION_TAIL if is_job_separation(question) else "")
         )
+    # 이동 주체 미상(2026-10-15) — 이동 후보가 실리거나 질문이 주체(자발·타의)를 물으면 단정 금지.
+    if _mobility_agency_directive_needed(question, payload.event_candidates):
+        trailing.append(_MOBILITY_AGENCY_DIRECTIVE)
     # 관계 대상 질문(2026-10-13) — '누가 제안을 해올까'에 운 십성을 나와의 관계 유형으로 옮긴 근거.
     _agent_lines = _agent_relation_context(
         birth, result, intent, question, list(payload.event_candidates), luck_month,
@@ -6664,7 +6719,7 @@ def chat(
             call_type=call_type,
             postprocess=ChatPostprocessContext(
                 payload=payload, career_prep=_career_prep, prompt_text=prompt_text,
-                call_type=call_type, system=system, owner_id=owner_id,
+                call_type=call_type, system=system, owner_id=owner_id, question=question,
             ),
         )
 
@@ -6728,7 +6783,7 @@ def chat(
             answer,
             ChatPostprocessContext(
                 payload=payload, career_prep=_career_prep, prompt_text=prompt_text,
-                call_type=call_type, system=system, owner_id=owner_id,
+                call_type=call_type, system=system, owner_id=owner_id, question=question,
             ),
             thread_id,
         )

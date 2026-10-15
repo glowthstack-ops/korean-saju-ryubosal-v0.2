@@ -38,3 +38,28 @@ def test_companion_relation_label_and_datetime_created_at() -> None:
 def test_legacy_spec_without_period_or_subjects() -> None:
     s = job_summary(_row({"product_code": "RPT_FULL"}, created=None))
     assert s.period_start is None and s.subjects == [] and s.created_at is None
+
+
+# ── 주 대상 라벨은 kind 가 아니라 등록 관계로(2026-10-15 데굴님 승인) ───────────────────
+
+def _self_label(relation_to_user) -> str:
+    subj = {"kind": "self", "label": "박여사"}
+    if relation_to_user != "ABSENT":
+        subj["relation_to_user"] = relation_to_user
+    s = job_summary(_row({"product_code": "RPT_FULL", "subjects": [subj]}))
+    return s.subjects[0].relation_label
+
+
+def test_primary_subject_label_follows_registered_relation() -> None:
+    """어머니 총운을 만들면 '박여사(본인)'이 아니라 '박여사(어머니)'."""
+    assert _self_label("mother") == "어머니"
+    assert _self_label("self") == "본인"
+
+
+def test_primary_subject_unset_relation_is_not_assumed_self() -> None:
+    assert _self_label("") == "관계 미설정"
+
+
+def test_legacy_job_without_relation_field_keeps_self_label() -> None:
+    assert _self_label("ABSENT") == "본인"
+    assert _self_label(None) == "본인"

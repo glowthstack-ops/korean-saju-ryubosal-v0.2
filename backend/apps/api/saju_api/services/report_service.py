@@ -75,6 +75,11 @@ from saju_engines.lifetime_scan import (
 from saju_engines.llm_guard import TokenBudgetExceeded
 from saju_engines.manifestation_branch import branch_summary
 from saju_engines.marriage_resource import analyze_marriage_resource
+from saju_engines.mobility_agency import (
+    MOBILITY_AGENCY_DIRECTIVE,
+    has_mobility_candidate,
+    mobility_agency_claims,
+)
 from saju_engines.palace_relationship_network import (
     analyze_palace_network,
     palace_network_lines,
@@ -209,6 +214,8 @@ from .personalization import (
 )
 
 _logger = logging.getLogger(__name__)
+# 이동 주체 미상 지시문을 뷰 id 기준으로도 붙이는 named view(직업 전이 트랙, 2026-10-15).
+_MOBILITY_VIEW_IDS: frozenset[str] = frozenset({"career_transition"})
 
 _BACKEND = Path(__file__).resolve().parents[4]
 _DICTS = _BACKEND / "dictionaries"
@@ -2210,6 +2217,11 @@ class _ReportData:
                 lines += clusters
             else:
                 lines.append("이 도메인의 두드러진 후보 신호는 약함 — 원국 구조 중심으로 서술.")
+            # 이동 주체 미상(2026-10-15 데굴님 지시, 채팅과 동일) — 이 섹션 후보에 직장·역할 이동이
+            # 있으면 자발·타의 단정 금지 지시를 같이 싣는다.
+            if has_mobility_candidate(cands):
+                lines.append("")
+                lines.append(MOBILITY_AGENCY_DIRECTIVE)
         # 같은 시점의 부수 사건(그룹 구성원) — 시점 슬롯은 대표 1건이 차지하지만 같은
         # 달의 다른 신호를 삭제하지 않는다(2026-07-30 교정). 새 판정이 아니라 이미
         # 점수화된 사건의 이름만 병기한다.
@@ -3499,6 +3511,14 @@ def build_section_context(
                     list(res.support_candidates), include_event_candidates=False
                 )
                 lines += list(res.lines)
+                # 이동 주체 미상(2026-10-15) — named view 경로는 luck_block 의 후보 블록을 끄므로
+                # 뒷받침 후보에 직장·역할 이동이 있으면 여기서 지시문을 붙인다(채팅과 동일).
+                # DIRECT 뷰(career_transition)는 뒷받침 후보에 이동 사건을 싣지 않고 클러스터로만
+                # 내므로 뷰 id 로도 판정한다(J-04·J-05 실측).
+                if has_mobility_candidate(res.support_candidates) or any(
+                    v in _MOBILITY_VIEW_IDS for v in policy.view_ids
+                ):
+                    lines += ["", MOBILITY_AGENCY_DIRECTIVE]
             if policy.narrative_mode:
                 lines.append(f"[서술 형식: {policy.narrative_mode}]")
         # 후보 상세 — 도메인 스코프면 자기 도메인 후보(길·흉 포함), 아니면 전역 top 후보.
@@ -4225,6 +4245,13 @@ def generate_report(
                     plan.section_id, text,
                     background_present=plan.section_id in data.bg_injected_sections,
                 )
+                # 이동 주체 단정 감사(2026-10-15) — 로그 전용, 본문 불변(채팅과 동일 어구).
+                _agency_hits = mobility_agency_claims(text)
+                if _agency_hits:
+                    _logger.warning(
+                        "mobility_agency_audit surface=report result=violation section=%s hits=%s",
+                        plan.section_id, _agency_hits[:6],
+                    )
                 data.record_opening(text)  # 다음 섹션의 '서두 반복 금지' 재료(순차 생성)
                 return text, 0, len(text)  # 토큰은 llm_client 장부가 집계(cached 포함)
             except TokenBudgetExceeded as exc:

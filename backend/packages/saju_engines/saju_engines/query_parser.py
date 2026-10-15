@@ -653,15 +653,37 @@ def detect_reported_event(text: str) -> bool:
 # 떨어져 개방형 '언제' 10년 digest 로 새고(2034년까지 서술) 후보 앵커도 없어 LLM이 계약·문서
 # 서술을 창작했다.
 # 매물 명사 + 매도 동사가 12자 안에 함께 올 때만(집안·집중 같은 동형어 차단). 공유 EVENT_WORDS 불변.
+# 2026-10-15 데굴님 승인: 매수('아파트는 언제쯤 살 수 있을까'·'집을 언제 사면')와 점포 양도
+# ('가게는 언제 넘기는 게')도 같은 계약·문서 앵커 — 매도만 고쳐 같은 증상(10년 digest·앵커 없음)이
+# 남아 있었다. '집에서 살 수 있을까'(거주)·'집 살게 될까'(거주)·'집은 살만할까'는 매수가 아니다 —
+# 동사 꼬리를 한정한다.
+_REAL_ESTATE_NOUN = (
+    r"(?:부동산|아파트|주택|빌라|오피스텔|상가|건물|토지|땅|매물|점포|사업체|집(?=[이은을도\s])"
+    r"|가게(?=[를을는은도]|\s+(?:넘|팔|정리|처분|매)))"
+)
 _REAL_ESTATE_SALE_RE = re.compile(
-    r"(?:부동산|아파트|주택|빌라|오피스텔|상가|건물|토지|땅|매물|집(?=[이은을도\s]))"
-    r"[^.?!\n]{0,12}?(?:팔|매도|매각|처분|매매|넘기|정리)"
+    _REAL_ESTATE_NOUN + r"[^.?!\n]{0,12}?(?:팔|매도|매각|처분|매매|넘기|정리)"
+)
+_REAL_ESTATE_PURCHASE_RE = re.compile(
+    _REAL_ESTATE_NOUN
+    + r"[^.?!\n]{0,12}?(?:살\s*(?:수|까|래|려|때)|살까|사면|사는\s*[게것]|사고\s*싶|사야"
+    r"|사도\s*[될돼]|사기\s*(?:좋|적|에)|사려|구입|구매|매수|장만|마련|분양)"
 )
 
 
 def is_real_estate_sale(text: str) -> bool:
-    """부동산 매도·매각 질문인가(매물 명사 + 매도 동사 결합)."""
+    """부동산·점포 매도·양도 질문인가(매물 명사 + 매도 동사 결합)."""
     return bool(_REAL_ESTATE_SALE_RE.search(text or ""))
+
+
+def is_real_estate_purchase(text: str) -> bool:
+    """부동산 매수·장만 질문인가(매물 명사 + 매수 동사 결합, 거주 '살다'는 제외)."""
+    return bool(_REAL_ESTATE_PURCHASE_RE.search(text or ""))
+
+
+def is_real_estate_trade(text: str) -> bool:
+    """부동산 거래(매도·양도·매수) 질문인가 — 계약·문서 사건 앵커 대상."""
+    return is_real_estate_sale(text) or is_real_estate_purchase(text)
 
 
 # 주의점 어휘 — chart_caution 플래그(관리 프레임 지시문·시점 미승계).
@@ -1320,14 +1342,15 @@ def parse_message(
         # 목록에 없어도 '이직·직업 변화' 사건으로 본다(공유 EVENT_WORDS 는 건드리지 않는다).
         if event_key is None and is_job_separation(piece or text):
             event_key = EventKey.CAREER_CHANGE
-        # 부동산 매도·매각(2026-10-14) — 계약·문서 사건(보조 재물 변화) + 재물 도메인으로 앵커한다.
-        real_estate_sale = event_key is None and is_real_estate_sale(piece or text)
-        if real_estate_sale:
+        # 부동산 매도·매각(2026-10-14)·매수·점포 양도(2026-10-15) — 계약·문서 사건(보조 재물 변화)
+        # + 재물 도메인으로 앵커한다.
+        real_estate_trade = event_key is None and is_real_estate_trade(piece or text)
+        if real_estate_trade:
             event_key = EventKey.CONTRACT_DOCUMENT
             if not event_keys:
                 event_keys = [EventKey.WEALTH_CHANGE]
         domains = _detect_domains(piece) or _detect_domains(text)
-        if real_estate_sale and not domains:
+        if real_estate_trade and not domains:
             domains = [Domain.WEALTH]  # EVENT_DOMAIN[contract_document]=career 를 쓰지 않는다
         # 도메인어가 없어도 이벤트가 잡히면 이벤트의 도메인을 따른다 — '취직 언제쯤?'처럼
         # 도메인 단어가 없는 질문이 general로 떨어져 재물운 등 일반 흐름으로 새지 않도록.

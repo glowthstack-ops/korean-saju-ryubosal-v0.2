@@ -133,7 +133,10 @@ export function buildReportSpec(
   companion?: CompanionChoice,
   year?: number,
 ): ReportSpec {
-  const subjects: SubjectRef[] = [{ kind: "self", label: primary.label }];
+  // 주 대상의 등록 관계를 함께 보낸다 — 내역 목록 라벨은 kind 가 아니라 이 값으로 정한다(2026-10-15).
+  const subjects: SubjectRef[] = [
+    { kind: "self", label: primary.label, relation_to_user: primary.relation_to_user ?? "" },
+  ];
   if (theme.companionMode !== "none" && companion) {
     // 관계(사용자 명시 > 등록 동반자 저장값) — 궁합(RP) 풀이 방향에 반영.
     const relation =
