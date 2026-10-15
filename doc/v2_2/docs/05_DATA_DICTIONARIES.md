@@ -238,6 +238,11 @@ compiled/
 - 노출: `chart_interpretation._build_excerpts`가 기둥마다 `kind=twelve_stage_palace`, key "연주 운성 장생" 형식으로 한 줄씩 명식 해석 자료에 싣는다(채팅 구조 블록·리포트 명식 prefix 공용, 시주 미상이면 시주 줄 없음). 문체·서사 전용 — 점수·후보 비개입. 토큰 축소 경로(excerpts[:4])에서는 뒤 순서라 먼저 잘린다.
 - lint: 4칸 필수·15자 이상·단정 어휘 금지(`_lint_twelve_stages_text`), 단정 표현 테스트(`test_interpretations_dict`)에 포함. reviewed:false — 실답 노출 로그로 감수.
 
+### interpretations/sinsal_text.json `천사` + sinsal_catalog `CHEONSA` (2026-10-15 데굴님 승인 — evidence 전용 길성)
+
+- 외부 교재 3장 신살 36종 대조(gap 문서 §9)에서 후속 후보로 남긴 둘 중 천사만 추가(삼기는 성립 기준 이견·'귀기' 단정 우려로 보류). 성립: 월지 계절 寅卯辰→戊寅日, 巳午未→甲午日, 申酉戌→戊申日, 亥子丑→甲子日 — 일주 한 자리에만. 카테고리 noble_stars·positive, 신살은 evidence 전용(게이트·점수 비개입, daily 신살 채널 8종 밖). 운 신살로는 들어오지 않는다.
+- 문구: 길신·auxiliary·flipSide(안일) 의무, 교재 '모친이 어질고 깨끗' 류 가족 단정은 싣지 않음. reviewed:false.
+
 ### 외부 교재 대조 P2 — 궁합 보완 2신호·여명 부성 대체 설명층·이중 충 표지·사생지 충 보조 (2026-10-15 데굴님 '권고대로')
 
 - 궁합(`compatibility_engine._element_season_signals`): ①결핍 오행 보완 — 한쪽 오행 비중 <5% 를 상대가 ≥20% 로 가지면 `ELEMENT_COMPLEMENT`(보완, 끌림 가중 1) ②계절(조후) 보완 — 월지 계절이 여름↔겨울이면 `SEASON_COMPLEMENT`(보완), 둘 다 여름/겨울이면 '조후 쏠림' 보조(중립). 교재 기타절 '없는 오행을 가진 상대', '여름생은 겨울생과'. 궁합 정답 데이터가 없어 실답 감수로만 검증.

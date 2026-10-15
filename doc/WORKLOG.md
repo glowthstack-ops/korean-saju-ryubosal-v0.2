@@ -12327,3 +12327,7 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
   이중 충 ON/OFF 85사례 재생(`subjects_20261015_dc_{on,off}.jsonl`): 적중 24·방향 오탐 9 동일, 분포 동일(fav_adj −0.05 는 방향을 뒤집지 않음) → 중립, 기본 ON 유지(실답 감수용). ③ 교재 3장 신살 36종 vs 우리 48종 대조는 gap 문서 §9(양쪽 20종·다른 모듈 보유 6종·교재만 10종·우리만 30여 종, 천사·삼기만 후속 후보).
 - 게이트: 아래 줄에 기록.
   lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=a6dafdf, 지문 동일, exit 0, `var/suite_20261015l.log`). 1차(`suite_20261015k.log`)는 provenance 감사가 `_apply_double_clash_flag`의 후보 재구성을 미승인으로 잡아 실패 → `# provenance-audit: not-risk (EventCandidateV2)` 표식 후 통과. 백엔드 8000 재기동 반영(P2 4항목 ON), 커밋·푸시.
+- 남은 결정 2건(데굴님 '권고대로'): ①신강 억부 규칙 현행 유지 — 설계 원칙을 `yongsin/candidates.py` docstring 에 명문화(규칙 변경 없음) ②천사(天赦) 신살 추가(삼기 보류): `sinsal_catalog.CHEONSA`·`CATALOG_META`·`sinsal_aggregator` 일주 탐지·`sinsal_text.json` 항목, 테스트 `test_sinsal_cheonsa.py` 6건(실제 생일 4종 성립·미성립·문구). docs/05·gap 문서 §10 갱신.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=0179051, 지문 동일, exit 0, `var/suite_20261015m.log`). 백엔드 8000 재기동 반영, 커밋·푸시.
+- R3·R5 구조 감사(외부 검토 요청, 데굴님 결정 '현행 유지' 안에서 문서만): 합성 2,400명식 — R3 관 용신 192(인수격 상신 167)·재성 부족 48·관성 완전 부재 8 / R5 식상 용신 66·식상 전무 9·관성 성립 32·**식상 부재+관성 성립 7건**(재생관 검증 후보 고정) / 인성 35% 경계 전환. 보고서 `doc/v2_2/audits/R3_R5_YONGSIN_AUDIT_2026-10-15.md`(확정 사실·충돌 가능성·미검증 가설·후속 후보 2건 구분), gap 문서 §10-4. 가중치·임계·기준선·회귀 변경 없음, 사례집 교차 보류.
