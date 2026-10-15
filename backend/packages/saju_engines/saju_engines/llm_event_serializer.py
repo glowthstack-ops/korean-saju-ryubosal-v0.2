@@ -57,6 +57,12 @@ _REASON_PREFIX_KO: dict[str, str] = {
     "REL_CHUNG_RESOURCE_UNROOTED": "문서 동요(받치는 힘 약함 — 성사보다 흔들림·지연 배경)",
     # 2026-10-15 — 용신 품질군 차등(유익형 가중)·운↔운 충 보조 근거. FLAT 코드는 감사용이라 미등록.
     "YONG_TIER_FAVORABLE": "용신 유익형 가중(유익한 발현 후보 우선)",
+    # 2026-10-15 — 세운 육신별 사건 신호(교재 6장 대조).
+    "JIECAI_RESTRAINED_BY_OFFICER": "관살이 겁재를 제어(분쟁·손재 완화)",
+    "SAME_GOD_HAP": "운 천간이 원국과 합(그 십성 사건 강화)",
+    "RESOURCE_WEALTH_HAP_SPECULATION": "인성·재성 합(불로 이득을 바라는 흐름 — 투기 주의)",
+    "OFFICER_YEAR_RELOCATION": "관성 해의 장소 변경(사무실 이전 등)",
+    "OUTPUT_YEAR_RELATIONSHIP_CHANGE": "식상 해의 인연 교체 흐름",
     "TRANSIT_CLASH": "운끼리 충(변화 보조 근거)",
     "REL_": "관계 발동",
     "FLOW_GEN": "상생 흐름",

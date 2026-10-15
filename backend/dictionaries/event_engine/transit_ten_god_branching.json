@@ -1841,7 +1841,8 @@
     "note": "유익형에 없는 '자립·협력·문제 해결·책임 수행·전문성 활용'은 사건 키가 아니라 작용이라 yonggi_quality_matrix 용신 문구가 담는다. 출산(childbirth)은 현실 게이트 대상이라 유익형에 넣지 않는다. 횡재(windfall)는 가드 유지.",
     "favorable_reason_prefixes": [
       "PEER_YONGSIN_MOBILITY"
-    ]
+    ],
+    "literature_basis": "외부 교재(wahnjaesky 4장) 육신 분류 — 사길신(식신·정재·정관·인수)/사흉신(겁재·상관·편관·편인)/중성(비견·편재). 우리 유익형 목록은 사흉신에도 유익형 사건을 둔다(상관 발표·편관 취업/승진·편인 입학/연구 — 용신 역할일 때 유익 발현). 중성(비견·편재)은 유익형을 최소로(비견 business_start, 편재 wealth_change·business_expansion)."
   },
   "transit_clash_mobility_support": {
     "id": "TRANSIT_CLASH_MOBILITY_SUPPORT",
@@ -1884,5 +1885,102 @@
       "branch_only": "PEER_INFLOW_BRANCH"
     },
     "base_note": "용신 시드와 같은 기준점(same_god 68·same_group 58·stem_only 50·branch_only 44). 길흉은 뒤 계층의 기신 품질 반전이 정한다."
+  },
+  "yearly_ten_god_signal_rules": {
+    "id": "YEARLY_TEN_GOD_SIGNALS",
+    "reviewed": false,
+    "basis": "2026-10-15 외부 교재(wahnjaesky 6장) 세운 육신별 사건표 ↔ 브랜처 단일·조합 규칙 대조(doc/v2_2/EXTERNAL_TEXT_GAP_WAHNJAESKY.md P0-1). 우리 규칙에 없던 5계열만 보조 규칙으로 — 겁재 운의 관살 완화, 운 천간합 동육신 가중(비겁·관·재), 인성×재성 합 투기 이득, 관성년 장소 변경, 식상년 인연 교체. 값은 초기 설계값(감수 대상), 데굴님 원칙에 따라 기본 ON·실답 감수.",
+    "layers": [
+      "sewoon",
+      "wolwoon"
+    ],
+    "rules": [
+      {
+        "id": "JIECAI_RESTRAINED_BY_OFFICER",
+        "signal": "jiecai_with_officer_present",
+        "effect": "multiply",
+        "events": [
+          "social_conflict",
+          "wealth_change"
+        ],
+        "requires_reason_prefix": "SINGLE_JIECAI",
+        "factor": 0.85,
+        "note": "교재: 사주나 대운에 관살이 있으면 겁재의 쟁투·손재를 면한다 — 겁재 단독 규칙에서 나온 분쟁·손재 후보만 완화(제거 아님)."
+      },
+      {
+        "id": "SAME_GOD_HAP_PEER",
+        "signal": "target_stem_hap_with_natal_group",
+        "group": "peer",
+        "effect": "add",
+        "events": [
+          "relationship_change",
+          "social_conflict"
+        ],
+        "bonus": 2,
+        "note": "교재: 비겁이 합이면 부부 의심·배신·제3자 가능성이 매우 높다 — 관계 변화·분쟁 후보 소폭 가산."
+      },
+      {
+        "id": "SAME_GOD_HAP_AUTHORITY",
+        "signal": "target_stem_hap_with_natal_group",
+        "group": "authority",
+        "effect": "add",
+        "events": [
+          "marriage_signal",
+          "relationship_change"
+        ],
+        "bonus": 2,
+        "note": "교재: 관합이면 부정 주의 또는 결혼 성사 — 양면이라 결혼 신호·관계 변화 둘 다 소폭 가산."
+      },
+      {
+        "id": "SAME_GOD_HAP_WEALTH",
+        "signal": "target_stem_hap_with_natal_group",
+        "group": "wealth",
+        "effect": "add",
+        "events": [
+          "marriage_signal"
+        ],
+        "bonus": 2,
+        "note": "교재: 재성이 합이면 결혼운."
+      },
+      {
+        "id": "RESOURCE_WEALTH_HAP_SPECULATION",
+        "signal": "resource_target_hap_with_natal_wealth",
+        "effect": "add_or_seed",
+        "events": [
+          "windfall"
+        ],
+        "bonus": 6,
+        "seed_score": 30,
+        "note": "교재: 인성년에 재성과 합이면 무노동 금전 이득(증권·부동산 투기)을 바란다 — 횡재 후보 가산, 없으면 약한 시드(횡재 가드 ①~③ 유지)."
+      },
+      {
+        "id": "OFFICER_YEAR_RELOCATION",
+        "signal": "target_group_present",
+        "group": "authority",
+        "effect": "seed_if_absent",
+        "events": [
+          "relocation"
+        ],
+        "seed_score": 26,
+        "layers": [
+          "sewoon"
+        ],
+        "note": "교재: 관성년 사업 — 사무실 이전 등 장소 변경."
+      },
+      {
+        "id": "OUTPUT_YEAR_RELATIONSHIP_CHANGE",
+        "signal": "target_group_present",
+        "group": "output",
+        "effect": "seed_if_absent",
+        "events": [
+          "relationship_change"
+        ],
+        "seed_score": 30,
+        "layers": [
+          "sewoon"
+        ],
+        "note": "교재: 식상년 애정 — 현재 이성을 교체."
+      }
+    ]
   }
 }

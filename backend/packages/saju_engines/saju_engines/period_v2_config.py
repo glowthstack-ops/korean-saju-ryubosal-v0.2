@@ -119,6 +119,11 @@ PEER_GISIN_MOBILITY_ENABLED: bool = (
     os.environ.get("SAJU_PEER_GISIN_MOBILITY_ENABLED", "true").strip().lower()
     in ("1", "true", "yes")
 )
+# 세운 육신별 사건 신호 5계열(외부 교재 6장 대조, 2026-10-15) — 기본 ON(데굴님 원칙: 적용 후 감수).
+YEARLY_TEN_GOD_SIGNALS_ENABLED: bool = (
+    os.environ.get("SAJU_YEARLY_TEN_GOD_SIGNALS_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
+)
 # 용신 배율 품질군 차등(2026-10-15 데굴님 승인): 'off'(기본)=기존 일괄 배율 / 'a'=유익형 1.10 /
 # 'b'=유익형 1.20(그 외 1.00). 값은 85사례 off/a/b 재생으로 비교해 정한다 — 측정 전 운영 ON 금지.
 YONG_TIER_MODES: tuple[str, ...] = ("off", "a", "b")
@@ -203,6 +208,7 @@ def active_versions() -> dict[str, str | bool]:
         "health_window_channel_enabled": HEALTH_WINDOW_CHANNEL_ENABLED,
         "peer_yongsin_mobility_enabled": PEER_YONGSIN_MOBILITY_ENABLED,
         "peer_gisin_mobility_enabled": PEER_GISIN_MOBILITY_ENABLED,
+        "yearly_ten_god_signals_enabled": YEARLY_TEN_GOD_SIGNALS_ENABLED,
         "yong_tiered_multiplier_mode": YONG_TIERED_MULTIPLIER_MODE,
         "transit_clash_support_enabled": TRANSIT_CLASH_SUPPORT_ENABLED,
         "sewoon_daewoon_context_enabled": SEWOON_DAEWOON_CONTEXT_ENABLED,

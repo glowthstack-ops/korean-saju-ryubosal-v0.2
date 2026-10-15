@@ -137,6 +137,7 @@ from .transit_clash_support import (
 from .twelve_stage_modifier import TwelveStageModifier
 from .wealth_activation_modifier import WealthActivationModifier
 from .wealth_capacity import analyze_wealth_capacity, detect_wealth_activations
+from .yearly_ten_god_signals import apply_yearly_ten_god_signals, load_yearly_signal_rules
 from .yongi_quality_engine import YongiQualityEngine
 
 # 만세 운 계층 → 새 엔진 LuckLayer.
@@ -240,6 +241,7 @@ class EventEngineV2:
         enable_resource_clash_renewal: bool = False,
         enable_peer_mobility: bool = True,
         enable_peer_gisin_mobility: bool = True,
+        enable_yearly_ten_god_signals: bool = True,
         yong_tier_mode: str = "off",
         enable_transit_clash_support: bool = False,
     ) -> None:
@@ -272,6 +274,9 @@ class EventEngineV2:
             enable_peer_gisin_mobility: 비겁 기신 × 비겁 운 유입 → career_change 시드(용신 시드의
                 대칭, 2026-10-15 데굴님 확정, 기본 ON). 사전 `peer_gisin_mobility_rules` 절.
                 OFF면 불변.
+            enable_yearly_ten_god_signals: 세운 육신별 사건 신호 5계열(외부 교재 6장 대조,
+                2026-10-15, 기본 ON — 85사례 재생으로 적중 확인 후 유지). 사전
+                `yearly_ten_god_signal_rules`. OFF면 불변.
             yong_tier_mode: 용신 배율 품질군 차등(2026-10-15 데굴님 승인). 'off'(기본)=기존 일괄
                 배율 / 'a'·'b'=유입 십성별 유익형 후보만 모드 배율(1.10/1.20), 그 외 1.00 + 사전
                 `favorable_role_tiering.extra_base_events`(편관 promotion·편인 creative_output)
@@ -292,6 +297,10 @@ class EventEngineV2:
         self._peer_gisin_rule = (
             load_peer_mobility_rule(dictionaries_dir, GISIN_SECTION)
             if enable_peer_gisin_mobility else None
+        )
+        # 세운 육신별 사건 신호(2026-10-15, 교재 6장 대조) — 사전 절 부재·OFF면 불변.
+        self._yearly_rules = (
+            load_yearly_signal_rules(dictionaries_dir) if enable_yearly_ten_god_signals else ()
         )
         self._enable_mt2_emergence = enable_mt2_emergence
         self._enable_mt3_directional = enable_mt3_directional
@@ -662,6 +671,14 @@ class EventEngineV2:
                 )
         if not cands:
             return []
+        # 세운 육신별 사건 신호(2026-10-15) — 겁재 관살 완화·운 천간합 동육신 가중·인재 합 투기·
+        # 관성년 장소 변경·식상년 인연 교체. 배율·가산·약한 시드(시드 극성은 뒤 계층이 덮어쓴다).
+        if self._yearly_rules:
+            cands = apply_yearly_ten_god_signals(
+                cands, signals=signals, target_layer=target_layer, target=target, result=result,
+                hits=self._relation_hits(result, level, target), rules=self._yearly_rules,
+                period=label,
+            )
         # 배우자성 성별 가중(③) — 남=재성·여=관성. 반대 성별 별만으로 뜬 결혼신호를 amplifier 전에
         # 약화(남:정관 단독=직위·자식 / 여:재성 단독=시댁). base 교정이라 브랜칭 직후 적용.
         cands = apply_marriage_gender_weight(cands, marriage_flow.gender)

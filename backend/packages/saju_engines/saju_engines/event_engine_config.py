@@ -147,6 +147,7 @@ def build_event_engine_v2(dictionaries_dir: Path, **overrides: Any) -> Any:
 
     kwargs["enable_peer_mobility"] = period_v2_config.PEER_YONGSIN_MOBILITY_ENABLED
     kwargs["enable_peer_gisin_mobility"] = period_v2_config.PEER_GISIN_MOBILITY_ENABLED
+    kwargs["enable_yearly_ten_god_signals"] = period_v2_config.YEARLY_TEN_GOD_SIGNALS_ENABLED
     kwargs["yong_tier_mode"] = period_v2_config.YONG_TIERED_MULTIPLIER_MODE
     kwargs["enable_transit_clash_support"] = period_v2_config.TRANSIT_CLASH_SUPPORT_ENABLED
     kwargs.update(overrides)

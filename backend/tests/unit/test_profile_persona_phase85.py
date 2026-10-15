@@ -159,7 +159,11 @@ def test_occupation_context_feeds_manifestation() -> None:
     if reloc is not None:
         profile = engines.self_profile(chart)
         m = engines.manifestation(reloc, profile, reality_context=ctx)
-        assert m.context_modifier == 8 and m.confidence == "medium_high"
+        # E6 공식: context_modifier = clamp(ctx[event], ±10). 종전 '== 8'은 이 명식에 relocation
+        # 후보가 없어 실행되지 않던 분기의 묵은 기대값(2026-10-15 관성 세운 시드로 후보가 생겨
+        # 드러남).
+        assert m.context_modifier == max(-10, min(10, int(ctx["relocation"])))
+        assert m.confidence == "medium_high"
 
 
 # ── T8.5.4 — 결혼 상태/자녀 분기 ─────────────────────────────────

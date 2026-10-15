@@ -415,6 +415,8 @@ def main() -> int:
     # 인자로 고정해 같은 셸에서 세 모드를 재생한다).
     ap.add_argument("--yong-tier-mode", default="off", choices=("off", "a", "b"))
     ap.add_argument("--transit-clash-support", action="store_true")
+    # 2026-10-15 — 세운 육신별 사건 신호(P0-1) ON/OFF 비교 재생용.
+    ap.add_argument("--no-yearly-signals", action="store_true")
     args = ap.parse_args()
     _OUT_DIR.mkdir(parents=True, exist_ok=True)
     lines = _CASES.read_text(encoding="utf-8").splitlines()
@@ -425,6 +427,7 @@ def main() -> int:
         _DICTS, risk_mode="shadow",
         yong_tier_mode=args.yong_tier_mode,
         enable_transit_clash_support=args.transit_clash_support,
+        enable_yearly_ten_god_signals=not args.no_yearly_signals,
     )
     rows = []
     # --only 실행은 전수 결과를 덮어쓰지 않도록 별도 파일에 쓴다.
