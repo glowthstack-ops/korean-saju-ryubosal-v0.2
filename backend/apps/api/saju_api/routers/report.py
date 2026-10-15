@@ -200,7 +200,7 @@ def _self_relation_label(relation_to_user: object) -> str:
 
 def job_summary(j: dict) -> ReportJobSummary:
     """report_jobs 행(spec JSON 포함) → 목록 요약. 관계 라벨은 relationship_hints.RELATION_KO."""
-    from saju_engines.relationship_hints import RELATION_KO
+    from saju_engines.relationship_hints import RELATION_KO, normalize_relation_type
 
     spec = j.get("spec") or {}
     subjects = [s for s in (spec.get("subjects") or []) if isinstance(s, dict)]
@@ -211,7 +211,13 @@ def job_summary(j: dict) -> ReportJobSummary:
         if kind == "self":
             rel_label = _self_relation_label(s.get("relation_to_user"))
         elif rel:
-            rel_label = RELATION_KO.get(str(rel), str(rel))
+            # 상대 관계는 테마 14종 또는 등록 키 17종 — 등록 키는 테마 어휘로 번역해 라벨링하고,
+            # 번역이 없으면(other 등) 등록 한글, 그것도 없으면 '동반자'(영문 키 노출 금지,
+            # 2026-10-15 실측: "mother" 그대로 떴다).
+            _norm = normalize_relation_type(str(rel))
+            rel_label = (
+                RELATION_KO[_norm] if _norm else RELATION_TO_USER_KO.get(str(rel), "동반자")
+            )
         else:
             rel_label = "동반자"
         subs.append(ReportJobSubject(label=str(s.get("label", "")), kind=kind,

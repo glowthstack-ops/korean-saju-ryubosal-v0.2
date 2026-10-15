@@ -63,3 +63,19 @@ def test_primary_subject_unset_relation_is_not_assumed_self() -> None:
 def test_legacy_job_without_relation_field_keeps_self_label() -> None:
     assert _self_label("ABSENT") == "본인"
     assert _self_label(None) == "본인"
+
+
+def test_companion_stored_relation_key_is_translated_not_leaked() -> None:
+    """등록 관계 키가 그대로 저장된 잡 — 테마 어휘로 번역해 라벨링, 번역 불가(other)는 등록 한글.
+    영문 키('mother')가 목록에 그대로 뜨던 결함(2026-10-15 실측)의 반례."""
+    s = job_summary(_row({
+        "product_code": "RPT_FOCUS", "topic": "relationship",
+        "period": {"start": "2026-10", "end": "2031-12"},
+        "subjects": [{"kind": "self", "label": "데굴", "relation_to_user": "self"},
+                     {"kind": "companion", "label": "박여사", "relation_type": "mother"},
+                     {"kind": "companion", "label": "김철수", "relation_type": "husband"},
+                     {"kind": "companion", "label": "누군가", "relation_type": "other"}],
+    }))
+    labels = [x.relation_label for x in s.subjects]
+    assert labels == ["본인", "부모·자녀", "배우자(기혼)", "기타"]
+    assert not any(lbl.isascii() for lbl in labels)

@@ -48,7 +48,11 @@ CALL_LIMITS: dict[str, CallLimit] = {
     # 후행 지시문·시스템 프롬프트 예약분과 합쳐 22k를 넘어 Tier 0 트림에서 민속 고지가 잘렸다 —
     # 재료를 잘라내는 대신 상한을 올린다(불필요 항목 점검은 별도, docs/09 §8).
     "chat_single": CallLimit(28_000, 5_000, max_output_chars=1_500),
-    "chat_compare": CallLimit(28_000, 5_500, max_output_chars=2_400),
+    # 2026-10-15 데굴님 결정: 동반자가 들어간 대화(chat_compare — 비교·함께보기·동반자 단독 질문)는
+    # 입력 제한을 두지 않는다. 가드 자체는 절대 원칙 9 로 남기되 상한을 공급자 컨텍스트 한도
+    # (llm_config primary.context_limit = 1,000,000)로 맞춰 Tier 트림이 사실상 발동하지 않는다.
+    # 폴백 모델(context_limit 미등록)의 실제 창이 더 작으면 폴백 호출에서 거절될 수 있다.
+    "chat_compare": CallLimit(1_000_000, 5_500, max_output_chars=2_400),
     "query_parser": CallLimit(2_000, 300),
     # 2026-10-08 데굴님 승인: 풀이 섹션 입력 상한 15,000 → 18,000. 실측 15,156tok(report_focus_
     # section) 초과 실패 — 같은 날 추가된 격국 정합 표기·화기격 경고·용신 작동성 사유(#6c)로 명식
@@ -57,6 +61,9 @@ CALL_LIMITS: dict[str, CallLimit] = {
     # 2026-10-08 2차 상향 18,000 → 20,000(데굴님 승인): 총운(report_full_section) 1978년생 명식이
     # 18,247tok 로 다시 초과 실패(job 4540fd5b).
     "report_focus_section": CallLimit(20_000, 8_000, max_output_chars=4_500),
+    # 2026-10-15 데굴님 결정: 애정·관계운 궁합 모드에서 상대 운 표(연도·월)가 함께 붙는 섹션
+    # (RP-06·RP-07·RP-06-Y*)만 입력 상한 두 배(40,000). 출력·글자수는 집중 섹션과 동일.
+    "report_focus_section_pair": CallLimit(40_000, 8_000, max_output_chars=4_500),
     "report_full_section": CallLimit(20_000, 8_000, max_output_chars=4_500),
     "consistency_check": CallLimit(8_000, 500),
     # 일주별 오늘의 운세 60건 배치 문장 교정(JSONL, 하루 1회) — 2026-07-23 계획 승인분.

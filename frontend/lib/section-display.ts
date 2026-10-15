@@ -116,6 +116,13 @@ const SECTION_DISPLAY: Record<string, SectionDisplay> = {
   "Y-12": { label: "간지 달력과 용어 풀이", blurb: "올해 달력표와 어려운 말 풀이예요." },
 };
 
+// 백엔드가 같은 섹션 ID 에 다른 제목을 주는 변형(2026-10-15) — 궁합 모드에서 상대가 비연애 관계
+// (부모·자식·가족·친구·직장)면 RP-02 가 '나의 관계 성향'으로 온다. ID 고정 매핑이 그 제목을 덮지
+// 않도록 백엔드 제목으로 변형을 찾는다.
+const SECTION_DISPLAY_BY_TITLE: Record<string, { label: string; blurb: string }> = {
+  "나의 관계 성향": { label: "나의 관계 성향", blurb: "사람을 대하는 나의 스타일을 봐요." },
+};
+
 /** 섹션의 친화 표시 제목 — 매핑 없으면 원본 title 폴백. */
 /** '올해…' 표기를 선택 연도로 — 한해풀이는 올해가 아닌 해를 고를 수 있어 '올해'가 읽는 시점과
  *  어긋난다(2026-10-08). 조사 호환: '올해가'→'{y}년이', '올해는'→'{y}년은', 그 외 '올해'→'{y}년'.
@@ -127,10 +134,12 @@ export function yearizeLabel(text: string, year?: string | null): string {
 }
 
 export function sectionLabel(sectionId: string, fallbackTitle: string, year?: string | null): string {
-  return yearizeLabel(SECTION_DISPLAY[sectionId]?.label ?? fallbackTitle, year);
+  const variant = SECTION_DISPLAY_BY_TITLE[fallbackTitle];
+  return yearizeLabel(variant?.label ?? SECTION_DISPLAY[sectionId]?.label ?? fallbackTitle, year);
 }
 
-/** 섹션 한 줄 설명 — 없으면 빈 문자열(설명 줄 미표시). */
-export function sectionBlurb(sectionId: string, year?: string | null): string {
-  return yearizeLabel(SECTION_DISPLAY[sectionId]?.blurb ?? "", year);
+/** 섹션 한 줄 설명 — 없으면 빈 문자열(설명 줄 미표시). 백엔드 제목 변형이 있으면 그 설명. */
+export function sectionBlurb(sectionId: string, year?: string | null, title?: string | null): string {
+  const variant = title ? SECTION_DISPLAY_BY_TITLE[title] : undefined;
+  return yearizeLabel(variant?.blurb ?? SECTION_DISPLAY[sectionId]?.blurb ?? "", year);
 }

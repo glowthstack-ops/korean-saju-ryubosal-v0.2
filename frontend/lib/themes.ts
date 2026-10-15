@@ -27,6 +27,24 @@ export const RELATION_OPTIONS: { value: string; label: string }[] = [
   { value: "business_partner", label: "사업 파트너" },
 ];
 
+// 등록 관계 키(lib/relations.ts 17종) → 테마 관계 선택지. 백엔드 relationship_hints._RELATION_TO_USER
+// 미러(2026-10-15) — 등록 '어머니'를 상대로 고르면 셀렉트가 '부모·자녀'로 미리 채워지고, 보내는
+// 값도 테마 어휘가 된다(백엔드도 같은 표로 정규화하므로 이중 안전). self·other·미설정은 null.
+const THEME_RELATION_FROM_STORED: Record<string, string> = {
+  spouse: "spouse", husband: "spouse", wife: "spouse",
+  lover: "romance",
+  father: "parent_child", mother: "parent_child", child: "parent_child",
+  son: "parent_child", daughter: "parent_child",
+  brother: "family", sister: "family",
+  friend: "friend", coworker: "coworker", boss: "boss", business_partner: "business_partner",
+};
+
+/** 등록 관계 키 → 테마 관계 선택지 값. 매핑 없으면 null(일반 궁합). */
+export function themeRelationFromStored(stored: string | null | undefined): string | null {
+  if (!stored) return null;
+  return THEME_RELATION_FROM_STORED[stored] ?? null;
+}
+
 // 동반자(상대) 선택 정책: none=단독 전용 / optional=상대 추가 선택 가능(내 명식만도 가능) /
 // required=상대 필수(두 사람 분석). 관계·애정운은 optional — 상대 등록 시 궁합 모드(RP-*),
 // 미선택 시 단독 모드(R-*)로 백엔드가 분기한다.
@@ -138,10 +156,12 @@ export function buildReportSpec(
     { kind: "self", label: primary.label, relation_to_user: primary.relation_to_user ?? "" },
   ];
   if (theme.companionMode !== "none" && companion) {
-    // 관계(사용자 명시 > 등록 동반자 저장값) — 궁합(RP) 풀이 방향에 반영.
+    // 관계(사용자 명시 > 등록 동반자 저장값을 테마 어휘로 번역) — 궁합(RP) 풀이 방향에 반영.
     const relation =
       companion.relationType ??
-      (companion.mode === "registered" ? companion.subject.relation_to_user : null) ??
+      (companion.mode === "registered"
+        ? themeRelationFromStored(companion.subject.relation_to_user)
+        : null) ??
       null;
     if (companion.mode === "registered") {
       subjects.push({

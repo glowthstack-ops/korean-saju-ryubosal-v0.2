@@ -111,13 +111,37 @@ RELATION_FRAMING: dict[str, str] = {
 }
 
 
+def normalize_relation_type(raw: str | None) -> str | None:
+    """리포트 상대 관계 값을 RELATION_TYPES 어휘로 정규화한다(2026-10-15).
+
+    테마 상대 선택 화면은 관계를 따로 고르지 않으면 등록 관계 키(docs/02 E14 17종 —
+    husband/mother/lover …)를 그대로 보낸다. 종전에는 이 키가 RELATION_KO 에 없어 관계 블록이
+    통째로 빠지고 '어머니' 등록에도 연애 궁합 톤이 나왔다(채팅은 _RELATION_TO_USER 로 번역해
+    정상). 같은 표로 번역해 두 입구를 일치시킨다.
+
+    Returns:
+        RELATION_TYPES 값. 테마 14종은 그대로, 등록 키는 번역(husband·wife→spouse,
+        lover→romance, father·mother·son·daughter·child→parent_child, brother·sister→family).
+        미지정·self·other·unknown·미지 값은 None(중립 궁합 톤 — 종전 동작).
+    """
+    if not raw:
+        return None
+    key = str(raw).strip()
+    if key in RELATION_TYPES and key != "unknown":
+        return key
+    mapped = _RELATION_TO_USER.get(key)
+    return mapped if mapped and mapped != "unknown" else None
+
+
 def relation_context_lines(relation_type: str | None) -> list[str]:
     """[상대와의 관계] 블록 — 사용자가 명시한 관계를 풀이 방향으로 번역한다(리포트 RP-* 공용).
 
     관계 미지정(None/unknown)은 빈 목록 — 기존 중립 궁합 톤 유지(하위호환).
-    점수·간지·판정에는 개입하지 않는다(서술 방향 전용).
+    점수·간지·판정에는 개입하지 않는다(서술 방향 전용). 등록 관계 키(mother 등)는
+    normalize_relation_type 으로 먼저 번역된다 — 호출자가 안 했어도 여기서 한 번 더.
     """
-    if not relation_type or relation_type == "unknown":
+    relation_type = normalize_relation_type(relation_type)
+    if not relation_type:
         return []
     ko = RELATION_KO.get(relation_type)
     framing = RELATION_FRAMING.get(relation_type)

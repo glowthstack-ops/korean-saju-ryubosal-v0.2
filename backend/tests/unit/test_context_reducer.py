@@ -19,7 +19,7 @@ from saju_engines.context_reducer import (
     serialize_with_guard,
     tone_for_score,
 )
-from saju_engines.llm_guard import TokenBudgetExceeded
+from saju_engines.llm_guard import CALL_LIMITS, TokenBudgetExceeded
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.events import EventKey
 from saju_shared_types.ganji_calendar import GanjiLevel
@@ -228,7 +228,9 @@ def test_budget_from_call_limits(chart, candidates, bundles, scorer) -> None:
     payload = build_llm_input(
         "이직운", _intent(), chart, candidates, bundles, scorer, call_type="chat_compare",
     )
-    assert payload.budget.max_input_tokens == 28_000
+    # 2026-10-15: 동반자 대화는 입력 제한 없음(공급자 컨텍스트 한도) — 표의 값을 그대로 받는다.
+    assert payload.budget.max_input_tokens == CALL_LIMITS["chat_compare"].max_input_tokens
+    assert payload.budget.max_input_tokens == 1_000_000
 
 
 def test_daewoon_status_marker_and_guard(chart, candidates, bundles, scorer) -> None:

@@ -14,20 +14,24 @@ from saju_engines.llm_guard import (
 
 
 def test_limit_table_matches_spec() -> None:
-    """docs/09 8장 한도표 6행이 그대로 수록된다(임의 상향 금지의 기준점)."""
+    """docs/09 8장 한도표 8행이 그대로 수록된다(임의 상향 금지의 기준점)."""
     # v2.2.1 개정표 + 2026-07-22 승인(사실 원장 블록: chat 20k→22k).
     assert CALL_LIMITS["chat_single"].max_input_tokens == 28_000
     # 출력 토큰 상한 = thinking + 가시 출력 합산(Gemini) — thinking 잠식 방지 상향.
     assert CALL_LIMITS["chat_single"].max_output_tokens == 5_000
     assert CALL_LIMITS["chat_single"].max_output_chars == 1_500
-    assert CALL_LIMITS["chat_compare"].max_input_tokens == 28_000
+    # 2026-10-15 데굴님 결정: 동반자 대화는 입력 제한 없음(공급자 컨텍스트 한도 1,000,000).
+    assert CALL_LIMITS["chat_compare"].max_input_tokens == 1_000_000
+    assert CALL_LIMITS["chat_compare"].max_output_tokens == 5_500
     assert CALL_LIMITS["query_parser"].max_input_tokens == 2_000
     assert CALL_LIMITS["report_focus_section"].max_output_chars == 4_500
+    # 2026-10-15: 궁합 상대 운 표 섹션(RP-06·RP-07·RP-06-Y*)만 입력 두 배.
+    assert CALL_LIMITS["report_focus_section_pair"].max_input_tokens == 40_000
     assert CALL_LIMITS["consistency_check"].max_output_tokens == 500
     # 일주별 오늘의 운세 배치 교정(2026-07-23 계획 승인) — 60건 JSONL 1회/일.
     assert CALL_LIMITS["daily_fortune_polish"].max_input_tokens == 30_000
     assert CALL_LIMITS["daily_fortune_polish"].max_output_tokens == 24_000
-    assert len(CALL_LIMITS) == 7
+    assert len(CALL_LIMITS) == 8
 
 
 def test_estimate_tokens_conservative_for_korean() -> None:
