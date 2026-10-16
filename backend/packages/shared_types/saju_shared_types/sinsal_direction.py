@@ -18,7 +18,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .twelve_sinsal import TWELVE_SINSAL_ORDER
 
@@ -299,6 +299,31 @@ class SamjaeQualityConfig(BaseModel):
         return self
 
 
+class EntranceCustomerRow(BaseModel):
+    """삼합국 1행 — 앞 그룹·왕지·방위(간지론 출입구 제2기준)."""
+
+    model_config = ConfigDict(extra="forbid")
+    customer_group: str
+    king_branch: str
+    direction: Cardinal4
+
+
+class EntranceCustomerGroup(BaseModel):
+    """출입구 제2기준(간지론, 2026-10-16 데굴님 승인 — 사업자 전용 별도 층).
+
+    연지 삼합의 '앞 그룹'(각 지지 +3)을 손님으로 보고 그 국의 왕지 방위로 출입문을 낸다.
+    12신살 기준과 합산하지 않고 학파별로 병기한다.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    note: str = ""
+    school_label: str = "간지론"
+    applies_to_purposes: list[DirectionPurpose] = Field(min_length=1)
+    table: dict[str, EntranceCustomerRow]
+    text_template: str
+    reviewed: bool = False
+
+
 class SinsalDirectionDict(BaseModel):
     """`dictionaries/sinsal_direction.json` 루트."""
 
@@ -312,6 +337,7 @@ class SinsalDirectionDict(BaseModel):
     samjae_stages: list[SamjaeStageEntry] = Field(min_length=3, max_length=3)
     samjae_quality: SamjaeQualityConfig
     forbidden_framings: list[str] = Field(default_factory=list)
+    entrance_customer_group: EntranceCustomerGroup | None = None  # 간지론 제2기준(선택)
 
     model_config = {"populate_by_name": True}
 
@@ -396,6 +422,17 @@ class DirectionPick(BaseModel):
     same_quadrant_as_fit: bool = False  # 적합 방향과 같은 4방 안의 주의 신살(지지 단위 구분용)
 
 
+class EntranceSecondBasis(BaseModel):
+    """출입구 제2기준 결과(간지론) — 12신살 picks 와 별개 층."""
+
+    school_label: str
+    trine_group: str
+    customer_group: str
+    king_branch: str
+    direction: Cardinal4
+    text: str
+
+
 class SinsalDirectionRecommendation(BaseModel):
     """목적 1종에 대한 방향 활용 추천(길방 1개가 아니라 적합/피함 분리).
 
@@ -409,6 +446,7 @@ class SinsalDirectionRecommendation(BaseModel):
     picks: list[DirectionPick]  # 적합·보조(우선순위순)
     cautions: list[DirectionPick]  # 목적 한정 피할 방향(caution 전부, 같은 4방 우선)
     strategy: UsageStrategy
+    second_basis: EntranceSecondBasis | None = None  # 간지론 출입구 제2기준(sales 전용)
 
 
 class LandmarkNote(BaseModel):

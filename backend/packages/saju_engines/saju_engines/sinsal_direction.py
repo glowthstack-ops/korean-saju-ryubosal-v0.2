@@ -33,6 +33,7 @@ from saju_shared_types.sinsal_direction import (
     DirectionPurpose,
     DirectionQuadrant,
     DirectionSector,
+    EntranceSecondBasis,
     LandmarkNote,
     PurposeEntry,
     SinsalDirectionBlock,
@@ -235,10 +236,27 @@ def recommend_for_purpose(
         ),
         key=lambda c: (not c.same_quadrant_as_fit, BRANCH_ORDER.index(Branch(c.branch))),
     )
+    # 출입구 제2기준(간지론, 2026-10-16 데굴님 승인 — 사업자 전용 별도 층). 12신살 picks 와
+    # 합산하지 않고 학파별로 병기한다. 사전 절이 없거나 목적이 대상이 아니면 None.
+    second = None
+    ecg = dic.entrance_customer_group
+    if ecg is not None and purpose in ecg.applies_to_purposes:
+        row = ecg.table.get(profile.trine_group)
+        if row is not None:
+            second = EntranceSecondBasis(
+                school_label=ecg.school_label, trine_group=profile.trine_group,
+                customer_group=row.customer_group, king_branch=row.king_branch,
+                direction=row.direction,
+                text=ecg.text_template.format(
+                    trine=profile.trine_group, group=row.customer_group,
+                    direction=row.direction, king=row.king_branch,
+                ),
+            )
     return SinsalDirectionRecommendation(
         purpose=purpose, purpose_ko=entry.name_ko, usage_mode=entry.usage_mode,
         picks=picks, cautions=cautions,
         strategy=dic.sinsal(entry.primary_sinsals[0]).strategy,
+        second_basis=second,
     )
 
 
@@ -442,6 +460,12 @@ def format_sinsal_direction_lines(block: SinsalDirectionBlock | None) -> list[st
             )
             if c.verdict_evidence:
                 lines.append("    근거: " + " / ".join(c.verdict_evidence))
+        if rec.second_basis is not None:  # 간지론 출입구 제2기준 — 별도 층(합산 금지)
+            sb = rec.second_basis
+            lines.append(
+                f"  · [제2기준·{sb.school_label}] {sb.direction}쪽 {sb.king_branch} "
+                f"(앞 그룹 {sb.customer_group}) — {sb.text}"
+            )
     if block.asked_direction_ko is not None:
         lines += _format_asked_lines(block)
     if not block.proactive:

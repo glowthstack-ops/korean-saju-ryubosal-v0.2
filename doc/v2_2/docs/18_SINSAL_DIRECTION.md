@@ -39,6 +39,7 @@
 8. **각도 = 12지지 30° 등분(2026-09-21 데굴님 승인, 개정)**: 子=정북 중심(345°~15°), 丑 15°~45° … 亥 315°~345°. 지지는 16방위 이름 중 간방 4개를 뺀 12개(정북·북북동·동북동·정동·동남동·남남동·정남·남남서·서남서·정서·서북서·북북서)와 1:1이라 사용자 노출은 '丑 반안살(북북동 15°~45°)'처럼 이름+구간을 병기한다(`shared_types.sinsal_direction.BRANCH_COMPASS` SSOT). 북동·남동·남서·북서는 두 칸 사이의 선(45°·135°·225°·315°) — '경계'·'두 지지에 걸친다' 대신 양쪽 칸 판정과 '…쪽으로 틀면' 권고로 쓴다. 도수는 표기된 구간만 인용(임의 도수 생성 금지), 나침반 앱 각도 확인 권고. (구 규칙 '각도 미정의'는 폐기)
 9. **서술 전용(inert)**: 점수·판정·날짜·간지 파이프라인 불변. 페르소나 무관.
 10. **기존 `direction_suggestions`(docs/15 E8 삶의 방향 능동 제안)와 다른 계층** — 모듈명 `sinsal_direction`으로 분리.
+11. **출입구 제2기준(간지론) 별도 층(2026-10-16 데굴님 승인, 사업자 전용)**: 목적 `sales`(출입구)에 한해 연지 삼합 '앞 그룹'(각 지지 +3)의 왕지 방위를 `second_basis`로 병기한다. 12신살 기준과 합산·상쇄하지 않으며 다른 방위가 나오면 '학파별' 표기로 둘 다 제시한다(쥐띠: 12신살 지살=서 / 간지론=동). 조상·단골 쪽문 해석은 불채택.
 
 ## 2. 계산 규칙 (SSOT: `saju_shared_types/twelve_sinsal.py`)
 
@@ -65,6 +66,7 @@
   우선 신살·**12신살 전체 등급**(누락 시 스키마 거부)·행동 템플릿·수동 질문 도메인(`domain`)·채팅 능동 트리거(`trigger_domains`)를
   가진다(리포트 섹션→목적은 `report_service` 표가 단일 원천 — 사전에 두지 않는다).
   같은 구간 안에서도 등급이 갈린다(소개팅: 년살 fit / 월살 caution).
+- `entrance_customer_group`(선택, 2026-10-16): 간지론 출입구 제2기준 표(4삼합국 → 앞 그룹·왕지·방위)·적용 목적(`sales`)·문구 템플릿. 모델 `EntranceCustomerGroup`, 결과 `EntranceSecondBasis`(`SinsalDirectionRecommendation.second_basis`). 렌더는 cautions 뒤 `[제2기준·간지론]` 한 줄.
 - `samjae_stages[3]`: 들삼재(역마살)·눌삼재(육해살)·날삼재(화개살) — 핵심 신호·현대 사건 후보·서술 지침.
 - lint(`_lint_sinsal_direction`): 12신살 전수·'연살' 금지·구간 순서·목적 1순위=fit·primary에 caution 금지·삼재 대응.
 - 파이프라인: validate → `scripts/build_sinsal_direction_snapshot.py` → `compiled/sinsal_direction_v{VERSION}.json`(현재 1.2.0 — 2026-09-21 등급 합집합·목적 16종·신살 맥락 필드) →

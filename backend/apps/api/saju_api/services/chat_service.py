@@ -1678,7 +1678,7 @@ def _career_field_context(birth: BirthInput, result: ManseV2Result, today: date)
     except Exception:  # noqa: BLE001 — 통로 계산 실패가 분야 풀이를 막지 않는다
         incoming = []
     try:
-        return render_career_field_lines(build_career_field_facts(result, incoming))
+        return render_career_field_lines(build_career_field_facts(result, incoming, today=today))
     except Exception:  # noqa: BLE001
         _logger.exception("career field context failed")
         return []
@@ -2979,7 +2979,11 @@ _CAREER_FIELD_DIRECTIVE = (
     "'X격이면 Y직업' 고정, 근거 블록에 없는 직업군 추가. 직업명은 여러 십성 기능이 겹치므로 "
     "'개발자=한 십성' 같은 일대일 고정을 피하고, 같은 직업군 안에서도 조건(일간 감당력·용희신·"
     "배합)에 따라 강조점이 달라짐을 짚을 것. 학파별 배속 차이가 있는 참고 해석임을 한 문장으로 "
-    "밝히되 면책 반복은 금지."
+    "밝히되 면책 반복은 금지. [간지론 관점] 블록(직업 유형 축·궁위 우선·관성 위치·업종·사업 "
+    "시기)이 "
+    "있으면 '간지론에서는 ~로 본다'는 학파 서술로 한 문단 덧붙일 것 — 직장형/상업형은 판정이 "
+    "아니라 '결이 맞는 방식'이며, 억부 용신 풀이와 합산·상쇄하지 말고 나란히 둘 것. 2단계 프로필의 "
+    "실제 직업·고용형태가 있으면 그것이 사실이고 유형 축은 결 설명으로만 쓸 것."
 )
 _ACCIDENT_RISK_KEYS = ("횡액", "다치", "다칠", "부상", "낙상", "골절")
 _ACCIDENT_RISK_DIRECTIVE = (

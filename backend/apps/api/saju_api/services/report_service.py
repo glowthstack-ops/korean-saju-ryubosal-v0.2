@@ -748,7 +748,10 @@ _CAREER_FIELD_REPORT_DIRECTIVE = (
     "'어떤 직무를 어떤 규모의 조직에서'로 구체화할 것. 금지: '재성이 많으니 사업가'식 단정, 십성 "
     "유무로 적성 확정·부적합 단정, 'X격이면 Y직업' 고정, 근거에 없는 직업군 추가. 직업명은 여러 "
     "십성 기능이 겹치므로 일대일 고정을 피하고 조건(일간 감당력·용희신·배합)에 따른 강조점 차이를 "
-    "짚을 것. 학파별 배속 차이가 있는 참고 해석임을 한 문장으로만 밝힐 것."
+    "짚을 것. 학파별 배속 차이가 있는 참고 해석임을 한 문장으로만 밝힐 것. [간지론 관점] 블록(직업 "
+    "유형 축·궁위 우선·관성 위치·업종·사업 시기)이 있으면 '간지론에서는 ~로 본다'는 학파 서술로 "
+    "한 문단 덧붙일 것 — 직장형/상업형은 판정이 아니라 '결이 맞는 방식'이며 억부 용신 풀이와 "
+    "합산·상쇄하지 말고 나란히 둘 것. 2단계 프로필의 실제 직업·고용형태가 있으면 그것이 사실이다."
 )
 _ORG_SCALE_DIRECTIVE = (
     "[조직 규모 적합 — 서술 전용 지침] 아래 매핑으로 본인 구조에 결이 맞는 조직 규모·문화"
@@ -2234,7 +2237,9 @@ class _ReportData:
         except Exception:  # noqa: BLE001 — 통로 계산 실패가 분야 근거를 막지 않는다
             incoming = []
         try:
-            lines = render_career_field_lines(build_career_field_facts(self.result, incoming))
+            lines = render_career_field_lines(
+                build_career_field_facts(self.result, incoming, today=self.today)
+            )
         except Exception:  # noqa: BLE001
             _logger.exception("career field block failed")
             lines = []

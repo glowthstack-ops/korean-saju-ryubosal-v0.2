@@ -12367,3 +12367,17 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 문서: docs/05 절 신설, gap 문서 §10-5, 메모리 갱신. 백엔드 8000 재기동 반영(health `role_event_seed_enabled: true`).
 - 게이트: 아래 줄에 기록.
   lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=7b0f62c, 지문 동일, exit 0, `var/suite_20261016a.log`). 프론트 변경 없음.
+
+## 2026-10-16 — 외부 강의(제2강 직업선택) 대조·개선 기획 (데굴님 지시, 문서만)
+
+- `doc/v2_2/EXTERNAL_TEXT_GAP_CAREER_LECTURE2.md`: 구현 지점 전수 탐색(11개념) + '없음' 판정 grep 재확인. 동등 9 / 채택 후보 6(직업 유형 축·궁위 우선순위·관성 위치·통근 설명층·상업 업종층·사업 형태 권고·직장인 문구) / P2 3 / 충돌 3(용신=재관뿐, 출입문 삼합 '앞그룹' 방위가 우리 12신살 표와 반대, 조상 그룹 해석) / 참고 3. 코드·사전 변경 없음, 결정 요청 5건.
+
+## 2026-10-16 — 간지론 직업선택 층 6건 + 출입구 제2기준 (데굴님 "채택 내용 우선 승인", "별도 층", "간지론에서는 ~하다 식으로 서술")
+
+- 결정: 채택 6건 승인·구현 / "용신은 재·관뿐"은 본문 첫 문단의 간지론 언급이라 설명 후 불채택 유지 / 출입문 제2기준은 사업자 전용 별도 층 / 이번 강의 전체가 간지론 기반 → 신설 층 전부 학파 서술('[간지론 관점]' 머리말, "간지론에서는 ~로 본다", 억부 용신 판정과 합산·상쇄 금지, 2단계 프로필 직업이 있으면 그것이 사실).
+- `career_fields.json` 선택 절 7종(`ganji_school`·`orientation`·`palace_priority`·`officer_position`·`workplace_notes`·`business_types`·`business_rules`·`business_timing`) + `CareerFieldDict` 선택 필드·`OrientationFacts`·`CareerFieldFacts` 줄 필드. `career_field._apply_ganji_school`: 직업 유형 축(월지 2·월간 1·년주 0.5·일지 0.5·시주 0.25, 분포 10%p +1, 월지 충 −1, 여유폭 1.5 → 직장형/상업형/혼합형, 현재 대운 축 설명), 궁위 우선·근묘화실 사용 시기, 관성 위치(천간 통근 `_stem_rooted`·무근·지지만, 정편, 관인 인접=책임자형, 관 유 인 무 + 대운 인성 대체, 관성 ≥3), 인성 과다 보조, 업종 결(비중 상위 3칸, 편재는 식상 미약 표지)·관계 규칙 8(정관 규칙은 정관 실재 필수)·사업 시기(인성 대운×식상 ≥10% → 운영형, 식·재 대운, 대운>세운). 업종·시기는 상업형·혼합형에만. 채팅 `_career_field_context`·리포트 `career_field_block` 이 `today` 전달, 지시문 2종 보강. 노출 어휘 정책: 유흥주점·사채·전당포·기획부동산·서울/지방 제외.
+- 출입구 제2기준: `sinsal_direction.json` `entrance_customer_group`(4삼합 → 앞 그룹(+3)·왕지·방위, `sales` 전용) + `EntranceCustomerGroup`/`EntranceSecondBasis` + `recommend_for_purpose` 가 `second_basis` 부착, 렌더 `[제2기준·간지론]` 1줄(합산 금지). 스냅샷 v1.2.0 in-place 재빌드(선택 절 추가·기존 항목 불변). 쥐띠 실측: 12신살 지살=서 vs 간지론=동.
+- 픽스처 탐색(2026-10-16 기준일): 1976-01-05 남(직장형·관성 천간 통근·관인 인접) / 1976-01-19 남(직장형·지지만) / 1976-03-22 남(혼합형) / 1976-01-26 남(상업형·현재 대운 인성이 식상을 누름) / 1980-11-22(상업형·월지 亥 충 간섭·대운 壬辰 식·재). 테스트 `test_career_ganji_layer.py` 23건·`test_entrance_second_basis.py` 8건, 기존 `test_career_field_question`·`test_sinsal_direction` 통과. validate 115파일 통과.
+- 문서: docs/05 절·docs/10 §3-2a·docs/18 원칙 11·§3, gap 문서 §7. 확인 항목 ⑨는 운끼리 조합만 있어 원국 인성 조건 없음 → 점수 후보로 보류.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=ac2a752, 지문 동일, exit 0, `var/suite_20261016b.log`). 프론트 변경 없음. 백엔드 8000 재기동 반영.

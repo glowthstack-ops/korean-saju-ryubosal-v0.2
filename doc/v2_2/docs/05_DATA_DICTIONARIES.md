@@ -286,6 +286,14 @@ compiled/
 - 측정(2026-10-16, 85사례 180명식 같은 셸 off/on, 시점 있는 outcome 44건 상위 노출 적중·방향 오탐 |fav|≥0.1): **적중 23/오탐 8 → 23/8 불변**, 재물 '-' 2건의 fav 가 실제 방향으로 이동(CASE-023 R −0.0→−0.05, CASE-042 L −0.04→−0.11). 연도 top-1 분포: career_change 4197→4149·contract 2429→2384 감소, creative_output 2068→2112·education_admission 226→256·health_attention 197→235·preparation_delay 898→913 증가. 적중 하락 없음 → 데굴님 기준(점수 규칙은 적중률)상 ON 가능해 운영 노출·실답 감수. 규칙별 분리 측정은 합산이 무손실이라 85사례로는 변별이 없어 생략(`--role-seed-only` 로 재현 가능). 현대 실사례(`life_event_cases.jsonl`)는 아직 0건 — 규칙당 1건 등록이 후속.
 - 검증 픽스처(전부 2026-10 戊戌 = 土 간여지동): 1978-09-02 남 丁(상관 용신) / 1978-10-27 남 壬(편관 용신) / 1978-06-17 남 庚(편인 용신) / 1979-02-25 남 癸(정관 기신) / 1978-10-16 남 辛(정인 기신) / 1978-01-14 14:30 여 丙(식신 기신). 두 사전 절 모두 reviewed:false.
 
+### career_fields.json 간지론 번역층 7절 + sinsal_direction.json `entrance_customer_group` (2026-10-16 데굴님 승인 — 외부 강의 「제2강 직업선택」)
+
+- 출처: 간지론 기반 외부 강의. 전부 **학파 서술층**(서술 전용·inert)이며 렌더는 '[간지론 관점]' 머리말 + "간지론에서는 ~로 본다" 어투를 강제한다(데굴님 2026-10-16: 이번 내용 전체가 간지론 기반이라 학파 표기로 서술). 억부·조후 용신 판정과 합산·상쇄하지 않고 나란히 둔다. 선택 절이라 없으면 층이 꺼진다(`CareerFieldDict` 필드 전부 `None` 허용).
+- `ganji_school`(라벨·어투) / `orientation`(직업 유형 축: 관·인=직장형 vs 식·재=상업형, 월지 2·월간 1·년주 0.5·일지 0.5·시주 0.25 가중, 분포 10%p 차 +1, 월지 충 −1, 여유폭 1.5 — 교재에 수치가 없어 초기 설계값) / `palace_priority`(월지→월간→년주→일지, 근묘화실 사용 시기) / `officer_position`(관성 천간 통근·무근·지지만, 정관·편관, 관인 인접=책임자형, 관 유 인 무, 대운 인성 대체, 관성 多 — '서울/지방'은 지역 단정이라 '조직 격·규모'로 번역) / `workplace_notes`(인성 과다) / `business_types`(식신 천간·지지, 상관, 정재, 편재, 정인, 편인, 겁재·양인 — 유흥주점·사채·전당포·기획부동산 제외, 상위 3칸만 렌더) / `business_rules`(식상·재성 인접/떨어짐, 재성만, 정관 강+재성, 비겁 多+관성, 비겁 지지 無, 인성 無=임대, 재성 오행) / `business_timing`(인성 대운이 식상을 누르면 운영·위임형, 식·재 대운, 대운>세운).
+- 구현 `career_field._apply_ganji_school`(기준일 `today`로 현재 대운 사용 — 채팅·리포트가 전달) → `CareerFieldFacts.orientation/palace_lines/officer_lines/workplace_lines/business_lines/timing_lines` → `_render_ganji_school`. 업종·사업 시기는 상업형·혼합형에만, 관성 위치는 관성이 있을 때만. 지시문(`_CAREER_FIELD_DIRECTIVE`·`_CAREER_FIELD_REPORT_DIRECTIVE`)에 학파 서술·합산 금지·프로필 우선 규칙 추가. 2단계 프로필 직업이 있으면 그것이 사실(원칙 11).
+- `sinsal_direction.json` `entrance_customer_group`: 출입구 제2기준(간지론) — 연지 삼합의 '앞 그룹'(각 지지 +3: 申子辰→亥卯未·寅午戌→巳酉丑·巳酉丑→申子辰·亥卯未→寅午戌)을 손님으로 보고 그 국 왕지 방위(동/서/북/남)로 출입문. 목적 `sales` 에만 `SinsalDirectionRecommendation.second_basis` 로 붙고 12신살 picks 와 합산하지 않는다(쥐띠: 12신살 지살=서 vs 간지론=동 — 학파별 병기). 조상·단골 쪽문 해석 불채택. 스냅샷 `compiled/sinsal_direction_v1.2.0.json` in-place 재빌드(선택 절 추가, 기존 항목 불변).
+- 테스트 `test_career_ganji_layer.py`(사전 7절·어휘 정책·선택 절 부재·유형 축 5픽스처·월지 가중/충 간섭·대운 축·궁위·관성 위치 3형·업종 상한·사업 시기 2형·정관 규칙·렌더·지시문) / `test_entrance_second_basis.py`(사전·4삼합 표·12신살 불변·sales 전용·렌더 1회). 픽스처 1976-01-05(직장형·천간 통근·관인 인접) / 1976-01-19(직장형·지지만) / 1976-03-22(혼합형) / 1976-01-26(상업형·인성 대운) / 1980-11-22(상업형·월지 충).
+
 ### events/*.json (신호→이벤트 매핑 예)
 
 ```json
