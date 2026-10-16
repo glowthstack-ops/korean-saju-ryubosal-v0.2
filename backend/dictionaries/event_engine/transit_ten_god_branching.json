@@ -1982,5 +1982,119 @@
         "note": "교재: 식상년 애정 — 현재 이성을 교체."
       }
     ]
+  },
+  "role_event_seed_rules": {
+    "id": "ROLE_EVENT_SEED",
+    "reviewed": false,
+    "basis": "2026-10-16 데굴님 확정(실행계획 P0 — 6규칙 전부 승인). 사건 종류는 십성이 정하고 용·기신은 배율·품질만 바꾼다는 분리 원칙(2026-06-16)의 두 번째 예외(첫 예외=비겁 이동 시드). 사흉신(상관·편관·편인)이 용신인 명식에 그 십성 운이 들어오면 흉성 기본 가지(충돌·이탈 / 압박 / 보류)에 용신 배율만 붙어 '용신이라 더 강한 흉사'가 되고, 사길신(정관·정인·식신)이 기신인 명식에 그 운이 들어오면 길성 기본 가지(취업 / 문서 / 성과)에 압박 품질만 붙어 사건 종류가 현실과 어긋난다. 브랜처의 기본 가지는 바꾸지 않고(브랜처는 오행 favorability 를 모르는 채 유지) 비겁 시드와 같은 자리(브랜처 직후 합류)에서 역할별 사건 후보를 시드로 더해 순위로 전환한다. 유입 강도 4단계·기준점은 비겁 시드와 같은 값(same_god 68·same_group 58·stem_only 50·branch_only 44)이며, 둘째 사건은 secondary_ratio 를 곱한다. 값은 명리 확정 수치가 아닌 초기 설계값 — 85사례 off/on 재생(시점 있는 outcome 상위 3 적중·방향 오탐)과 실사례(life_event_cases.jsonl)로 규칙별 ON/OFF 를 정한다(점수 규칙은 적중률로 켜고 끈다 — 2026-10-15 데굴님 정정). 길흉·충합·궁위·12운성·대운 교체 보정은 뒤 6계층이 그대로 적용된다.",
+    "layers": [
+      "sewoon",
+      "wolwoon"
+    ],
+    "base_by_inflow": {
+      "same_god": 68,
+      "same_group": 58,
+      "stem_only": 50,
+      "branch_only": 44
+    },
+    "secondary_ratio": 0.85,
+    "inflow_reason_codes": {
+      "same_god": "ROLE_INFLOW_SAME_GOD",
+      "same_group": "ROLE_INFLOW_SAME_GROUP",
+      "stem_only": "ROLE_INFLOW_STEM",
+      "branch_only": "ROLE_INFLOW_BRANCH"
+    },
+    "upper_support_prefix": "ROLE_UPPER_SUPPORT_",
+    "rules": [
+      {
+        "id": "ROLE_SEED_SHANGGUAN_YONG",
+        "enabled": true,
+        "incoming": "SHANGGUAN",
+        "favorability_any": [
+          "용신"
+        ],
+        "events": [
+          "creative_output",
+          "public_exposure"
+        ],
+        "polarity": "conditional",
+        "reason": "상관이 용신인 명식의 상관 운 — 재능 발휘·표현·발표·명성(상관생재·상관패인). 기본 가지의 충돌·이탈(career_change 41)은 그대로 두고 유익형 사건을 위로 올린다.",
+        "literature": "상관생재·상관패인 — 상관이 쓰임을 얻으면 재기·언변·창작이 성과가 된다(외부 교재 4장 육신 분류 참조)."
+      },
+      {
+        "id": "ROLE_SEED_QISHA_YONG",
+        "enabled": true,
+        "incoming": "QISHA",
+        "favorability_any": [
+          "용신"
+        ],
+        "events": [
+          "job_gain",
+          "promotion"
+        ],
+        "polarity": "conditional",
+        "reason": "편관이 용신인 명식의 편관 운 — 권위·책임·직책·공식 역할(살인상생·식신제살로 쓰임을 얻은 편관). 기본 가지의 압박(career_change 41·health 34)은 그대로 둔다.",
+        "literature": "살인상생·식신제살 — 제화된 편관은 권위와 직책으로 발현한다."
+      },
+      {
+        "id": "ROLE_SEED_PIANYIN_YONG",
+        "incoming": "PIANYIN",
+        "enabled": true,
+        "favorability_any": [
+          "용신"
+        ],
+        "events": [
+          "education_admission",
+          "creative_output"
+        ],
+        "polarity": "conditional",
+        "reason": "편인이 용신인 명식의 편인 운 — 자격·특수 공부·전문 연구·새로운 접근의 산출. 기본 가지의 보류(preparation_delay 41)는 그대로 둔다.",
+        "literature": "효신이 용신이면 전문성·특수 기예로 쓰인다(편인 도식은 기신일 때의 상)."
+      },
+      {
+        "id": "ROLE_SEED_ZHENGGUAN_GI",
+        "enabled": true,
+        "incoming": "ZHENGGUAN",
+        "favorability_any": [
+          "기신"
+        ],
+        "events": [
+          "career_change"
+        ],
+        "polarity": "conditional",
+        "reason": "정관이 기신인 명식의 정관 운 — 조직·규범의 구속과 부담 속 역할 변동(강제 배치·규정 압박·직장 이탈). 기본 가지(job_gain 41)는 그대로 두고 품질 반전은 뒤 계층이 정한다.",
+        "literature": "관살이 기신이면 압박·구속으로 작동 — 신약 관왕의 상."
+      },
+      {
+        "id": "ROLE_SEED_ZHENGYIN_GI",
+        "enabled": true,
+        "incoming": "ZHENGYIN",
+        "favorability_any": [
+          "기신"
+        ],
+        "events": [
+          "preparation_delay"
+        ],
+        "polarity": "conditional",
+        "reason": "정인이 기신인 명식의 정인 운 — 의존·보호 과다로 실행이 늦어지는 정체·결정 지연(인다신왕·인성이 식상을 누름). 기본 가지(contract_document 41)는 그대로 둔다.",
+        "literature": "인성 과다는 식상을 억눌러 활동이 정체된다(모자멸자의 상)."
+      },
+      {
+        "id": "ROLE_SEED_SHISHEN_GI",
+        "enabled": true,
+        "incoming": "SHISHEN",
+        "favorability_any": [
+          "기신"
+        ],
+        "events": [
+          "health_attention",
+          "wealth_change"
+        ],
+        "polarity": "conditional",
+        "reason": "식신이 기신인 명식의 식신 운 — 설기 과다로 인한 소모·과로·지출(신약 식상 설기). 기본 가지(creative_output 41)는 그대로 둔다.",
+        "literature": "신약에 식상이 왕하면 설기가 과해 기력·재물이 새어 나간다."
+      }
+    ],
+    "base_note": "기준점은 비겁 이동 시드와 동일(특수 조합 규칙 56~64 급, 간여지동은 그 위). 둘째 사건은 secondary_ratio(0.85) — 같은 유입에 두 후보가 같은 점수로 서면 상위 노출이 중복되므로 주 사건을 앞세운다. 용신 규칙 3종의 사건은 favorable_role_tiering 유익형 목록에 이미 들어 있어(상관 creative_output·public_exposure / 편관 job_gain·promotion / 편인 education_admission·creative_output) 품질군 차등 모드에서도 유익형으로 잡힌다."
   }
 }

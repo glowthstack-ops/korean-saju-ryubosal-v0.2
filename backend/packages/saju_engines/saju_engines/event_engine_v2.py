@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import math
 import threading as _threading
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -127,6 +127,11 @@ from .risk_engine import (
     RiskEngine,
     SelectionContext,
     build_raw_period_facts,
+)
+from .role_event_seed import (
+    load_role_event_seed_config,
+    merge_role_event_seeds,
+    produce_role_event_seeds,
 )
 from .ten_god_brancher import TenGodEventBrancher, TransitSignal
 from .transit_clash_support import (
@@ -244,6 +249,8 @@ class EventEngineV2:
         enable_yearly_ten_god_signals: bool = True,
         yong_tier_mode: str = "off",
         enable_transit_clash_support: bool = False,
+        enable_role_event_seed: bool = False,
+        role_event_seed_rule_ids: Collection[str] | None = None,
     ) -> None:
         """재설계 6계층 + 만세 신호 추출에 필요한 사전을 로드한다.
 
@@ -284,6 +291,11 @@ class EventEngineV2:
             enable_transit_clash_support: 운↔운 충(대운↔월운 辰戌충 등) → 이동형 후보
                 (career_change·relocation) 보조 가산(2026-10-15 승인, 선택 항목, 기본 OFF). 후보당
                 1회·사전 상수. OFF면 불변.
+            enable_role_event_seed: 역할별 사건 전환 시드(2026-10-16 데굴님 확정 6규칙 — 상관·편관·
+                편인 용신 운 / 정관·정인·식신 기신 운). 브랜처 직후 합류, 사전
+                `role_event_seed_rules`. 점수 규칙이라 기본 OFF — 85사례 적중률·실사례로 ON 결정.
+                OFF면 불변.
+            role_event_seed_rule_ids: 측정용 — 지정하면 그 규칙 id 만 적용(None=사전 enabled 전부).
         """
         self._enable_mt1_awareness = enable_mt1_awareness
         # 비겁 용신 × 비겁 운 → 직장 이동 시드(2026-10-14 데굴님 확정, 기본 ON). 규칙은 브랜처 사전
@@ -297,6 +309,13 @@ class EventEngineV2:
         self._peer_gisin_rule = (
             load_peer_mobility_rule(dictionaries_dir, GISIN_SECTION)
             if enable_peer_gisin_mobility else None
+        )
+        # 역할별 사건 전환 시드(2026-10-16) — 비겁 시드 다음 자리에서 합류. 기본 OFF.
+        self._role_seed_cfg = (
+            load_role_event_seed_config(dictionaries_dir) if enable_role_event_seed else None
+        )
+        self._role_seed_rule_ids = (
+            frozenset(role_event_seed_rule_ids) if role_event_seed_rule_ids is not None else None
         )
         # 세운 육신별 사건 신호(2026-10-15, 교재 6장 대조) — 사전 절 부재·OFF면 불변.
         self._yearly_rules = (
@@ -669,6 +688,16 @@ class EventEngineV2:
                         signals, target_layer, result, fav_map, label, _peer_rule,
                     ),
                 )
+        # 역할별 사건 전환 시드(2026-10-16 데굴님 확정) — 사흉신 용신 운·사길신 기신 운의 사건
+        # 후보를 더해 순위로 전환한다. 브랜처 기본 가지는 불변, OFF 면 불변.
+        if self._role_seed_cfg is not None:
+            cands = merge_role_event_seeds(
+                cands,
+                produce_role_event_seeds(
+                    signals, target_layer, result, fav_map, label, self._role_seed_cfg,
+                    rule_ids=self._role_seed_rule_ids,
+                ),
+            )
         if not cands:
             return []
         # 세운 육신별 사건 신호(2026-10-15) — 겁재 관살 완화·운 천간합 동육신 가중·인재 합 투기·

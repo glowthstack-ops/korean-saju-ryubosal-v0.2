@@ -87,6 +87,15 @@ def _peer_mobility_text() -> dict[str, str]:
 
 
 @lru_cache(maxsize=1)
+def _role_event_text() -> dict[tuple[str, str], str]:
+    """역할별 사건 전환 문구((십성, 역할) → text) — transit_role_event_text.json(2026-10-16)."""
+    return {
+        (it["ten_god"], it["role"]): it["text"]
+        for it in _load("transit_role_event_text.json")["items"]
+    }
+
+
+@lru_cache(maxsize=1)
 def _ten_god_by_name() -> dict[str, dict]:
     return {item["tenGod"]: item for item in _load("ten_gods_text.json")["items"]}
 
@@ -1107,5 +1116,14 @@ def incoming_ten_god_note(
         body += f" · {texts[key]}"
         if not (stem_el == peer_el and branch_el == peer_el):
             body += f" {texts['weak_inflow']}"
+    # 역할별 사건 전환(2026-10-16 데굴님 확정 6규칙) — 사흉신 용신 운·사길신 기신 운. 문구층은
+    # 시드 플래그와 무관하게 항상 노출(문구는 사전에서 고르기만 한다). 천간·지지 같은 십성이면 1회.
+    role_texts = _role_event_text()
+    seen: set[tuple[str, str]] = set()
+    for tg, el in ((stem_tg, stem_el), (branch_tg, branch_el)):
+        role_key = (tg, fav_map.get(el, ""))
+        if role_key in role_texts and role_key not in seen:
+            seen.add(role_key)
+            body += f" · {role_texts[role_key]}"
     guard = _operational_guard_suffix([stem_el, branch_el], op)
     return f"{body} {guard}".strip() if guard else body

@@ -437,6 +437,29 @@ class PeerMobilityTextFile(_AliasModel):
     items: list[PeerMobilityTextItem] = Field(min_length=4, max_length=4)
 
 
+class RoleEventTextItem(_AliasModel):
+    """역할별 사건 전환 해석 문구 1건 (transit_role_event_text.json, 2026-10-16)."""
+
+    id: Literal[
+        "shangguan_yongsin", "qisha_yongsin", "pianyin_yongsin",
+        "zhengguan_gisin", "zhengyin_gisin", "shishen_gisin",
+    ]
+    ten_god: Literal["상관", "편관", "편인", "정관", "정인", "식신"]
+    role: Literal["용신", "기신"]
+    condition: str
+    text: str = Field(min_length=20)
+    basis: str = Field(min_length=10)
+    reviewed: bool
+
+
+class RoleEventTextFile(_AliasModel):
+    """역할별 사건 전환 문구 사전 — 6항목 정확 커버리지(사흉신 용신 3 + 사길신 기신 3)."""
+
+    version: str
+    note: str | None = None
+    items: list[RoleEventTextItem] = Field(min_length=6, max_length=6)
+
+
 class TenGodRelationFamily(_AliasModel):
     """가족 관계 항목 — 성별·특정 십성 조건(없으면 모두)."""
 
@@ -2471,6 +2494,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/sinsal_text.json": SinsalTextFile,
     "interpretations/dohwa_text.json": DohwaTextFile,
     "interpretations/transit_peer_mobility_text.json": PeerMobilityTextFile,
+    "interpretations/transit_role_event_text.json": RoleEventTextFile,
     "interpretations/ten_god_relations.json": TenGodRelationsFile,
     "interpretations/stems_branches_text.json": StemsBranchesTextFile,
     "interpretations/favorability_text.json": FavorabilityTextFile,
@@ -2901,6 +2925,30 @@ def _lint_peer_mobility_text(file: PeerMobilityTextFile) -> list[str]:
     if sorted(ids) != expected:
         errors.append(f"{head}: id 집합이 4종과 다름 — {ids}")
     for it in file.items:
+        for bad in ("반드시", "확실히", "틀림없이", "무조건"):
+            if bad in it.text:
+                errors.append(f"{head}: {it.id} 문구에 단정 어휘 '{bad}'")
+    return errors
+
+
+_ROLE_EVENT_TEXT_EXPECTED: dict[str, tuple[str, str]] = {
+    "shangguan_yongsin": ("상관", "용신"), "qisha_yongsin": ("편관", "용신"),
+    "pianyin_yongsin": ("편인", "용신"), "zhengguan_gisin": ("정관", "기신"),
+    "zhengyin_gisin": ("정인", "기신"), "shishen_gisin": ("식신", "기신"),
+}
+
+
+def _lint_role_event_text(file: RoleEventTextFile) -> list[str]:
+    """transit_role_event_text.json — 6 id 정확 커버리지·id↔십성×역할 일치·단정 어휘 금지."""
+    head = "interpretations/transit_role_event_text.json"
+    errors: list[str] = []
+    ids = [it.id for it in file.items]
+    if sorted(ids) != sorted(_ROLE_EVENT_TEXT_EXPECTED):
+        errors.append(f"{head}: id 집합이 6종과 다름 — {ids}")
+    for it in file.items:
+        exp = _ROLE_EVENT_TEXT_EXPECTED.get(it.id)
+        if exp is not None and (it.ten_god, it.role) != exp:
+            errors.append(f"{head}: {it.id} 의 십성×역할 {it.ten_god}×{it.role} ≠ {exp}")
         for bad in ("반드시", "확실히", "틀림없이", "무조건"):
             if bad in it.text:
                 errors.append(f"{head}: {it.id} 문구에 단정 어휘 '{bad}'")
@@ -3574,6 +3622,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_dohwa_text(parsed))
         if isinstance(parsed, PeerMobilityTextFile):
             errors.extend(_lint_peer_mobility_text(parsed))
+        elif isinstance(parsed, RoleEventTextFile):
+            errors.extend(_lint_role_event_text(parsed))
         elif isinstance(parsed, TenGodRelationsFile):
             errors.extend(_lint_ten_god_relations(parsed))
         elif isinstance(parsed, TenGodsTextFile):

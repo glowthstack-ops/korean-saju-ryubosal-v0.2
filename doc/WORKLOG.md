@@ -12348,4 +12348,22 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - ④ 제목: 비연애 관계 RP-02 → '나의 관계 성향'(`_expand_report_plans`, plan 계층 순수 유지) + 프론트 `section-display` 제목 변형 매핑(백엔드 제목으로 친화 제목·설명 선택, `sectionBlurb(id, year, title)`); 궁합 연도별 상세 제목 `연도별 상세 — {연도}년 · {본인}·{상대}`. docs/10 §4-1(궁합 10섹션 목차·관계·상대 표·토큰 유형) 신설.
 - 테스트: `test_pair_partner_luck_report.py` 6건(한도표 두 배·상대 운 점수화+다년 월운+표 머리줄 순서+연도별 세운 행·호출 유형 섹션별·비연애 상대 운 필터·제목 2종·단독/다른 테마 반례), `test_llm_guard`(8행)·`test_context_reducer`·`test_topic_modules_m03_m10_m15` 의 chat_compare 28k 고정값을 한도표 참조로 갱신.
 - 게이트: 아래 줄에 기록.
-  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=02a7213, 지문 동일, exit 0, `var/suite_20261015o.log`), 프론트 tsc 0건·production build 통과. 백엔드 8000 재기동 반영(프론트 3000 은 next dev 핫리로드), 미커밋.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=02a7213, 지문 동일, exit 0, `var/suite_20261015o.log`), 프론트 tsc 0건·production build 통과. 백엔드 8000 재기동 반영(프론트 3000 은 next dev 핫리로드), 커밋 7b0f62c·푸시.
+- 폴백 모델 한도(2026-10-16 데굴님 결정): gpt-5.6-luna 에 폴백 전용 `context_limit`·추가 제한을 두지 않는다 — `llm_config` 불변, 폴백 거절 가능성은 알고 수용.
+
+## 2026-10-16 — 서버 기동 + 어제 잔여 점검 + 별도 결정 3건 (데굴님 결정)
+
+- 기동: 백엔드 8000(`restart_backend.sh`, .env·.env.risk·.env.beta)·프론트 3000(`/api` rewrite)·DB 15432/Redis 16379 컨테이너(테이블 21개)·퀵터널 1개(`var/tunnel_url.txt`). 로그인 가짜 ID 401·daily-fortune/today 200(프록시·터널).
+- 어제(2026-10-15) 잔여 점검: 커밋 9건 전부 게이트 기록·푸시 완료, 워크트리 clean. 남은 것은 결정 항목뿐 — ①폴백 luna 한도 ②역할별 사건 종류 전환 미구현 ③품질군 차등 OFF ④R3·R5 후속 후보 ⑤삼기 보류·천사 감수 ⑥리포트 예측창 주입 통일. 데굴님 결정: ①추가 제한 없음 ②실행계획 → 전부 승인·진행 ③~⑥ 현상 유지. WORKLOG 전 항목 '미커밋' 표기를 커밋 해시로 정정, docs/09 폴백 주석 갱신.
+
+## 2026-10-16 — 역할별 사건 전환 시드 6규칙: 사흉신 용신 운·사길신 기신 운 (데굴님 "전부 승인")
+
+- P0 결정(데굴님): 시드 방식 채택(브랜처 기본 가지 불변·비겁 시드와 같은 자리·규칙별 enabled) + 6규칙 사건 후보 확정 — 상관 용신 creative_output·public_exposure / 편관 용신 job_gain·promotion / 편인 용신 education_admission·creative_output / 정관 기신 career_change / 정인 기신 preparation_delay / 식신 기신 health_attention·wealth_change. 기준점은 비겁 시드와 동일(68/58/50/44), 둘째 사건 ×0.85.
+- P2-a 문구층(항상 노출): `interpretations/transit_role_event_text.json` 6항목 + `RoleEventTextFile`/`_lint_role_event_text`(6 id·십성×역할 일치·단정 어휘) + `incoming_ten_god_note` 가 운 천간·지지 십성의 (십성, 역할)이 사전에 있으면 1회 부착(채팅·리포트 공용). 사길신 용신·사흉신 기신·한신/희신/구신은 침묵.
+- P2-b 점수층(플래그): 사전 절 `role_event_seed_rules`(공통 기준점 + rules[] 6종), `saju_engines.role_event_seed`(유입 십성 오행 → 역할 판정 `incoming_element`, 유입 4단계는 `peer_mobility_seed.classify_inflow` 재사용, 상위 층 뿌리 `ROLE_UPPER_SUPPORT_*`, 병합은 비겁 시드 규칙과 같되 기여 키 `role_event_seed` 별도 보존), `EventEngineV2(enable_role_event_seed, role_event_seed_rule_ids)` 비겁 시드 다음 합류, `period_v2_config.ROLE_EVENT_SEED_ENABLED`(코드 기본 OFF)·health 노출·`event_engine_config` kwargs, `llm_event_serializer` 한글 라벨 11종, `casebook_replay --role-event-seed [--role-seed-only]`. validate_dictionaries 115파일 통과.
+- P3 측정(85사례 180명식, 같은 셸 off/on `var/casebook_replay/subjects_20261016_role_{off,on}.jsonl`, `casebook_report --tag role_{off,on}` metrics timed_detail 로 집계 — 적중=event_hit, 방향 오탐=event_hit ∧ |event_fav|≥0.1 ∧ sign≠pol): **off 23/8 → on 23/8**(어제 기준선 재현·하락 없음), CASE-023 R·CASE-042 L(재물 '-') fav 가 실제 방향으로 이동. 연도 top-1: career_change 4197→4149·contract 2429→2384 ↓, creative_output 2068→2112·education_admission 226→256·health_attention 197→235·preparation_delay 898→913 ↑. 판정: 데굴님 기준(점수 규칙은 적중률)상 ON 가능 → `.env.beta` `SAJU_ROLE_EVENT_SEED_ENABLED=true` 로 운영 노출(코드 기본값은 OFF 유지 — 회귀 기준선). 규칙별 분리 재생은 합산 무손실이라 변별이 없어 생략.
+- P1 실사례: `life_event_cases.jsonl` 는 템플릿뿐(실질 0건) — 데굴님·지인 명식으로 규칙당 1건 등록이 남은 과제. 사례집 180명식 분포(식상 용신 33·관성 용신 42·인성 용신 41 / 관성 기신 44·인성 기신 51·식상 기신 28, 시점 outcome 소속은 각 11·16·18 / 21·18·10).
+- 테스트 `tests/unit/test_role_event_seed.py` 33건(사전 6규칙·문구 사전 lint·오행 판정·픽스처 6종 조건·시드+품질 6종·둘째 사건 비율·약한 유입(丁 2026-04 壬辰 지지 상관)·비대상 역할(비겁 실사례엔 비겁 시드만)·OFF byte-identical·config 플래그·규칙 id 필터·병합 기여 보존·문구 6종 1회·타 역할 침묵·사길신 용신/사흉신 기신 침묵·한글 라벨). 픽스처 탐색은 2026-10 戊戌(土 간여지동) 기준 1978~1980년생 6명식.
+- 문서: docs/05 절 신설, gap 문서 §10-5, 메모리 갱신. 백엔드 8000 재기동 반영(health `role_event_seed_enabled: true`).
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=7b0f62c, 지문 동일, exit 0, `var/suite_20261016a.log`). 프론트 변경 없음.

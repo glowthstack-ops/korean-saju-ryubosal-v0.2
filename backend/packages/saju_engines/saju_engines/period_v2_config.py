@@ -137,6 +137,10 @@ YONG_TIERED_MULTIPLIER_MODE: str = (
 )
 # 운↔운 충 → 이동형 후보 보조 가산(2026-10-15 승인, 선택 항목). 기본 OFF.
 TRANSIT_CLASH_SUPPORT_ENABLED: bool = _env_flag("SAJU_TRANSIT_CLASH_SUPPORT_ENABLED")
+# 역할별 사건 전환 시드(2026-10-16 데굴님 확정 6규칙 — 상관·편관·편인 용신 운 / 정관·정인·식신 기신
+# 운). 점수 규칙이라 기본 OFF — 85사례 재생 적중률·실사례로 규칙별 ON 을 정한다(문구층은 플래그와
+# 무관하게 항상 노출).
+ROLE_EVENT_SEED_ENABLED: bool = _env_flag("SAJU_ROLE_EVENT_SEED_ENABLED")
 
 # ── 버전 태그(계측·회귀 비교용) ─────────────────────────────────────────────
 FORTUNE_LOGIC_VERSION = "period_hierarchy_v2"
@@ -217,6 +221,7 @@ def active_versions() -> dict[str, str | bool]:
         "double_clash_flag_enabled": DOUBLE_CLASH_FLAG_ENABLED,
         "yong_tiered_multiplier_mode": YONG_TIERED_MULTIPLIER_MODE,
         "transit_clash_support_enabled": TRANSIT_CLASH_SUPPORT_ENABLED,
+        "role_event_seed_enabled": ROLE_EVENT_SEED_ENABLED,
         "sewoon_daewoon_context_enabled": SEWOON_DAEWOON_CONTEXT_ENABLED,
         "transit_hidden_stem_enabled": TRANSIT_HIDDEN_STEM_ENABLED,
         # LLM 재호출은 설계상 존재하지 않는다(요청당 1회 고정) — 계측 계약으로 못박는다.
