@@ -12381,3 +12381,13 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 문서: docs/05 절·docs/10 §3-2a·docs/18 원칙 11·§3, gap 문서 §7. 확인 항목 ⑨는 운끼리 조합만 있어 원국 인성 조건 없음 → 점수 후보로 보류.
 - 게이트: 아래 줄에 기록.
   lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=ac2a752, 지문 동일, exit 0, `var/suite_20261016b.log`). 프론트 변경 없음. 백엔드 8000 재기동 반영.
+
+## 2026-10-16 — 월·연 총운이 이동 흐름을 놓치던 결함(실사례 권고사직) — 후보 Top-3·슬롯 주 신호·이동 뒤 흐름 조건부 (데굴님 승인·3번 정정)
+
+- 진단(dry-run 재현): "이번달 운세는 어때?" 입력이 `[이벤트 후보] 질문 기간 내 해당 도메인 후보 없음` + `일·직업 100점` + `운 요약: 강한 용신운`. 원인 ①`period_fortune` 경로의 `candidates = []`(2026-06-12 결정) ②슬롯 요약에 사건 종류·방향 부재 ③두 번째 답은 스레드 취업 맥락 승계. 이동 후보(74~79, PEER_YONGSIN_MOBILITY)와 `[이동 주체 미상]` 지시문이 전달되지 않았다. 등록된 2026-10 이동 사실(subject_life_events)은 캘리브레이션 전용(채팅 미주입 — 별개 정책).
+- 데굴님 정정(제안 3): 이동 뒤 흐름 문구는 비겁 전체가 아니라 **이후 운의 흐름이 긍정/부정이냐**로 갈라야 한다 — 이번 사례는 비겁 용신 + 이후 흐름 좋음이라 '나쁘지 않다'가 맞았던 것. → 시드 역할 × 이후 흐름 6칸 사전(`mobility_flow_text.json`, '나쁘지 않' 은 용신×긍정에만 — lint), `transit_peer_mobility_text.json` 용신·기신 문구를 "이동 뒤 흐름은 이후 운이 정한다"로 정정.
+- 구현: `saju_engines.period_fortune_signals`(`select_period_candidates` Top-3 월·연/일 비움, `annotate_slots` 주 신호+활성 강도 고지, `assess_following_flow` 가중 평균·임계 ±0.25, `mobility_flow_lines`), `PeriodFortune.slot_note/mobility_flow_lines`, `chat_service` 분기(후보·그래프·`_following_pillars` 다음 월운 3+세운 1 / 연 세운 2)·`[이동 주체 미상]` 자동 부착, `context_reducer` 렌더·월/연 지시문 보강, `MobilityFlowTextFile` 모델·lint·registry. docs/06 부록.
+- 재현 결과(데굴님 명식 2026-10): 후보 `재물 변화`·`이직·직업 변화`(검토월 주석) 실림, 슬롯 `일·직업 100 — 주 신호: 이직·직업 변화(기회 쪽·이동·주체 미상)`, `이동 흐름(비겁 용신 시드 × 이후 흐름 긍정)` + 근거 2026-11 己亥·12 庚子·2027-01 辛丑·2027 丁未, 지시문 부착. 관찰: 기존 해석 힌트 "정관합+용신 — 자발적 이동·승진 기회"가 같은 입력에 남아 있음(지시문이 덮으나 어휘 정리 후보).
+- 테스트 `test_period_fortune_signals.py` 16건, 기존 비겁 시드·이동 주체·컨텍스트 리듀서·품질군 테스트 통과. validate 116파일 통과.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=064f447, 지문 동일, exit 0, `var/suite_20261016c.log`). 프론트 변경 없음. 백엔드 8000 재기동 반영.

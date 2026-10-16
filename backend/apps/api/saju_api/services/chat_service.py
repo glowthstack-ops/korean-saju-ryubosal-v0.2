@@ -102,6 +102,10 @@ from saju_engines.month_coverage_audit import (
 )
 from saju_engines.movement_timing_shadow import detect_movement_timing_shadow
 from saju_engines.output_wealth_term import fix_wealth_generation_term
+from saju_engines.period_fortune_signals import (
+    annotate_period_fortune,
+    select_period_candidates,
+)
 from saju_engines.period_role_summary import build_period_role_summary
 from saju_engines.period_safe_template import build_safe_period_answer
 from saju_engines.persona import PersonaEngine
@@ -987,6 +991,35 @@ def _luck_months_covering(birth: BirthInput, labels: Iterable[str]) -> list[Luck
             if pl.label not in seen:
                 seen.add(pl.label)
                 out.append(pl)
+    return out
+
+
+def _following_pillars(birth: BirthInput, fortune_type: str, start: str) -> list[LuckPillar]:
+    """'이후 운의 흐름' 재료 — 월 총운: 다음 월운 N개 + 다음 세운 / 연 총운: 다음 세운 N개.
+
+    지평 상수는 `mobility_flow_text.json` horizon. 실패는 빈 목록(이동 흐름 줄만 생략).
+    """
+    from saju_engines.period_fortune_signals import load_mobility_flow
+
+    cfg = load_mobility_flow()
+    out: list[LuckPillar] = []
+    try:
+        if fortune_type == "monthly" and len(start) >= 7:
+            for k in range(1, cfg.monthly_months + 1):
+                label = month_add(start[:7], k)
+                mp = next(
+                    (p for p in _luck_months_for_label(birth, label) if p.label == label), None,
+                )
+                if mp is not None:
+                    out.append(mp)
+            year = int(start[:4])
+            out += luck_years(birth, [year + k for k in range(1, cfg.monthly_years + 1)])
+        elif fortune_type == "yearly" and len(start) >= 4:
+            year = int(start[:4])
+            out += luck_years(birth, [year + k for k in range(1, cfg.yearly_years + 1)])
+    except Exception:  # noqa: BLE001
+        _logger.exception("following pillars failed")
+        return []
     return out
 
 
@@ -5247,9 +5280,30 @@ def chat(
             (time.monotonic() - _t0_lt) * 1000,
         )
 
-    if period_fortune is not None or is_structural:
+    if is_structural:
         candidates = []
         bundles = []
+    elif period_fortune is not None:
+        # 2026-10-16 데굴님 승인(2026-06-12 결정 부분 수정) — 월·연 총운에도 해당 기간 주요 사건
+        # 후보 Top-N 을 싣는다(일 총운은 비움). 단정 차단은 지시문이 유지하고, 이동 후보가 실리면
+        # [이동 주체 미상] 지시문이 후보 목록 기준으로 자동 부착된다. 실사례(2026-10 권고사직):
+        # 후보가 비어 '일·직업 100점'만 남아 LLM 이 '직장 유리'로 읽었다.
+        _pf_start = intent.time_range.start if intent.time_range is not None else ""
+        candidates = select_period_candidates(all_scored, period_type or "", _pf_start or "")
+        candidates = _get_intent_filter().filter(
+            candidates, str(intent.domain), _event_filter_context,
+        )
+        bundles = _get_graph().retrieve([c.event_key for c in candidates]) if candidates else []
+        try:
+            from saju_engines.event_scoring import favorability_map
+
+            annotate_period_fortune(
+                period_fortune, candidates,
+                _following_pillars(birth, period_type or "", _pf_start or ""),
+                _fav_override or favorability_map(result),
+            )
+        except Exception:  # noqa: BLE001 — 보강 실패가 총운 답을 막지 않는다
+            _logger.exception("period fortune signals failed")
     elif horizon is not None:
         # 지평 창 내 후보만 — 월 후보는 상세 창(N개월), 연 후보는 연 span 내.
         # 즉시형·분야기본(years_span=0)은 연 후보를 빼서 장기 서술 재료 자체를 차단.
