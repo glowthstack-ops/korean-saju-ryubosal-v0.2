@@ -12457,3 +12457,8 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 테스트: `test_pattern_conditions.py` 7, `test_pattern_transit.py` 27(패리티·월 번호), 구조 패턴·회귀·골든·시주 미상·사전계산 wiring 통과, 사전 검증 117파일.
 - 게이트: 아래 줄에 기록.
   lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=be443d4, 지문 동일, exit 0, `var/suite_20261017g.log`). 백엔드 8000 재기동 반영.
+
+## 2026-10-17 — 구조 배합 흐름 영역이 새로고침 시 간헐 누락되던 결함 (데굴님 지적)
+
+- 원인: ①결과(lc) 재계산 시 흐름표 캐시를 비우는데 조회 훅 의존성에 캐시가 없어 "조회 완료 → 캐시 비움" 순서면 재조회가 없었다 ②`timeOptions` 객체가 렌더마다 새로 만들어져 정리 함수가 진행 중 조회 결과를 버렸다.
+- 수정: 캐시를 의존성에 포함(비워지면 재조회), 취소 대신 세대 번호(`tlEpoch`)로 이전 결과만 폐기, 진행 중 연도 집합으로 중복 조회 방지, 옵션은 JSON 키로 비교. 프론트 전용(tsc 0·vitest 38·build 통과).
