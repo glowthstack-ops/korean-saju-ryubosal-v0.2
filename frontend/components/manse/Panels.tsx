@@ -1326,22 +1326,36 @@ export function LuckPanel({
   useEffect(() => centerInScroll(syRef.current), [selDaewoon]);
   useEffect(() => centerInScroll(moRef.current), [selYear, monthsCache]);
   // 균시차 토글 등으로 결과가 재계산되면 이전 옵션 기준의 월운 캐시를 버리고 재시드.
+  // 흐름표 캐시 세대 — 결과(lc)가 바뀌면 올려서, 그 전에 시작한 조회 결과는 버린다.
+  const tlEpoch = useRef(0);
   useEffect(() => {
     setMonthsCache(lc?.current_year != null ? { [lc.current_year]: lc.monthly_luck } : {});
+    tlEpoch.current += 1;
     setTimelineCache({});
   }, [lc]);
   // 선택 연도의 구조 배합 흐름 조회(캐시 미적중 시).
+  // 2026-10-17 새로고침 누락 수정: ①캐시가 비워지면(위 효과) 다시 조회되도록 의존성에 캐시를 둔다
+  // ②timeOptions 객체 식별자가 렌더마다 바뀌어도 진행 중인 조회를 취소하지 않는다(세대 번호로만 걸러냄)
+  // ③동시 중복 조회는 진행 중인 연도 집합으로 막는다.
+  const tlInflight = useRef<Set<number>>(new Set());
+  const timeOptionsKey = JSON.stringify(timeOptions ?? {});
   useEffect(() => {
-    if (selYear == null || !profile || timelineCache[selYear]) return;
-    let cancelled = false;
-    setLoadingTimeline(selYear);
-    fetchPatternTimeline(profile, selYear, undefined, timeOptions)
-      .then((tl) => { if (!cancelled) setTimelineCache((c) => ({ ...c, [selYear]: tl })); })
+    if (selYear == null || !profile || timelineCache[selYear] || tlInflight.current.has(selYear)) return;
+    const year = selYear;
+    const epoch = tlEpoch.current;
+    tlInflight.current.add(year);
+    setLoadingTimeline(year);
+    fetchPatternTimeline(profile, year, undefined, timeOptions)
+      .then((tl) => {
+        if (tlEpoch.current === epoch) setTimelineCache((c) => (c[year] ? c : { ...c, [year]: tl }));
+      })
       .catch(() => { /* 무시: 실패 시 영역 미표시 */ })
-      .finally(() => { if (!cancelled) setLoadingTimeline(null); });
-    return () => { cancelled = true; };
+      .finally(() => {
+        tlInflight.current.delete(year);
+        setLoadingTimeline((cur) => (cur === year ? null : cur));
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selYear, profile, timeOptions]);
+  }, [selYear, profile, timeOptionsKey, timelineCache]);
   if (!lc) return null;
 
   const jiao = (lc.trace?.exact_jiao_un_dates as string[] | undefined) ?? [];
