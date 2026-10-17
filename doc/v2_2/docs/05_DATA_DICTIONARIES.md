@@ -225,6 +225,75 @@ compiled/
 - 해석 문구 사전 `transit_peer_mobility_text.json`(항목 3: same_pillar·peer_yongsin_mobility·weak_inflow): `chart_interpretation.incoming_ten_god_note`가 운 간여지동(천간·지지 같은 십성)과 비겁 용신 유입 조건에 맞는 문구를 고르기만 한다(작문 금지). validate가 3 id 정확 커버리지·단정 어휘(반드시·확실히·틀림없이·무조건)를 검사한다. 사건 유형 사전 `event_process_types.json` '이동·교체·재편'의 reason_prefixes 에 `PEER_YONGSIN_MOBILITY` 등록.
 - 개인 캘리브레이션: 같은 사건을 `subject_life_events`에 confirmed(delayed_outcome) 1행으로 적재(데굴님 승인) — 개인 시그니처 past_event_match 에 쓰인다.
 
+### event_engine/transit_ten_god_branching.json `favorable_role_tiering` · `transit_clash_mobility_support` (2026-10-15 데굴님 승인)
+
+- 배경: `YongiQualityEngine`이 같은 극성(용신·희신·강한 용신)의 **모든** 후보에 `polarity_rules` 배율을 곱해, 상관 용신의 충돌·이탈(career_change 41)·편관 용신의 압박·편인 용신의 보류가 용신이라는 이유로 더 강해지고 발표·취업·입학 같은 유익형은 뒤에 남았다(외부 검토 지적, 2026-10-15). 사건 '종류'는 십성이 정하고 용·기신은 유불리라는 원칙은 유지하되, **역할에 따른 후보 순위 조정**을 허용한다.
+- `favorable_role_tiering`: 용신 역할(`roles`)일 때 **유입 십성별 유익형 사건 목록**(`favorable_events_by_ten_god`, 10십성)에 든 후보에만 모드 배율(`modes`: a=1.10 / b=1.20)을 곱하고 그 외는 1.00. 기존 `polarity_rules` 배율은 이 모드에서 쓰지 않는다(한 곳에서만 곱한다 — 중복 곱 금지). 기신 쪽(quality_flip)은 불변. 기존 단일 운 규칙에 없는 유익형은 `extra_base_events`(편관→promotion 26·편인→creative_output 26)로 모드가 켜졌을 때만 브랜처 기본 후보에 더한다. 출산은 현실 게이트 대상이라 유익형에 넣지 않고, '자립·협력·문제 해결·책임 수행·전문성 활용'은 사건 키가 아니라 작용이라 `yonggi_quality_matrix.json` 용신 문구가 담는다. 용신이라는 이유만으로 취업·승진·입학을 자동 우선하지 않는다(기본점·관계 근거 유지). reason `YONG_TIER_FAVORABLE`(한글 "용신 유익형 가중") / `YONG_TIER_FLAT`(감사용). 구현 `saju_engines.favorable_role_tiering` + `YongiQualityEngine(tiering, tier_mode)` + `TenGodEventBrancher(extra_base_events)`. 플래그 `SAJU_YONG_TIERED_MULTIPLIER_MODE`(off 기본 / a / b — `validate_flags`가 그 외 값을 거부). 비겁 용신 이동 시드(`peer_yongsin_mobility_rules`)와 기준점은 불변 — 그 후보는 유익형 목록 밖이라 모드에서 FLAT(1.00).
+- `transit_clash_mobility_support`: 거버닝 스택의 **서로 다른 운 층 사이 지지 충**(대운 壬辰↔월운 戊戌 辰戌충 등)을 이동형 후보(`events`: career_change·relocation)의 **보조 근거**로 `bonus`(4)만큼 후보당 1회 가산한다. 운↔운 충은 층간 충(계층형 grounding)·재물 충개고·합화 상태에서는 이미 계산되지만 사건 점수의 관계 보정(`RelationPalaceEngine`)은 운↔원국 궁위 충만 다뤄 직장·소속 변화 후보에 닿지 않았다. 그 충만으로 '무엇이 변하는가'를 특정하지 않으며, 같은 충을 같은 사건 안에서 여러 이름으로 반복 가산하지 않는다(쌍 전부를 reason 1건 `TRANSIT_CLASH_{층}{지지}-{층}{지지}`에 기록, 한글 "운끼리 충(변화 보조 근거)"). 궁위 관계 보정과 같은 raw 단계(용신 배율 앞)에 둔다. 구현 `saju_engines.transit_clash_support`, 플래그 `SAJU_TRANSIT_CLASH_SUPPORT_ENABLED`(기본 OFF).
+- 값은 명리의 확정 수치가 아니라 초기 설계값이다. `scripts/casebook_replay.py --yong-tier-mode {off,a,b} [--transit-clash-support]`로 85사례를 같은 셸에서 재생해 비교하고(시점이 있는 outcome 의 상위 3 적중·방향 오탐, 미기록은 확인 불가로 제외), 적중이 늘면서 오탐이 늘지 않는 안을 택하되 같으면 배율이 작은 a안. 측정 결과는 WORKLOG 2026-10-15 참조. 두 사전 절 모두 reviewed:false.
+
+### interpretations/twelve_stages_text.json `natal_by_palace` — 원국 12운성 궁위별 서사 (2026-10-15 데굴님 지시 '적용 후 감수')
+
+- 외부 교재(wahnjaesky 4장) 대조에서 우리 사전은 단계별 natal 1문장뿐이고 교재는 연·월·일·시 궁위별 해석을 둔 것이 차이였다(`doc/v2_2/EXTERNAL_TEXT_GAP_WAHNJAESKY.md` P1-1). 12단계 × 4궁위 = 48문장을 완화 어휘로 번역해 추가(연주=조상·초년, 월주=부모·형제·청년기·사회 진입, 일주=나·배우자·중년, 시주=자녀·말년). 교재의 단정·흉 어휘('부모 인연 없음', '처를 극함')는 '연이 옅다·거리가 벌어지기 쉽다'로 옮겼다.
+- 노출: `chart_interpretation._build_excerpts`가 기둥마다 `kind=twelve_stage_palace`, key "연주 운성 장생" 형식으로 한 줄씩 명식 해석 자료에 싣는다(채팅 구조 블록·리포트 명식 prefix 공용, 시주 미상이면 시주 줄 없음). 문체·서사 전용 — 점수·후보 비개입. 토큰 축소 경로(excerpts[:4])에서는 뒤 순서라 먼저 잘린다.
+- lint: 4칸 필수·15자 이상·단정 어휘 금지(`_lint_twelve_stages_text`), 단정 표현 테스트(`test_interpretations_dict`)에 포함. reviewed:false — 실답 노출 로그로 감수.
+
+### interpretations/sinsal_text.json `천사` + sinsal_catalog `CHEONSA` (2026-10-15 데굴님 승인 — evidence 전용 길성)
+
+- 외부 교재 3장 신살 36종 대조(gap 문서 §9)에서 후속 후보로 남긴 둘 중 천사만 추가(삼기는 성립 기준 이견·'귀기' 단정 우려로 보류). 성립: 월지 계절 寅卯辰→戊寅日, 巳午未→甲午日, 申酉戌→戊申日, 亥子丑→甲子日 — 일주 한 자리에만. 카테고리 noble_stars·positive, 신살은 evidence 전용(게이트·점수 비개입, daily 신살 채널 8종 밖). 운 신살로는 들어오지 않는다.
+- 문구: 길신·auxiliary·flipSide(안일) 의무, 교재 '모친이 어질고 깨끗' 류 가족 단정은 싣지 않음. reviewed:false.
+
+### 외부 교재 대조 P2 — 궁합 보완 2신호·여명 부성 대체 설명층·이중 충 표지·사생지 충 보조 (2026-10-15 데굴님 '권고대로')
+
+- 궁합(`compatibility_engine._element_season_signals`): ①결핍 오행 보완 — 한쪽 오행 비중 <5% 를 상대가 ≥20% 로 가지면 `ELEMENT_COMPLEMENT`(보완, 끌림 가중 1) ②계절(조후) 보완 — 월지 계절이 여름↔겨울이면 `SEASON_COMPLEMENT`(보완), 둘 다 여름/겨울이면 '조후 쏠림' 보조(중립). 교재 기타절 '없는 오행을 가진 상대', '여름생은 겨울생과'. 궁합 정답 데이터가 없어 실답 감수로만 검증.
+- 여명 부성 대체(`MarriageResourceProfile.spouse_star_substitute/_basis`): 관성 ≥30% → 인성 / 관성 미투출·<8% → 재성 / 비겁 ≥30%·인성 없음 → 식상 / 신왕·인성 ≥30%·식상 <5% → 재성. **설명 전용** — 배우자 별(여=관성)·점수·판정 불변, 배우자 블록에 "부성 대체 후보(통설·설명 전용)" 한 줄. 점수 반영 여부는 감수 후 별도 결정.
+- 이중 충 표지(`event_engine_v2._apply_double_clash_flag`, 플래그 `SAJU_DOUBLE_CLASH_FLAG_ENABLED` 기본 ON): 원국 충 쌍에 든 지지를 운 지지가 다시 충하면 전 후보 fav_adj −STRUCTURE_PILLAR_PENALTY/2(=−0.05), reason `沖_이중충_{운지}→{원국지}`, 기록 키 `contributions.double_clash`. 점수·순위·사건 종류 불변(85사례 방향 오탐으로 측정 — 결과는 WORKLOG).
+- 사생지 충 보조(`risk_auxiliary` 구조 플래그 `life_branch_clash` + `risk_auxiliary_amplifiers.json` `AUX_HLT_LIFE_BRANCH_CLASH` strength 0.2): 운 지지가 원국 지지와 寅申·巳亥 충이면 건강·사고 family 후보(흉 극성)에만 보조 증폭. 교재 '사생지 충=병·사망' 은 단정 금지로 번역.
+- 합성 감사(용신 9규칙·격국 조건, 보고서만): `var/audit_textbook_rules_20261015.md`, 요약은 `EXTERNAL_TEXT_GAP_WAHNJAESKY.md` §8.
+- 테스트 `test_textbook_p2_20261015.py` 5건, `test_risk_auxiliary_amplifiers` 16항목.
+
+### event_engine/transit_ten_god_branching.json `yearly_ten_god_signal_rules` — 세운 육신별 사건 신호 5계열 (2026-10-15, 외부 교재 6장 대조)
+
+- 교재 6장 '세운 육신별 사건표'(비겁·재성·관성·인성·식상년)를 브랜처 단일 운 규칙 10종·조합 규칙과 대조한 결과 대부분은 이미 대응(겁재=손재·분쟁, 재성=재물·계약·혼인, 관성=취업·승진·소송, 인성=문서·학업, 식상=표현·직업 전환). 우리 규칙에 없던 5계열만 보조 규칙으로 — 값은 초기 설계값·감수 대상.
+  ① `JIECAI_RESTRAINED_BY_OFFICER`: 겁재 운(세운·월운)인데 원국 천간·지지 본기 또는 대운에 관살이 있으면 겁재 단독 규칙(SINGLE_JIECAI)에서 나온 분쟁·손재 후보 ×0.85(제거 아님). ② `SAME_GOD_HAP_{PEER|AUTHORITY|WEALTH}`: 운 천간이 원국 천간과 천간합을 이루면 비겁=관계 변화·분쟁 +2, 관성=결혼 신호·관계 변화 +2(부정 주의·성사 양면), 재성=결혼 신호 +2(초안 +4 → 85사례 재생에서 결혼 신호 1위 150→347 급증이라 +2로 하향: 271, 적중 동일). ③ `RESOURCE_WEALTH_HAP_SPECULATION`: 인성 운 천간이 원국 재성 천간과 합 → windfall +6(없으면 30 시드; 횡재 가드 유지). ④ `OFFICER_YEAR_RELOCATION`: 관성 세운에 relocation 후보가 없으면 26 시드. ⑤ `OUTPUT_YEAR_RELATIONSHIP_CHANGE`: 식상 세운에 relationship_change 후보가 없으면 30 시드. 시드 극성은 뒤 계층 `_period_role` 이 덮어쓴다.
+- 구현 `saju_engines.yearly_ten_god_signals`(브랜처·시드 합류 직후, 성별 가중 앞), `EventEngineV2(enable_yearly_ten_god_signals)`, 플래그 `SAJU_YEARLY_TEN_GOD_SIGNALS_ENABLED`(기본 ON). 한글 라벨 5종(`llm_event_serializer`). `scripts/casebook_replay.py --no-yearly-signals`로 OFF 재생.
+- ON/OFF 는 점수 규칙이므로 **85사례·실사례 적중률**로 정한다(데굴님 2026-10-15 정정): 재생 결과는 WORKLOG. 테스트 `test_yearly_ten_god_signals.py` 6건(규칙 로드·세운 전용 시드 / OFF 불변 / 관살 유무별 겁재 완화 / 관합 가중 / 세운 시드 '없을 때만' / 한글 라벨).
+
+### 외부 교재 대조 P1 문구층 4종 + 육친표·유익형 근거 (2026-10-15 데굴님 '적용 후 감수' — 전부 노출)
+
+- `interpretations/relation_palace_pairs_text.json`(신규): 원국 **충·파·해**가 서로 다른 두 궁위 사이에 성립할 때 '어느 자리끼리'의 육친 서사 — kind 3 × pair 6(연-월·연-일·연-시·월-일·월-시·일-시) = 18문장(교재 2장 위치별 해석을 '긴장·거리·과제' 어휘로 번역). `chart_interpretation._relation_palace_pairs` → 발췌 `kind=relation_palace`, key "충 월주-시주(亥·巳)". 같은 (kind, pair)는 1회. lint: 18칸 정확 커버리지·단정 금지.
+- `interpretations/void_ten_god_text.json`(신규): 원국 공망 글자(연·월·시지)의 **본기 십성별** 서사 10문장(교재 4장 공망 육신 해석 번역). 발췌 `kind=void_ten_god`, key "공망 巳(시주 정인)". 공망 활성(충발·전실·합) 의미론은 기존 그대로(`GONGMANG_HAP_SEMANTICS`). lint: 10십성 커버리지·단정 금지.
+- `health_element_organs.json`: `stems`(10)·`branches`(12) 신체 **부위**와 `clash_pairs`(오행 상전 5쌍 **계열**) 추가 — 질병명은 싣지 않는다(교재의 암·중풍 등은 번역 시 제외, 테스트로 금지어 고정). `structural_context._health_letter_lines`가 취약 오행에 속한 원국 글자의 부위(최대 4)와 상전 계열을 [원국 건강 취약 구조] 블록에 덧붙인다(취약 장기가 없으면 침묵).
+- `career_fields.json` `conditions`(11종): 격국·신살 조건층(의약=현침 희용신, 법조=寅巳申·丑戌未 형 희용신, 교육=丙/火, 역술·종교=丙丁·寅午戌·辰戌巳亥, 언론=丁/비겁 강, 기계=金, 중개=土·水, 군경=戊庚壬·형·辰戌巳亥, 운수=희용신 충, 의류=木+辰戌 충, 해운·요식=水+식상 강). `career_field._evaluate_conditions`가 원국 사실(글자·상호작용·용기신 역할·십성군 %)로 판정해 근거 문자열과 함께 `facts.conditions` 로 싣고, 블록에 "[격국·신살 조건 — 보조 신호(단독 확정 금지)]"로 렌더. `ConditionRule`/`ConditionHit` 타입.
+- `interpretations/ten_god_relations.json` 1.0.2: 교재 4장 육친표 누락 칸 — 여명 재성=시어머니, 남명 식신=장인·장모, 남명 편관=조부(자녀와 병기), 남명 정인=장모(어머니와 병기). 가족 칸은 관계 질문에서만 쓰는 정책 불변.
+- `favorable_role_tiering.literature_basis`: 교재 사길신/사흉신/중성 분류를 유익형 목록의 문헌 근거로 기록(중성 비견·편재는 유익형 최소).
+- 테스트 `test_text_layers_20261015.py`(위치 쌍 실사례 월-시 충·중복 없음 / 공망 시지 巳 발췌·무공망 명식 침묵 / 질병 부위 사전·금지어·취약 오행 정합 / 직업 조건 사전·판정·렌더·실사례 土 중개), `test_agent_relations` 갱신.
+
+### event_engine/transit_ten_god_branching.json `peer_gisin_mobility_rules` + 유익형 근거 코드 (2026-10-15 데굴님 확정)
+
+- 유익·불익의 기준(데굴님): 이동이 자발인가 타의인가가 아니라 **이동 뒤 흐름이 좋은가**. 떠밀려 나가도 그 덕에 맞는 자리로 가면 복이 될 수 있고, 스스로 택해도 화가 될 수 있다. 주체는 미상(`[이동 주체 미상]` 지시문)으로 두고, 흐름은 용신·기신이 정한다.
+- 유익형 편입: `favorable_role_tiering.favorable_reason_prefixes = ["PEER_YONGSIN_MOBILITY"]` — 비겁 용신 이동 시드는 사건 키(career_change)로는 흉형과 구분되지 않아 **근거 코드**로 유익형을 인정한다(`FavorableTieringRule.is_favorable(..., reason_codes)`). 모드 a 에서 실사례 2026-10 이동 후보 66→73(순위 2위 유지). 품질은 '기회 가능성'이지 결과 확정이 아니며 문구도 "나쁘지 않게 흐를 수 있다"까지만.
+- 기신 대칭 시드 `peer_gisin_mobility_rules`(id `PEER_GISIN_MOBILITY`, `favorability_any: ["기신"]`, 그 외 용신 절과 동일 — 층 세운·월운, 기준점 same_god 68·same_group 58·stem_only 50·branch_only 44): 비겁이 기신인 명식에 비겁 운이 들어오면 경쟁·분탈 압박 속의 이동(불익) 후보. 극성 자리표시 GI, 길흉은 뒤 계층 기신 품질 반전(압박·손실·충돌). 해석 문구 `transit_peer_mobility_text.json` `peer_gisin_mobility`(4 id 정확 커버리지로 lint 갱신), `event_process_types.json` '이동·교체·재편' reason_prefixes 에 등록. 구현 `peer_mobility_seed.load_peer_mobility_rule(dicts, GISIN_SECTION)` + `EventEngineV2(enable_peer_gisin_mobility)`, 플래그 `SAJU_PEER_GISIN_MOBILITY_ENABLED`(기본 ON). 실사례 없음 — 85사례 재생에서 시점 있는 outcome 적중 23/오탐 8 불변, 연도 top-1 career_change 3957→4050·social_conflict 107→95(분포만 이동).
+- 검증 픽스처: 1985-05-20 10:00 서울 남(己未 일주, 土=기신) — 2026-10 戊戌(겁재·겁재)에 PEER_GISIN_MOBILITY·PEER_INFLOW_SAME_GOD 후보, 용신 실사례(1980-11-22)에는 기신 시드 없음, 한신·희신·구신 비겁은 문구 침묵.
+
+### event_engine/transit_ten_god_branching.json `role_event_seed_rules` + interpretations/transit_role_event_text.json — 역할별 사건 전환 (2026-10-16 데굴님 확정 6규칙)
+
+- 배경: 사건 종류는 십성 단일 운 규칙이 정하고 용·기신은 배율·품질만 바꾼다(2026-06-16 분리 원칙). 그래서 사흉신(상관·편관·편인)이 **용신**인 명식의 그 십성 운은 흉성 기본 가지(충돌·이탈 / 압박 / 보류)에 용신 배율만 붙고, 사길신(정관·정인·식신)이 **기신**인 명식의 그 운은 길성 기본 가지(취업 / 문서 / 성과)에 압박 품질만 붙어 사건 종류가 현실과 어긋났다. 비겁 이동 시드에 이은 **두 번째 예외**이며, 브랜처 기본 가지는 바꾸지 않고(브랜처는 favorability 를 모르는 채 유지) 같은 자리(브랜처 직후 합류)에서 역할별 사건 후보를 시드로 더해 **순위로** 전환한다.
+- 규칙 6종(`rules[]`, 규칙별 `enabled`): 상관 용신 → creative_output·public_exposure / 편관 용신 → job_gain·promotion / 편인 용신 → education_admission·creative_output / 정관 기신 → career_change / 정인 기신 → preparation_delay / 식신 기신 → health_attention·wealth_change. 역할 판정은 **유입 십성의 오행**(일간 기준 십성군 → 오행, `role_event_seed.incoming_element`)이 fav_map 에서 용신/기신인가로 한다 — 상관·식신은 같은 오행이라 "상관 용신"은 식상 오행이 용신이고 들어온 십성이 상관인 경우다.
+- 기준점·강도: 비겁 시드와 같은 유입 4단계(`base_by_inflow` same_god 68·same_group 58·stem_only 50·branch_only 44), 둘째 사건은 `secondary_ratio`(0.85). 근거 코드 `ROLE_SEED_<십성>_<YONG|GI>` + `ROLE_INFLOW_*` + `ROLE_UPPER_SUPPORT_<layer>`(상위 층 같은 십성 뿌리), 기여 키 `role_event_seed`(비겁 시드 기여와 별도 보존). 극성 자리표시는 용신 규칙 YONG·기신 규칙 GI(뒤 계층 `_period_role` 이 덮어쓴다). 용신 규칙 3종의 사건은 `favorable_role_tiering` 유익형 목록에 이미 있어 품질군 차등 모드에서도 유익형이다.
+- 문구층(항상 노출): `transit_role_event_text.json` 6항목((십성, 역할) → text, `RoleEventTextFile` 6 id 정확 커버리지·id↔십성×역할 일치·단정 어휘 lint). `incoming_ten_god_note` 가 운 천간·지지 십성 각각의 (십성, 역할)이 사전에 있으면 1회 부착 — 채팅·리포트 공용 직렬화라 두 입구에 같이 나간다. 사길신 용신·사흉신 기신은 대상이 아니다(기본 가지가 맞다).
+- 점수층: `saju_engines.role_event_seed`(`load_role_event_seed_config`·`produce_role_event_seeds`·`merge_role_event_seeds`), `EventEngineV2(enable_role_event_seed, role_event_seed_rule_ids)`, 플래그 `SAJU_ROLE_EVENT_SEED_ENABLED`(코드 기본 OFF — 회귀 기준선, 운영은 `.env.beta` 로 ON), health `role_event_seed_enabled`, `casebook_replay --role-event-seed [--role-seed-only RULE_ID]`, 한글 라벨 11종.
+- 측정(2026-10-16, 85사례 180명식 같은 셸 off/on, 시점 있는 outcome 44건 상위 노출 적중·방향 오탐 |fav|≥0.1): **적중 23/오탐 8 → 23/8 불변**, 재물 '-' 2건의 fav 가 실제 방향으로 이동(CASE-023 R −0.0→−0.05, CASE-042 L −0.04→−0.11). 연도 top-1 분포: career_change 4197→4149·contract 2429→2384 감소, creative_output 2068→2112·education_admission 226→256·health_attention 197→235·preparation_delay 898→913 증가. 적중 하락 없음 → 데굴님 기준(점수 규칙은 적중률)상 ON 가능해 운영 노출·실답 감수. 규칙별 분리 측정은 합산이 무손실이라 85사례로는 변별이 없어 생략(`--role-seed-only` 로 재현 가능). 현대 실사례(`life_event_cases.jsonl`)는 아직 0건 — 규칙당 1건 등록이 후속.
+- 검증 픽스처(전부 2026-10 戊戌 = 土 간여지동): 1978-09-02 남 丁(상관 용신) / 1978-10-27 남 壬(편관 용신) / 1978-06-17 남 庚(편인 용신) / 1979-02-25 남 癸(정관 기신) / 1978-10-16 남 辛(정인 기신) / 1978-01-14 14:30 여 丙(식신 기신). 두 사전 절 모두 reviewed:false.
+
+### career_fields.json 간지론 번역층 7절 + sinsal_direction.json `entrance_customer_group` (2026-10-16 데굴님 승인 — 외부 강의 「제2강 직업선택」)
+
+- 출처: 간지론 기반 외부 강의. 전부 **학파 서술층**(서술 전용·inert)이며 렌더는 '[간지론 관점]' 머리말 + "간지론에서는 ~로 본다" 어투를 강제한다(데굴님 2026-10-16: 이번 내용 전체가 간지론 기반이라 학파 표기로 서술). 억부·조후 용신 판정과 합산·상쇄하지 않고 나란히 둔다. 선택 절이라 없으면 층이 꺼진다(`CareerFieldDict` 필드 전부 `None` 허용).
+- `ganji_school`(라벨·어투) / `orientation`(직업 유형 축: 관·인=직장형 vs 식·재=상업형, 월지 2·월간 1·년주 0.5·일지 0.5·시주 0.25 가중, 분포 10%p 차 +1, 월지 충 −1, 여유폭 1.5 — 교재에 수치가 없어 초기 설계값) / `palace_priority`(월지→월간→년주→일지, 근묘화실 사용 시기) / `officer_position`(관성 천간 통근·무근·지지만, 정관·편관, 관인 인접=책임자형, 관 유 인 무, 대운 인성 대체, 관성 多 — '서울/지방'은 지역 단정이라 '조직 격·규모'로 번역) / `workplace_notes`(인성 과다) / `business_types`(식신 천간·지지, 상관, 정재, 편재, 정인, 편인, 겁재·양인 — 유흥주점·사채·전당포·기획부동산 제외, 상위 3칸만 렌더) / `business_rules`(식상·재성 인접/떨어짐, 재성만, 정관 강+재성, 비겁 多+관성, 비겁 지지 無, 인성 無=임대, 재성 오행) / `business_timing`(인성 대운이 식상을 누르면 운영·위임형, 식·재 대운, 대운>세운).
+- 구현 `career_field._apply_ganji_school`(기준일 `today`로 현재 대운 사용 — 채팅·리포트가 전달) → `CareerFieldFacts.orientation/palace_lines/officer_lines/workplace_lines/business_lines/timing_lines` → `_render_ganji_school`. 업종·사업 시기는 상업형·혼합형에만, 관성 위치는 관성이 있을 때만. 지시문(`_CAREER_FIELD_DIRECTIVE`·`_CAREER_FIELD_REPORT_DIRECTIVE`)에 학파 서술·합산 금지·프로필 우선 규칙 추가. 2단계 프로필 직업이 있으면 그것이 사실(원칙 11).
+- `sinsal_direction.json` `entrance_customer_group`: 출입구 제2기준(간지론) — 연지 삼합의 '앞 그룹'(각 지지 +3: 申子辰→亥卯未·寅午戌→巳酉丑·巳酉丑→申子辰·亥卯未→寅午戌)을 손님으로 보고 그 국 왕지 방위(동/서/북/남)로 출입문. 목적 `sales` 에만 `SinsalDirectionRecommendation.second_basis` 로 붙고 12신살 picks 와 합산하지 않는다(쥐띠: 12신살 지살=서 vs 간지론=동 — 학파별 병기). 조상·단골 쪽문 해석 불채택. 스냅샷 `compiled/sinsal_direction_v1.2.0.json` in-place 재빌드(선택 절 추가, 기존 항목 불변).
+- 테스트 `test_career_ganji_layer.py`(사전 7절·어휘 정책·선택 절 부재·유형 축 5픽스처·월지 가중/충 간섭·대운 축·궁위·관성 위치 3형·업종 상한·사업 시기 2형·정관 규칙·렌더·지시문) / `test_entrance_second_basis.py`(사전·4삼합 표·12신살 불변·sales 전용·렌더 1회). 픽스처 1976-01-05(직장형·천간 통근·관인 인접) / 1976-01-19(직장형·지지만) / 1976-03-22(혼합형) / 1976-01-26(상업형·인성 대운) / 1980-11-22(상업형·월지 충).
+
 ### events/*.json (신호→이벤트 매핑 예)
 
 ```json

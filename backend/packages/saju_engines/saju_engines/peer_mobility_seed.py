@@ -55,12 +55,19 @@ class PeerMobilityRule:
     theme_only_threshold: int
 
 
-@lru_cache(maxsize=4)
-def load_peer_mobility_rule(dictionaries_dir: Path = _DICTS_DEFAULT) -> PeerMobilityRule | None:
-    """브랜처 사전에서 규칙 절을 읽는다(절이 없으면 None — 시드 비활성)."""
+YONGSIN_SECTION = "peer_yongsin_mobility_rules"
+GISIN_SECTION = "peer_gisin_mobility_rules"  # 기신 대칭 시드(2026-10-15 데굴님 확정)
+
+
+@lru_cache(maxsize=8)
+def load_peer_mobility_rule(
+    dictionaries_dir: Path = _DICTS_DEFAULT, section: str = YONGSIN_SECTION,
+) -> PeerMobilityRule | None:
+    """브랜처 사전에서 규칙 절(용신 `peer_yongsin_mobility_rules` / 기신
+    `peer_gisin_mobility_rules`)을 읽는다(절이 없으면 None — 시드 비활성)."""
     path = dictionaries_dir / "event_engine" / "transit_ten_god_branching.json"
     data = json.loads(path.read_text(encoding="utf-8"))
-    raw = data.get("peer_yongsin_mobility_rules")
+    raw = data.get(section)
     if not raw:
         return None
     thresholds = data.get("activation_thresholds", {})
@@ -101,7 +108,7 @@ def produce_peer_mobility_seeds(
     period: str,
     rule: PeerMobilityRule | None,
 ) -> list[EventCandidateV2]:
-    """비겁 용신 명식의 비겁 유입 → career_change 시드(0 또는 1건).
+    """비겁 용신(또는 기신 — 대칭 규칙) 명식의 비겁 유입 → career_change 시드(0 또는 1건).
 
     Args:
         signals: 거버닝 스택에서 수집한 운 십성 신호 전체(층위 포함).
@@ -154,12 +161,15 @@ def produce_peer_mobility_seeds(
     for layer in upper_peer_layers:
         reasons.append(f"PEER_UPPER_SUPPORT_{layer.value}")
     stack_layers = sorted({s.layer for s in signals}, key=lambda x: list(LuckLayer).index(x))
+    # 극성 자리표시 — 뒤 계층 `_period_role` 이 시점 유입 오행의 용기신 역할로 덮어쓴다. 기신
+    # 대칭 시드는 GI 로 두어 덮어쓰기 전 단계(테스트·감사)에서도 방향이 읽히게 한다.
+    seed_role = PolarityRole.GI if "기신" in rule.favorability_any else PolarityRole.YONG
     return [EventCandidateV2(
         event_key=rule.event,
         period=period,
         score=score,
         confidence_level=confidence,
-        polarity_role=PolarityRole.YONG,
+        polarity_role=seed_role,
         source_layers=stack_layers or [target_layer],
         candidate_source_layers=[
             layer.value for layer in (*upper_peer_layers, target_layer)
@@ -202,6 +212,6 @@ def merge_peer_mobility_seeds(
 
 
 __all__ = [
-    "PeerMobilityRule", "TenGodGroup", "classify_inflow", "load_peer_mobility_rule",
-    "merge_peer_mobility_seeds", "produce_peer_mobility_seeds",
+    "GISIN_SECTION", "PeerMobilityRule", "TenGodGroup", "YONGSIN_SECTION", "classify_inflow",
+    "load_peer_mobility_rule", "merge_peer_mobility_seeds", "produce_peer_mobility_seeds",
 ]

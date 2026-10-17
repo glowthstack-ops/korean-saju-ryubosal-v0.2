@@ -1,0 +1,133 @@
+{
+  "version": "1.0.0",
+  "reviewed": false,
+  "note": "원국 충·파·해의 궁위 쌍별 육친 서사(2026-10-15, 외부 교재 2장 위치별 해석을 완화 어휘로 번역 — 데굴님 '적용 후 감수'). 점수 비개입·문체 전용. kind=clash|break|harm, pair=연·월·일·시 쌍 6종. 단정 어휘 금지, 흉 표현은 '긴장·거리·과제'로.",
+  "items": [
+    {
+      "kind": "clash",
+      "pair": "year-month",
+      "pair_ko": "연주-월주",
+      "text": "조상·집안의 터와 사회로 나가는 자리가 부딪혀, 일찍 생가를 떠나거나 가업·고향과 거리를 두는 흐름이 있을 수 있다.",
+      "reviewed": false
+    },
+    {
+      "kind": "clash",
+      "pair": "year-day",
+      "pair_ko": "연주-일주",
+      "text": "집안의 뿌리와 나의 자리가 어긋나, 부모와 뜻이 갈리거나 떨어져 지내며 제 길을 찾는 결이 된다.",
+      "reviewed": false
+    },
+    {
+      "kind": "clash",
+      "pair": "year-hour",
+      "pair_ko": "연주-시주",
+      "text": "조상의 자리와 자녀·말년의 자리가 부딪혀, 성급함이 화근이 되기 쉽고 오래 가는 건강 관리가 과제가 된다.",
+      "reviewed": false
+    },
+    {
+      "kind": "clash",
+      "pair": "month-day",
+      "pair_ko": "월주-일주",
+      "text": "부모·직장의 자리와 배우자·나의 자리가 맞서, 급한 결단과 은혜를 가볍게 여기는 태도를 경계할 자리다.",
+      "reviewed": false
+    },
+    {
+      "kind": "clash",
+      "pair": "month-hour",
+      "pair_ko": "월주-시주",
+      "text": "사회 활동과 자녀·말년의 자리가 부딪혀, 기복이 크고 오래 가는 병을 조심하라는 통설이 있는 자리다.",
+      "reviewed": false
+    },
+    {
+      "kind": "clash",
+      "pair": "day-hour",
+      "pair_ko": "일주-시주",
+      "text": "배우자와 자녀의 자리가 맞서, 가정 안에서 긴장이 생기기 쉬워 말의 온도를 낮추는 것이 과제다.",
+      "reviewed": false
+    },
+    {
+      "kind": "break",
+      "pair": "year-month",
+      "pair_ko": "연주-월주",
+      "text": "집안의 터와 사회로 나가는 자리가 흔들려, 양친과 일찍 떨어지거나 변동이 잦은 성장기를 보낼 수 있다.",
+      "reviewed": false
+    },
+    {
+      "kind": "break",
+      "pair": "year-day",
+      "pair_ko": "연주-일주",
+      "text": "집안과 나의 자리가 삐걱여, 홀로 서는 시기가 이르고 처자와의 인연이 얇아질 수 있다.",
+      "reviewed": false
+    },
+    {
+      "kind": "break",
+      "pair": "year-hour",
+      "pair_ko": "연주-시주",
+      "text": "조상의 자리와 말년의 자리가 흔들려, 노년의 안정은 미리 다져 둔 것에 달린다.",
+      "reviewed": false
+    },
+    {
+      "kind": "break",
+      "pair": "month-day",
+      "pair_ko": "월주-일주",
+      "text": "직장·부모의 자리와 배우자 자리가 흔들려, 배우자 자리의 안정이 과제가 되고 변동이 잦다.",
+      "reviewed": false
+    },
+    {
+      "kind": "break",
+      "pair": "month-hour",
+      "pair_ko": "월주-시주",
+      "text": "사회 활동과 자녀·말년의 자리가 흔들려, 일의 변동이 말년 계획을 흔들지 않도록 분리해 두는 것이 좋다.",
+      "reviewed": false
+    },
+    {
+      "kind": "break",
+      "pair": "day-hour",
+      "pair_ko": "일주-시주",
+      "text": "나·배우자의 자리와 자녀·말년의 자리가 흔들려, 고립되기 쉽고 가족과의 거리가 벌어질 수 있다.",
+      "reviewed": false
+    },
+    {
+      "kind": "harm",
+      "pair": "year-month",
+      "pair_ko": "연주-월주",
+      "text": "집안과 사회의 자리가 서로를 해쳐, 고독감과 가족 안의 서운함이 일찍 자랄 수 있다.",
+      "reviewed": false
+    },
+    {
+      "kind": "harm",
+      "pair": "year-day",
+      "pair_ko": "연주-일주",
+      "text": "집안과 나의 자리가 서로를 해쳐, 부모의 도움을 받기 어렵고 혼자 짊어지는 몫이 커진다.",
+      "reviewed": false
+    },
+    {
+      "kind": "harm",
+      "pair": "year-hour",
+      "pair_ko": "연주-시주",
+      "text": "조상의 자리와 말년의 자리가 서로를 해쳐, 늦은 나이의 잔병과 외로움을 미리 돌봐야 한다.",
+      "reviewed": false
+    },
+    {
+      "kind": "harm",
+      "pair": "month-day",
+      "pair_ko": "월주-일주",
+      "text": "직장·부모의 자리와 배우자 자리가 서로를 해쳐, 고독하거나 인연이 얇다는 통설이 있어 관계를 가꾸는 노력이 필요하다.",
+      "reviewed": false
+    },
+    {
+      "kind": "harm",
+      "pair": "month-hour",
+      "pair_ko": "월주-시주",
+      "text": "사회 활동과 자녀·말년의 자리가 서로를 해쳐, 바깥일이 집안의 안정을 갉지 않게 선을 긋는 것이 좋다.",
+      "reviewed": false
+    },
+    {
+      "kind": "harm",
+      "pair": "day-hour",
+      "pair_ko": "일주-시주",
+      "text": "배우자와 자녀의 자리가 서로를 해쳐, 노년의 건강과 가족 돌봄이 함께 걸리는 자리다.",
+      "reviewed": false
+    }
+  ]
+}

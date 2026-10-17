@@ -411,13 +411,30 @@ def main() -> int:
     ap.add_argument("--no-events", action="store_true")
     ap.add_argument("--out-name", default="",
                     help="subjects 출력 파일명(기본 subjects.jsonl; C6 실험 등 별도 보존용)")
+    # 2026-10-15 — 용신 품질군 차등(off/a/b)·운↔운 충 보조 가산 비교 재생용(플래그가 아니라
+    # 인자로 고정해 같은 셸에서 세 모드를 재생한다).
+    ap.add_argument("--yong-tier-mode", default="off", choices=("off", "a", "b"))
+    ap.add_argument("--transit-clash-support", action="store_true")
+    # 2026-10-15 — 세운 육신별 사건 신호(P0-1) ON/OFF 비교 재생용.
+    ap.add_argument("--no-yearly-signals", action="store_true")
+    # 2026-10-16 — 역할별 사건 전환 시드 ON/OFF·규칙별 비교 재생용.
+    ap.add_argument("--role-event-seed", action="store_true")
+    ap.add_argument("--role-seed-only", action="append", default=[],
+                    help="역할 시드 규칙 id 만 적용(--role-event-seed 와 함께, 반복 가능)")
     args = ap.parse_args()
     _OUT_DIR.mkdir(parents=True, exist_ok=True)
     lines = _CASES.read_text(encoding="utf-8").splitlines()
     cases = [json.loads(line) for line in lines if line.strip()]
     if args.only:
         cases = [c for c in cases if c["case_id"] in set(args.only)]
-    engine = EventEngineV2(_DICTS, risk_mode="shadow")
+    engine = EventEngineV2(
+        _DICTS, risk_mode="shadow",
+        yong_tier_mode=args.yong_tier_mode,
+        enable_transit_clash_support=args.transit_clash_support,
+        enable_yearly_ten_god_signals=not args.no_yearly_signals,
+        enable_role_event_seed=args.role_event_seed,
+        role_event_seed_rule_ids=args.role_seed_only or None,
+    )
     rows = []
     # --only 실행은 전수 결과를 덮어쓰지 않도록 별도 파일에 쓴다.
     out_name = args.out_name or ("subjects_only.jsonl" if args.only else "subjects.jsonl")

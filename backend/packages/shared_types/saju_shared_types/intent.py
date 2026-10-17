@@ -153,6 +153,10 @@ class SubjectRef(BaseModel):
     # 기준(SELF) 대상과의 관계 — relationship_hints.RELATION_TYPES 값(사용자 명시 선택).
     # 테마 애정·관계운 궁합(RP)의 풀이 방향에 쓰인다(2026-07-03). 미지정=중립 궁합 톤.
     relation_type: str | None = None
+    # 기준(SELF) 대상 자신의 등록 관계 키(docs/02 E14 relation_to_user 17종) — 풀이 내역 목록의
+    # 대상 라벨용(2026-10-15). 주 대상은 계정 본인이 아닌 명식일 수 있어 kind 로 '본인'을 추정하지
+    # 않는다. ""=관계 미설정, None=이 필드가 없던 시절의 잡(레거시 → 종전대로 '본인').
+    relation_to_user: str | None = None
 
 
 class AnchorDate(BaseModel):

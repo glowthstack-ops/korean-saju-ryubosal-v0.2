@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from saju_api.services.manse_service import calculate
+from saju_engines.llm_guard import CALL_LIMITS
 from saju_engines.precompute import CompositeBuilder
 from saju_engines.relocation import RelocationResolver, is_son_eomneun_nal
 from saju_engines.topic_builder import build_topic_context
@@ -189,7 +190,8 @@ def test_m10_topic_context_wrapper(composites_with_feb_days, relocation_query) -
     )
     assert ctx.module_id == "M10" and ctx.ranked_results
     assert ctx.group_aggregation is not None
-    assert ctx.budget.max_input_tokens == 28_000
+    # 2026-10-15: 동반자 대화(chat_compare)는 입력 제한 없음 — 한도표를 그대로 따른다.
+    assert ctx.budget.max_input_tokens == CALL_LIMITS["chat_compare"].max_input_tokens
 
 
 def test_m10_region_fit_uses_dictionary() -> None:

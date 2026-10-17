@@ -35,6 +35,10 @@ class MarriageResourceProfile(BaseModel):
     # 신호가 많아 한 곳에 매이기보다 끌림이 잦은 결, 미투출 = 인연을 스스로 만들어가는 능동형.
     spouse_star_excess: bool = False  # 배우자 별 과다(남:재다 / 여:관살혼잡 경향)
     spouse_star_absent: bool = False  # 배우자 별 미투출(천간·본기 부재 — 능동형 구조)
+    # 여명 부성(夫星) 대체 후보(2026-10-15, 외부 교재 기타절) — 설명 전용(점수·판정 비개입).
+    # 관성 태왕→인성 / 관성 약→재성 / 비겁 중중·인성 없음→식상 / 신왕·인성 중중·식상 없음→재성.
+    spouse_star_substitute: str | None = None
+    spouse_star_substitute_basis: str | None = None
     charm_present: bool = False  # 도화(진도화 성립) 또는 홍염 — 각자의 성립 조건(2026-10-13)
     dohwa_established: bool = False  # 진도화 성립(子午卯酉 글자 보유=사정지는 해당 없음)
     hongyeom_present: bool = False  # 일간 기준 홍염 지지가 원국에 있음

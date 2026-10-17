@@ -43,7 +43,7 @@ export function ReportPager({
   };
 
   const current = sections[page];
-  const blurb = sectionBlurb(current.section_id, year);
+  const blurb = sectionBlurb(current.section_id, year, current.title);
 
   return (
     // 하단 고정 페이저에 마지막 본문이 가리지 않도록 화면용 하단 패딩(인쇄 시 제거).
@@ -118,13 +118,13 @@ export function ReportPager({
                   >
                     <span className="mr-1.5 text-xs opacity-60">{i + 1}.</span>
                     {displayTitle(s)}
-                    {sectionBlurb(s.section_id) && (
+                    {sectionBlurb(s.section_id, null, s.title) && (
                       <span
                         className={`mt-0.5 block text-[11px] ${
                           i === page ? "text-gray-300" : "text-gray-400"
                         }`}
                       >
-                        {sectionBlurb(s.section_id)}
+                        {sectionBlurb(s.section_id, null, s.title)}
                       </span>
                     )}
                   </button>

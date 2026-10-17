@@ -255,6 +255,8 @@ class TwelveStageTextItem(_AliasModel):
     incoming: str
     basis: str
     reviewed: bool
+    # 궁위별 원국 서사(2026-10-15, 외부 교재 4장 번역) — year/month/day/hour 4칸 필수.
+    natal_by_palace: dict[str, str]
 
 
 class RelationTextItem(_AliasModel):
@@ -419,7 +421,7 @@ class DohwaTextFile(_AliasModel):
 class PeerMobilityTextItem(_AliasModel):
     """운 간여지동·비겁 용신 이동 해석 문구 1건 (transit_peer_mobility_text.json)."""
 
-    id: Literal["same_pillar", "peer_yongsin_mobility", "weak_inflow"]
+    id: Literal["same_pillar", "peer_yongsin_mobility", "peer_gisin_mobility", "weak_inflow"]
     condition: str
     text: str = Field(min_length=20)
     basis: str = Field(min_length=10)
@@ -427,11 +429,76 @@ class PeerMobilityTextItem(_AliasModel):
 
 
 class PeerMobilityTextFile(_AliasModel):
-    """운 간여지동·비겁 용신 이동 문구 사전 — 세 항목 정확 커버리지(2026-10-14)."""
+    """운 간여지동·비겁 용신/기신 이동 문구 사전 — 네 항목 정확 커버리지(2026-10-14, 기신 대칭
+    2026-10-15)."""
 
     version: str
     note: str | None = None
-    items: list[PeerMobilityTextItem] = Field(min_length=3, max_length=3)
+    items: list[PeerMobilityTextItem] = Field(min_length=4, max_length=4)
+
+
+class MobilityFlowTextItem(_AliasModel):
+    """이동 뒤 흐름 문구 1칸(시드 역할 × 이후 흐름) — mobility_flow_text.json(2026-10-16)."""
+
+    id: str
+    role: Literal["용신", "기신"]
+    verdict: Literal["positive", "negative", "mixed"]
+    text: str = Field(min_length=20)
+    reviewed: bool
+
+
+class MobilityFlowTextFile(_AliasModel):
+    """이동 뒤 흐름 문구 사전 — 2역할 × 3판정 = 6칸 정확 커버리지, 가중·임계·지평 포함."""
+
+    version: str
+    note: str | None = None
+    role_weights: dict[str, float]
+    thresholds: dict[str, float]
+    horizon: dict[str, int]
+    verdict_ko: dict[str, str]
+    items: list[MobilityFlowTextItem] = Field(min_length=6, max_length=6)
+
+
+class PatternTransitTextItem(_AliasModel):
+    """운 적용 구조 상태 문구 1칸(유형 × 상태) — pattern_transit_text.json(F8-P1, 2026-10-17)."""
+
+    type: Literal["T1", "T2", "T3", "T4", "T5"]
+    status: Literal["new", "strengthened", "weakened", "resolved", "unchanged"]
+    label: str = Field(min_length=2)
+    text: str = Field(min_length=10)
+
+
+class PatternTransitTextFile(_AliasModel):
+    """운 적용 구조 상태 문구 사전 — 5유형 × 5상태 = 25칸 정확 커버리지 + 층 이름 + 플래그 문구."""
+
+    version: str
+    note: str | None = None
+    layer_ko: dict[str, str]
+    flag_text: dict[str, str]
+    items: list[PatternTransitTextItem] = Field(min_length=25, max_length=25)
+
+
+class RoleEventTextItem(_AliasModel):
+    """역할별 사건 전환 해석 문구 1건 (transit_role_event_text.json, 2026-10-16)."""
+
+    id: Literal[
+        "shangguan_yongsin", "qisha_yongsin", "pianyin_yongsin",
+        "zhengguan_gisin", "zhengyin_gisin", "shishen_gisin",
+    ]
+    ten_god: Literal["상관", "편관", "편인", "정관", "정인", "식신"]
+    role: Literal["용신", "기신"]
+    condition: str
+    text: str = Field(min_length=20)
+    basis: str = Field(min_length=10)
+    reviewed: bool
+
+
+class RoleEventTextFile(_AliasModel):
+    """역할별 사건 전환 문구 사전 — 6항목 정확 커버리지(사흉신 용신 3 + 사길신 기신 3)."""
+
+    version: str
+    note: str | None = None
+    items: list[RoleEventTextItem] = Field(min_length=6, max_length=6)
 
 
 class TenGodRelationFamily(_AliasModel):
@@ -617,6 +684,38 @@ class TwelveStagesTextFile(_AliasModel):
     version: str
     note: str | None = None
     items: list[TwelveStageTextItem] = Field(min_length=12, max_length=12)
+
+
+class RelationPalacePairItem(_AliasModel):
+    """원국 충·파·해의 궁위 쌍 서사 1건 (relation_palace_pairs_text.json, 2026-10-15)."""
+
+    kind: Literal["clash", "break", "harm"]
+    pair: Literal["year-month", "year-day", "year-hour", "month-day", "month-hour", "day-hour"]
+    pair_ko: str
+    text: str = Field(min_length=15)
+    reviewed: bool
+
+
+class RelationPalacePairsFile(_AliasModel):
+    version: str
+    reviewed: bool
+    note: str | None = None
+    items: list[RelationPalacePairItem] = Field(min_length=18, max_length=18)
+
+
+class VoidTenGodItem(_AliasModel):
+    """원국 공망 글자의 본기 십성별 서사 1건 (void_ten_god_text.json, 2026-10-15)."""
+
+    ten_god: str
+    text: str = Field(min_length=15)
+    reviewed: bool
+
+
+class VoidTenGodTextFile(_AliasModel):
+    version: str
+    reviewed: bool
+    note: str | None = None
+    items: list[VoidTenGodItem] = Field(min_length=10, max_length=10)
 
 
 class RelationsTextFile(_AliasModel):
@@ -1942,6 +2041,7 @@ AUX_ADVERSE_POLARITY_ROLES: frozenset[str] = frozenset({"GI", "GI_STRONG", "HAN_
 AUX_STRUCTURE_FLAGS: frozenset[str] = frozenset({
     "luck_gaedu", "luck_jeolgak", "chunggeun_useful", "tonggwan_absent",
     "rescue_damaged", "special_breach",
+    "life_branch_clash",  # 사생지(寅申巳亥) 충(2026-10-15, 교재 기타절)
 })
 AUX_HAP_FLAGS: frozenset[str] = frozenset({
     "stem_harmed", "branch_harmed", "stem_mitigated", "branch_mitigated",
@@ -2429,10 +2529,15 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/ilju.json": IljuFile,
     "interpretations/ten_gods_text.json": TenGodsTextFile,
     "interpretations/twelve_stages_text.json": TwelveStagesTextFile,
+    "interpretations/relation_palace_pairs_text.json": RelationPalacePairsFile,
+    "interpretations/void_ten_god_text.json": VoidTenGodTextFile,
     "interpretations/relations_text.json": RelationsTextFile,
     "interpretations/sinsal_text.json": SinsalTextFile,
     "interpretations/dohwa_text.json": DohwaTextFile,
     "interpretations/transit_peer_mobility_text.json": PeerMobilityTextFile,
+    "interpretations/transit_role_event_text.json": RoleEventTextFile,
+    "interpretations/mobility_flow_text.json": MobilityFlowTextFile,
+    "interpretations/pattern_transit_text.json": PatternTransitTextFile,
     "interpretations/ten_god_relations.json": TenGodRelationsFile,
     "interpretations/stems_branches_text.json": StemsBranchesTextFile,
     "interpretations/favorability_text.json": FavorabilityTextFile,
@@ -2854,13 +2959,86 @@ _DOHWA_GROUP_TEN_GODS: dict[str, set[str]] = {
 
 
 def _lint_peer_mobility_text(file: PeerMobilityTextFile) -> list[str]:
-    """transit_peer_mobility_text.json — 세 id 정확 커버리지·단정 어휘 금지."""
+    """transit_peer_mobility_text.json — 네 id 정확 커버리지·단정 어휘 금지(기신 대칭 2026-10-15).
+    """
     head = "interpretations/transit_peer_mobility_text.json"
     ids = [it.id for it in file.items]
     errors: list[str] = []
-    if sorted(ids) != ["peer_yongsin_mobility", "same_pillar", "weak_inflow"]:
-        errors.append(f"{head}: id 집합이 3종과 다름 — {ids}")
+    expected = ["peer_gisin_mobility", "peer_yongsin_mobility", "same_pillar", "weak_inflow"]
+    if sorted(ids) != expected:
+        errors.append(f"{head}: id 집합이 4종과 다름 — {ids}")
     for it in file.items:
+        for bad in ("반드시", "확실히", "틀림없이", "무조건"):
+            if bad in it.text:
+                errors.append(f"{head}: {it.id} 문구에 단정 어휘 '{bad}'")
+    return errors
+
+
+_ROLE_EVENT_TEXT_EXPECTED: dict[str, tuple[str, str]] = {
+    "shangguan_yongsin": ("상관", "용신"), "qisha_yongsin": ("편관", "용신"),
+    "pianyin_yongsin": ("편인", "용신"), "zhengguan_gisin": ("정관", "기신"),
+    "zhengyin_gisin": ("정인", "기신"), "shishen_gisin": ("식신", "기신"),
+}
+
+
+def _lint_mobility_flow_text(file: MobilityFlowTextFile) -> list[str]:
+    """mobility_flow_text.json — 6칸(용신/기신 × positive/negative/mixed) 정확 커버리지·임계 부호·
+    '나쁘지 않' 표현은 용신_positive 에만·단정 어휘 금지."""
+    head = "interpretations/mobility_flow_text.json"
+    errors: list[str] = []
+    cells = {(it.role, it.verdict) for it in file.items}
+    expected = {(r, v) for r in ("용신", "기신") for v in ("positive", "negative", "mixed")}
+    if cells != expected:
+        errors.append(f"{head}: 역할×판정 6칸과 다름 — {sorted(cells)}")
+    if file.thresholds.get("positive", 0) <= 0 or file.thresholds.get("negative", 0) >= 0:
+        errors.append(f"{head}: thresholds 부호 — positive>0, negative<0 이어야 함")
+    for it in file.items:
+        if "나쁘지 않" in it.text and (it.role, it.verdict) != ("용신", "positive"):
+            errors.append(f"{head}: {it.id} — '나쁘지 않다'는 용신×긍정 칸에만 허용")
+        for bad in ("반드시", "확실히", "틀림없이", "무조건"):
+            if bad in it.text:
+                errors.append(f"{head}: {it.id} 문구에 단정 어휘 '{bad}'")
+    return errors
+
+
+def _lint_pattern_transit_text(file: PatternTransitTextFile) -> list[str]:
+    """pattern_transit_text.json — 25칸 정확 커버리지·{name}/{layer} 치환자·층 3종·
+    길흉/단정 어휘 금지."""
+    head = "interpretations/pattern_transit_text.json"
+    errors: list[str] = []
+    cells = {(it.type, it.status) for it in file.items}
+    expected = {(t, s) for t in ("T1", "T2", "T3", "T4", "T5")
+                for s in ("new", "strengthened", "weakened", "resolved", "unchanged")}
+    if cells != expected:
+        errors.append(
+            f"{head}: 유형×상태 25칸과 다름 — 누락 {sorted(expected - cells)}"
+            f" / 초과 {sorted(cells - expected)}"
+        )
+    if set(file.layer_ko) != {"daewoon", "year", "month"}:
+        errors.append(f"{head}: layer_ko 는 daewoon/year/month 3종이어야 함")
+    for it in file.items:
+        if "{name}" not in it.text or "{layer}" not in it.text:
+            errors.append(
+                f"{head}: {it.type}/{it.status} 문구에 {{name}}·{{layer}} 치환자 필요"
+            )
+        for bad in ("반드시", "확실히", "틀림없이", "무조건", "길하", "흉하", "재물운 상승",
+                    "대길", "대흉"):
+            if bad in it.text:
+                errors.append(f"{head}: {it.type}/{it.status} 문구에 금지 어휘 '{bad}'(성립≠길흉)")
+    return errors
+
+
+def _lint_role_event_text(file: RoleEventTextFile) -> list[str]:
+    """transit_role_event_text.json — 6 id 정확 커버리지·id↔십성×역할 일치·단정 어휘 금지."""
+    head = "interpretations/transit_role_event_text.json"
+    errors: list[str] = []
+    ids = [it.id for it in file.items]
+    if sorted(ids) != sorted(_ROLE_EVENT_TEXT_EXPECTED):
+        errors.append(f"{head}: id 집합이 6종과 다름 — {ids}")
+    for it in file.items:
+        exp = _ROLE_EVENT_TEXT_EXPECTED.get(it.id)
+        if exp is not None and (it.ten_god, it.role) != exp:
+            errors.append(f"{head}: {it.id} 의 십성×역할 {it.ten_god}×{it.role} ≠ {exp}")
         for bad in ("반드시", "확실히", "틀림없이", "무조건"):
             if bad in it.text:
                 errors.append(f"{head}: {it.id} 문구에 단정 어휘 '{bad}'")
@@ -2984,11 +3162,57 @@ def _lint_ten_gods_text(file: TenGodsTextFile) -> list[str]:
 
 
 def _lint_twelve_stages_text(file: TwelveStagesTextFile) -> list[str]:
-    """twelve_stages_text.json — 십이운성 12종 정확 커버리지(엔진 상수 기준)."""
+    """twelve_stages_text.json — 12종 정확 커버리지(엔진 상수 기준) + 궁위별 4칸·단정 금지."""
+    head = "interpretations/twelve_stages_text.json"
     got = {item.stage for item in file.items}
     if got != set(TWELVE_STAGES):
-        return [f"interpretations/twelve_stages_text.json: 운성 커버리지 불일치 — {sorted(got)}"]
-    return []
+        return [f"{head}: 운성 커버리지 불일치 — {sorted(got)}"]
+    errors: list[str] = []
+    for item in file.items:
+        if set(item.natal_by_palace) != {"year", "month", "day", "hour"}:
+            errors.append(f"{head}: {item.stage} natal_by_palace 키는 year/month/day/hour 4칸")
+        for palace, text in item.natal_by_palace.items():
+            if len(text.strip()) < 15:
+                errors.append(f"{head}: {item.stage}/{palace} 문장이 너무 짧다")
+            for bad in ("반드시", "확실히", "틀림없이", "무조건"):
+                if bad in text:
+                    errors.append(f"{head}: {item.stage}/{palace} 단정 어휘 '{bad}'")
+    return errors
+
+
+_ASSERTIVE_WORDS = ("반드시", "확실히", "틀림없이", "무조건")
+
+
+def _lint_relation_palace_pairs(file: RelationPalacePairsFile) -> list[str]:
+    """relation_palace_pairs_text.json — 3종 × 6쌍 정확 커버리지·단정 어휘 금지."""
+    head = "interpretations/relation_palace_pairs_text.json"
+    errors: list[str] = []
+    got = {(it.kind, it.pair) for it in file.items}
+    kinds = ("clash", "break", "harm")
+    pairs = ("year-month", "year-day", "year-hour", "month-day", "month-hour", "day-hour")
+    want = {(k, p) for k in kinds for p in pairs}
+    if got != want:
+        errors.append(f"{head}: kind×pair 커버리지 불일치 — 누락 {sorted(want - got)}")
+    for it in file.items:
+        for bad in _ASSERTIVE_WORDS:
+            if bad in it.text:
+                errors.append(f"{head}: {it.kind}/{it.pair} 단정 어휘 '{bad}'")
+    return errors
+
+
+def _lint_void_ten_god_text(file: VoidTenGodTextFile) -> list[str]:
+    """void_ten_god_text.json — 10십성 정확 커버리지·단정 어휘 금지."""
+    head = "interpretations/void_ten_god_text.json"
+    errors: list[str] = []
+    got = {it.ten_god for it in file.items}
+    want = {"비견", "겁재", "식신", "상관", "편재", "정재", "편관", "정관", "편인", "정인"}
+    if got != want:
+        errors.append(f"{head}: 십성 커버리지 불일치 — {sorted(got ^ want)}")
+    for it in file.items:
+        for bad in _ASSERTIVE_WORDS:
+            if bad in it.text:
+                errors.append(f"{head}: {it.ten_god} 단정 어휘 '{bad}'")
+    return errors
 
 
 def _lint_stems_branches_text(file: StemsBranchesTextFile) -> list[str]:
@@ -3488,12 +3712,22 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_dohwa_text(parsed))
         if isinstance(parsed, PeerMobilityTextFile):
             errors.extend(_lint_peer_mobility_text(parsed))
+        elif isinstance(parsed, RoleEventTextFile):
+            errors.extend(_lint_role_event_text(parsed))
+        elif isinstance(parsed, MobilityFlowTextFile):
+            errors.extend(_lint_mobility_flow_text(parsed))
+        elif isinstance(parsed, PatternTransitTextFile):
+            errors.extend(_lint_pattern_transit_text(parsed))
         elif isinstance(parsed, TenGodRelationsFile):
             errors.extend(_lint_ten_god_relations(parsed))
         elif isinstance(parsed, TenGodsTextFile):
             errors.extend(_lint_ten_gods_text(parsed))
         elif isinstance(parsed, TwelveStagesTextFile):
             errors.extend(_lint_twelve_stages_text(parsed))
+        elif isinstance(parsed, RelationPalacePairsFile):
+            errors.extend(_lint_relation_palace_pairs(parsed))
+        elif isinstance(parsed, VoidTenGodTextFile):
+            errors.extend(_lint_void_ten_god_text(parsed))
         elif isinstance(parsed, RelationsTextFile):
             errors.extend(_lint_relations_text(directory, parsed))
         elif isinstance(parsed, StemsBranchesTextFile):

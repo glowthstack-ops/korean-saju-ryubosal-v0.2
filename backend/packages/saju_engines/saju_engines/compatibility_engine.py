@@ -167,6 +167,61 @@ def _yongsin_signals(
     return out
 
 
+_SEASON_OF = {
+    "寅": "봄", "卯": "봄", "辰": "봄", "巳": "여름", "午": "여름", "未": "여름",
+    "申": "가을", "酉": "가을", "戌": "가을", "亥": "겨울", "子": "겨울", "丑": "겨울",
+}
+_ELEMENT_MISSING_PCT = 5.0
+_ELEMENT_STRONG_PCT = 20.0
+
+
+def _element_season_signals(
+    self_result: ManseV2Result, partner_result: ManseV2Result,
+) -> list[CompatSignal]:
+    """결핍 오행 보완·계절(조후) 보완(2026-10-15, 외부 교재 기타절 — '없는 오행을 가진 상대',
+    '여름생은 겨울생과'). 설명층 신호 — 점수는 보완 카운트·끌림 가중만."""
+    out: list[CompatSignal] = []
+    pairs = [
+        (self_result, partner_result, "본인", "상대"),
+        (partner_result, self_result, "상대", "본인"),
+    ]
+    for taker, giver, taker_lb, giver_lb in pairs:
+        if taker.force_analysis is None or giver.force_analysis is None:
+            continue
+        tp = taker.force_analysis.five_elements.effective_percent
+        gp = giver.force_analysis.five_elements.effective_percent
+        for el in ("木", "火", "土", "金", "水"):
+            t_pct, g_pct = float(tp.get(el, 0.0)), float(gp.get(el, 0.0))
+            if t_pct < _ELEMENT_MISSING_PCT and g_pct >= _ELEMENT_STRONG_PCT:
+                out.append(CompatSignal(
+                    kind=CompatSignalKind.ELEMENT_COMPLEMENT, label="결핍 오행 보완",
+                    detail=(
+                        f"{taker_lb}에게 약한 {el}({t_pct:.0f}%)을 {giver_lb}이(가) "
+                        f"강하게({g_pct:.0f}%) 가짐 — 없는 오행을 채워 주는 결"
+                    ),
+                    direction=CompatDirection.HARMONY,
+                ))
+    if self_result.pillars is None or partner_result.pillars is None:
+        return out
+    s_season = _SEASON_OF.get(self_result.pillars.month.branch, "")
+    p_season = _SEASON_OF.get(partner_result.pillars.month.branch, "")
+    if {s_season, p_season} == {"여름", "겨울"}:
+        out.append(CompatSignal(
+            kind=CompatSignalKind.SEASON_COMPLEMENT, label="계절(조후) 보완",
+            detail=(
+                f"본인 {s_season}생 ↔ 상대 {p_season}생 — 한난이 서로를 식히고 덥혀 주는 결(통설)"
+            ),
+            direction=CompatDirection.HARMONY,
+        ))
+    elif s_season == p_season and s_season in ("여름", "겨울"):
+        out.append(CompatSignal(
+            kind=CompatSignalKind.SEASON_COMPLEMENT, label="조후 쏠림",
+            detail=f"둘 다 {s_season}생 — 같은 한난에 치우쳐 조후 보완은 약한 편(참고)",
+            direction=CompatDirection.NEUTRAL, auxiliary=True,
+        ))
+    return out
+
+
 def _ten_god_complement_signals(
     self_result: ManseV2Result, partner_result: ManseV2Result,
     *, self_label: str, partner_label: str,
@@ -293,6 +348,7 @@ _ATTRACTION_WEIGHT: dict[CompatSignalKind, int] = {
     CompatSignalKind.DAY_BRANCH_PUNISH: 1,  # 형 — 자극
     CompatSignalKind.DAY_BRANCH_SIX: 1,     # 육합 — 잔잔한 끌림(안정형)
     CompatSignalKind.TEN_GOD_COMPLEMENT: 1,  # 없는 십성 채움 — 보완형 끌림(잔잔)
+    CompatSignalKind.ELEMENT_COMPLEMENT: 1,  # 없는 오행 채움 — 보완형 끌림(2026-10-15)
     CompatSignalKind.SINSAL_CHARM: 2,       # 홍염 교차 — 매력·끌림(개인 도화 SINSAL_DOHWA는 0)
     CompatSignalKind.SINSAL_FRICTION: 1,    # 원진·귀문 — 애증(끌리며 거슬림)
 }
@@ -382,6 +438,8 @@ def analyze_compatibility(
 
     # 4) 용신 상호보완.
     signals += _yongsin_signals(self_dm, partner_dm, self_useful, partner_useful)
+    # 결핍 오행·계절 보완(2026-10-15, 외부 교재 기타절 궁합 규칙 2종).
+    signals += _element_season_signals(self_result, partner_result)
 
     # 4b) 십성군 상호보완(없는 십성을 상대가 채움 — 보완 끌림).
     signals += _ten_god_complement_signals(

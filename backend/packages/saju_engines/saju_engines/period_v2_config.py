@@ -113,6 +113,34 @@ PEER_YONGSIN_MOBILITY_ENABLED: bool = (
     os.environ.get("SAJU_PEER_YONGSIN_MOBILITY_ENABLED", "true").strip().lower()
     in ("1", "true", "yes")
 )
+# 비겁 기신 × 비겁 운 유입 → 직장·역할 이동(불익) 시드 — 용신 시드의 대칭(2026-10-15 데굴님 확정,
+# 기본 ON).
+PEER_GISIN_MOBILITY_ENABLED: bool = (
+    os.environ.get("SAJU_PEER_GISIN_MOBILITY_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
+)
+# 이중 충 표지(2026-10-15, 교재 2장·기타절) — favorability 만, 기본 ON(점수 불변이라 적중 영향
+# 없음).
+DOUBLE_CLASH_FLAG_ENABLED: bool = (
+    os.environ.get("SAJU_DOUBLE_CLASH_FLAG_ENABLED", "true").strip().lower() in ("1", "true", "yes")
+)
+# 세운 육신별 사건 신호 5계열(외부 교재 6장 대조, 2026-10-15) — 기본 ON(데굴님 원칙: 적용 후 감수).
+YEARLY_TEN_GOD_SIGNALS_ENABLED: bool = (
+    os.environ.get("SAJU_YEARLY_TEN_GOD_SIGNALS_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
+)
+# 용신 배율 품질군 차등(2026-10-15 데굴님 승인): 'off'(기본)=기존 일괄 배율 / 'a'=유익형 1.10 /
+# 'b'=유익형 1.20(그 외 1.00). 값은 85사례 off/a/b 재생으로 비교해 정한다 — 측정 전 운영 ON 금지.
+YONG_TIER_MODES: tuple[str, ...] = ("off", "a", "b")
+YONG_TIERED_MULTIPLIER_MODE: str = (
+    os.environ.get("SAJU_YONG_TIERED_MULTIPLIER_MODE", "off").strip().lower() or "off"
+)
+# 운↔운 충 → 이동형 후보 보조 가산(2026-10-15 승인, 선택 항목). 기본 OFF.
+TRANSIT_CLASH_SUPPORT_ENABLED: bool = _env_flag("SAJU_TRANSIT_CLASH_SUPPORT_ENABLED")
+# 역할별 사건 전환 시드(2026-10-16 데굴님 확정 6규칙 — 상관·편관·편인 용신 운 / 정관·정인·식신 기신
+# 운). 점수 규칙이라 기본 OFF — 85사례 재생 적중률·실사례로 규칙별 ON 을 정한다(문구층은 플래그와
+# 무관하게 항상 노출).
+ROLE_EVENT_SEED_ENABLED: bool = _env_flag("SAJU_ROLE_EVENT_SEED_ENABLED")
 
 # ── 버전 태그(계측·회귀 비교용) ─────────────────────────────────────────────
 FORTUNE_LOGIC_VERSION = "period_hierarchy_v2"
@@ -138,6 +166,11 @@ def validate_flags() -> None:
     Raises:
         ConfigurationError: polarity V2가 계층형 grounding 없이 켜진 경우.
     """
+    if YONG_TIERED_MULTIPLIER_MODE not in YONG_TIER_MODES:
+        raise ConfigurationError(
+            "SAJU_YONG_TIERED_MULTIPLIER_MODE 는 off|a|b 중 하나여야 한다: "
+            f"{YONG_TIERED_MULTIPLIER_MODE!r}"
+        )
     if PILLAR_POLARITY_V2_ENABLED and not PERIOD_HIERARCHY_ENABLED:
         raise ConfigurationError(
             "SAJU_PILLAR_POLARITY_V2_ENABLED는 SAJU_PERIOD_HIERARCHY_ENABLED를 "
@@ -183,6 +216,12 @@ def active_versions() -> dict[str, str | bool]:
         "risk_aux_amplifier_enabled": RISK_AUX_AMPLIFIER_ENABLED,
         "health_window_channel_enabled": HEALTH_WINDOW_CHANNEL_ENABLED,
         "peer_yongsin_mobility_enabled": PEER_YONGSIN_MOBILITY_ENABLED,
+        "peer_gisin_mobility_enabled": PEER_GISIN_MOBILITY_ENABLED,
+        "yearly_ten_god_signals_enabled": YEARLY_TEN_GOD_SIGNALS_ENABLED,
+        "double_clash_flag_enabled": DOUBLE_CLASH_FLAG_ENABLED,
+        "yong_tiered_multiplier_mode": YONG_TIERED_MULTIPLIER_MODE,
+        "transit_clash_support_enabled": TRANSIT_CLASH_SUPPORT_ENABLED,
+        "role_event_seed_enabled": ROLE_EVENT_SEED_ENABLED,
         "sewoon_daewoon_context_enabled": SEWOON_DAEWOON_CONTEXT_ENABLED,
         "transit_hidden_stem_enabled": TRANSIT_HIDDEN_STEM_ENABLED,
         # LLM 재호출은 설계상 존재하지 않는다(요청당 1회 고정) — 계측 계약으로 못박는다.

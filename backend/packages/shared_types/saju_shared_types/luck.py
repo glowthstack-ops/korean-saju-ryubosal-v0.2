@@ -63,6 +63,10 @@ class LuckPillar(BaseModel):
     # 민속 흉방(세운 전용, docs/19 §5) — 그해 지지 기준 삼살·대장군·태세·세파 4종(개인 사주 무관한
     # 공통 금기, 삼재와 별개). 카드 배지·추가 정보 전용이며 luck_score·라벨에 관여하지 않는다.
     folk_taboos: list[FolkTabooHit] = Field(default_factory=list)
+    # 운 적용 구조 상태 줄(F8-P1, 2026-10-17) — 세운·월운 카드 '구조 변화' 표시용
+    # (최대 3줄, 사전 문구).
+    # 성립≠길흉, 점수·라벨 불변. 시주 미상이면 빈 목록.
+    pattern_changes: list[str] = Field(default_factory=list)
     # C6 B/C 실험값(2026-10-08 데굴님 승인, 플래그 SAJU_SEWOON_DAEWOON_CONTEXT_ENABLED 기본 OFF) —
     # 세운(period_type=year) 점수에 소속 대운 극성을 섞은 별도 점수. luck_score·라벨은 불변이며
     # 소비자는 opt-in 으로만 읽는다(samjae_quality·relations_engines·프론트 luck-calibration 이
@@ -98,6 +102,8 @@ class DaewoonItem(BaseModel):
     luck_label_code: str = ""
     luck_summary: str = ""
     volatility_score: float = 0.0
+    # 운 적용 구조 상태 줄(F8-P1) — 대운 층(원국+대운) '구조 변화', 최대 3줄·사전 문구. 성립≠길흉.
+    pattern_changes: list[str] = Field(default_factory=list)
     # 이 대운이 불러오는 신살/길신/흉성 — 카드 하단(십이운성 아래) 표시용.
     luck_sinsal: list[LuckSinsal] = Field(default_factory=list)
     # 이 대운에 속한 10개 세운(연동 표시용) — 대운 선택 시 노출.

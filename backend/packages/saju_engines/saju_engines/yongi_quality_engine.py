@@ -21,6 +21,8 @@ from saju_shared_types.event_engine import (
     PolarityRole,
 )
 
+from .favorable_role_tiering import FavorableTieringRule
+
 # 기신(흉) 발현 시 사건별 품질 — 재물형=손실, 갈등형=충돌, 그 외=압박.
 _GI_LOSS = {
     EventKeyV2.WEALTH_CHANGE,
@@ -52,8 +54,25 @@ _GI_QUALITIES = {EventQuality.LOSS, EventQuality.CONFLICT, EventQuality.PRESSURE
 class YongiQualityEngine:
     """극성 배율 + 길흉 품질 보정."""
 
-    def __init__(self, dictionaries_dir: Path) -> None:
+    def __init__(
+        self,
+        dictionaries_dir: Path,
+        *,
+        tiering: FavorableTieringRule | None = None,
+        tier_mode: str = "off",
+    ) -> None:
+        """극성 배율표·품질 행렬을 읽는다.
+
+        Args:
+            dictionaries_dir: 사전 원본 루트.
+            tiering: 용신 품질군 차등 규칙(`favorable_role_tiering`, 2026-10-15). None 이면 기존
+                `polarity_rules` 일괄 배율.
+            tier_mode: 'off' | 'a' | 'b'. off 가 아니고 tiering 이 있으면 용신 역할 후보는 유익형만
+                모드 배율, 그 외 1.00 — 배율은 여기서 한 번만 곱한다(중복 곱 금지).
+        """
         base = dictionaries_dir / "event_engine"
+        self._tiering = tiering if tier_mode != "off" else None
+        self._tier_mode = tier_mode
         branching = json.loads(
             (base / "transit_ten_god_branching.json").read_text(encoding="utf-8")
         )
@@ -73,6 +92,15 @@ class YongiQualityEngine:
                 continue
             reasons = [*c.reason_codes]
             mult = self._mult.get(role.value, 1.0)
+            if self._tiering is not None and role in self._tiering.roles:
+                # 용신 품질군 차등(2026-10-15): 유익형 후보만 모드 배율, 그 외 1.00. 기존 일괄
+                # 배율은 이 모드에서 쓰지 않는다(한 곳에서만 곱한다).
+                if self._tiering.is_favorable(c.source_ten_gods, c.event_key, c.reason_codes):
+                    mult = self._tiering.multiplier(self._tier_mode)
+                    reasons.append(f"{self._tiering.reason_prefix}_FAVORABLE")
+                else:
+                    mult = 1.0
+                    reasons.append(f"{self._tiering.reason_prefix}_FLAT")
             score = c.score * mult
             quality = c.quality
             if role is PolarityRole.HAN_GOOD:  # 한신 생(生) — 약한 길

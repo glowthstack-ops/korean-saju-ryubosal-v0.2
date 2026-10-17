@@ -105,6 +105,16 @@ def build_auxiliary_facts(
                 structure.add("rescue_damaged")
             if fl.special_breach:
                 structure.add("special_breach")
+        # 사생지(寅申巳亥) 충(2026-10-15, 교재 기타절 '사생지는 충을 받으면 병이 들거나…') —
+        # 운 지지와 원국 지지가 寅申 또는 巳亥 충이면 구조 플래그로 올려 건강·사고 family 보조
+        # 증폭에 쓴다.
+        natal_branches = {
+            p.branch for p in (result.pillars.year, result.pillars.month, result.pillars.day,
+                               result.pillars.hour) if p is not None
+        }
+        for a, b in (("寅", "申"), ("巳", "亥")):
+            if {target.branch, *natal_branches} >= {a, b} and target.branch in (a, b):
+                structure.add("life_branch_clash")
         try:
             mit = resolve_hap_mitigation(
                 result.pillars, fav_map, luck_stem=target.stem, luck_branch=target.branch,

@@ -239,6 +239,9 @@ export interface SubjectRef {
   inline_birth?: InlineBirthDTO | null;
   // 기준(self)과의 관계 — RELATION_OPTIONS 값. 궁합(RP) 풀이 방향에 반영(미지정=중립 톤).
   relation_type?: string | null;
+  // 주 대상(self) 자신의 등록 관계 키(relation_to_user 17종) — 풀이 내역 목록 라벨용.
+  // 주 대상은 계정 본인이 아닐 수 있어 kind 로 '본인'을 추정하지 않는다. ""=관계 미설정.
+  relation_to_user?: string | null;
 }
 
 export interface ReportSpec {
@@ -445,6 +448,7 @@ export interface DaewoonItem {
   luck_label_code?: string;
   luck_summary?: string;
   volatility_score: number;
+  pattern_changes?: string[]; // 대운 층 구조 변화(F8-P1, 성립≠길흉)
   relations_to_chart: string[];
   luck_sinsal?: LuckSinsal[];
   sewoon?: LuckPillar[];
@@ -469,6 +473,7 @@ export interface LuckPillar {
   solar_term_range?: string | null;
   luck_sinsal?: LuckSinsal[];
   samjae?: SamjaeInfo | null; // 세운(period_type=year)에만 채워진다
+  pattern_changes?: string[]; // 세운·월운 — 운 적용 구조 상태 줄(F8-P1, 성립≠길흉)
   folk_taboos?: FolkTabooHit[]; // 세운 전용 — 그해 이사 판정층 흉방(삼살·대장군, 추가 정보, 점수 무관)
 }
 
@@ -578,10 +583,13 @@ export interface HourUnknownAnalysis {
     useful_gods: string;
     yongsin: string;
     daewoon_start_exact: number | null;
+    structure_pattern_ids?: string[];
   }>;
   strength_band: HourUnknownConsensus;
   geokguk: HourUnknownConsensus;
   useful_gods: HourUnknownConsensus;
+  // 구조 배합 후보 비교 — values = 후보에 따라 갈리는 배합 이름(구버전 응답에는 없음).
+  structure_patterns?: HourUnknownConsensus | null;
   unconfirmed: string[];
   daewoon_start_range: [number, number] | null;
   boundary_warnings: string[];
@@ -691,6 +699,52 @@ export interface ManseResult {
       cheoneul_targets?: string[];
     } | null;
   } | null;
+  // 원국 구조 배합(상관생재·재다신약·재극인 등) — 백엔드 선별본, 구버전 응답에는 없을 수 있어 optional.
+  structure_patterns?: StructurePatternItem[] | null;
+}
+
+// 원국 구조 배합 1건 — 길흉 미확정 구조 라벨(DetectedPattern 의 화면 노출 부분집합).
+export interface StructurePatternItem {
+  pattern_id: string;
+  name_ko: string;
+  name_hanja: string;
+  family: string[];
+  strength: number;
+  scope: string;
+  llm_tag: string;
+  aliases: string[];
+  evidence: string[];
+  // P0 세력 보정 근거(억부 6종만, 구버전 응답에는 없음) — "표면 29%·보정 세력 37%·신약 — 뚜렷한 성립".
+  basis_note?: string;
+}
+
+// 구조 배합 흐름(원국→대운→세운→월) 종합 — POST /manse/luck/pattern-timeline (F8-P1, 2026-10-17)
+export interface PatternTimelineCell {
+  status: "new" | "strengthened" | "weakened" | "resolved" | "unchanged";
+  operating: boolean;
+  label: string;
+}
+export interface PatternTimelineRow {
+  pattern_id: string;
+  name_ko: string;
+  name_hanja: string;
+  transit_type: "T1" | "T2" | "T3" | "T4" | "T5";
+  natal_established: boolean;
+  daewoon: PatternTimelineCell | null;
+  year: PatternTimelineCell | null;
+  months: Array<PatternTimelineCell | null>;
+  flags: string[];
+  summary: string;
+}
+export interface PatternTimeline {
+  year: number;
+  hour_unknown: boolean;
+  daewoon_ganji: string | null;
+  year_ganji: string | null;
+  month_labels: string[];
+  month_ganji: string[];
+  rows: PatternTimelineRow[];
+  note: string;
 }
 
 // 간지달력

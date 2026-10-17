@@ -85,6 +85,12 @@ def _detect(pillars: FourPillarsResult) -> list[_Detection]:
         if gz in cat.BAEKHO:
             out.append(("백호", "health_risk", pos, f"{p.stem}{p.branch} 백호대살"))
 
+    # 천사(天赦) — 월지 계절별 일주(2026-10-15 추가, evidence 전용). 일주 한 자리에만 성립.
+    cheonsa = cat.CHEONSA.get(month_branch)
+    if cheonsa is not None and (day_stem, day_branch) == cheonsa:
+        out.append(("천사", "noble_stars", "day",
+                    f"월지 {month_branch} 계절 기준 일주 {pillars.day.ganji} 천사"))
+
     # 현침 (글자)
     for pos, p in positions:
         if Stem(p.stem) in cat.HYEONCHIM_STEMS or Branch(p.branch) in cat.HYEONCHIM_BRANCHES:

@@ -54,6 +54,27 @@ class YongsinModifier(BaseModel):
     reading: str
 
 
+class ConditionRule(BaseModel):
+    """격국·신살 조건층 규칙(2026-10-15, 외부 교재 기타절) — 보조 신호, 단독 확정 금지."""
+
+    model_config = ConfigDict(extra="forbid")
+    id: str
+    field: str
+    signal: str
+    condition: str
+    jobs: list[str] = Field(min_length=1)
+
+
+class ConditionHit(BaseModel):
+    """성립한 조건 규칙 + 근거(글자·오행)."""
+
+    id: str
+    field: str
+    condition: str
+    evidence: str
+    jobs: list[str] = Field(default_factory=list)
+
+
 class Thresholds(BaseModel):
     model_config = ConfigDict(extra="forbid")
     note: str = ""
@@ -61,6 +82,93 @@ class Thresholds(BaseModel):
     excess_pct: float = 30.0
     prominent_pct: float = 10.0
     prominent_top_n: int = 3
+
+
+class GanjiSchoolNote(BaseModel):
+    """간지론 번역층 머리말(2026-10-16) — 렌더 라벨·서술 어투."""
+
+    model_config = ConfigDict(extra="forbid")
+    note: str = ""
+    label: str = "간지론"
+    narration: str = "간지론에서는"
+    reviewed: bool = False
+
+
+class OrientationRule(BaseModel):
+    """직업 유형 축(직장형/상업형/혼합) 판정 가중·여유폭·문구(간지론)."""
+
+    model_config = ConfigDict(extra="forbid")
+    note: str = ""
+    workplace_groups: list[str] = Field(min_length=1)
+    business_groups: list[str] = Field(min_length=1)
+    weights: dict[str, float]
+    distribution_margin_pct: float = 10.0
+    distribution_weight: float = 1.0
+    clash_penalty: float = 1.0
+    decide_margin: float = 1.5
+    labels: dict[str, str]
+    readings: dict[str, str]
+    caution: str = ""
+
+
+class PalacePriority(BaseModel):
+    """직업 궁위 우선순위·근묘화실 사용 시기(간지론)."""
+
+    model_config = ConfigDict(extra="forbid")
+    note: str = ""
+    order: list[str] = Field(min_length=1)
+    palace_meaning: dict[str, str]
+    timing: dict[str, str]
+
+
+class OfficerPosition(BaseModel):
+    """관성 위치·통근·정편 설명 문구(간지론 직장인 사주 ②~⑦·⑩)."""
+
+    model_config = ConfigDict(extra="forbid")
+    note: str = ""
+    items: dict[str, str]
+
+
+class WorkplaceNotes(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    note: str = ""
+    resource_excess: str
+
+
+class BusinessType(BaseModel):
+    """상업 업종 1칸(십성·위치별)."""
+
+    model_config = ConfigDict(extra="forbid")
+    condition: str
+    meaning: str
+    types: list[str] = Field(min_length=1)
+
+
+class BusinessTypes(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    note: str = ""
+    items: dict[str, BusinessType]
+
+
+class BusinessRule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str
+    signal: str
+    text: str
+
+
+class BusinessRules(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    note: str = ""
+    items: list[BusinessRule] = Field(min_length=1)
+
+
+class BusinessTiming(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    note: str = ""
+    resource_daewoon_controls_output: str
+    business_daewoon_supports: str
+    daewoon_over_sewoon: str
 
 
 class CareerFieldDict(BaseModel):
@@ -79,6 +187,28 @@ class CareerFieldDict(BaseModel):
     combinations: list[Combination]
     yongsin_modifiers: list[YongsinModifier]
     thresholds: Thresholds = Field(default_factory=Thresholds)
+    conditions: list[ConditionRule] = Field(default_factory=list)
+    # ── 간지론 번역층(2026-10-16 데굴님 승인) — 전부 선택(없으면 층 비활성) ──
+    ganji_school: GanjiSchoolNote | None = None
+    orientation: OrientationRule | None = None
+    palace_priority: PalacePriority | None = None
+    officer_position: OfficerPosition | None = None
+    workplace_notes: WorkplaceNotes | None = None
+    business_types: BusinessTypes | None = None
+    business_rules: BusinessRules | None = None
+    business_timing: BusinessTiming | None = None
+
+
+class OrientationFacts(BaseModel):
+    """직업 유형 축 판정 결과(간지론) — 라벨·두 축 점수·근거 줄."""
+
+    label: str  # 직장형/상업형/혼합형
+    key: str  # workplace/business/mixed
+    workplace_axis: float
+    business_axis: float
+    basis: list[str] = Field(default_factory=list)
+    reading: str = ""
+    daewoon_axis: str = ""  # 현재 대운이 받치는 축 설명(없으면 빈 문자열)
 
 
 class ProminentTenGod(BaseModel):
@@ -119,4 +249,14 @@ class CareerFieldFacts(BaseModel):
     combinations: list[CombinationHit] = Field(default_factory=list)
     modifiers: list[YongsinModifier] = Field(default_factory=list)
     incoming: list[IncomingChannel] = Field(default_factory=list)
+    conditions: list[ConditionHit] = Field(default_factory=list)
     principles: list[str] = Field(default_factory=list)
+    # ── 간지론 번역층(2026-10-16) — 서술 전용 줄 ──
+    school_label: str = ""
+    school_narration: str = ""
+    orientation: OrientationFacts | None = None
+    palace_lines: list[str] = Field(default_factory=list)
+    officer_lines: list[str] = Field(default_factory=list)
+    workplace_lines: list[str] = Field(default_factory=list)
+    business_lines: list[str] = Field(default_factory=list)
+    timing_lines: list[str] = Field(default_factory=list)

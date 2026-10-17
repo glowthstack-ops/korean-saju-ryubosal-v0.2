@@ -389,3 +389,49 @@ def test_headlines_have_three_sentences_when_tone_active(board_after) -> None:
         # 결 층 활성: fragment + action + result 3부. 각 부는 공백으로 이어 붙인다.
         assert len(f.headline) <= 120, f.ilju
         assert f.headline.count(" ") >= 2
+
+
+# ── 3차(2026-10-15) — 연애 줄 전용 결 풀 ──────────────────────────────────────
+
+ROMANCE_KINDS = ("romance_good", "romance_caution")
+
+
+def test_romance_result_pools_cover_every_stage_and_differ_from_generic(dicts) -> None:
+    """12스테이지 × romance_good/caution ≥2문장, 공용 풀과 문장이 겹치지 않는다."""
+    by_stage = dicts.templates["stage_results_by_stage"]
+    for st in STAGES:
+        for kind in ROMANCE_KINDS:
+            sents = by_stage[st].get(kind)
+            assert sents and len(sents) >= 2, (st, kind)
+            generic = set(by_stage[st][kind.removeprefix("romance_")])
+            assert not (set(sents) & generic), (st, kind)
+
+
+def test_love_line_result_sentence_comes_from_romance_pool_on_current_contract() -> None:
+    """현재 계약(dict.v1.14) 보드의 '오늘의 연애' 마지막 문장은 연애 풀 — 공용 胎 문장
+    '아직 작은 생각이 크게 자랄 흐름이에요' 류가 붙지 않는다(데굴님 지적 사례)."""
+    d = dt.date(2026, 10, 15)
+    dicts = M.load_daily_dicts_for(d)
+    by_stage = dicts.templates["stage_results_by_stage"]
+    romance = {s for st in by_stage.values() for k in ROMANCE_KINDS for s in st.get(k, [])}
+    generic = {s for st in by_stage.values() for k in ("good", "caution") for s in st.get(k, [])}
+    board = compute_board_v2(M.build_day_context(d), dicts)
+    shown = [f.love_line for f in board.fortunes if f.love_line]
+    assert shown, "이 날짜에 love_line 노출 일주가 없다 — 픽스처 날짜를 바꿀 것"
+    last = [line.rsplit(" ", 1)[-1] if False else line for line in shown]
+    hit_romance = 0
+    for line in last:
+        tail = next((s for s in romance if line.endswith(s)), None)
+        assert not any(line.endswith(g) for g in generic), line
+        if tail is not None:
+            hit_romance += 1
+    assert hit_romance > 0  # 결 층이 활성인 연애 줄은 연애 풀 문장으로 끝난다
+
+
+def test_love_line_on_old_contract_without_romance_pool_is_unchanged(board_after) -> None:
+    """연애 풀이 없는 과거 계약(dict.v1.13) 보드는 종전 공용 풀 — 바이트 불변."""
+    d, board = board_after
+    dicts = M.load_daily_dicts_for(d)
+    assert not any("romance_good" in v for v in dicts.templates["stage_results_by_stage"].values())
+    again = compute_board_v2(M.build_day_context(d), dicts)
+    assert [f.love_line for f in board.fortunes] == [f.love_line for f in again.fortunes]

@@ -65,6 +65,7 @@ from saju_engines.folk_direction import (
 )
 from saju_engines.hap_lines import luck_hap_mode_lines
 from saju_engines.health_vulnerability import analyze_health_vulnerability
+from saju_engines.intent_event_filter import IntentEventFilter
 from saju_engines.lifetime_scan import (
     PER_CLUSTER_CAP,
     REPORT_TABLE_MAX_YEARS,
@@ -75,6 +76,11 @@ from saju_engines.lifetime_scan import (
 from saju_engines.llm_guard import TokenBudgetExceeded
 from saju_engines.manifestation_branch import branch_summary
 from saju_engines.marriage_resource import analyze_marriage_resource
+from saju_engines.mobility_agency import (
+    MOBILITY_AGENCY_DIRECTIVE,
+    has_mobility_candidate,
+    mobility_agency_claims,
+)
 from saju_engines.palace_relationship_network import (
     analyze_palace_network,
     palace_network_lines,
@@ -85,7 +91,11 @@ from saju_engines.profile_engine import (
     profile_event_signals,
     profile_facts_lines,
 )
-from saju_engines.relationship_hints import relation_context_lines
+from saju_engines.relationship_hints import (
+    is_non_romantic_relation,
+    normalize_relation_type,
+    relation_context_lines,
+)
 from saju_engines.report_builder import ReportBuilder
 from saju_engines.report_event_input import (
     month_overview_lines,
@@ -209,9 +219,20 @@ from .personalization import (
 )
 
 _logger = logging.getLogger(__name__)
+# 이동 주체 미상 지시문을 뷰 id 기준으로도 붙이는 named view(직업 전이 트랙, 2026-10-15).
+_MOBILITY_VIEW_IDS: frozenset[str] = frozenset({"career_transition"})
 
 _BACKEND = Path(__file__).resolve().parents[4]
 _DICTS = _BACKEND / "dictionaries"
+_intent_filter: IntentEventFilter | None = None
+
+
+def _get_intent_filter() -> IntentEventFilter:
+    """채팅과 같은 사전(intent_event_filter.json) 기반 후보 필터 — 지연 생성 싱글턴."""
+    global _intent_filter
+    if _intent_filter is None:
+        _intent_filter = IntentEventFilter(_DICTS)
+    return _intent_filter
 _SCORE_LEVELS = {GanjiLevel.YEAR, GanjiLevel.MONTH}
 _TOP_CANDIDATES = 8
 #: 순수 선별 헬퍼는 받은 후보 타입을 그대로 돌려준다 — `EventCandidate` 로 고정하면
@@ -431,6 +452,12 @@ _SCORE_TABLE_GUIDE = (
     "강도가 좋고 나쁨이 아니라 그 주제가 얼마나 강하게 발동하는가를 뜻하며(강도가 높고 예상 "
     "방향이 부정이면 부정 쪽으로 강하게 움직인다는 뜻), 예상 방향과 함께 읽어야 한다는 점을 "
     "자기 문장으로 풀어 쓸 것."
+)
+# 비연애 관계(부모·자식·가족·친구·직장) 궁합의 RP-02 — 재성/관성·도화(애정 성향) 대신
+# 관계를 맺는 성향으로 축을 바꾼다(2026-10-15 데굴님 승인). 제목은 docs/10 규격 그대로.
+_RP02_NON_ROMANTIC_GUIDE = (
+    "본인이 사람과 관계를 맺는 성향(소통 방식·거리 조절·역할 기대·갈등 대응)을 짧게 서술할 것. "
+    "연애·배우자·도화·인연 프레임은 쓰지 말 것(상대는 연애 대상이 아니다)."
 )
 _SECTION_GUIDES: dict[str, str] = {
     "F-01": "사주 원국의 전체 그림을 소개할 것 — 4주 구성과 각 주의 십성·운성을 쉬운 비유로.",
@@ -684,6 +711,26 @@ _SECTION_DOMAIN: dict[str, str] = {
 # 월별 흐름 표(예측 창 각 해 12개월 전체, 연도별 그룹)를 부착하는 섹션 — 좋은·주의·평범 달
 # 누락 없이. 한해풀이 Y-05 + 테마 FOCUS '주목할 달' + generic FOCUS 타임라인(2026-06-23 보강).
 _MONTH_OVERVIEW_SECTIONS = {"Y-05", "W-07", "J-06", "R-06", "RP-07", "RL-06", "C-04"}
+# 궁합 모드에서 상대 운 표(연도·월)가 본인 표 뒤에 함께 붙는 섹션(2026-10-15 데굴님 승인 ③).
+# 연도별 상세 페이지(RP-06-Y{연도})도 포함 — _is_pair_luck_section 으로 판정.
+_PAIR_LUCK_SECTIONS = {"RP-06", "RP-07"}
+_PAIR_LUCK_DIRECTIVE = (
+    "[두 사람 표 읽기] 본인 표와 상대 표를 같은 해·달끼리 나란히 읽을 것. 둘 다 움직임이 강한 "
+    "시기는 '함께 겪을 시기'로, 한쪽만 강한 시기는 그 사람 쪽 변화로 서술하고 상대 쪽 서술을 "
+    "생략하거나 본인만 쓰지 말 것. 두 사람의 사건을 한 사람 일처럼 합치지 말 것."
+)
+
+
+def _is_pair_luck_section(sid: str) -> bool:
+    """궁합 모드에서 상대 운 표가 붙는 섹션인가(RP-06·RP-07·RP-06-Y{연도})."""
+    return sid in _PAIR_LUCK_SECTIONS or sid.startswith("RP-06-Y")
+
+
+def _section_call_type(base: str, data: _ReportData, sid: str) -> str:
+    """섹션 호출 유형 — 상대 운 표가 붙는 궁합 섹션만 입력 상한 두 배 유형(docs/09 §8)."""
+    if data.partner_scored is not None and _is_pair_luck_section(sid):
+        return "report_focus_section_pair"
+    return base
 # 세운 연도별 전체 흐름 표(예측 창 전 연도)를 부착하는 섹션 — '향후 N년 종합'·고점 연도 스캔.
 # 테마 FOCUS 5년 종합 + generic FOCUS 기간 흐름 + 총운 고점 연도(F-14)(2026-06-23 보강).
 _YEAR_SPECTRUM_SECTIONS = {"W-06", "J-05", "R-05", "RP-06", "RL-06", "C-03", "F-14"}
@@ -701,7 +748,10 @@ _CAREER_FIELD_REPORT_DIRECTIVE = (
     "'어떤 직무를 어떤 규모의 조직에서'로 구체화할 것. 금지: '재성이 많으니 사업가'식 단정, 십성 "
     "유무로 적성 확정·부적합 단정, 'X격이면 Y직업' 고정, 근거에 없는 직업군 추가. 직업명은 여러 "
     "십성 기능이 겹치므로 일대일 고정을 피하고 조건(일간 감당력·용희신·배합)에 따른 강조점 차이를 "
-    "짚을 것. 학파별 배속 차이가 있는 참고 해석임을 한 문장으로만 밝힐 것."
+    "짚을 것. 학파별 배속 차이가 있는 참고 해석임을 한 문장으로만 밝힐 것. [간지론 관점] 블록(직업 "
+    "유형 축·궁위 우선·관성 위치·업종·사업 시기)이 있으면 '간지론에서는 ~로 본다'는 학파 서술로 "
+    "한 문단 덧붙일 것 — 직장형/상업형은 판정이 아니라 '결이 맞는 방식'이며 억부 용신 풀이와 "
+    "합산·상쇄하지 말고 나란히 둘 것. 2단계 프로필의 실제 직업·고용형태가 있으면 그것이 사실이다."
 )
 _ORG_SCALE_DIRECTIVE = (
     "[조직 규모 적합 — 서술 전용 지침] 아래 매핑으로 본인 구조에 결이 맞는 조직 규모·문화"
@@ -959,6 +1009,22 @@ class _ReportData:
         # 직업/관계 상태 분기(공직자 등)·특수직군 충형 길화(자료 9-6) — 채팅과 동일 신호를
         # 테마사주(리포트)에도 반영. 프로필 미설정·무DB면 None(게이트 미적용 — 규칙11).
         _form, occ_status, rel_status, occ_category = profile_event_signals(subject_id)
+        # 사용자가 지정한 '상대와의 관계'(RP 풀이 방향 — 2026-07-03). 테마 14종이 아니라 등록
+        # 관계 키(mother·husband …)가 오면 테마 어휘로 번역한다(2026-10-15 — 종전엔 번역이 없어
+        # '어머니' 등록에 연애 궁합 톤이 나왔다). 미지정·번역 불가 None(중립 톤).
+        self.partner_relation_type: str | None = normalize_relation_type(
+            next(
+                (
+                    s.relation_type
+                    for s in spec.subjects
+                    if s.kind != SubjectKind.SELF and s.relation_type
+                ),
+                None,
+            )
+        )
+        #: 비연애 관계(부모·자식·가족·친구·직장) 궁합 — 채팅과 같은 가드(결혼 자원·배우자성 블록
+        #: 생략, 결혼·인연 신호 후보 제외). 연애·배우자·미지정이면 False → 종전 출력 그대로.
+        self.non_romantic_pair: bool = is_non_romantic_relation(self.partner_relation_type)
         scored = self.scorer.score_legacy_personalized(
             self.result,
             levels=_SCORE_LEVELS,
@@ -969,6 +1035,11 @@ class _ReportData:
             relationship_status=rel_status,
             occupation_category=occ_category,
         )
+        if self.non_romantic_pair:
+            # 채팅 pairwise(_event_filter_context="non_romantic_relation")와 같은 오버레이 —
+            # marriage_signal·new_relationship·childbirth 를 후보·연도 표·월 표 모집단에서 뺀다.
+            # 한 번만 걸러 하위 블록(domain_candidates·spectrum·month_slice)이 같은 모집단을 쓴다.
+            scored = _get_intent_filter().filter(scored, "relationship", "non_romantic_relation")
         # 요청 로컬 위험 스냅샷(감수 62차 P0③) — 이 보고서 대상의 채점
         # 직후 즉시 확보. 싱글턴 scorer.risk_shadow는 동시 요청으로 덮일 수
         # 있어 위험 섹션에서 읽지 않는다. 보고서 단위 1회 계산(P0⑤)의 원천.
@@ -1223,15 +1294,10 @@ class _ReportData:
         self.partner_result: ManseV2Result | None = None
         self.partner_prefix_lines: list[str] = []
         self.compatibility = None
-        # 사용자가 지정한 '상대와의 관계'(RP 풀이 방향 — 2026-07-03). 미지정 None.
-        self.partner_relation_type: str | None = next(
-            (
-                s.relation_type
-                for s in spec.subjects
-                if s.kind != SubjectKind.SELF and s.relation_type
-            ),
-            None,
-        )
+        #: 상대 운 점수화 결과(궁합 모드 전용, 2026-10-15) — None 이면 상대 운 표 미부착.
+        self.partner_scored: list[EventCandidate] | None = None
+        self.self_label: str = spec.subjects[0].label if spec.subjects else "본인"
+        self.partner_label: str = "상대"
         if partner_birth is not None:
             partner_chart = partner_birth.model_copy(update={"reference_date": today})
             partner_result = calculate(partner_chart)
@@ -1254,6 +1320,38 @@ class _ReportData:
                 self_label=self_label,
                 partner_label=partner_label,
             )
+            self.self_label = self_label
+            self.partner_label = partner_label
+            # 상대 운 점수화(2026-10-15 데굴님 승인 ③) — 종전엔 상대는 원국만 계산해 RP-06·RP-07·
+            # 연도별 페이지가 본인 운만 담았고(상대 서술 불가), 궁합 엔진도 원국 전용이다.
+            # 예측 창 월운을 상대 명식에도 주입하고 같은 엔진으로 한 번 점수화한다(개인화·프로필
+            # 보정 없음 — 상대 프로필은 없다). 비연애 관계면 본인과 같은 오버레이로 거른다.
+            _plc = partner_result.luck_cycles
+            if _plc is not None:
+                _pmonths: list = []
+                for _py in _forecast_years(spec, today):
+                    try:
+                        _pmonths += luck_months(partner_chart, _py)
+                    except (ValueError, RuntimeError):
+                        continue
+                if _pmonths:
+                    _pseen: set[str] = set()
+                    _pdeduped = []
+                    for _pp in _pmonths:
+                        if _pp.label not in _pseen:
+                            _pseen.add(_pp.label)
+                            _pdeduped.append(_pp)
+                    _plc.monthly_luck = _pdeduped
+            _pscored = self.scorer.score_legacy_personalized(partner_result, levels=_SCORE_LEVELS)
+            if self.non_romantic_pair:
+                _pscored = _get_intent_filter().filter(
+                    _pscored, "relationship", "non_romantic_relation"
+                )
+            self.partner_scored = _pscored
+            # take-and-reset 상태 배출 — 상대 채점분이 본인 섹션 evidence 에 섞이지 않게.
+            self.scorer.take_daewoon_hwa_backgrounds()
+            self.scorer.take_risk_shadow()
+            self.scorer.take_relationship_shadow()
 
     def record_opening(self, text: str) -> None:
         """생성된 섹션의 첫 문장을 기록 — 다음 섹션의 '서두 반복 금지' 프롬프트 재료.
@@ -1728,6 +1826,74 @@ class _ReportData:
             *overview,
         ]
 
+    # ── 상대 운 표(궁합 모드, 2026-10-15) — 본인 표와 같은 형식, 머리줄로 주체를 명시 ──
+    def pair_subject_header(self, partner: bool) -> str:
+        """두 사람 표의 주체 머리줄 — 어느 표가 누구 기준인지 LLM 이 혼동하지 않게."""
+        if partner:
+            return f"[아래 표는 상대({self.partner_label}) 기준]"
+        return f"[아래 표는 본인({self.self_label}) 기준]"
+
+    def partner_year_spectrum_block(
+        self, domain: str | None = None, *, notable_only: bool = False
+    ) -> list[str]:
+        """[상대 — 연도별 흐름] — 본인 year_spectrum_block 과 같은 연도·축소 단계."""
+        if self.partner_result is None or self.partner_scored is None:
+            return []
+        years = _forecast_years(self._spec, self.today)
+        spectrum = year_spectrum_lines(
+            self.partner_result, self.partner_scored, years, domain, notable_only=notable_only
+        )
+        if not spectrum:
+            return []
+        return [
+            self.pair_subject_header(partner=True),
+            "[연도별 흐름 — 상대의 세운을 해마다. 본인 표와 같은 해를 나란히 읽을 것.]",
+            *spectrum,
+        ]
+
+    def partner_month_overview_block(
+        self, domain: str | None = None, *, notable_only: bool = False
+    ) -> list[str]:
+        """[상대 — 월별 흐름] — 본인 month_overview_block 과 같은 창·축소 단계."""
+        if self.partner_result is None or self.partner_scored is None:
+            return []
+        overview = month_overview_lines(
+            self.partner_result, self.partner_scored, domain, notable_only=notable_only
+        )
+        if not overview:
+            return []
+        return [
+            self.pair_subject_header(partner=True),
+            "[월별 흐름 — 상대의 각 달(〈연도〉별로 묶음). 본인 표와 같은 달을 나란히 읽을 것.]",
+            *overview,
+        ]
+
+    def partner_month_slice_block(
+        self, months: set[str], scope_label: str, domain: str | None = None
+    ) -> list[str]:
+        """[상대 — 월별 흐름 구간] — 연도별 상세 페이지의 상대 달 표(본인 표와 같은 구간)."""
+        if self.partner_result is None or self.partner_scored is None:
+            return []
+        overview = month_overview_lines(
+            self.partner_result, self.partner_scored, domain, months_filter=months
+        )
+        if not overview:
+            return []
+        return [
+            self.pair_subject_header(partner=True),
+            f"[월별 흐름 — 상대, {scope_label}. 본인 표와 같은 달을 나란히 읽을 것.]",
+            *overview,
+        ]
+
+    def partner_year_row_lines(self, year: int, domain: str | None = None) -> list[str]:
+        """[이 해 세운 — 상대] — 연도별 상세 페이지 배경 행(본인 행과 같은 해)."""
+        if self.partner_result is None or self.partner_scored is None:
+            return []
+        rows = year_spectrum_lines(self.partner_result, self.partner_scored, [year], domain)
+        if not rows:
+            return []
+        return [f"[이 해 세운 — 상대({self.partner_label}), {year}년]", *rows]
+
     def decade_detail_block(self, sid: str) -> list[str]:
         """[십년 세운 흐름] — 십년 풀이 하위 페이지(F-14-D*)의 데이터 블록(docs/10 3-1).
 
@@ -2071,7 +2237,9 @@ class _ReportData:
         except Exception:  # noqa: BLE001 — 통로 계산 실패가 분야 근거를 막지 않는다
             incoming = []
         try:
-            lines = render_career_field_lines(build_career_field_facts(self.result, incoming))
+            lines = render_career_field_lines(
+                build_career_field_facts(self.result, incoming, today=self.today)
+            )
         except Exception:  # noqa: BLE001
             _logger.exception("career field block failed")
             lines = []
@@ -2101,6 +2269,36 @@ class _ReportData:
                     stems.add(d.ganji[0])
                     branches.add(d.ganji[1])
         return luck_hap_mode_lines(self.result, sorted(stems), sorted(branches))
+
+    def pattern_change_lines(self, candidates: list[EventCandidate]) -> list[str]:
+        """후보 기간(연·월)의 운 적용 구조 상태 줄(F8-P1) — composite.pattern_states 읽기만(원칙 9).
+
+        후보 기간 순으로 훑어 변동(신규 성립·강화·완화·해소)이 있는 줄을 최대 3개. 성립≠길흉.
+        """
+        from saju_engines.pattern_transit import pattern_change_lines
+
+        periods: list[str] = []
+        for c in candidates:
+            p = str(c.period)
+            if p not in periods and len(p) in (4, 7):
+                periods.append(p)
+        if not periods:
+            return []
+        try:
+            comps = {(c.level.value, c.period_key): c for c in self.composites}
+        except Exception:  # noqa: BLE001 — 사전계산 조회 실패가 섹션을 막지 않는다
+            return []
+        out: list[str] = []
+        for p in periods:
+            level = "year" if len(p) == 4 else "month"
+            comp = comps.get((level, p))
+            if comp is None or not comp.pattern_states:
+                continue
+            for ln in pattern_change_lines(comp.pattern_states, level, max_count=3 - len(out)):
+                out.append(f"{p}: {ln}")
+                if len(out) >= 3:
+                    return out
+        return out
 
     def counseling_lines(self, domain: str, spec: ReportSpec) -> list[str]:
         """[상담 결론] 블록 — 도메인 대표 후보 1건의 stage 행동지침(CDS 리포트 배선).
@@ -2210,6 +2408,11 @@ class _ReportData:
                 lines += clusters
             else:
                 lines.append("이 도메인의 두드러진 후보 신호는 약함 — 원국 구조 중심으로 서술.")
+            # 이동 주체 미상(2026-10-15 데굴님 지시, 채팅과 동일) — 이 섹션 후보에 직장·역할 이동이
+            # 있으면 자발·타의 단정 금지 지시를 같이 싣는다.
+            if has_mobility_candidate(cands):
+                lines.append("")
+                lines.append(MOBILITY_AGENCY_DIRECTIVE)
         # 같은 시점의 부수 사건(그룹 구성원) — 시점 슬롯은 대표 1건이 차지하지만 같은
         # 달의 다른 신호를 삭제하지 않는다(2026-07-30 교정). 새 판정이 아니라 이미
         # 점수화된 사건의 이름만 병기한다.
@@ -2231,6 +2434,15 @@ class _ReportData:
                 "약화/전환으로 서술]"
             )
             lines += hap_lines
+        pattern_lines = self.pattern_change_lines(cands)
+        if pattern_lines:
+            lines.append("")
+            lines.append(
+                "[구조 변화(운) — 후보 기간에 원국 구조 배합이 신규 성립·강화·완화·해소되는지"
+                "(엔진 판정, 기간 한정 작동). 구조 작동의 변화이지 길흉이 아니다 — "
+                "재물운 상승·하락으로 번역하지 말 것]"
+            )
+            lines += pattern_lines
         branch_lines = self._branch_lines(cands)
         if branch_lines:
             lines.append("")
@@ -3211,8 +3423,13 @@ def _expand_report_plans(plans: list[SectionPlan], data: _ReportData) -> list[Se
         if not any(p.section_id == base for p in plans):
             return plans
         years = _forecast_years(spec, data.today)
+        _pair = data.partner_scored is not None
         out = []
         for p in plans:
+            if p.section_id == "RP-02" and data.non_romantic_pair:
+                # 비연애 관계(부모·자식·가족·친구·직장) 궁합 — 애정 성향이 아니라 관계 성향
+                # (2026-10-15 데굴님 승인 ④; 지시문은 _RP02_NON_ROMANTIC_GUIDE).
+                p = p.model_copy(update={"title": "나의 관계 성향"})
             out.append(p)
             if p.section_id != base:
                 continue
@@ -3223,10 +3440,15 @@ def _expand_report_plans(plans: list[SectionPlan], data: _ReportData) -> list[Se
                     {f"{y}-{m:02d}" for m in range(1, 13)},
                     f"{y}년 12개월",
                 )
+                # 궁합 모드는 두 사람 라벨을 제목에 — 누구 이야기인지 페이지에서 보이게(④).
+                _ytitle = (
+                    f"연도별 상세 — {y}년 · {data.self_label}·{data.partner_label}"
+                    if _pair else f"연도별 상세 — {y}년"
+                )
                 out.append(
                     SectionPlan(
                         section_id=sid,
-                        title=f"연도별 상세 — {y}년",
+                        title=_ytitle,
                         module_calls=[],
                         target_chars=TargetChars(min=900, max=2_900),
                         depends_on=list(p.depends_on),
@@ -3298,6 +3520,8 @@ def build_section_context(
     sid = plan.section_id
     if data.hour_unknown and sid in _SECTION_GUIDES_HOUR_UNKNOWN:
         guide = _SECTION_GUIDES_HOUR_UNKNOWN[sid]  # 시주 의존 섹션의 3주 모드 지침(2026-10-06)
+    elif sid == "RP-02" and data.non_romantic_pair:
+        guide = _RP02_NON_ROMANTIC_GUIDE  # 부모·친구·직장 상대 — 애정 성향 대신 관계 성향
     elif sid in _SECTION_GUIDES:
         guide = _SECTION_GUIDES[sid]
     elif sid.startswith("F-14-D"):
@@ -3444,11 +3668,23 @@ def build_section_context(
         _mp_domain = _SECTION_DOMAIN.get(_mp_base)
         lines.append("")
         _yp = data.year_page_years.get(sid)
+        _mp_pair = data.partner_scored is not None and _is_pair_luck_section(sid)
+        if _mp_pair:
+            lines.append(data.pair_subject_header(partner=False))
         if _yp is not None:
             _yp_rows = year_spectrum_lines(data.result, data.scored, [_yp], _mp_domain)
             if _yp_rows:
                 lines += [f"[이 해 세운 — {_yp}년]", *_yp_rows, ""]
         lines += data.month_slice_block(_mp_months, _mp_label, _mp_domain)
+        if _mp_pair:
+            # 상대의 같은 해 세운 행 + 같은 구간 달 표(2026-10-15 ③) — 본인 표 뒤에 나란히.
+            lines.append("")
+            if _yp is not None:
+                _p_rows = data.partner_year_row_lines(_yp, _mp_domain)
+                if _p_rows:
+                    lines += [*_p_rows, ""]
+            lines += data.partner_month_slice_block(_mp_months, _mp_label, _mp_domain)
+            lines.append(_PAIR_LUCK_DIRECTIVE)
     elif sid in _SCORE_TABLE_SECTIONS:
         lines.append("")
         # 중립 데이터 라벨만 — 지시문(그대로 인용·수치 생성 금지)은 _SCORE_TABLE_GUIDE가
@@ -3473,11 +3709,24 @@ def build_section_context(
                 lines += [*_lt_block, ""]
         # 전 구간 스펙트럼(반복·편향 차단) — 연도 표 → 월 표 순. 테마 섹션은 대표 사건을 주제로
         # 한정(운 품질 등급은 도메인 무관 표기). Y-05 등 도메인 없는 섹션은 교차도메인 그대로.
+        _pair_luck = data.partner_scored is not None and _is_pair_luck_section(sid)
         if sid in _YEAR_SPECTRUM_SECTIONS:
+            if _pair_luck:
+                lines.append(data.pair_subject_header(partner=False))
             lines += data.year_spectrum_block(section_domain, notable_only=reduction_level >= 2)
+            if _pair_luck:
+                lines += ["", *data.partner_year_spectrum_block(
+                    section_domain, notable_only=reduction_level >= 2,
+                ), _PAIR_LUCK_DIRECTIVE]
             lines.append("")
         if sid in _MONTH_OVERVIEW_SECTIONS:
+            if _pair_luck:
+                lines.append(data.pair_subject_header(partner=False))
             lines += data.month_overview_block(section_domain, notable_only=reduction_level >= 1)
+            if _pair_luck:
+                lines += ["", *data.partner_month_overview_block(
+                    section_domain, notable_only=reduction_level >= 1,
+                ), _PAIR_LUCK_DIRECTIVE]
             # 상담 사례 파생(P0) — 주목할 달의 시기 단정 차단('8월에 됩니다' 금지,
             # activation window 표현). 사례 모방 금지 포인트 §6 — 우선 J-06만(데굴님 확정 스코프).
             if sid in _DATE_CERTAINTY_SECTIONS:
@@ -3499,6 +3748,14 @@ def build_section_context(
                     list(res.support_candidates), include_event_candidates=False
                 )
                 lines += list(res.lines)
+                # 이동 주체 미상(2026-10-15) — named view 경로는 luck_block 의 후보 블록을 끄므로
+                # 뒷받침 후보에 직장·역할 이동이 있으면 여기서 지시문을 붙인다(채팅과 동일).
+                # DIRECT 뷰(career_transition)는 뒷받침 후보에 이동 사건을 싣지 않고 클러스터로만
+                # 내므로 뷰 id 로도 판정한다(J-04·J-05 실측).
+                if has_mobility_candidate(res.support_candidates) or any(
+                    v in _MOBILITY_VIEW_IDS for v in policy.view_ids
+                ):
+                    lines += ["", MOBILITY_AGENCY_DIRECTIVE]
             if policy.narrative_mode:
                 lines.append(f"[서술 형식: {policy.narrative_mode}]")
         # 후보 상세 — 도메인 스코프면 자기 도메인 후보(길·흉 포함), 아니면 전역 top 후보.
@@ -3551,7 +3808,14 @@ def build_section_context(
     # 관계·재물구조 섹션 — 결혼·자산 자원 구조(성별 인지, 중립) 표면화. 명식/운 분기와 무관.
     # 배우자성 성별 가드(남=재성·여=관성) + 연애 자기인식(이상형 인정) 가드를 함께 실어 반대 성별
     # 기준 오역·취향 부정을 차단(2026-06-22).
-    if sid in _MARRIAGE_RESOURCE_SECTIONS:
+    if sid in _MARRIAGE_RESOURCE_SECTIONS and data.non_romantic_pair:
+        # 비연애 관계 궁합(RP-03·RP-04) — 채팅 비연애 pairwise 와 동일: 배우자성·결혼 자원·외적
+        # 인상·도화 블록을 싣지 않고 궁위 관계망 + 자기인식 가드만(2026-10-15).
+        network = palace_network_lines(analyze_palace_network(data.result), Domain.RELATIONSHIP)
+        if network:
+            lines += ["", *network]
+        lines += ["", RELATIONSHIP_SELF_AWARENESS_DIRECTIVE]
+    elif sid in _MARRIAGE_RESOURCE_SECTIONS:
         lines += [
             "",
             spouse_star_directive(data.marriage_resource.gender),
@@ -4126,7 +4390,9 @@ def generate_report(
         subject_id=subject_id,
         partner_birth=partner_birth,
     )
-    call_type = "report_full_section" if spec.product_code == "RPT_FULL" else "report_focus_section"
+    _base_call_type = (
+        "report_full_section" if spec.product_code == "RPT_FULL" else "report_focus_section"
+    )
     persona_block = None
     try:
         from saju_engines.persona import PersonaEngine
@@ -4151,6 +4417,8 @@ def generate_report(
         _RISK_EXPOSED_SECTIONS)
 
     def generate_fn(plan: SectionPlan, context: SectionContext, attempt: int):
+        # 섹션별 호출 유형 — 상대 운 표가 붙는 궁합 섹션만 두 배 상한(2026-10-15).
+        call_type = _section_call_type(_base_call_type, data, plan.section_id)
         # 보고서 전용 시스템 프롬프트(대화와 분리 — '정보 없음' 회피 문구 미포함).
         system = llm_client._REPORT_SYSTEM_PROMPT
         if persona_block:
@@ -4225,6 +4493,13 @@ def generate_report(
                     plan.section_id, text,
                     background_present=plan.section_id in data.bg_injected_sections,
                 )
+                # 이동 주체 단정 감사(2026-10-15) — 로그 전용, 본문 불변(채팅과 동일 어구).
+                _agency_hits = mobility_agency_claims(text)
+                if _agency_hits:
+                    _logger.warning(
+                        "mobility_agency_audit surface=report result=violation section=%s hits=%s",
+                        plan.section_id, _agency_hits[:6],
+                    )
                 data.record_opening(text)  # 다음 섹션의 '서두 반복 금지' 재료(순차 생성)
                 return text, 0, len(text)  # 토큰은 llm_client 장부가 집계(cached 포함)
             except TokenBudgetExceeded as exc:

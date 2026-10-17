@@ -9,6 +9,7 @@ from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.calibration import CalibrationResult, FeedbackAnswer
 from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
+from saju_shared_types.structure_patterns import PatternTimeline
 
 from ..services import hour_narrowing, manse_service
 
@@ -21,6 +22,13 @@ class CalibrationFeedbackRequest(BaseModel):
 
 
 class LuckMonthsRequest(BaseModel):
+    birth: BirthInput
+    year: int
+
+
+class PatternTimelineRequest(BaseModel):
+    """선택 연도의 구조 배합 흐름(원국→대운→세운→월) 요청."""
+
     birth: BirthInput
     year: int
 
@@ -56,6 +64,15 @@ async def luck_months(req: LuckMonthsRequest) -> list[LuckPillar]:
     """세운(연도) 선택 시 그 해 월운 12개를 온디맨드로 조회한다."""
     try:
         return manse_service.luck_months(req.birth, req.year)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/luck/pattern-timeline", response_model=PatternTimeline)
+async def luck_pattern_timeline(req: PatternTimelineRequest) -> PatternTimeline:
+    """세운 선택 시 그 해의 구조 배합 흐름(대운·세운·월운 12층 종합)을 조회한다(F8-P1 종합 뷰)."""
+    try:
+        return manse_service.pattern_timeline(req.birth, req.year)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

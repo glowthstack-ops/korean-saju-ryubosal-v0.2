@@ -27,7 +27,18 @@ from saju_engines.context_reducer import event_ko
 from saju_engines.event_engine_v2 import EventEngineV2
 from saju_engines.event_scoring import favorability_map_from_model
 from saju_engines.folk_direction import enrich_folk_taboos
+from saju_engines.pattern_transit import (
+    LuckGlyph,
+    build_pattern_timeline,
+    daewoon_ganji_by_year,
+    evaluate_pattern_states,
+    pattern_change_lines,
+)
 from saju_engines.samjae_quality import enrich_samjae_quality
+from saju_engines.structure_patterns import (
+    detect_structure_patterns,
+    select_manse_display_patterns,
+)
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_manse_core.pillars.day_pillar import day_pillar
 from saju_manse_core.pillars.hour_pillar import hour_pillar_for_branch
@@ -63,6 +74,7 @@ from saju_shared_types.hour_unknown import (
 from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import EngineMetadata, ManseV2Result
 from saju_shared_types.pillars import FourPillarsResult
+from saju_shared_types.structure_patterns import DetectedPattern, PatternTimeline
 from saju_shared_types.time_correction import SolarTermBasis, TimeCorrectionResult
 from saju_shared_types.yongsin import YongsinCandidateModel
 
@@ -658,6 +670,27 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
     enrich_samjae_quality(result)
     # 민속 흉방(삼살·대장군·태세·세파) — 세운 카드 배지용 추가 정보, 점수 불변(docs/19 §5).
     enrich_folk_taboos(result)
+    # 원국 구조 배합(상관생재·재다신약·재극인 등) — 만세력 화면 '원국 구조 상세' 노출용.
+    # 감지 전체가 아니라 화면 선별본만 싣고, 점수·용신·이벤트에는 관여하지 않는다
+    # (inert, 2026-10-17).
+    # 시주 미상이면 detect 가 '후보 전부 일치' 패턴만 남긴다. 3기둥에서는 안 보이지만 후보 전부에서
+    # 성립하는 패턴은 첫 후보 결과에서 가져와 보탠다(후보 결과는 LRU 캐시에 있다).
+    detected = detect_structure_patterns(result)
+    if hour_unknown_analysis is not None and hour_unknown_analysis.candidates:
+        cand_sets = (set(c.structure_pattern_ids) for c in hour_unknown_analysis.candidates)
+        agreed = set.intersection(*cand_sets)
+        missing = agreed - {d.pattern_id for d in detected}
+        if missing:
+            first_hb = hour_unknown_analysis.candidates[0].hour_branch
+            first = calculate(candidate_birth(birth, first_hb))
+            detected += [d for d in detect_structure_patterns(first) if d.pattern_id in missing]
+            detected.sort(key=lambda d: d.strength, reverse=True)
+    result.structure_patterns = select_manse_display_patterns(detected)
+    # F8-P1 — 세운 카드 '구조 변화'(원국+대운+세운 스택). 시주 미상이면 빈 목록(정책).
+    _enrich_year_pattern_changes(result, detected)
+    if result.luck_cycles is not None and result.luck_cycles.monthly_luck:
+        _cur_year = int(result.luck_cycles.monthly_luck[0].label[:4])
+        _enrich_month_pattern_changes(result, _cur_year, list(result.luck_cycles.monthly_luck))
 
     # 검증 질문은 result(루크·용신 포함)가 있어야 이벤트 엔진으로 연도별 이벤트를 검출하므로
     # result 구성 후 생성해 부착한다(이벤트형 질문 — 모델별 기대 극성).
@@ -689,6 +722,7 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
 _UNCONFIRMED_KO = {
     "strength_band": "신강약", "geokguk": "격국", "useful_gods": "용희신",
     "year_pillar": "연주", "month_branch": "월주", "day_master": "일주(일간)",
+    "structure_patterns": "구조 배합",
 }
 
 
@@ -762,6 +796,7 @@ def _hour_unknown_analysis(
     branches, basis = candidate_hour_branches(birth)
     # 명식 변형은 범위와 무관하게 12시진 전체로 구한다(사용자가 다른 변형으로 되돌릴 수 있게).
     all_cands: list[HourCandidate] = []
+    pattern_objs: dict[str, DetectedPattern] = {}  # 후보에서 본 패턴 ID → 객체(상이 목록 표기용)
     for hb in HOUR_BRANCHES:
         try:
             r = calculate(candidate_birth(birth, hb))
@@ -770,6 +805,8 @@ def _hour_unknown_analysis(
         if r.pillars is None or r.pillars.hour is None:
             continue
         ug, y = _useful_gods_key(r.yongsin_analysis)
+        detected = detect_structure_patterns(r)  # 후보는 시간 '있음'이라 무필터 전체 감지
+        pattern_objs.update({d.pattern_id: d for d in detected})
         all_cands.append(HourCandidate(
             hour_branch=hb, ganji=r.pillars.hour.ganji,
             strength_band=r.force_analysis.strength.band if r.force_analysis else "",
@@ -779,14 +816,30 @@ def _hour_unknown_analysis(
             day_ganji=r.pillars.day.ganji,
             daewoon_start_exact=r.luck_cycles.start_age_exact if r.luck_cycles else None,
             daewoon_direction=r.luck_cycles.direction if r.luck_cycles else "",
+            structure_pattern_ids=[d.pattern_id for d in detected],
         ))
     cands = [c for c in all_cands if c.hour_branch in set(branches)]
     strength = _consensus(base_strength, [c.strength_band for c in cands])
     geok = _consensus(base_geok, [c.geokguk for c in cands])
     ug_item = _consensus(base_ug, [c.useful_gods for c in cands])
+    # 구조 배합: 후보 전부에서 성립하면 일치, 일부에서만 성립하는 배합이 있으면 상이.
+    # 비교 대상은 화면 '구조 배합'과 같은 선별 규칙(격국·합충·내부 신호 제외)을 거친 패턴이다.
+    id_sets = [set(c.structure_pattern_ids) for c in cands]
+    agreed_ids = set.intersection(*id_sets) if id_sets else set()
+    differ_ids = (set.union(*id_sets) - agreed_ids) if id_sets else set()
+    def _display_names(ids: set[str]) -> list[str]:
+        objs = [pattern_objs[i] for i in sorted(ids) if i in pattern_objs]
+        return sorted(d.name_ko for d in select_manse_display_patterns(objs))
+    differ_names = _display_names(differ_ids)
+    pat_item = ConsensusItem(
+        status="differ" if differ_names else "agree",
+        base="·".join(_display_names(agreed_ids)),
+        values=differ_names,
+    )
     unconfirmed = [
         key for key, item in (
             ("strength_band", strength), ("geokguk", geok), ("useful_gods", ug_item),
+            ("structure_patterns", pat_item),
         ) if item.status == "differ"
     ]
     # 명식 변형(경계 당일) — 12시진 전체를 연·월·일주 조합별로 묶고 변형별 핵심 사실을 모은다.
@@ -824,13 +877,14 @@ def _hour_unknown_analysis(
         unconfirmed.append("day_master")
         warnings.append("일 경계: 출생시각에 따라 일주가 달라질 수 있음 — 일간 확정 보류")
         # 일간이 갈리면 그 위에 선 판정도 전부 확정 불가.
-        for key in ("strength_band", "geokguk", "useful_gods"):
+        for key in ("strength_band", "geokguk", "useful_gods", "structure_patterns"):
             if key not in unconfirmed:
                 unconfirmed.append(key)
     starts = [c.daewoon_start_exact for c in cands if c.daewoon_start_exact is not None]
     rng = (round(min(starts), 2), round(max(starts), 2)) if starts else None
     agree_ko = [ko for key, ko in _UNCONFIRMED_KO.items()
-                if key in ("strength_band", "geokguk", "useful_gods") and key not in unconfirmed]
+                if key in ("strength_band", "geokguk", "useful_gods", "structure_patterns")
+                and key not in unconfirmed]
     differ_ko = [_UNCONFIRMED_KO[k] for k in unconfirmed]
     if basis.startswith("hint:"):
         scope = f"성향 추정 시진 {birth.hour_branch_hint}(확정 아님)"
@@ -857,6 +911,7 @@ def _hour_unknown_analysis(
         variant_choice=list(branches) if basis.startswith("variant:") else None,
         pillar_variants=variants,
         strength_band=strength, geokguk=geok, useful_gods=ug_item,
+        structure_patterns=pat_item,
         unconfirmed=unconfirmed, daewoon_start_range=rng, boundary_warnings=warnings,
         notice=notice,
     )
@@ -875,6 +930,68 @@ def calibrate_feedback(birth: BirthInput, answers: list[FeedbackAnswer]) -> Cali
     )
 
 
+def _enrich_year_pattern_changes(result: ManseV2Result, natal_patterns: list) -> None:
+    """대운표·세운 LuckPillar(yearly_luck + 대운표 sewoon)에 '구조 변화' 줄을 채운다.
+
+    제자리 갱신·서술 전용(점수 불변). 시주 미상이면 아무것도 채우지 않는다.
+    """
+    lc = result.luck_cycles
+    if lc is None or result.pillars is None or result.pillars.hour is None:
+        return
+    dw_by_year = daewoon_ganji_by_year(result)
+    # 대운 층(원국+대운) — 대운 카드·'대운 상세 정리'·선택한 대운 노트용.
+    for d in lc.daewoon_table:
+        if not d.pattern_changes:
+            dw_states = evaluate_pattern_states(
+                result, natal_patterns, [LuckGlyph("daewoon", d.stem, d.branch)],
+            )
+            d.pattern_changes = pattern_change_lines(dw_states, "daewoon")
+    pillars: list[LuckPillar] = list(lc.yearly_luck)
+    for d in lc.daewoon_table:
+        pillars.extend(getattr(d, "sewoon", []) or [])
+    for p in pillars:
+        if not p.label.isdigit() or p.pattern_changes:
+            continue
+        dw = dw_by_year.get(int(p.label))
+        stack = [LuckGlyph("daewoon", dw[0], dw[1])] if dw else []
+        stack.append(LuckGlyph("year", p.stem, p.branch))
+        states = evaluate_pattern_states(result, natal_patterns, stack)
+        p.pattern_changes = pattern_change_lines(states, "year")
+
+
+def _year_ganji_for(result: ManseV2Result, year: int) -> str | None:
+    """세운 간지 조회(yearly_luck → 대운표 sewoon 순)."""
+    lc = result.luck_cycles
+    if lc is None:
+        return None
+    for p in lc.yearly_luck:
+        if p.label == str(year):
+            return p.ganji
+    for d in lc.daewoon_table:
+        for p in getattr(d, "sewoon", []) or []:
+            if p.label == str(year):
+                return p.ganji
+    return None
+
+
+def _enrich_month_pattern_changes(
+    result: ManseV2Result, year: int, months: list[LuckPillar],
+) -> None:
+    """월운 LuckPillar 에 '구조 변화' 줄(원국+대운+세운+월운 스택). 시주 미상이면 비움."""
+    if result.pillars is None or result.pillars.hour is None:
+        return
+    natal_patterns = detect_structure_patterns(result)
+    dw = daewoon_ganji_by_year(result).get(year)
+    yg = _year_ganji_for(result, year)
+    base = [LuckGlyph("daewoon", dw[0], dw[1])] if dw else []
+    if yg:
+        base.append(LuckGlyph("year", yg[0], yg[1]))
+    for p in months:
+        stack = [*base, LuckGlyph("month", p.stem, p.branch)]
+        states = evaluate_pattern_states(result, natal_patterns, stack)
+        p.pattern_changes = pattern_change_lines(states, "month")
+
+
 def luck_months(birth: BirthInput, year: int) -> list[LuckPillar]:
     """주어진 연도의 월운 12개(세운 선택 시 온디맨드 조회). 차트를 결정론적으로 재계산."""
     result = calculate(birth)
@@ -883,7 +1000,7 @@ def luck_months(birth: BirthInput, year: int) -> list[LuckPillar]:
     if pillars is None or y is None:
         raise ValueError("luck months unavailable: chart could not be computed")
     useful, unfavorable = _luck_role_sets(y)
-    return monthly_luck_for_year(
+    months = monthly_luck_for_year(
         pillars,
         Stem(pillars.day.stem),
         useful,
@@ -892,6 +1009,8 @@ def luck_months(birth: BirthInput, year: int) -> list[LuckPillar]:
         get_table(),
         timezone=result.time_correction.timezone if result.time_correction else "Asia/Seoul",
     )
+    _enrich_month_pattern_changes(result, year, months)
+    return months
 
 
 def luck_years(birth: BirthInput, years: list[int]) -> list[LuckPillar]:
@@ -908,6 +1027,25 @@ def luck_years(birth: BirthInput, years: list[int]) -> list[LuckPillar]:
     useful, unfavorable = _luck_role_sets(y)
     return yearly_luck_for_range(
         pillars, Stem(pillars.day.stem), useful, unfavorable, years
+    )
+
+
+def pattern_timeline(birth: BirthInput, year: int) -> PatternTimeline:
+    """선택 연도의 구조 배합 흐름(원국 → 대운 → 세운 → 월) 종합 — 만세력 페이지 단일 영역용.
+
+    월운은 `luck_months`(절기월 12개)를 그대로 쓰고, 대운·세운 간지는 결과의 대운표에서 찾는다.
+    시주 미상이면 빈 행(정책). 점수·용신 불변.
+    """
+    result = calculate(birth)
+    if result.pillars is None:
+        raise ValueError("pattern timeline unavailable: chart could not be computed")
+    months = luck_months(birth, year) if result.pillars.hour is not None else []
+    natal = detect_structure_patterns(result)
+    return build_pattern_timeline(
+        result, natal, year=year,
+        daewoon_ganji=daewoon_ganji_by_year(result).get(year),
+        year_ganji=_year_ganji_for(result, year),
+        months=[(m.label, m.stem, m.branch) for m in months],
     )
 
 

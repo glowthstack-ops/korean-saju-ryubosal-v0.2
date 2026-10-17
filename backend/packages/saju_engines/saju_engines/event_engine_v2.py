@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import math
 import threading as _threading
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -90,6 +90,7 @@ from .daewoon_background import (
 from .event_ranker import EventRanker, RankContext
 from .event_scoring import daewoon_transition_boost, favorability_map
 from .exam_outcome_modifier import ExamOutcomeModifier
+from .favorable_role_tiering import load_favorable_tiering
 from .ganji_calendar import relation_hits
 from .layer_evidence_scope import normalize_layers
 from .layer_flow_modifier import LayerFlowModifier
@@ -109,6 +110,7 @@ from .marriage_flow_modifier import (
     detect_marriage_flow_activations,
 )
 from .peer_mobility_seed import (
+    GISIN_SECTION,
     load_peer_mobility_rule,
     merge_peer_mobility_seeds,
     produce_peer_mobility_seeds,
@@ -126,10 +128,21 @@ from .risk_engine import (
     SelectionContext,
     build_raw_period_facts,
 )
+from .role_event_seed import (
+    load_role_event_seed_config,
+    merge_role_event_seeds,
+    produce_role_event_seeds,
+)
 from .ten_god_brancher import TenGodEventBrancher, TransitSignal
+from .transit_clash_support import (
+    apply_transit_clash_support,
+    load_transit_clash_rule,
+    transit_clashes,
+)
 from .twelve_stage_modifier import TwelveStageModifier
 from .wealth_activation_modifier import WealthActivationModifier
 from .wealth_capacity import analyze_wealth_capacity, detect_wealth_activations
+from .yearly_ten_god_signals import apply_yearly_ten_god_signals, load_yearly_signal_rules
 from .yongi_quality_engine import YongiQualityEngine
 
 # 만세 운 계층 → 새 엔진 LuckLayer.
@@ -232,6 +245,12 @@ class EventEngineV2:
         daewoon_hwa_mode: str = "current",
         enable_resource_clash_renewal: bool = False,
         enable_peer_mobility: bool = True,
+        enable_peer_gisin_mobility: bool = True,
+        enable_yearly_ten_god_signals: bool = True,
+        yong_tier_mode: str = "off",
+        enable_transit_clash_support: bool = False,
+        enable_role_event_seed: bool = False,
+        role_event_seed_rule_ids: Collection[str] | None = None,
     ) -> None:
         """재설계 6계층 + 만세 신호 추출에 필요한 사전을 로드한다.
 
@@ -259,6 +278,24 @@ class EventEngineV2:
             enable_peer_mobility: 비겁 용신 × 비겁 운 유입 → career_change 시드(2026-10-14 데굴님
                 확정, 기본 ON). 규칙·점수는 브랜처 사전 `peer_yongsin_mobility_rules` 절.
                 OFF면 불변.
+            enable_peer_gisin_mobility: 비겁 기신 × 비겁 운 유입 → career_change 시드(용신 시드의
+                대칭, 2026-10-15 데굴님 확정, 기본 ON). 사전 `peer_gisin_mobility_rules` 절.
+                OFF면 불변.
+            enable_yearly_ten_god_signals: 세운 육신별 사건 신호 5계열(외부 교재 6장 대조,
+                2026-10-15, 기본 ON — 85사례 재생으로 적중 확인 후 유지). 사전
+                `yearly_ten_god_signal_rules`. OFF면 불변.
+            yong_tier_mode: 용신 배율 품질군 차등(2026-10-15 데굴님 승인). 'off'(기본)=기존 일괄
+                배율 / 'a'·'b'=유입 십성별 유익형 후보만 모드 배율(1.10/1.20), 그 외 1.00 + 사전
+                `favorable_role_tiering.extra_base_events`(편관 promotion·편인 creative_output)
+                브랜처 합류. off 면 불변.
+            enable_transit_clash_support: 운↔운 충(대운↔월운 辰戌충 등) → 이동형 후보
+                (career_change·relocation) 보조 가산(2026-10-15 승인, 선택 항목, 기본 OFF). 후보당
+                1회·사전 상수. OFF면 불변.
+            enable_role_event_seed: 역할별 사건 전환 시드(2026-10-16 데굴님 확정 6규칙 — 상관·편관·
+                편인 용신 운 / 정관·정인·식신 기신 운). 브랜처 직후 합류, 사전
+                `role_event_seed_rules`. 점수 규칙이라 기본 OFF — 85사례 적중률·실사례로 ON 결정.
+                OFF면 불변.
+            role_event_seed_rule_ids: 측정용 — 지정하면 그 규칙 id 만 적용(None=사전 enabled 전부).
         """
         self._enable_mt1_awareness = enable_mt1_awareness
         # 비겁 용신 × 비겁 운 → 직장 이동 시드(2026-10-14 데굴님 확정, 기본 ON). 규칙은 브랜처 사전
@@ -266,6 +303,23 @@ class EventEngineV2:
         self._enable_peer_mobility = enable_peer_mobility
         self._peer_mobility_rule = (
             load_peer_mobility_rule(dictionaries_dir) if enable_peer_mobility else None
+        )
+        # 기신 대칭 시드(2026-10-15) — 용신 시드와 같은 자리에서 합류, 길흉은 기신 품질 반전이
+        # 정한다.
+        self._peer_gisin_rule = (
+            load_peer_mobility_rule(dictionaries_dir, GISIN_SECTION)
+            if enable_peer_gisin_mobility else None
+        )
+        # 역할별 사건 전환 시드(2026-10-16) — 비겁 시드 다음 자리에서 합류. 기본 OFF.
+        self._role_seed_cfg = (
+            load_role_event_seed_config(dictionaries_dir) if enable_role_event_seed else None
+        )
+        self._role_seed_rule_ids = (
+            frozenset(role_event_seed_rule_ids) if role_event_seed_rule_ids is not None else None
+        )
+        # 세운 육신별 사건 신호(2026-10-15, 교재 6장 대조) — 사전 절 부재·OFF면 불변.
+        self._yearly_rules = (
+            load_yearly_signal_rules(dictionaries_dir) if enable_yearly_ten_god_signals else ()
         )
         self._enable_mt2_emergence = enable_mt2_emergence
         self._enable_mt3_directional = enable_mt3_directional
@@ -306,12 +360,27 @@ class EventEngineV2:
         except FileNotFoundError:
             # fresh-clone graceful — risks/ 사전이 없으면 위험 엔진만 비활성(기존 기능 무영향).
             self._risk = None
-        self._brancher = TenGodEventBrancher(dictionaries_dir)
+        # 용신 품질군 차등(2026-10-15) — 모드가 켜졌을 때만 규칙을 읽고 유익형 기본 후보를
+        # 브랜처에 더한다.
+        self._tiering = (
+            load_favorable_tiering(dictionaries_dir) if yong_tier_mode != "off" else None
+        )
+        self._yong_tier_mode = yong_tier_mode if self._tiering is not None else "off"
+        self._brancher = TenGodEventBrancher(
+            dictionaries_dir,
+            extra_base_events=self._tiering.extra_base_events if self._tiering else (),
+        )
+        # 운↔운 충 이동형 보조 가산(2026-10-15, 선택 항목) — OFF 또는 절 부재면 불변.
+        self._transit_clash_rule = (
+            load_transit_clash_rule(dictionaries_dir) if enable_transit_clash_support else None
+        )
         self._stage = TwelveStageModifier(dictionaries_dir)
         self._flow = LayerFlowModifier(dictionaries_dir)
         self._gate = AddendumGateModifier()
         self._relpalace = RelationPalaceEngine(dictionaries_dir)
-        self._yongi = YongiQualityEngine(dictionaries_dir)
+        self._yongi = YongiQualityEngine(
+            dictionaries_dir, tiering=self._tiering, tier_mode=self._yong_tier_mode,
+        )
         self._exam = ExamOutcomeModifier(dictionaries_dir)
         self._career_mobility = CareerMobilityModifier(dictionaries_dir)
         self._wealth_act = WealthActivationModifier()
@@ -611,15 +680,34 @@ class EventEngineV2:
             ]
         # 비겁 용신 × 비겁 유입 → career_change 시드(2026-10-14). 브랜처 직후 합류 → 6계층 보정·랭킹
         # 공통 적용(관성 충 등 다른 작용이 뒤에서 풀이를 바꿀 수 있어야 한다는 데굴님 지시).
-        if self._peer_mobility_rule is not None:
-            cands = merge_peer_mobility_seeds(
+        for _peer_rule in (self._peer_mobility_rule, self._peer_gisin_rule):
+            if _peer_rule is not None:
+                cands = merge_peer_mobility_seeds(
+                    cands,
+                    produce_peer_mobility_seeds(
+                        signals, target_layer, result, fav_map, label, _peer_rule,
+                    ),
+                )
+        # 역할별 사건 전환 시드(2026-10-16 데굴님 확정) — 사흉신 용신 운·사길신 기신 운의 사건
+        # 후보를 더해 순위로 전환한다. 브랜처 기본 가지는 불변, OFF 면 불변.
+        if self._role_seed_cfg is not None:
+            cands = merge_role_event_seeds(
                 cands,
-                produce_peer_mobility_seeds(
-                    signals, target_layer, result, fav_map, label, self._peer_mobility_rule,
+                produce_role_event_seeds(
+                    signals, target_layer, result, fav_map, label, self._role_seed_cfg,
+                    rule_ids=self._role_seed_rule_ids,
                 ),
             )
         if not cands:
             return []
+        # 세운 육신별 사건 신호(2026-10-15) — 겁재 관살 완화·운 천간합 동육신 가중·인재 합 투기·
+        # 관성년 장소 변경·식상년 인연 교체. 배율·가산·약한 시드(시드 극성은 뒤 계층이 덮어쓴다).
+        if self._yearly_rules:
+            cands = apply_yearly_ten_god_signals(
+                cands, signals=signals, target_layer=target_layer, target=target, result=result,
+                hits=self._relation_hits(result, level, target), rules=self._yearly_rules,
+                period=label,
+            )
         # 배우자성 성별 가중(③) — 남=재성·여=관성. 반대 성별 별만으로 뜬 결혼신호를 amplifier 전에
         # 약화(남:정관 단독=직위·자식 / 여:재성 단독=시댁). base 교정이라 브랜칭 직후 적용.
         cands = apply_marriage_gender_weight(cands, marriage_flow.gender)
@@ -707,6 +795,12 @@ class EventEngineV2:
             renewal_enabled=self._enable_resource_clash_renewal,
             ten_god_group_powers=group_powers,
         )
+        # 운↔운 충(대운↔월운 등) — 이동형 후보 보조 가산(2026-10-15 승인, 기본 OFF). 궁위 관계
+        # 보정과 같은 raw 단계에 둔다(용신 배율 앞). 후보당 1회·쌍 전부를 reason 1건에 기록.
+        if self._transit_clash_rule is not None:
+            cands = apply_transit_clash_support(
+                cands, transit_clashes(stack), self._transit_clash_rule,
+            )
         # 용신 품질 — 시점 유입 글자 오행의 용기신 역할. 본 천간이 합화(化)면 化神 오행으로 길흉
         # 판단(生剋制化 우선 — 사건 종류는 불변, 길흉만 化神 기준). 대운 배경 합화는 제외(국소).
         # 生剋制化 우선순위(化 > 制): 합화면 化神 길흉, 아니면 합거(기신 무력화) 여부를 본다.
@@ -749,6 +843,10 @@ class EventEngineV2:
         if period_v2_config.STRUCTURE_BACKGROUND_ENABLED:
             # A2(2026-09-18 승인) — 충근·개두절각·통관 부재·구응 손상·특수격 역행(favorability만).
             cands = _apply_luck_structure_flags(cands, target, result, fav_map)
+        if period_v2_config.DOUBLE_CLASH_FLAG_ENABLED:
+            # 이중 충(2026-10-15, 교재 2장·기타절 '원국 충이 있는데 운이 또 충하면 큰 화·충 둘은
+            # 불가') — favorability 만 소폭 감점, 점수·순위·사건 종류 불변.
+            cands = _apply_double_clash_flag(cands, target, result, hits)
         # 시험·합격·취업 결과 길흉 — 십성 구조 합·불 패턴으로 favorability만 보정(점수 불변,
         # 자료 9-3·9-4). 극성 NEUTRAL이어도 적용되도록 yongi 블록 밖에서 호출한다.
         cands = self._exam.apply(cands, present_gods)
@@ -1535,6 +1633,48 @@ def _apply_structure_background(
             "reason_codes": [*c.reason_codes, *reasons],
             **({"contributions": {**c.contributions, "fav_adj": round(prev + delta, 4)}}
                if delta else {}),
+        }))
+    return out
+
+
+def _apply_double_clash_flag(
+    cands: list[EventCandidateV2],
+    target: LuckPillar,
+    result: ManseV2Result,
+    hits: list[RelationHit],
+) -> list[EventCandidateV2]:
+    """이중 충 표지(2026-10-15) — 원국 충 쌍에 든 지지를 운 지지가 다시 충하면 fav_adj 소폭 감점.
+
+    교재(2장·기타절): 원국에 충이 있는데 운에서 또 충하면 큰 화, 충 하나는 괜찮아도 둘은 불가.
+    점수·순위·사건 종류는 건드리지 않고 favorability(fav_adj)만 STRUCTURE_PILLAR_PENALTY 의
+    절반을 뺀다. 측정은 85사례 방향 오탐으로.
+    """
+    sa = result.structure_analysis
+    if sa is None or not target.branch:
+        return cands
+    natal_clash = {m for i in sa.interactions if i.relation_type == "clash" for m in i.members}
+    if not natal_clash:
+        return cands
+    struck = sorted({
+        ref.branch for h in hits if h.type is RelationType.BRANCH_CLASH
+        for ref in h.natal_refs if ref.side == "natal" and ref.branch in natal_clash
+    })
+    if not struck:
+        return cands
+    code = f"沖_이중충_{target.branch}→{''.join(struck)}"
+    delta = -period_v2_config.STRUCTURE_PILLAR_PENALTY / 2
+    out: list[EventCandidateV2] = []
+    for c in cands:
+        if code in c.reason_codes:
+            out.append(c)
+            continue
+        prev = c.contributions.get("fav_adj", 0.0)
+        out.append(c.model_copy(update={  # provenance-audit: not-risk (EventCandidateV2)
+            "reason_codes": [*c.reason_codes, code],
+            # double_clash 키는 감사용(뒤 모디파이어가 fav_adj 를 덮어써도 적용 사실이 남는다).
+            "contributions": {
+                **c.contributions, "fav_adj": round(prev + delta, 4), "double_clash": delta,
+            },
         }))
     return out
 

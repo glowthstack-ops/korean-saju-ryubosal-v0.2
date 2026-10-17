@@ -604,6 +604,13 @@ def marriage_resource_lines(mr: MarriageResourceProfile) -> list[str]:
         f"배우자 별({mr.spouse_star}): {spouse}",
         wealth_line,
     ]
+    if mr.spouse_star_substitute:
+        # 여명 부성 대체 후보(2026-10-15) — 통설 설명 전용. 점수·판정·배우자 별 자체는 불변.
+        lines.append(
+            f"부성 대체 후보(통설·설명 전용, 점수 비개입): {mr.spouse_star_substitute} — "
+            f"{mr.spouse_star_substitute_basis}. 배우자 별({mr.spouse_star})과 함께 두 축으로 "
+            "읽을 것"
+        )
     if mr.hour_resource_role:
         lines.append(f"시주 자원 역할: {mr.hour_resource_role}")
     # 배우자 인연 결(중립·비낙인 — 궁합 자료 ⑤⑥): '바람둥이/과부상' 류 낙인 금지, 경향으로만.
@@ -716,6 +723,44 @@ def wealth_status_lines(w: WealthStatusLean) -> list[str]:
     ]
 
 
+def _health_letter_lines(result: ManseV2Result, hv: HealthVulnerabilityProfile) -> list[str]:
+    """취약 오행의 원국 글자별 신체 부위 + 오행 상전 계열(2026-10-15, 외부 교재 기타절 번역).
+
+    부위·계열만 싣고 질병명은 싣지 않는다(의료 단정 금지). 사전에 해당 키가 없으면 빈 목록.
+    """
+    from .health_vulnerability import load_health_organ_dict
+
+    organ_dict = load_health_organ_dict()
+    stems_map = organ_dict.get("stems") or {}
+    branches_map = organ_dict.get("branches") or {}
+    clash_map = organ_dict.get("clash_pairs") or {}
+    p = result.pillars
+    if p is None:
+        return []
+    out: list[str] = []
+    vulnerable = {o.element for o in hv.vulnerable_organs}
+    parts: list[str] = []
+    for pillar in (x for x in (p.year, p.month, p.day, p.hour) if x is not None):
+        for ch, el, table in (
+            (pillar.stem, pillar.stem_element, stems_map),
+            (pillar.branch, pillar.branch_element, branches_map),
+        ):
+            if str(el) in vulnerable and ch in table and ch not in {x.split("=")[0] for x in parts}:
+                parts.append(f"{ch}={'·'.join(table[ch])}")
+    if parts:
+        out.append("글자별 신체 부위(통설·참고, 부위만): " + " / ".join(parts[:4]))
+    pairs: list[str] = []
+    for o in hv.vulnerable_organs:
+        key = f"{o.attacker_element}{o.element}"
+        key2 = f"{o.element}{o.attacker_element}"
+        label = clash_map.get(key) or clash_map.get(key2)
+        if label and f"{key}" not in pairs:
+            pairs.append(f"{o.attacker_element}↔{o.element} {label}")
+    if pairs:
+        out.append("오행 상전 계열(참고): " + " / ".join(pairs))
+    return out
+
+
 def health_lines(
     result: ManseV2Result, hv: HealthVulnerabilityProfile, today_year: int
 ) -> list[str]:
@@ -731,6 +776,7 @@ def health_lines(
             for o in hv.vulnerable_organs
         )
         lines.append(f"취약 장기 계열(평소 관리 권장): {organs}")
+        lines += _health_letter_lines(result, hv)
     else:
         lines.append("취약 장기 계열: 두드러진 손상 구조는 약함")
     body = []

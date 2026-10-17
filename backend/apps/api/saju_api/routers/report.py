@@ -19,6 +19,7 @@ from saju_engines.report_plan import build_section_plans
 from saju_engines.subject_store import SubjectStore
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.report import ReportResult, ReportSpec
+from saju_shared_types.subject import RELATION_TO_USER_KO
 
 from ..deps import get_report_job_store, get_subject_store, require_owner
 from ..services import llm_service_state, report_service
@@ -181,9 +182,25 @@ class ReportJobSummary(BaseModel):
     created_at: str | None = None
 
 
+def _self_relation_label(relation_to_user: object) -> str:
+    """주 대상(kind=self)의 목록 라벨 — 등록 관계 키로만 정한다(2026-10-15 데굴님 승인).
+
+    spec 의 kind=self 는 '이 잡의 주 대상'이지 '계정 본인'이 아니다(SubjectGateway 는 아무 명식이나
+    주 대상으로 고른다 — 어머니 총운이 "박여사(본인)"으로 떴다). 채팅 모달(2026-10-14)과 같은 규칙:
+    kind 로 '본인'을 추정하지 않고 relation_to_user 한글만 쓴다. 키가 아예 없는 레거시 잡은 종전대로
+    '본인', ""(미설정)은 '관계 미설정'.
+    """
+    if relation_to_user is None:
+        return "본인"
+    key = str(relation_to_user)
+    if not key:
+        return "관계 미설정"
+    return RELATION_TO_USER_KO.get(key, key)
+
+
 def job_summary(j: dict) -> ReportJobSummary:
     """report_jobs 행(spec JSON 포함) → 목록 요약. 관계 라벨은 relationship_hints.RELATION_KO."""
-    from saju_engines.relationship_hints import RELATION_KO
+    from saju_engines.relationship_hints import RELATION_KO, normalize_relation_type
 
     spec = j.get("spec") or {}
     subjects = [s for s in (spec.get("subjects") or []) if isinstance(s, dict)]
@@ -192,9 +209,15 @@ def job_summary(j: dict) -> ReportJobSummary:
         kind = str(s.get("kind", ""))
         rel = s.get("relation_type")
         if kind == "self":
-            rel_label = "본인"
+            rel_label = _self_relation_label(s.get("relation_to_user"))
         elif rel:
-            rel_label = RELATION_KO.get(str(rel), str(rel))
+            # 상대 관계는 테마 14종 또는 등록 키 17종 — 등록 키는 테마 어휘로 번역해 라벨링하고,
+            # 번역이 없으면(other 등) 등록 한글, 그것도 없으면 '동반자'(영문 키 노출 금지,
+            # 2026-10-15 실측: "mother" 그대로 떴다).
+            _norm = normalize_relation_type(str(rel))
+            rel_label = (
+                RELATION_KO[_norm] if _norm else RELATION_TO_USER_KO.get(str(rel), "동반자")
+            )
         else:
             rel_label = "동반자"
         subs.append(ReportJobSubject(label=str(s.get("label", "")), kind=kind,

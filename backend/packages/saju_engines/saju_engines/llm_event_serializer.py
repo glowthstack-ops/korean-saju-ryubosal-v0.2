@@ -55,6 +55,27 @@ _REASON_PREFIX_KO: dict[str, str] = {
     # 인성 동요 신호(2026-08-10, relation_target_ten_god_rules) — 일반 REL_ 보다 앞.
     "REL_CHUNG_RESOURCE_RENEWAL": "문서 교체 자극(기존 계약·문서를 깨고 갈아타는 흐름)",
     "REL_CHUNG_RESOURCE_UNROOTED": "문서 동요(받치는 힘 약함 — 성사보다 흔들림·지연 배경)",
+    # 2026-10-15 — 용신 품질군 차등(유익형 가중)·운↔운 충 보조 근거. FLAT 코드는 감사용이라 미등록.
+    "YONG_TIER_FAVORABLE": "용신 유익형 가중(유익한 발현 후보 우선)",
+    # 2026-10-15 — 세운 육신별 사건 신호(교재 6장 대조).
+    "JIECAI_RESTRAINED_BY_OFFICER": "관살이 겁재를 제어(분쟁·손재 완화)",
+    "SAME_GOD_HAP": "운 천간이 원국과 합(그 십성 사건 강화)",
+    "RESOURCE_WEALTH_HAP_SPECULATION": "인성·재성 합(불로 이득을 바라는 흐름 — 투기 주의)",
+    "OFFICER_YEAR_RELOCATION": "관성 해의 장소 변경(사무실 이전 등)",
+    "OUTPUT_YEAR_RELATIONSHIP_CHANGE": "식상 해의 인연 교체 흐름",
+    "TRANSIT_CLASH": "운끼리 충(변화 보조 근거)",
+    # 2026-10-16 — 역할별 사건 전환 시드(사흉신 용신 운·사길신 기신 운) + 유입 강도·상위 뿌리 코드.
+    "ROLE_SEED_SHANGGUAN_YONG": "상관 용신 운(재능 발휘·표현·발표 쪽 전환)",
+    "ROLE_SEED_QISHA_YONG": "편관 용신 운(책임 있는 역할·직책 쪽 전환)",
+    "ROLE_SEED_PIANYIN_YONG": "편인 용신 운(자격·전문 연구·산출 쪽 전환)",
+    "ROLE_SEED_ZHENGGUAN_GI": "정관 기신 운(조직 구속·부담 속 역할 변동 쪽 전환)",
+    "ROLE_SEED_ZHENGYIN_GI": "정인 기신 운(의존·정체·결정 지연 쪽 전환)",
+    "ROLE_SEED_SHISHEN_GI": "식신 기신 운(설기 과다 — 소모·과로·지출 쪽 전환)",
+    "ROLE_INFLOW_SAME_GOD": "운 간여지동(같은 십성이 천간·지지로 강하게 유입)",
+    "ROLE_INFLOW_SAME_GROUP": "같은 십성군 천간·지지 유입",
+    "ROLE_INFLOW_STEM": "천간으로만 유입(약한 유입)",
+    "ROLE_INFLOW_BRANCH": "지지로만 유입(약한 유입)",
+    "ROLE_UPPER_SUPPORT_": "상위 운(대운·세운)에도 같은 십성 뿌리",
     "REL_": "관계 발동",
     "FLOW_GEN": "상생 흐름",
     "FLOW_REVERSE": "역행 흐름",

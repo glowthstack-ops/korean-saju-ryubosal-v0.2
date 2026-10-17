@@ -120,9 +120,11 @@ def test_incoming_note_marks_same_pillar_and_mobility(ganji, same_pillar, mobili
     assert ("한쪽으로만 들어와" in note) is weak
 
 
-def test_note_silent_when_peer_is_not_yongsin():
-    note = incoming_ten_god_note("己", "戊戌", {"土": "기신"})
-    assert "운 간여지동" in note and "직장·역할의 이동" not in note
+def test_note_silent_when_peer_is_neither_yongsin_nor_gisin():
+    """한신·희신·구신 비겁은 이동 문구 없음(용신·기신만 — 기신 대칭 2026-10-15)."""
+    for role in ("한신", "희신", "구신"):
+        note = incoming_ten_god_note("己", "戊戌", {"土": role})
+        assert "운 간여지동" in note and "직장·역할의 이동" not in note, role
 
 
 def test_classify_inflow_order():
@@ -150,3 +152,53 @@ def test_text_dictionary_valid_and_linted():
     )
     parsed = PeerMobilityTextFile.model_validate(data)
     assert _lint_peer_mobility_text(parsed) == []
+
+
+# ── 기신 대칭 시드(2026-10-15 데굴님 확정) ───────────────────────────────────
+
+# 1985-05-20 10:00 서울 남 — 己未 일주, 비겁 오행 土=기신. 2026-10 戊戌월은 겁재·겁재(운 간여지동)로
+# 실사례(용신 土)와 같은 달·같은 유입 강도라 대칭 비교에 적합하다.
+_GISIN_CASE = BirthInput(
+    birth_date=date(1985, 5, 20), birth_time="10:00:00", birth_place_name="서울", gender="male",
+)
+
+
+def test_gisin_rule_loads_as_mirror_of_yongsin_rule():
+    from saju_engines.peer_mobility_seed import GISIN_SECTION
+
+    y = load_peer_mobility_rule(_DICTS)
+    g = load_peer_mobility_rule(_DICTS, GISIN_SECTION)
+    assert y is not None and g is not None
+    assert g.rule_id == "PEER_GISIN_MOBILITY" and g.favorability_any == {"기신"}
+    assert g.base_by_inflow == y.base_by_inflow and g.layers == y.layers and g.event is y.event
+
+
+def test_gisin_chart_gets_mobility_seed_with_pressure_quality():
+    fm = favorability_map(calculate(_GISIN_CASE))
+    assert fm.get("土") == "기신"
+    cands = _month_candidates(_GISIN_CASE, 2026)
+    cc = [c for c in cands if c.period == "2026-10" and c.event_key.value == "career_change"]
+    assert cc, "2026-10 戊戌(겁재·겁재)에 이동 시드가 있어야 한다"
+    c = cc[0]
+    assert "PEER_GISIN_MOBILITY" in c.reason_codes and "PEER_INFLOW_SAME_GOD" in c.reason_codes
+    assert "PEER_YONGSIN_MOBILITY" not in c.reason_codes
+    assert c.quality is not None and c.quality.value in ("pressure", "loss", "conflict", "mixed")
+
+
+def test_gisin_seed_absent_when_flag_off_and_on_yongsin_chart():
+    off = _month_candidates(_GISIN_CASE, 2026, enable_peer_gisin_mobility=False)
+    assert not [
+        c for c in off if c.period == "2026-10" and "PEER_GISIN_MOBILITY" in c.reason_codes
+    ]
+    # 용신 명식(실사례)에는 기신 시드가 붙지 않는다.
+    y = _month_candidates(_CASE, 2026)
+    assert not [c for c in y if "PEER_GISIN_MOBILITY" in c.reason_codes]
+    assert [c for c in y if "PEER_YONGSIN_MOBILITY" in c.reason_codes]
+
+
+def test_incoming_note_uses_gisin_text_for_gisin_chart():
+    r = calculate(_GISIN_CASE)
+    fm = favorability_map(r)
+    note = incoming_ten_god_note(r.pillars.day_master, "戊戌", fm)
+    assert "비겁이 기신인 명식" in note and "비겁이 용신인 명식" not in note
+    assert "운 간여지동" in note

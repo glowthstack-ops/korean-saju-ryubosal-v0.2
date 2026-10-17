@@ -32,6 +32,8 @@ CATALOG_META: dict[str, dict] = {
     "천살": {"category": "isolation_conflict", "polarity": "caution", "tags": ["천재", "불가항력"]},
     # 길신
     "천을귀인": {"category": "noble_stars", "polarity": "positive", "tags": ["귀인", "보호"]},
+    # 천사(天赦) — 월지 계절별 일주 4종(2026-10-15, 외부 교재 3장 대조 후 추가 — evidence 전용).
+    "천사": {"category": "noble_stars", "polarity": "positive", "tags": ["사면", "구제"]},
     "천덕귀인": {"category": "noble_stars", "polarity": "positive", "tags": ["덕", "보호"]},
     "월덕귀인": {"category": "noble_stars", "polarity": "positive", "tags": ["덕", "보호"]},
     "태극귀인": {"category": "noble_stars", "polarity": "positive", "tags": ["귀인", "복록"]},
@@ -198,6 +200,14 @@ WONJIN: set[frozenset[B]] = {
 
 # 현침 (글자)
 HYEONCHIM_STEMS: set[S] = {S.GAP, S.SIN}
+# 천사(天赦): 월지 계절 → 해당 일주(寅卯辰→戊寅, 巳午未→甲午, 申酉戌→戊申, 亥子丑→甲子).
+# 통설 조견표(외부 교재 3장, 2026-10-15).
+CHEONSA: dict[B, tuple[S, B]] = {
+    B.IN: (S.MU, B.IN), B.MYO: (S.MU, B.IN), B.JIN: (S.MU, B.IN),
+    B.SA: (S.GAP, B.O), B.O: (S.GAP, B.O), B.MI: (S.GAP, B.O),
+    B.SIN: (S.MU, B.SIN), B.YU: (S.MU, B.SIN), B.SUL: (S.MU, B.SIN),
+    B.HAE: (S.GAP, B.JA), B.JA: (S.GAP, B.JA), B.CHUK: (S.GAP, B.JA),
+}
 HYEONCHIM_BRANCHES: set[B] = {B.MYO, B.O, B.SIN}
 
 # ---------------------------------------------------------------------------

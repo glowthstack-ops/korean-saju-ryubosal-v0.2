@@ -92,10 +92,11 @@ export function ConsensusBadge({
   item,
 }: {
   hu: HourUnknownAnalysis | null;
-  item: "strength_band" | "geokguk" | "useful_gods";
+  item: "strength_band" | "geokguk" | "useful_gods" | "structure_patterns";
 }) {
   if (!hu) return null;
   const c = hu[item];
+  if (!c) return null;
   if (c.status === "agree") {
     return (
       <span

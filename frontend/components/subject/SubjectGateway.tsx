@@ -11,7 +11,8 @@ import { useGnb } from "@/components/providers/GnbProvider";
 import { useSelectedSubject } from "@/components/providers/SelectedSubjectProvider";
 import { InlinePartnerForm } from "@/components/subject/InlinePartnerForm";
 import { SubjectCard } from "@/components/subject/SubjectCard";
-import { RELATION_OPTIONS, type CompanionChoice } from "@/lib/themes";
+import { RELATION_OPTIONS, themeRelationFromStored, type CompanionChoice } from "@/lib/themes";
+import { hasRelation, relationLabel } from "@/lib/relations";
 import { listSubjects } from "@/lib/subjects";
 import type { SubjectSummary } from "@/lib/types";
 
@@ -39,7 +40,11 @@ export function SubjectGateway({
   const [subjects, setSubjects] = useState<SubjectSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [primary, setPrimary] = useState<SubjectSummary | null>(null);
-  // 상대와의 관계(사용자 명시 선택) — 궁합(RP) 풀이 방향에 반영. null=미지정.
+  // 상대 카드 선택 뒤 '관계 확인' 단계(2026-10-15 데굴님 승인) — 등록 관계를 셀렉트에 미리 채우고
+  // 사용자가 확인·변경한 뒤 시작한다. 종전엔 셀렉트가 카드 위에 있고 기본값이 '선택 안 함(일반
+  // 궁합)'이라 등록 관계가 묵시적으로 쓰이는 것을 사용자가 알 수 없었다.
+  const [pendingCompanion, setPendingCompanion] = useState<SubjectSummary | null>(null);
+  // 상대와의 관계(사용자 명시 선택 또는 등록 관계 번역값) — 궁합(RP) 풀이 방향에 반영. null=일반 궁합.
   const [relationType, setRelationType] = useState<string | null>(null);
 
   useEffect(() => {
@@ -78,6 +83,71 @@ export function SubjectGateway({
 
   const addHref = `/onboarding?mode=add&next=${encodeURIComponent(returnTo)}`;
 
+  // 관계 확인 단계 — 등록 상대를 고른 뒤, 어떤 관계로 풀이할지 보여 주고 확인받는다.
+  if (mode !== "none" && primary && pendingCompanion) {
+    const comp = pendingCompanion;
+    const stored = hasRelation(comp) ? relationLabel(comp) : null;
+    const storedMapped = themeRelationFromStored(comp.relation_to_user);
+    const relationKo = RELATION_OPTIONS.find((r) => r.value === relationType)?.label ?? null;
+    return (
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">관계 확인</h2>
+        <div className="rounded-lg border bg-white p-4 text-sm shadow-sm">
+          <p>
+            <span className="text-gray-500">기준 사주</span>{" "}
+            <span className="font-medium">{primary.label}</span>
+          </p>
+          <p className="mt-1">
+            <span className="text-gray-500">상대</span>{" "}
+            <span className="font-medium">{comp.label}</span>
+            {stored && <span className="ml-1 text-xs text-purple-600">등록 관계: {stored}</span>}
+          </p>
+          <label className="mt-3 block">
+            <span className="font-medium">{primary.label}님에게 {comp.label}님은 어떤 관계인가요?</span>
+            <select
+              value={relationType ?? ""}
+              onChange={(e) => setRelationType(e.target.value || null)}
+              className="mt-1.5 w-full rounded border px-2 py-1.5 text-sm"
+            >
+              <option value="">선택 안 함 (일반 궁합으로 풀이)</option>
+              {RELATION_OPTIONS.map((r) => (
+                <option key={r.value} value={r.value}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="mt-1.5 text-xs text-gray-500">
+            {relationType && storedMapped && relationType === storedMapped
+              ? `등록된 관계(${stored})에 맞춰 '${relationKo}' 방향으로 풀이해요. 다른 관계면 바꿔 주세요.`
+              : relationType
+                ? `'${relationKo}' 관계로 풀이해요. 연애 관계가 아니면 연애·결혼 풀이는 넣지 않아요.`
+                : stored
+                  ? `등록 관계(${stored})를 풀이에 쓸 수 없어 일반 궁합으로 풀이해요. 관계를 고르면 그에 맞게 풀이해요.`
+                  : "관계를 고르면 그에 맞게 풀이해요. 비워 두면 일반 궁합이에요."}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setCompanion({ subjectId: comp.subject_id, label: comp.label });
+            onResolved(primary, { mode: "registered", subject: comp, relationType });
+          }}
+          className="w-full rounded-lg bg-indigo-600 px-4 py-3 text-sm font-medium text-white hover:bg-indigo-700"
+        >
+          이 관계로 풀이 시작 →
+        </button>
+        <button
+          type="button"
+          onClick={() => setPendingCompanion(null)}
+          className="text-xs text-gray-500 hover:underline"
+        >
+          ← 다른 상대 선택
+        </button>
+      </section>
+    );
+  }
+
   // 동반자 선택 단계(optional·required).
   if (mode !== "none" && primary) {
     const others = subjects.filter((s) => s.subject_id !== primary.subject_id);
@@ -91,28 +161,6 @@ export function SubjectGateway({
           <span className="font-medium">{primary.label}</span>님과 함께 볼 상대를 골라 주세요.
           {optional && " 상대를 더하면 두 사람의 궁합·극복 전략까지 풀이합니다."}
         </p>
-        {/* 상대와의 관계 — 관계에 따라 풀이 방향이 달라진다(연인/배우자/상사 등, 2026-07-03).
-            미선택 시 등록 동반자의 저장 관계 → 그것도 없으면 중립 궁합 톤. */}
-        <label className="block rounded-lg border bg-white p-3">
-          <span className="text-sm font-medium">
-            {primary.label}님과 상대는 어떤 관계인가요?
-          </span>
-          <select
-            value={relationType ?? ""}
-            onChange={(e) => setRelationType(e.target.value || null)}
-            className="mt-1.5 w-full rounded border px-2 py-1.5 text-sm"
-          >
-            <option value="">선택 안 함 (일반 궁합으로 풀이)</option>
-            {RELATION_OPTIONS.map((r) => (
-              <option key={r.value} value={r.value}>
-                {r.label}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1 text-[11px] text-gray-400">
-            관계를 알려주시면 그 관계에 맞는 방향으로 풀이해 드려요.
-          </p>
-        </label>
         {optional && (
           <button
             onClick={() => {
@@ -138,12 +186,9 @@ export function SubjectGateway({
                 key={s.subject_id}
                 subject={s}
                 onSelect={(comp) => {
-                  setCompanion({ subjectId: comp.subject_id, label: comp.label });
-                  onResolved(primary, {
-                    mode: "registered",
-                    subject: comp,
-                    relationType,
-                  });
+                  // 바로 시작하지 않고 관계 확인 단계로 — 등록 관계를 테마 어휘로 미리 채운다.
+                  setPendingCompanion(comp);
+                  setRelationType(themeRelationFromStored(comp.relation_to_user));
                 }}
               />
             ))}
@@ -157,10 +202,9 @@ export function SubjectGateway({
           </summary>
           <div className="mt-3">
             <InlinePartnerForm
-              showRelation={false}
-              onSubmit={(label, birth) => {
+              onSubmit={(label, birth, inlineRelation) => {
                 setCompanion(null);
-                onResolved(primary, { mode: "inline", label, birth, relationType });
+                onResolved(primary, { mode: "inline", label, birth, relationType: inlineRelation });
               }}
             />
           </div>

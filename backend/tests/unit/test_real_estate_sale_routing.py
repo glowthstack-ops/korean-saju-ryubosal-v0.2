@@ -64,3 +64,40 @@ def test_dry_run_prompt_uses_three_year_horizon_not_ten_year_digest():
     assert "2026~2035 10년" not in p
     assert "[운 흐름 요약 — 앞 12개월은 월 단위, 이후 3개년은" in p
     assert "계약·문서 @" in p  # 사건 후보 앵커
+
+
+# ── 매수·점포 양도(2026-10-15 데굴님 승인) — 매도만 고쳐 같은 증상이 남아 있던 반례 ──────────
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("아파트는 언제쯤 살 수 있을까", True), ("집을 언제 사면 좋을까", True),
+        ("집을 언제 사는게 좋을지", True), ("집 사고 싶은데 언제가 좋을까", True),
+        ("내 집 마련은 언제쯤", True), ("아파트 매수 시기", True), ("땅을 구입하려는데", True),
+        # 거주 '살다'·동형어는 매수가 아니다.
+        ("집에서 살 수 있을까", False), ("이 집 살게 될까", False), ("집은 살만할까", False),
+        ("집이 살기 좋을까", False), ("집안 분위기가 어때", False), ("이사 언제 갈까", False),
+    ],
+)
+def test_real_estate_purchase_vocabulary(text, expected):
+    from saju_engines.query_parser import is_real_estate_purchase
+
+    assert is_real_estate_purchase(text) is expected
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [("가게는 언제 넘기는 게 좋을까", True), ("점포 정리 시기", True), ("집에 가게 될까", False)],
+)
+def test_shop_transfer_counts_as_sale(text, expected):
+    assert is_real_estate_sale(text) is expected
+
+
+@pytest.mark.parametrize("text", ["아파트는 언제쯤 살 수 있을까", "가게는 언제 넘기는 게 좋을까"])
+def test_purchase_and_transfer_route_like_sale(text):
+    it = parse_message(text, _TODAY, current_month_label="2026-10").intents[0]
+    assert it.domain is Domain.WEALTH and it.event_key is EventKey.CONTRACT_DOCUMENT
+    assert it.event_keys == [EventKey.WEALTH_CHANGE]
+    assert it.time_range is not None and it.time_range.type == "open_when"
+    policy = resolve_horizon(text, it)
+    assert policy is not None and policy.kind == "transactional_when"

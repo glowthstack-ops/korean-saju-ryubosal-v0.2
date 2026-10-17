@@ -87,6 +87,15 @@ def _peer_mobility_text() -> dict[str, str]:
 
 
 @lru_cache(maxsize=1)
+def _role_event_text() -> dict[tuple[str, str], str]:
+    """역할별 사건 전환 문구((십성, 역할) → text) — transit_role_event_text.json(2026-10-16)."""
+    return {
+        (it["ten_god"], it["role"]): it["text"]
+        for it in _load("transit_role_event_text.json")["items"]
+    }
+
+
+@lru_cache(maxsize=1)
 def _ten_god_by_name() -> dict[str, dict]:
     return {item["tenGod"]: item for item in _load("ten_gods_text.json")["items"]}
 
@@ -680,7 +689,10 @@ def build_chart_interpretation(result: ManseV2Result) -> ChartInterpretation | N
                 ten_god_names.append(name)
 
     natal_relations, relation_ids = _natal_relations(result)
-    excerpts = _build_excerpts(pillars.day, ten_god_names, relation_ids)
+    excerpts = _build_excerpts(
+        pillars.day, ten_god_names, relation_ids, pillars=pillars,
+        palace_pairs=_relation_palace_pairs(result),
+    )
     excerpts += _sinsal_excerpts(result)
     excerpts += _favorability_excerpts(result)
     excerpts += _spouse_palace_excerpts(pillars.day.branch)
@@ -735,10 +747,57 @@ def _natal_relations(result: ManseV2Result) -> tuple[list[str], list[str]]:
     return lines, ids
 
 
+# 구조 분석 interactions 의 궁 라벨 → 궁위 키(관계 위치 쌍 서사용, 2026-10-15).
+_INTERACTION_PALACE_KEY = {
+    "뿌리·가족궁": "year", "직업·환경궁": "month", "배우자궁": "day", "자녀·결과궁": "hour",
+}
+_PALACE_ORDER = {"year": 0, "month": 1, "day": 2, "hour": 3}
+_PAIR_KIND_KO = {"clash": "충", "break": "파", "harm": "해"}
+
+
+def _relation_palace_pair_text() -> dict[tuple[str, str], dict]:
+    return {
+        (it["kind"], it["pair"]): it
+        for it in _load("relation_palace_pairs_text.json")["items"]
+    }
+
+
+def _void_ten_god_text() -> dict[str, str]:
+    return {it["ten_god"]: it["text"] for it in _load("void_ten_god_text.json")["items"]}
+
+
+def _relation_palace_pairs(result: ManseV2Result) -> list[tuple[str, str, str]]:
+    """원국 충·파·해 중 서로 다른 두 궁위 사이의 것 → (kind, pair, members) 목록(중복 제거)."""
+    sa = result.structure_analysis
+    if sa is None:
+        return []
+    out: list[tuple[str, str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for inter in sa.interactions:
+        if inter.relation_type not in _PAIR_KIND_KO or len(inter.palaces) != 2:
+            continue
+        keys = [_INTERACTION_PALACE_KEY.get(p) for p in inter.palaces]
+        if None in keys or keys[0] == keys[1]:
+            continue
+        a, b = sorted((str(keys[0]), str(keys[1])), key=lambda k: _PALACE_ORDER[k])
+        pair = f"{a}-{b}"
+        if (inter.relation_type, pair) in seen:
+            continue
+        seen.add((inter.relation_type, pair))
+        out.append((inter.relation_type, pair, "·".join(inter.members)))
+    return out
+
+
 def _build_excerpts(
-    day_pillar, ten_god_names: list[str], relation_ids: list[str]
+    day_pillar, ten_god_names: list[str], relation_ids: list[str], *, pillars=None,
+    palace_pairs: list[tuple[str, str, str]] | None = None,
 ) -> list[InterpretationExcerpt]:
-    """원국 활성 십성·일지 운성·원국 관계의 해석 발췌(전체 사전 투입 금지)."""
+    """원국 활성 십성·일지 운성·궁위별 운성·원국 관계의 해석 발췌(전체 사전 투입 금지).
+
+    궁위별 운성(2026-10-15): 연·월·일·시 각 기둥의 12운성을 `natal_by_palace`(연주=조상·초년,
+    월주=부모·형제·청년기, 일주=나·배우자·중년, 시주=자녀·말년)로 한 줄씩 싣는다 — 문체·서사 전용,
+    점수 비개입. 시주 미상이면 시주 줄은 없다.
+    """
     excerpts: list[InterpretationExcerpt] = []
     ten_gods = _ten_god_by_name()
     for name in ten_god_names:
@@ -755,6 +814,45 @@ def _build_excerpts(
             kind="twelve_stage", key=day_pillar.twelve_unseong,
             text=f"{stage_item['core']} {_first_sentence(stage_item['natal'], 200)}",
         ))
+    if pillars is not None:
+        stages = _stage_by_name()
+        for palace in ("year", "month", "day", "hour"):
+            pillar = getattr(pillars, palace, None)
+            if pillar is None:
+                continue
+            stage_name = str(getattr(pillar, "twelve_unseong", "") or "")
+            item = stages.get(stage_name)
+            text = (item or {}).get("natal_by_palace", {}).get(palace)
+            if text:
+                excerpts.append(InterpretationExcerpt(
+                    kind="twelve_stage_palace",
+                    key=f"{_PALACE_KO.get(palace, palace)} 운성 {stage_name}",
+                    text=text,
+                ))
+        # 공망 글자의 본기 십성별 서사(2026-10-15) — 공망 활성(충발·전실·합) 의미론은 별도.
+        void_texts = _void_ten_god_text()
+        for palace in ("year", "month", "hour"):
+            pillar = getattr(pillars, palace, None)
+            if pillar is None or not getattr(pillar, "gongmang_hit", False):
+                continue
+            tg = str(getattr(pillar, "branch_main_ten_god", "") or "")
+            text = void_texts.get(tg)
+            if text:
+                excerpts.append(InterpretationExcerpt(
+                    kind="void_ten_god",
+                    key=f"공망 {pillar.branch}({_PALACE_KO.get(palace, palace)} {tg})",
+                    text=text,
+                ))
+    # 원국 충·파·해의 궁위 쌍 서사(2026-10-15) — 관계 자체의 서술과 별개로 '어느 자리끼리'를 싣는다.
+    pair_texts = _relation_palace_pair_text()
+    for kind, pair, members in palace_pairs or []:
+        item = pair_texts.get((kind, pair))
+        if item:
+            excerpts.append(InterpretationExcerpt(
+                kind="relation_palace",
+                key=f"{_PAIR_KIND_KO[kind]} {item['pair_ko']}({members})",
+                text=item["text"],
+            ))
     relation_texts = _relation_text_by_id()
     for rel_id in relation_ids[:_MAX_RELATION_EXCERPTS]:
         item = relation_texts.get(rel_id)
@@ -1011,9 +1109,21 @@ def incoming_ten_god_note(
         body += f" · 운 간여지동(천간·지지 모두 {stem_tg}): {texts['same_pillar']}"
     peer_el = str(STEM_ELEMENT[dm])
     peer_inflow = stem_el == peer_el or branch_el == peer_el
-    if peer_inflow and fav_map.get(peer_el) == "용신":
-        body += f" · {texts['peer_yongsin_mobility']}"
+    peer_role = fav_map.get(peer_el)
+    if peer_inflow and peer_role in ("용신", "기신"):
+        # 기신 대칭(2026-10-15 데굴님 확정) — 이동 뒤 흐름이 나쁜 쪽. 문구는 사전에서 고르기만 한다.
+        key = "peer_yongsin_mobility" if peer_role == "용신" else "peer_gisin_mobility"
+        body += f" · {texts[key]}"
         if not (stem_el == peer_el and branch_el == peer_el):
             body += f" {texts['weak_inflow']}"
+    # 역할별 사건 전환(2026-10-16 데굴님 확정 6규칙) — 사흉신 용신 운·사길신 기신 운. 문구층은
+    # 시드 플래그와 무관하게 항상 노출(문구는 사전에서 고르기만 한다). 천간·지지 같은 십성이면 1회.
+    role_texts = _role_event_text()
+    seen: set[tuple[str, str]] = set()
+    for tg, el in ((stem_tg, stem_el), (branch_tg, branch_el)):
+        role_key = (tg, fav_map.get(el, ""))
+        if role_key in role_texts and role_key not in seen:
+            seen.add(role_key)
+            body += f" · {role_texts[role_key]}"
     guard = _operational_guard_suffix([stem_el, branch_el], op)
     return f"{body} {guard}".strip() if guard else body

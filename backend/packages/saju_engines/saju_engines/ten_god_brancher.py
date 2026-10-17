@@ -9,6 +9,7 @@ addendum의 transit_source_strength(천간/지지 본기/천간·지지 동일 �
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -37,6 +38,7 @@ from .contribution_provenance import (
     evidence_id_of,
     signal_id_of,
 )
+from .favorable_role_tiering import ExtraBaseEvent
 from .layer_evidence_scope import normalize_layers
 
 # ── 사전 로더 모델(lenient — 모델 외 필드는 무시) ─────────────────
@@ -168,8 +170,20 @@ class _Acc:
 class TenGodEventBrancher:
     """십성 조합 → 사건 타입 후보(EventCandidateV2)."""
 
-    def __init__(self, dictionaries_dir: Path) -> None:
-        """event_engine/ 사전을 로드해 룰을 인덱싱한다."""
+    def __init__(
+        self,
+        dictionaries_dir: Path,
+        *,
+        extra_base_events: Sequence[ExtraBaseEvent] = (),
+    ) -> None:
+        """event_engine/ 사전을 로드해 룰을 인덱싱한다.
+
+        Args:
+            dictionaries_dir: 사전 원본 루트.
+            extra_base_events: 용신 품질군 차등 모드가 켜졌을 때만 단일 운 규칙에 더하는 유익형
+                기본 후보(`favorable_role_tiering.extra_base_events`, 2026-10-15). 비어 있으면
+                기존 결과 불변.
+        """
         d = dictionaries_dir / "event_engine"
         branching = _BranchingFile.model_validate(self._read(d / "transit_ten_god_branching.json"))
         addendum = _AddendumFile.model_validate(
@@ -178,6 +192,10 @@ class TenGodEventBrancher:
         self._single: dict[TenGod, _SingleRule] = {
             r.incoming: r for r in branching.single_transit_rules
         }
+        for extra in extra_base_events:
+            srule = self._single.get(extra.incoming)
+            if srule is not None and all(ev.event is not extra.event for ev in srule.base_events):
+                srule.base_events.append(_BaseEvent(event=extra.event, score=extra.score))
         self._group: list[tuple[frozenset[TenGodGroup], _GroupRule]] = [
             (frozenset(r.groups), r) for r in branching.group_combination_rules
         ]
