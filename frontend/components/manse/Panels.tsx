@@ -5,7 +5,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Collapsible } from "@/components/layout/Collapsible";
 import { InfoTooltip } from "@/components/layout/InfoTooltip";
 import { ConsensusBadge, GhostOverlay, hourUnknownOf, isHourUnknown } from "./HourUnknown";
-import { fetchLuckMonths } from "@/lib/api";
+import { fetchLuckMonths, fetchPatternTimeline } from "@/lib/api";
 import { withoutBranchMarkers } from "@/lib/sinsal-display";
 import { ELEMENT_KO, elementLabel, elementStyle, ganjiKo } from "@/lib/elements";
 import { applyCalibrationToLuckCycles, applyCalibrationToLuckPillars } from "@/lib/luck-calibration";
@@ -13,7 +13,7 @@ import {
   JA_HOUR_RULE_DESC, JA_HOUR_RULE_LABEL,
   type CalibrationResult, type JaHourRule, type LuckPillar, type LuckSinsal, type ManseResult,
   type FolkTabooHit, type SamjaeInfo,
-  type Profile,
+  type Profile, type StructurePatternItem, type PatternTimeline, type PatternTimelineCell,
 } from "@/lib/types";
 
 // 백엔드 응답에 일부 필드가 없어도(구버전/부분 데이터) 깨지지 않도록 방어.
@@ -766,7 +766,21 @@ function InteractionRow({ item, pillars }: { item: Record<string, unknown>; pill
   );
 }
 
+// 원국 구조 배합 한 줄 — "상관생재(傷官生財) — 설명 (별칭: 재파인)". 설명은 백엔드 llm_tag 에서
+// "이름: " 접두를 떼어 쓴다(사전 문구가 SSOT, 프론트 즉석 작문 없음). 강도 숫자·길흉은 표기하지 않는다.
+function patternLine(p: StructurePatternItem): string {
+  const desc = p.llm_tag.replace(/^[^:]+:\s*/, "");
+  const alias = p.aliases.length ? ` (별칭: ${p.aliases.join("·")})` : "";
+  const basis = p.basis_note ? ` · ${p.basis_note}` : "";
+  return `${p.name_ko}(${p.name_hanja}) — ${desc}${alias}${basis}`;
+}
+
 export function StructurePanel({ result }: { result: ManseResult }) {
+  const patterns = result.structure_patterns ?? [];
+  const hourUnknown = isHourUnknown(result);
+  const hu = hourUnknownOf(result);
+  // 시주 미상: 백엔드가 '후보 전부 일치' 배합만 남긴다. 갈리는 배합은 이름만 흐리게 두고 레이어로 덮는다.
+  const differPatterns = hourUnknown ? (hu?.structure_patterns?.values ?? []) : [];
   const pillars = result.pillars;
   const items = [...result.structure_analysis.interactions].sort(
     (a, b) => relOrder(a) - relOrder(b),
@@ -812,6 +826,42 @@ export function StructurePanel({ result }: { result: ManseResult }) {
           )}
           {allItems.map((it, idx) => <li key={idx}>{itemLine(it, pillars)}</li>)}
         </ul>
+        {/* 구조 배합(십성·오행 배합) — 백엔드 선별본 그대로, 강도 내림차순·상한 없음(2026-10-17 데굴님 승인). */}
+        {(patterns.length > 0 || hourUnknown) && (
+          <div className="mt-1.5 border-t border-gray-200 pt-1.5">
+            <div className="mb-0.5 flex items-center gap-2 font-bold text-gray-700">
+              <span className="flex items-center">
+                구조 배합
+                <InfoTooltip text="원국에서 성립하는 십성·오행 배합의 구조 이름입니다. 흐름의 형태를 이름 붙인 것이지 길흉 판정이 아니며, 실제 작용은 용신과 운의 흐름과 함께 봅니다." />
+              </span>
+              <ConsensusBadge hu={hu} item="structure_patterns" />
+            </div>
+            {patterns.length > 0 && (
+              <ul className="space-y-0.5">
+                {patterns.map((p) => <li key={p.pattern_id}>{patternLine(p)}</li>)}
+              </ul>
+            )}
+            {/* 시주 미상 — 후보에 따라 갈리는 배합은 확정하지 않는다(정책: 미상≠없음, 고스트 레이어로 영역 유지). */}
+            {hourUnknown && differPatterns.length > 0 && (
+              <GhostOverlay
+                className="mt-1"
+                label="미확정 · 시주 미상"
+                sub={`출생시각에 따라 갈림: ${differPatterns.slice(0, 6).join(" / ")}${differPatterns.length > 6 ? ` 외 ${differPatterns.length - 6}종` : ""}`}
+              >
+                <ul className="space-y-0.5">
+                  {differPatterns.map((n) => <li key={n}>{n} — 후보 시진 일부에서만 성립</li>)}
+                </ul>
+              </GhostOverlay>
+            )}
+            {hourUnknown && patterns.length === 0 && differPatterns.length === 0 && (
+              <GhostOverlay className="mt-1" label="산출 불가" sub="시주 미상 · 후보 전부에서 성립하는 배합 없음">
+                <ul className="space-y-0.5">
+                  <li>상관생재(傷官生財) — 표현·기획이 수익으로 연결되는 구조</li>
+                </ul>
+              </GhostOverlay>
+            )}
+          </div>
+        )}
         <div className="mt-1.5 space-y-1 border-t border-gray-200 pt-1.5">
           {gm && (
             <div>
@@ -957,7 +1007,7 @@ function folkTitle(hits: FolkTabooHit[]): string {
 
 function LuckCol({
   topLabel, stem, branch, stemEl, branchEl, stemGod, branchGod, unseong, sinsal, samjae, folk,
-  current, selected, onClick, colRef,
+  patterns, current, selected, onClick, colRef,
 }: {
   topLabel: string;
   stem: string;
@@ -970,6 +1020,7 @@ function LuckCol({
   sinsal?: LuckSinsal[];
   samjae?: SamjaeInfo | null;
   folk?: FolkTabooHit[];
+  patterns?: string[]; // 운 적용 구조 상태(세운·월운) — 성립≠길흉
   current?: boolean;
   selected?: boolean;
   onClick?: () => void;
@@ -1005,6 +1056,14 @@ function LuckCol({
           {samjae.label_ko}{samjae.quality_label ? `·${samjae.quality_label.charAt(0)}` : ""}
         </span>
       )}
+      {patterns && patterns.length > 0 && (
+        <span
+          title={`구조 변화(이 기간 한정 작동 · 길흉 아님)\n${patterns.join("\n")}`}
+          className="rounded bg-sky-50 px-1 text-[9px] font-medium leading-tight text-sky-700 ring-1 ring-sky-200"
+        >
+          구조 {patterns.length}
+        </span>
+      )}
       {folk && folk.length > 0 && (
         <span
           title={folkTitle(folk)}
@@ -1037,15 +1096,117 @@ function LuckCol({
 // 선택한 세운의 삼재·민속 흉방 상세 — 월운 스트립 하단에 연도와 함께 노출(2026-09-22 데굴님 지시).
 // 배지의 title 툴팁은 마우스 오버 전용이라 모바일에서 볼 수 없었다. 세운 컬럼을 탭(=선택)하는 기존
 // 제스처로 같은 정보를 펼친다. 배지가 없는 해는 렌더하지 않는다(무소음).
-function SelectedYearNote({ pillar }: { pillar: LuckPillar }) {
+// 구조 배합 흐름 종합 — 대운·세운·월운에 나눠 보이던 '구조 변화'를 한 영역으로 합쳤다(2026-10-17 데굴님 제안).
+// 배지의 title 툴팁은 모바일에서 볼 수 없으므로 내용은 전부 이 영역(접이식)에서 읽는다.
+const CELL_SYMBOL: Record<PatternTimelineCell["status"], string> = {
+  new: "＋", strengthened: "↑", weakened: "↓", resolved: "×", unchanged: "·",
+};
+const CELL_CLASS: Record<PatternTimelineCell["status"], string> = {
+  new: "text-emerald-700 font-semibold", strengthened: "text-sky-700", weakened: "text-amber-700",
+  resolved: "text-rose-700 font-semibold", unchanged: "text-gray-300",
+};
+function cellSymbol(c: PatternTimelineCell | null): string {
+  if (!c) return "·";
+  if (c.status === "unchanged") return c.operating ? "●" : "·";
+  return CELL_SYMBOL[c.status];
+}
+function cellClass(c: PatternTimelineCell | null): string {
+  if (!c) return "text-gray-300";
+  if (c.status === "unchanged") return c.operating ? "text-gray-500" : "text-gray-300";
+  return CELL_CLASS[c.status];
+}
+function PatternTimelinePanel({ tl, loading }: { tl: PatternTimeline | null; loading: boolean }) {
+  if (!tl) {
+    return loading ? <p className="mt-2 text-[11px] text-gray-400">구조 배합 흐름 불러오는 중…</p> : null;
+  }
+  if (tl.hour_unknown) {
+    return (
+      <GhostOverlay className="mt-2" label="산출 불가" sub="시주 미상 — 세력 기반 구조 흐름은 후보 시진에 따라 달라집니다">
+        <div className="rounded-md border border-gray-200 bg-white px-2.5 py-2 text-[11px] text-gray-500">
+          재다신약(財多身弱) 원국 성립 → 대운 완화 → 세운 해소 → 3·4월 재활성
+        </div>
+      </GhostOverlay>
+    );
+  }
+  if (tl.rows.length === 0) return null;
+  return (
+    <Collapsible title={`${tl.year}년 구조 배합 흐름 (원국 → 대운 → 세운 → 월)`} className="mt-2">
+      <div className="mb-1.5 text-[10px] leading-snug text-gray-400">
+        ＋신규 성립 · ↑강화 · ↓완화 · ×해소 · ●작동 중 · ·변동 없음 — 각 칸은 직전 층 대비(대운=원국, 세운=대운, 월=세운).
+        구조 작동의 변화이지 길흉 판정이 아닙니다.
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-center text-[11px]">
+          <thead className="text-gray-400">
+            <tr className="border-b">
+              <th className="px-1 py-1 text-left">배합</th>
+              <th className="px-1 py-1">원국</th>
+              <th className="px-1 py-1">대운{tl.daewoon_ganji ? ` ${tl.daewoon_ganji}` : ""}</th>
+              <th className="border-r-2 border-gray-300 px-1 py-1">세운{tl.year_ganji ? ` ${tl.year_ganji}` : ""}</th>
+              {/* 월 순서는 간지 스트립과 같게 우→좌 오름차순(12월이 왼쪽) — 2026-10-17 데굴님 지적.
+                  칸마다 왼쪽 구분선을 두어 월 경계를 보이게 한다. */}
+              {[...tl.month_labels].map((m, i) => ({ m, i })).reverse().map(({ m, i }) => (
+                <th key={m} className="border-l border-gray-200 px-1 py-1 font-normal" title={`${m} ${tl.month_ganji[i] ?? ""}`}>
+                  {Number(m.slice(5))}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {tl.rows.map((r) => (
+              <tr key={r.pattern_id}>
+                <td className="whitespace-nowrap px-1 py-1 text-left text-gray-700">
+                  {r.name_ko}{r.name_hanja ? <span className="ml-0.5 text-[10px] text-gray-400">{r.name_hanja}</span> : null}
+                </td>
+                <td className="px-1 py-1">{r.natal_established ? <span className="text-gray-700">성립</span> : <span className="text-gray-300">–</span>}</td>
+                <td className={`px-1 py-1 ${cellClass(r.daewoon)}`}>{r.daewoon && r.daewoon.status !== "unchanged" ? r.daewoon.label : cellSymbol(r.daewoon)}</td>
+                <td className={`border-r-2 border-gray-300 px-1 py-1 ${cellClass(r.year)}`}>{r.year && r.year.status !== "unchanged" ? r.year.label : cellSymbol(r.year)}</td>
+                {r.months.map((c, i) => ({ c, i })).reverse().map(({ c, i }) => (
+                  <td key={i} className={`border-l border-gray-200 px-1 py-1 ${cellClass(c)}`} title={c ? `${tl.month_labels[i]} ${c.label}` : tl.month_labels[i]}>
+                    {cellSymbol(c)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <ul className="mt-2 space-y-0.5 text-[11px] text-gray-700">
+        {tl.rows.map((r) => (
+          <li key={r.pattern_id}>
+            <span className="font-semibold">{r.name_ko}</span> — {r.summary}
+            {r.flags.length > 0 && <span className="ml-1 text-[10px] text-gray-400">({r.flags.map((f) => FLAG_KO[f] ?? f).join(" · ")})</span>}
+          </li>
+        ))}
+      </ul>
+    </Collapsible>
+  );
+}
+const FLAG_KO: Record<string, string> = {
+  burden: "일간이 약한데 식상·재성이 커서 부담으로도 작동",
+  over_control: "제어가 지나쳐 눌리는 쪽의 쓸모까지 막힐 수 있음",
+  competition: "다른 구조와 함께 작동(경쟁)",
+  broken: "한쪽 글자가 합거·충으로 손상",
+  reversal: "해소를 넘어 일간 쪽이 과해져 반대 불균형으로 넘어갈 수 있음",
+  no_yin: "인성이 없는 무인(無印) 구조",
+  wealth_feeds_killing: "재성이 칠살을 생해 제살 효과가 상쇄될 수 있음",
+  excessive: "제살이 과해 칠살의 쓸모까지 줄어들 수 있음",
+  dm_lacks_support: "일간이 통근·비겁·인성 어디에도 의지할 곳이 없음",
+  yin_restrains_output: "인성이 식상을 눌러 과한 제살이 완화됨",
+  rescued: "인성 또는 재성이 끼어 충돌이 완화됨",
+};
+
+function SelectedYearNote({ pillar, bare = false }: { pillar: LuckPillar; bare?: boolean }) {
   const samjae = pillar.samjae ?? null;
   const folk = pillar.folk_taboos ?? [];
   if (!samjae && folk.length === 0) return null;
   return (
-    <div className="mt-1 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2 text-[11px] leading-snug text-gray-700">
+    <div className={bare
+      ? "text-[11px] leading-snug text-gray-700"
+      : "mt-1 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2 text-[11px] leading-snug text-gray-700"}>
       <div className="mb-1 font-semibold text-gray-800">
         {pillar.label}년 {pillar.stem}{pillar.branch}({ganjiKo(pillar.stem)}{ganjiKo(pillar.branch)})
-        <span className="ml-1 font-normal text-[10px] text-gray-400">선택한 해 상세 정보</span>
+        {!bare && <span className="ml-1 font-normal text-[10px] text-gray-400">선택한 해 상세 정보</span>}
       </div>
       {samjae && (
         <div className="mb-1.5">
@@ -1154,6 +1315,9 @@ export function LuckPanel({
     lc?.current_year != null ? { [lc.current_year]: lc.monthly_luck } : {},
   );
   const [loadingYear, setLoadingYear] = useState<number | null>(null);
+  // 구조 배합 흐름(원국→대운→세운→월) — 선택 연도 단위로 조회·캐시.
+  const [timelineCache, setTimelineCache] = useState<Record<number, PatternTimeline>>({});
+  const [loadingTimeline, setLoadingTimeline] = useState<number | null>(null);
   const dwRef = useRef<HTMLButtonElement>(null);
   const syRef = useRef<HTMLButtonElement>(null);
   const moRef = useRef<HTMLButtonElement>(null);
@@ -1164,7 +1328,20 @@ export function LuckPanel({
   // 균시차 토글 등으로 결과가 재계산되면 이전 옵션 기준의 월운 캐시를 버리고 재시드.
   useEffect(() => {
     setMonthsCache(lc?.current_year != null ? { [lc.current_year]: lc.monthly_luck } : {});
+    setTimelineCache({});
   }, [lc]);
+  // 선택 연도의 구조 배합 흐름 조회(캐시 미적중 시).
+  useEffect(() => {
+    if (selYear == null || !profile || timelineCache[selYear]) return;
+    let cancelled = false;
+    setLoadingTimeline(selYear);
+    fetchPatternTimeline(profile, selYear, undefined, timeOptions)
+      .then((tl) => { if (!cancelled) setTimelineCache((c) => ({ ...c, [selYear]: tl })); })
+      .catch(() => { /* 무시: 실패 시 영역 미표시 */ })
+      .finally(() => { if (!cancelled) setLoadingTimeline(null); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selYear, profile, timeOptions]);
   if (!lc) return null;
 
   const jiao = (lc.trace?.exact_jiao_un_dates as string[] | undefined) ?? [];
@@ -1225,54 +1402,15 @@ export function LuckPanel({
           <LuckCol key={d.index} topLabel={`${d.start_age}세`} stem={d.stem} branch={d.branch}
             stemEl={d.stem_effect?.element} branchEl={d.branch_effect?.element}
             stemGod={d.stem_ten_god} branchGod={d.branch_ten_god} unseong={d.twelve_unseong}
-            sinsal={d.luck_sinsal}
+            sinsal={d.luck_sinsal} patterns={d.pattern_changes}
             current={d.index === lc.current_daewoon_index} selected={d.index === selDaewoon}
             colRef={d.index === selDaewoon ? dwRef : undefined}
             onClick={() => selectDaewoon(d.index)} />
         ))}
       </LuckStrip>
-
-      {sewoon.length > 0 && (
-        <LuckStrip label="세운" hint="선택 시 해당 월운과 삼재·흉방 상세가 표시됩니다">
-          {[...sewoon].reverse().map((y) => (
-            <LuckCol key={y.label} topLabel={y.label} stem={y.stem} branch={y.branch}
-              stemEl={y.stem_effect?.element} branchEl={y.branch_effect?.element}
-              stemGod={y.stem_ten_god} branchGod={y.branch_ten_god} unseong={y.twelve_unseong}
-              sinsal={y.luck_sinsal} samjae={y.samjae} folk={y.folk_taboos}
-              current={Number(y.label) === lc.current_year} selected={Number(y.label) === selYear}
-              colRef={Number(y.label) === selYear ? syRef : undefined}
-              onClick={() => selectYear(Number(y.label))} />
-          ))}
-        </LuckStrip>
-      )}
-
-      {selYear != null && (
-        <LuckStrip label="월운" hint="선택 시 간지달력으로 이동합니다">
-          {loadingYear === selYear && months.length === 0 ? (
-            <span className="py-4 text-[11px] text-gray-400">월운 불러오는 중…</span>
-          ) : (
-            [...months].reverse().map((m) => (
-              <LuckCol key={m.label} topLabel={`${Number(m.label.slice(5))}월`} stem={m.stem} branch={m.branch}
-                stemEl={m.stem_effect?.element} branchEl={m.branch_effect?.element}
-                stemGod={m.stem_ten_god} branchGod={m.branch_ten_god} unseong={m.twelve_unseong}
-                sinsal={m.luck_sinsal}
-                current={m.label === curMonthLabel}
-                colRef={m.label === curMonthLabel ? moRef : undefined}
-                onClick={() => selectMonth(m.label)} />
-            ))
-          )}
-        </LuckStrip>
-      )}
-      {selYear != null && (() => {
-        // 선택한 해의 세운 기둥 — 현재 대운의 세운에서 먼저 찾고, 없으면 대운표 전체에서 찾는다.
-        // 카드는 월운 스트립 하단(2026-09-22 데굴님 지시 — 상단에서 이동).
-        const y =
-          sewoon.find((p) => Number(p.label) === selYear)
-          ?? lc.daewoon_table.flatMap((d) => d.sewoon ?? []).find((p) => Number(p.label) === selYear);
-        return y ? <SelectedYearNote pillar={y} /> : null;
-      })()}
-
-      <Collapsible title="대운 상세 정리" className="mt-4">
+      {/* 대운 상세 정리 — 패널 맨 아래에 있던 것을 대운 스트립 바로 아래로(2026-10-17 데굴님: 종합 정보가
+          눈에 들어오게 층 순서대로 배치). */}
+      <Collapsible title="대운 상세 정리" className="mt-2">
         <div className="overflow-x-auto">
           <table className="w-full text-center text-[11px]">
             <thead className="text-gray-400">
@@ -1324,6 +1462,56 @@ export function LuckPanel({
           </div>
         </dl>
       </Collapsible>
+
+      {sewoon.length > 0 && (
+        <LuckStrip label="세운" hint="선택 시 월운·세운 상세(삼재·흉방)·구조 배합 흐름이 표시됩니다">
+          {[...sewoon].reverse().map((y) => (
+            <LuckCol key={y.label} topLabel={y.label} stem={y.stem} branch={y.branch}
+              stemEl={y.stem_effect?.element} branchEl={y.branch_effect?.element}
+              stemGod={y.stem_ten_god} branchGod={y.branch_ten_god} unseong={y.twelve_unseong}
+              sinsal={y.luck_sinsal} samjae={y.samjae} folk={y.folk_taboos} patterns={y.pattern_changes}
+              current={Number(y.label) === lc.current_year} selected={Number(y.label) === selYear}
+              colRef={Number(y.label) === selYear ? syRef : undefined}
+              onClick={() => selectYear(Number(y.label))} />
+          ))}
+        </LuckStrip>
+      )}
+
+      {selYear != null && (() => {
+        // 선택한 해의 세운 기둥 — 현재 대운의 세운에서 먼저 찾고, 없으면 대운표 전체에서 찾는다.
+        // 2026-09-22 월운 하단 펼침 → 2026-10-17 세운 스트립 바로 아래 접이식(데굴님 지시). 삼재·흉방만.
+        const y =
+          sewoon.find((p) => Number(p.label) === selYear)
+          ?? lc.daewoon_table.flatMap((d) => d.sewoon ?? []).find((p) => Number(p.label) === selYear);
+        if (!y || (!y.samjae && (y.folk_taboos ?? []).length === 0)) return null;
+        return (
+          <Collapsible title={`${selYear}년 세운 ${y.stem}${y.branch} 상세(삼재·흉방)`} className="mt-2">
+            <SelectedYearNote pillar={y} bare />
+          </Collapsible>
+        );
+      })()}
+
+      {selYear != null && (
+        <LuckStrip label="월운" hint="선택 시 간지달력으로 이동합니다">
+          {loadingYear === selYear && months.length === 0 ? (
+            <span className="py-4 text-[11px] text-gray-400">월운 불러오는 중…</span>
+          ) : (
+            [...months].reverse().map((m) => (
+              <LuckCol key={m.label} topLabel={`${Number(m.label.slice(5))}월`} stem={m.stem} branch={m.branch}
+                stemEl={m.stem_effect?.element} branchEl={m.branch_effect?.element}
+                stemGod={m.stem_ten_god} branchGod={m.branch_ten_god} unseong={m.twelve_unseong}
+                sinsal={m.luck_sinsal} patterns={m.pattern_changes}
+                current={m.label === curMonthLabel}
+                colRef={m.label === curMonthLabel ? moRef : undefined}
+                onClick={() => selectMonth(m.label)} />
+            ))
+          )}
+        </LuckStrip>
+      )}
+      {selYear != null && (
+        <PatternTimelinePanel tl={timelineCache[selYear] ?? null} loading={loadingTimeline === selYear} />
+      )}
+
     </Card>
   );
 }

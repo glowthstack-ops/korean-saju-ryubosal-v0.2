@@ -3223,6 +3223,10 @@ def serialize_llm_input(payload: LlmInput) -> str:
             lines.append(f"운 요약: {pf.luck_label} — {pf.luck_summary}")
         # 2026-10-16 — 비겁 이동 시드 × 이후 흐름 조건부 문구(이동 뒤 기반은 이후 운이 정한다).
         lines += pf.mobility_flow_lines
+        # F8-P1(2026-10-17) — 운 적용 구조 상태. 성립≠길흉, 기간 한정 작동(사전 문구).
+        if pf.pattern_change_lines:
+            lines.append("[구조 변화 — 구조 작동의 변화이며 길흉이 아님, 이 기간 한정]")
+            lines += pf.pattern_change_lines
         if pf.hierarchy_lines:
             # P1 계층형 grounding ON — 관계는 이쪽 하나만 쓴다(기존 형충회합 줄과
             # 동시 노출 금지: 같은 관계가 두 표현으로 들어가면 사실이 갈라진다).

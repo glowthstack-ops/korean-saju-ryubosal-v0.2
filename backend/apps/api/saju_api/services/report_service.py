@@ -2270,6 +2270,36 @@ class _ReportData:
                     branches.add(d.ganji[1])
         return luck_hap_mode_lines(self.result, sorted(stems), sorted(branches))
 
+    def pattern_change_lines(self, candidates: list[EventCandidate]) -> list[str]:
+        """후보 기간(연·월)의 운 적용 구조 상태 줄(F8-P1) — composite.pattern_states 읽기만(원칙 9).
+
+        후보 기간 순으로 훑어 변동(신규 성립·강화·완화·해소)이 있는 줄을 최대 3개. 성립≠길흉.
+        """
+        from saju_engines.pattern_transit import pattern_change_lines
+
+        periods: list[str] = []
+        for c in candidates:
+            p = str(c.period)
+            if p not in periods and len(p) in (4, 7):
+                periods.append(p)
+        if not periods:
+            return []
+        try:
+            comps = {(c.level.value, c.period_key): c for c in self.composites}
+        except Exception:  # noqa: BLE001 — 사전계산 조회 실패가 섹션을 막지 않는다
+            return []
+        out: list[str] = []
+        for p in periods:
+            level = "year" if len(p) == 4 else "month"
+            comp = comps.get((level, p))
+            if comp is None or not comp.pattern_states:
+                continue
+            for ln in pattern_change_lines(comp.pattern_states, level, max_count=3 - len(out)):
+                out.append(f"{p}: {ln}")
+                if len(out) >= 3:
+                    return out
+        return out
+
     def counseling_lines(self, domain: str, spec: ReportSpec) -> list[str]:
         """[상담 결론] 블록 — 도메인 대표 후보 1건의 stage 행동지침(CDS 리포트 배선).
 
@@ -2404,6 +2434,15 @@ class _ReportData:
                 "약화/전환으로 서술]"
             )
             lines += hap_lines
+        pattern_lines = self.pattern_change_lines(cands)
+        if pattern_lines:
+            lines.append("")
+            lines.append(
+                "[구조 변화(운) — 후보 기간에 원국 구조 배합이 신규 성립·강화·완화·해소되는지"
+                "(엔진 판정, 기간 한정 작동). 구조 작동의 변화이지 길흉이 아니다 — "
+                "재물운 상승·하락으로 번역하지 말 것]"
+            )
+            lines += pattern_lines
         branch_lines = self._branch_lines(cands)
         if branch_lines:
             lines.append("")

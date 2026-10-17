@@ -1,0 +1,174 @@
+{
+  "version": "1.0.0",
+  "note": "운 적용 구조 상태(F8-P1) 문구 — 유형(T1~T5) × 상태 5 = 25칸 정확 커버리지. {name}=패턴명, {layer}=층 이름. 길흉 어휘 금지(성립≠길흉, SSOT doc/v2_2/PATTERN_TRANSIT_STATES.md §0). 2026-10-17 데굴님 승인. T3·T4 문구는 중립(부담·고르게 같은 방향 어휘 금지 — 수화미제·신왕재왕처럼 패턴 자체가 불균형/강세를 뜻하는 경우 뜻이 뒤집힌다).",
+  "layer_ko": {
+    "daewoon": "이 대운",
+    "year": "이 해",
+    "month": "이 달"
+  },
+  "flag_text": {
+    "burden": "일간이 약한데 식상·재성이 커서 부담으로도 작동",
+    "over_control": "제어가 지나쳐 눌리는 쪽의 쓸모까지 막힐 수 있음",
+    "competition": "다른 구조와 함께 작동(경쟁)",
+    "broken": "한쪽 글자가 합거·충으로 손상",
+    "reversal": "해소를 넘어 일간 쪽이 과해져 반대 불균형(비겁 과다·재성 약)으로 넘어갈 수 있음",
+    "no_yin": "인성이 없는 무인(無印) 구조",
+    "wealth_feeds_killing": "재성이 칠살을 생해 제살 효과가 상쇄될 수 있음",
+    "excessive": "제살이 과해 칠살의 쓸모까지 줄어들 수 있음",
+    "dm_lacks_support": "일간이 통근·비겁·인성 어디에도 의지할 곳이 없음",
+    "yin_restrains_output": "인성이 식상을 눌러 과한 제살이 완화됨",
+    "rescued": "인성 또는 재성이 끼어 충돌이 완화됨"
+  },
+  "items": [
+    {
+      "type": "T1",
+      "status": "new",
+      "label": "신규 성립",
+      "text": "{layer}에 {name} 흐름이 새로 이어져요(기간 한정 작동)."
+    },
+    {
+      "type": "T1",
+      "status": "strengthened",
+      "label": "강화",
+      "text": "{layer}에 {name} 흐름이 더 뚜렷해져요."
+    },
+    {
+      "type": "T1",
+      "status": "weakened",
+      "label": "완화",
+      "text": "{layer}에 {name} 흐름이 약해지거나 일시 차단돼요."
+    },
+    {
+      "type": "T1",
+      "status": "resolved",
+      "label": "해소",
+      "text": "{layer}에는 {name} 흐름이 이어지지 않아요(구조는 원국에 남음)."
+    },
+    {
+      "type": "T1",
+      "status": "unchanged",
+      "label": "변동 없음",
+      "text": "{layer}에 {name} 흐름은 그대로예요."
+    },
+    {
+      "type": "T2",
+      "status": "new",
+      "label": "신규 성립",
+      "text": "{layer}에 {name} 배합이 새로 성립해요(기간 한정 작동)."
+    },
+    {
+      "type": "T2",
+      "status": "strengthened",
+      "label": "강화",
+      "text": "{layer}에 {name} 배합의 제어가 더 안정돼요."
+    },
+    {
+      "type": "T2",
+      "status": "weakened",
+      "label": "완화",
+      "text": "{layer}에 {name} 배합의 제어력이 줄어요."
+    },
+    {
+      "type": "T2",
+      "status": "resolved",
+      "label": "해소",
+      "text": "{layer}에는 {name} 배합이 성립하지 않아요(구조는 원국에 남음)."
+    },
+    {
+      "type": "T2",
+      "status": "unchanged",
+      "label": "변동 없음",
+      "text": "{layer}에 {name} 배합은 그대로예요."
+    },
+    {
+      "type": "T3",
+      "status": "new",
+      "label": "신규 성립",
+      "text": "{layer}에 {name} 세력 구도가 기간 한정으로 나타나요."
+    },
+    {
+      "type": "T3",
+      "status": "strengthened",
+      "label": "강화",
+      "text": "{layer}에 {name} 세력 구도가 더 뚜렷해지거나 다시 살아나요."
+    },
+    {
+      "type": "T3",
+      "status": "weakened",
+      "label": "완화",
+      "text": "{layer}에 {name} 세력 구도가 느슨해져요."
+    },
+    {
+      "type": "T3",
+      "status": "resolved",
+      "label": "해소",
+      "text": "{layer}에는 {name} 세력 구도가 성립하지 않아요(구조는 원국에 남음)."
+    },
+    {
+      "type": "T3",
+      "status": "unchanged",
+      "label": "변동 없음",
+      "text": "{layer}에 {name} 세력 구도는 그대로예요."
+    },
+    {
+      "type": "T4",
+      "status": "new",
+      "label": "활성",
+      "text": "{layer}에 {name} 상태가 나타나요(기간 한정)."
+    },
+    {
+      "type": "T4",
+      "status": "strengthened",
+      "label": "강화",
+      "text": "{layer}에 {name} 상태가 더 뚜렷해져요."
+    },
+    {
+      "type": "T4",
+      "status": "weakened",
+      "label": "약화",
+      "text": "{layer}에 {name} 상태가 약해져요."
+    },
+    {
+      "type": "T4",
+      "status": "resolved",
+      "label": "중단",
+      "text": "{layer}에는 {name} 상태가 풀려요(원국 성립 여부는 그대로)."
+    },
+    {
+      "type": "T4",
+      "status": "unchanged",
+      "label": "변동 없음",
+      "text": "{layer}에 {name} 상태는 그대로예요."
+    },
+    {
+      "type": "T5",
+      "status": "new",
+      "label": "충족",
+      "text": "{layer}에 {name} 배합 조건이 채워져요(기간 한정 작동)."
+    },
+    {
+      "type": "T5",
+      "status": "strengthened",
+      "label": "강화",
+      "text": "{layer}에 {name} 배합 조건이 더 갖춰져요."
+    },
+    {
+      "type": "T5",
+      "status": "weakened",
+      "label": "약화",
+      "text": "{layer}에 {name} 배합 조건 일부가 빠져요."
+    },
+    {
+      "type": "T5",
+      "status": "resolved",
+      "label": "상실",
+      "text": "{layer}에는 {name} 배합 조건이 성립하지 않아요(원국 배합은 그대로)."
+    },
+    {
+      "type": "T5",
+      "status": "unchanged",
+      "label": "변동 없음",
+      "text": "{layer}에 {name} 배합 조건은 그대로예요."
+    }
+  ]
+}

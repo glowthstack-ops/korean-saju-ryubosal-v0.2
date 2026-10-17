@@ -380,6 +380,10 @@ class PeriodFortune(BaseModel):
     # 2026-10-16 — 슬롯 점수=활성 강도 고지 + 비겁 이동 시드 × 이후 흐름 조건부 문구(서술 전용).
     slot_note: str = ""
     mobility_flow_lines: list[str] = Field(default_factory=list)
+    # F8-P1(2026-10-17) — 이 기간 운 스택의 구조 배합 상태(신규 성립/강화/완화/해소) 최대 3줄,
+    # 사전 문구.
+    # 성립≠길흉. 사전계산 composite 의 pattern_states 를 읽기만 한다(절대원칙 9).
+    pattern_change_lines: list[str] = Field(default_factory=list)
     # P0(2026-07-27) — 운 스택이 관여한 합의 구조화 의미. LLM 입력에는 '해석 고정' 줄로
     # 나가고, 생성 후 감사(relation_claim_audit)가 이 구조로 역전 서술을 판정한다.
     # 엔진 판정의 재표현일 뿐이며 여기서 계산하지 않는다(절대원칙 1).

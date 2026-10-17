@@ -459,6 +459,25 @@ class MobilityFlowTextFile(_AliasModel):
     items: list[MobilityFlowTextItem] = Field(min_length=6, max_length=6)
 
 
+class PatternTransitTextItem(_AliasModel):
+    """운 적용 구조 상태 문구 1칸(유형 × 상태) — pattern_transit_text.json(F8-P1, 2026-10-17)."""
+
+    type: Literal["T1", "T2", "T3", "T4", "T5"]
+    status: Literal["new", "strengthened", "weakened", "resolved", "unchanged"]
+    label: str = Field(min_length=2)
+    text: str = Field(min_length=10)
+
+
+class PatternTransitTextFile(_AliasModel):
+    """운 적용 구조 상태 문구 사전 — 5유형 × 5상태 = 25칸 정확 커버리지 + 층 이름 + 플래그 문구."""
+
+    version: str
+    note: str | None = None
+    layer_ko: dict[str, str]
+    flag_text: dict[str, str]
+    items: list[PatternTransitTextItem] = Field(min_length=25, max_length=25)
+
+
 class RoleEventTextItem(_AliasModel):
     """역할별 사건 전환 해석 문구 1건 (transit_role_event_text.json, 2026-10-16)."""
 
@@ -2518,6 +2537,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/transit_peer_mobility_text.json": PeerMobilityTextFile,
     "interpretations/transit_role_event_text.json": RoleEventTextFile,
     "interpretations/mobility_flow_text.json": MobilityFlowTextFile,
+    "interpretations/pattern_transit_text.json": PatternTransitTextFile,
     "interpretations/ten_god_relations.json": TenGodRelationsFile,
     "interpretations/stems_branches_text.json": StemsBranchesTextFile,
     "interpretations/favorability_text.json": FavorabilityTextFile,
@@ -2978,6 +2998,33 @@ def _lint_mobility_flow_text(file: MobilityFlowTextFile) -> list[str]:
         for bad in ("반드시", "확실히", "틀림없이", "무조건"):
             if bad in it.text:
                 errors.append(f"{head}: {it.id} 문구에 단정 어휘 '{bad}'")
+    return errors
+
+
+def _lint_pattern_transit_text(file: PatternTransitTextFile) -> list[str]:
+    """pattern_transit_text.json — 25칸 정확 커버리지·{name}/{layer} 치환자·층 3종·
+    길흉/단정 어휘 금지."""
+    head = "interpretations/pattern_transit_text.json"
+    errors: list[str] = []
+    cells = {(it.type, it.status) for it in file.items}
+    expected = {(t, s) for t in ("T1", "T2", "T3", "T4", "T5")
+                for s in ("new", "strengthened", "weakened", "resolved", "unchanged")}
+    if cells != expected:
+        errors.append(
+            f"{head}: 유형×상태 25칸과 다름 — 누락 {sorted(expected - cells)}"
+            f" / 초과 {sorted(cells - expected)}"
+        )
+    if set(file.layer_ko) != {"daewoon", "year", "month"}:
+        errors.append(f"{head}: layer_ko 는 daewoon/year/month 3종이어야 함")
+    for it in file.items:
+        if "{name}" not in it.text or "{layer}" not in it.text:
+            errors.append(
+                f"{head}: {it.type}/{it.status} 문구에 {{name}}·{{layer}} 치환자 필요"
+            )
+        for bad in ("반드시", "확실히", "틀림없이", "무조건", "길하", "흉하", "재물운 상승",
+                    "대길", "대흉"):
+            if bad in it.text:
+                errors.append(f"{head}: {it.type}/{it.status} 문구에 금지 어휘 '{bad}'(성립≠길흉)")
     return errors
 
 
@@ -3669,6 +3716,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_role_event_text(parsed))
         elif isinstance(parsed, MobilityFlowTextFile):
             errors.extend(_lint_mobility_flow_text(parsed))
+        elif isinstance(parsed, PatternTransitTextFile):
+            errors.extend(_lint_pattern_transit_text(parsed))
         elif isinstance(parsed, TenGodRelationsFile):
             errors.extend(_lint_ten_god_relations(parsed))
         elif isinstance(parsed, TenGodsTextFile):

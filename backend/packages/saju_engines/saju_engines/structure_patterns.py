@@ -11,6 +11,8 @@
 
 반환은 감지된 **전체** 목록(내부 보존·회귀 검증용). LLM 노출용 상위 N 선별은
 `select_llm_patterns()` 가 담당한다(Step ④에서 배선).
+만세력 결과 화면('원국 구조 상세') 노출용 선별은 `select_manse_display_patterns()` 가 담당한다
+(family 허용 목록 + 내부 신호 ID 제외, 상한 없음 — 2026-10-17).
 """
 
 from __future__ import annotations
@@ -19,8 +21,10 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
+from saju_manse_analysis.distribution.ten_god_distribution import GROUPS as _TG_GROUPS
 from saju_manse_analysis.relations.hap_modes import resolve_stem_hap
 from saju_manse_analysis.sinsal.sinsal_catalog import SASAENG
+from saju_manse_analysis.structure.geokguk_eval import _WEAK as _GEOK_WEAK
 from saju_manse_analysis.structure.geokguk_eval import _group_counts, _tg_counts
 
 from saju_shared_types.constants import (
@@ -41,6 +45,12 @@ from saju_shared_types.structure_patterns import (
 
 from .event_scoring import favorability_map
 from .health_vulnerability import analyze_health_vulnerability
+from .pattern_conditions import (
+    CONDITION_IDS,
+    NATAL_CONDITION_IDS,
+    evaluate_condition,
+    natal_condition_input,
+)
 from .relationship_relative_sinsal import get_relative_sinsal
 from .wealth_capacity import analyze_wealth_capacity
 
@@ -134,6 +144,22 @@ _OUTPUT_MODEL_TYPES = {"eokbu_normal", "output_as_yongsin"}
 _RESOURCE_TG = {TenGod.JEONGIN, TenGod.PYEONIN}
 _STRONG_BANDS = {"신강", "태신강"}  # 7단계 밴드(strength_score, 2026-10-07) 강측
 _WEAK_BANDS = {"신약", "태신약"}  # 7단계 밴드(strength_score) 약측
+
+# ── P0 원국 세력 보정 2중 판정(2026-10-17 데굴님 승인 "기존 임계로 충분") ──
+# 억부 6종은 개수 기준(천간 3+지지 본기 4 = 7칸, 기존 발동)과 보정 세력 기준
+# (`effective_percent` 그룹 합: 지장간 비율·자리 가중·월령 본기·투간·공망 반영)을 **같은 임계**로
+# 둘 다 평가한다. 절대 칸수 규칙은 7칸 비율로 환산(2칸→28.5%, 1칸→14.3%). 신약 조건은 각 패턴의
+# 개수 규칙이 쓰는 밴드 집합을 그대로 따른다(격국 파격 어댑터=중화신약 포함, 엔진 규칙=신약·태신약).
+# 둘 다 성립=뚜렷한 성립(0.8) / 하나만=약한 성립(0.5). 재다(개수)와 재왕(세력)을 가르는 장치이며
+# 점수·용신·신강약에는 관여하지 않는다. SSOT: doc/v2_2/PATTERN_TRANSIT_STATES.md §1.
+_P0_STRONG = 0.8
+_P0_WEAK = 0.5
+_P0_SEVEN_SLOTS = 7.0
+#: pid → (표면·보정 비교에 쓰는 대표 그룹)
+_P0_MAIN_GROUP: dict[str, str] = {
+    "JAEDA_SINYAK": "wealth", "GWANDA_SINYAK": "officer", "INDA_SINYAK": "resource",
+    "SEOLGI_TAEGWA": "output", "GUNGEOP_JAENGJAE": "peer", "BIGEOP_TALJAE": "peer",
+}
 _PUNISHMENT_TRIPLES = (frozenset({"寅", "巳", "申"}), frozenset({"丑", "戌", "未"}))
 _SASAENG_STR = {str(b.value) for b in SASAENG}  # 사생지(寅申巳亥) 한자
 _STORAGE_BRANCHES = {"辰", "戌", "丑", "未"}  # 사고(잡기) 지지
@@ -159,6 +185,7 @@ _FOLLOW_NAME_TO_PID: dict[str, str] = {
 
 # 생·순환/제어 병존 규칙: pattern_id → (필수 개별 십성, 필수 그룹). 둘 다 충족 시 감지.
 # exam_outcome_patterns 의 '패턴 쌍이 모두 있으면 적용'을 원국 구조로 일반화(detector_source: new).
+# 2026-10-17 폐기(참고용 보존): 공존 규칙은 pattern_conditions 의 성립 조건으로 대체됐다.
 _PRESENCE_RULES: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = [
     ("SIKSIN_SAENGJAE", ("식신",), ("wealth",)),
     ("SANGGWAN_SAENGJAE", ("상관",), ("wealth",)),
@@ -195,12 +222,97 @@ def select_llm_patterns(
     return ranked[:max_count]
 
 
+# ── 만세력 화면 노출 선별(2026-10-17 데굴님 승인) ─────────────────────────────
+# 만세력 결과 페이지 '원국 구조 상세'에 보여줄 구조 배합. 격국·합충·형·이동·건강 부담 family 는
+# 격국/형충회합/분포 섹션이 이미 다루므로 제외하고, 십성 배합·오행 배합 family 만 남긴다.
+_MANSE_DISPLAY_FAMILIES: frozenset[str] = frozenset({
+    "generation_flow", "mediation", "control", "overload", "conflict",
+    "mixed_structure", "element_image",
+})
+# 위 family 에 속하지만 전통 용어가 아닌 내부 신호 라벨(과다·결핍·용신 유력 등 다른 섹션과
+# 중복되거나 집계 신호인 것)과, 형충회합 섹션이 이미 표기하는 삼형은 ID 로 제외한다.
+_MANSE_DISPLAY_EXCLUDED_IDS: frozenset[str] = frozenset({
+    "YONGSIN_YURYEOK", "YONGSIN_MURYEOK",
+    "RESOURCE_SUPPORT_WEAK", "MULTI_RELATION_STRESS", "ACTION_PRESSURE_EXCESS",
+    "CONTROL_RESOURCE_DEFICIT", "SHARP_INJURY_AUXILIARY",
+    "WEALTH_EXPOSURE_WITH_WEAK_CONTROL", "DOCUMENT_AUTHORITY_CONFLICT",
+    "IDENTITY_AUTHORIZATION_STRESS",
+    "ELEMENT_EXCESS_ACTIVE", "ELEMENT_DEFICIENCY_ACTIVE", "CLIMATE_IMBALANCE_ACTIVE",
+    "HEAT_DRYNESS_BURDEN", "COLD_DAMP_BURDEN", "RECOVERY_RESOURCE_WEAK",
+    "SAME_AREA_REPEATED_STRESS", "FLOW_STAGNATION_BURDEN",
+    "THREE_PUNISHMENT_COMPLETE", "THREE_PUNISHMENT_PARTIAL",
+})
+
+
+def select_manse_display_patterns(patterns: list[DetectedPattern]) -> list[DetectedPattern]:
+    """만세력 화면 '원국 구조 상세' 노출용 선별(상한 없음, 입력 순서 보존).
+
+    `detect_structure_patterns()` 전체 결과에서 ①노출 family(`_MANSE_DISPLAY_FAMILIES`)와
+    하나라도 겹치고 ②내부 신호 ID(`_MANSE_DISPLAY_EXCLUDED_IDS`)가 아닌 것만 남긴다.
+    LLM 노출(`select_llm_patterns`)과 독립이며 점수·길흉에 영향을 주지 않는다(inert).
+
+    Args:
+        patterns: 감지 전체 목록(strength desc 정렬 상태를 그대로 보존한다).
+
+    Returns:
+        화면 노출 대상 `DetectedPattern` 목록.
+    """
+    return [
+        d for d in patterns
+        if d.pattern_id not in _MANSE_DISPLAY_EXCLUDED_IDS
+        and bool(set(d.family) & _MANSE_DISPLAY_FAMILIES)
+    ]
+
+
+def hour_unknown_confirmed_ids(result: ManseV2Result) -> set[str] | None:
+    """시주 미상 명식에서 '후보 전부 일치'로 확정 가능한 패턴 ID 집합. 시간이 있으면 None.
+
+    시주 미상 정책(doc/v2_2/HOUR_UNKNOWN_POLICY.md): 불완전 정보는 확정이 아니다. 후보 시진
+    (추정 시진·시간대·변형으로 좁힌 범위) **전부**에서 감지된 패턴만 확정으로 쓰고, 일부에서만
+    성립하는 패턴은 화면·LLM 입력에서 뺀다. 후보 비교 자료가 없으면(구버전 결과) 빈 집합을
+    돌려 3기둥 감지를 확정으로 쓰지 않는다.
+    """
+    if result.pillars is None or result.pillars.hour is not None:
+        return None
+    hu = result.hour_unknown
+    if hu is None or not hu.candidates:
+        return set()
+    sets = [set(c.structure_pattern_ids) for c in hu.candidates]
+    return set.intersection(*sets) if sets else set()
+
+
+def _p0_effective_ok(pid: str, eg: dict[str, float], band: str) -> bool:
+    """보정 세력 기준 성립 여부.
+
+    각 패턴의 개수 규칙과 같은 임계를 `effective_percent` 그룹 합(%)에 적용한다.
+    """
+    two = 2.0 / _P0_SEVEN_SLOTS * 100.0  # 28.57
+    one = 1.0 / _P0_SEVEN_SLOTS * 100.0  # 14.29
+    if pid == "JAEDA_SINYAK":
+        return eg["wealth"] >= 30.0 and band in _GEOK_WEAK
+    if pid == "GWANDA_SINYAK":
+        return eg["officer"] >= two and band in _GEOK_WEAK
+    if pid == "INDA_SINYAK":
+        return eg["resource"] >= 40.0 and (eg["output"] + eg["wealth"]) <= 20.0
+    if pid == "SEOLGI_TAEGWA":
+        return band in _WEAK_BANDS and eg["output"] >= 35.0
+    if pid == "GUNGEOP_JAENGJAE":
+        return eg["peer"] >= 35.0 and eg["wealth"] >= 10.0
+    if pid == "BIGEOP_TALJAE":
+        return (eg["peer"] >= two and eg["wealth"] >= one
+                and not _p0_effective_ok("GUNGEOP_JAENGJAE", eg, band))
+    return False
+
+
 def _clamp(x: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, x))
 
 
 def detect_structure_patterns(
-    result: ManseV2Result, *, dictionaries_dir: Path = _DICTS_DEFAULT
+    result: ManseV2Result,
+    *,
+    dictionaries_dir: Path = _DICTS_DEFAULT,
+    apply_hour_unknown_policy: bool = True,
 ) -> list[DetectedPattern]:
     """원국 결과에서 구조 패턴을 감지한다(strength desc 정렬, 전체 반환).
 
@@ -208,6 +320,8 @@ def detect_structure_patterns(
         result: 만세력 통합 결과. `pillars`/`geokguk`/`structure_analysis`/
             `yongsin_analysis` 를 읽는다(없으면 해당 감지 생략).
         dictionaries_dir: 사전 디렉토리(테스트 오버라이드용).
+        apply_hour_unknown_policy: 시주 미상이면 '후보 전부 일치' 패턴만 남긴다(기본). False 는
+            3기둥 감지 원본이 필요한 감사·테스트 전용 — 운영 경로에서 끄지 않는다.
 
     Returns:
         감지된 `DetectedPattern` 전체(중복 pattern_id 없음). 길흉 미확정.
@@ -216,6 +330,9 @@ def detect_structure_patterns(
     by_id: dict[str, StructurePatternEntry] = {p.pattern_id: p for p in dic.patterns}
     out: list[DetectedPattern] = []
     seen: set[str] = set()
+    # 성립 조건 SSOT(pattern_conditions) — 조건이 정의된 패턴은 어떤 경로(격국 구제 어댑터 등)로
+    # 발동하더라도 원국 세력 조건을 통과해야 성립한다(원국 감지 ↔ 운 판정 일치, 2026-10-17 검수).
+    cond_in = natal_condition_input(result)
 
     def emit(pid: str, strength: float, scope: str, extra: tuple[str, ...] = ()) -> None:
         if pid in seen:
@@ -223,12 +340,17 @@ def detect_structure_patterns(
         entry = by_id.get(pid)
         if entry is None:
             return
+        if pid in CONDITION_IDS and cond_in is not None:
+            cond = evaluate_condition(pid, cond_in)
+            if cond is None or not cond.ok:
+                return
         seen.add(pid)
         ev = list(entry.evidence) + [e for e in extra if e]
         out.append(
             DetectedPattern(
                 pattern_id=entry.pattern_id,
                 name_ko=entry.name_ko,
+                name_hanja=entry.name_hanja,
                 family=list(entry.family),
                 strength=round(_clamp(strength, 0.0, 1.0), 3),
                 scope=scope,
@@ -281,15 +403,16 @@ def detect_structure_patterns(
                     if rescued and (needle == "" or needle in str(f.get("rescue_evidence", ""))):
                         emit(dpid, 0.55, "natal", (str(f.get("rescue_evidence", "")),))
 
-    # ── C. 생·순환/제어 병존 감지 (new: exam 로직 일반화) ──
-    for pid, need_gods, need_groups in _PRESENCE_RULES:
-        if all(counts.get(g, 0) >= 1 for g in need_gods) and all(
-            groups.get(grp, 0) >= 1 for grp in need_groups
-        ):
-            members_total = sum(counts.get(g, 0) for g in need_gods) + sum(
-                groups.get(grp, 0) for grp in need_groups
-            )
-            emit(pid, _clamp(0.4 + 0.1 * members_total, 0.4, 0.85), "natal")
+    # ── C. 생극·제어 성립 조건(SSOT: pattern_conditions — 2026-10-17 데굴님 검수) ──
+    # 종전 공존 규칙(_PRESENCE_RULES: 식신+편관 존재=식신제살)을 폐기하고, 고전 전제(살왕·
+    # 인극식 방해·재불괴인·식상상관 등)를 담은 조건 함수를 원국 세력(effective_percent)으로
+    # 평가한다. 운 적용 판정도
+    # 같은 함수를 쓰므로 "원국 성립인데 운 모델로는 원국부터 미작동"이 생기지 않는다.
+    if cond_in is not None:
+        for pid in NATAL_CONDITION_IDS:
+            res = evaluate_condition(pid, cond_in)
+            if res is not None and res.ok:
+                emit(pid, _clamp(0.4 + res.metric / 100.0, 0.4, 0.85), "natal", tuple(res.evidence))
 
     # 비겁탈재(new): 비겁 2+ & 재성 존재 & 군겁쟁재(강)까지는 아닌 경증(과발화 방지).
     if (
@@ -371,11 +494,7 @@ def detect_structure_patterns(
             emit("HAPCHUNG_BYEONGGYEON", 0.55, "natal", ("합·충 공존",))
             if any(cm & hap_members for cm in chung_member_sets):  # 충중봉합
                 emit("CHUNGJUNG_BONGHAP", 0.5, "natal", ("충-합 지지 공유",))
-        # 제살태과(new, P1): 편관 존재 + 식상이 편관을 과도 제어.
-        if counts.get("편관", 0) >= 1 and groups["output"] >= 2 * groups["officer"] and (
-            groups["output"] >= 2
-        ):
-            emit("JESAL_TAEGWA", 0.5, "natal", ("식상 과다·편관 과제어",))
+        # 제살태과는 섹션 C(조건 SSOT)에서 판정한다(2026-10-17 — 종전 개수 규칙 폐기).
 
     # ── F. 묘고(墓庫) 구조 (adapter: health_vulnerability 입묘 / wealth_capacity 개고) ──
     # 원국 구조 존재만 감지한다(운 activation 은 EventEngine 소관). 셋 다 natal 판정 가능.
@@ -813,5 +932,41 @@ def detect_structure_patterns(
     if len(aux) >= 2:
         emit("SHARP_INJURY_AUXILIARY", 0.45, "natal", ("·".join(sorted(aux)),))
 
+    # ── H. P0 원국 세력 보정 2중 판정(억부 6종) — 시주 미상이면 건너뜀(HOUR_UNKNOWN_POLICY §8) ──
+    if force is not None and pillars.hour is not None:
+        eff_pct = force.ten_gods.effective_percent or {}
+        eg = {
+            g: float(sum(eff_pct.get(tg, 0.0) for tg in members))
+            for g, members in _TG_GROUPS.items()
+        }
+        by_pid = {d.pattern_id: d for d in out}
+        for pid, grp in _P0_MAIN_GROUP.items():
+            count_ok = pid in seen
+            eff_ok = _p0_effective_ok(pid, eg, band)
+            if not (count_ok or eff_ok):
+                continue
+            if count_ok and eff_ok:
+                tier, strength = "뚜렷한 성립", _P0_STRONG
+            elif count_ok:
+                tier, strength = "약한 성립(표면 개수만)", _P0_WEAK
+            else:
+                tier, strength = "약한 성립(보정 세력만)", _P0_WEAK
+            note = (f"표면 {groups[grp] / total * 100:.0f}%·보정 세력 {eg[grp]:.0f}%·{band}"
+                    f" — {tier}")
+            if count_ok:
+                d = by_pid[pid]
+                d.strength = strength
+                d.basis_note = note
+            else:
+                emit(pid, strength, "natal", (note,))
+                out[-1].basis_note = note
+                # 보정 세력으로 새로 선 재다신약도 비겁이 있으면 득비이재 파생(기존 규칙과 동일).
+                if pid == "JAEDA_SINYAK" and "DEUKBI_IJAE" not in seen and groups["peer"] >= 1:
+                    emit("DEUKBI_IJAE", 0.5, "natal", ("재다신약+비겁 운용",))
+
     out.sort(key=lambda d: d.strength, reverse=True)
+    # 시주 미상: 후보 전부 일치 패턴만 남긴다(시간이 있으면 None → 무필터).
+    confirmed = hour_unknown_confirmed_ids(result) if apply_hour_unknown_policy else None
+    if confirmed is not None:
+        out = [d for d in out if d.pattern_id in confirmed]
     return out

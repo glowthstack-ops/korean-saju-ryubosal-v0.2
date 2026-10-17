@@ -14,6 +14,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
+from .structure_patterns import PatternState
+
 
 class CompositeLevel(StrEnum):
     """사전계산 레벨 (docs/09 — natal 포함 5단계)."""
@@ -144,5 +146,7 @@ class LuckComposite(BaseModel):
     structure_flags: list[str] = Field(default_factory=list)  # 공망활성/복음/반음/병존...
     shinsal_active: list[str] = Field(default_factory=list)
     domain_signals: list[DomainSignal] = Field(default_factory=list)
+    #: 운 적용 구조 상태(F8-P1, 2026-10-17) — 대운·세운·월운 레벨만(일운 제외). 서술 전용(inert).
+    pattern_states: list[PatternState] = Field(default_factory=list)
     dict_version: str
     computed_at: str  # ISO8601 — 저장 시각은 호출 측이 주입

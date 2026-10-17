@@ -47,11 +47,13 @@ from .interactions import (
     natal_structure_flags,
     structure_flags,
 )
+from .pattern_transit import LuckGlyph, evaluate_pattern_states
 from .signal_magnitude import (
     MagnitudeUnavailable,
     derive_unsigned_magnitude_v2,
 )
 from .signal_occurrence import occurrence_id
+from .structure_patterns import detect_structure_patterns
 
 # B1-a(RELATIONSHIP_EVENT_SYSTEM 부록 B) — 도메인 매핑을 taxonomy_v2 SSOT로 교체.
 # 종전 로컬 구키 매핑은 relations.json이 내는 21키(new_relationship 등)를 못 찾아
@@ -130,6 +132,9 @@ class CompositeBuilder:
         natal_entries = self._natal_entries(result)
         natal_ganji_pairs = [(e.stem, e.branch) for e in natal_entries if e.stem and e.branch]
         void = list(result.pillars.gongmang_branches)
+        # F8-P1 운 적용 구조 상태 — 원국 감지(P0 포함) 1회, 층별 스택으로 판정
+        # (시주 미상이면 빈 목록).
+        natal_patterns = detect_structure_patterns(result)
 
         out: list[LuckComposite] = []
         common = dict(
@@ -151,11 +156,15 @@ class CompositeBuilder:
         if CompositeLevel.DAEWOON in wanted:
             for d in lc.daewoon_table:
                 pillar = _daewoon_pillar_view(d)
-                out.append(self._luck_composite(
+                comp = self._luck_composite(
                     CompositeLevel.DAEWOON, f"DW:{d.ganji}", pillar,
                     natal_entries, natal_ganji_pairs, void, fav_map,
                     ParentContext(), upper=[], **common,
-                ))
+                )
+                comp.pattern_states = evaluate_pattern_states(
+                    result, natal_patterns, [LuckGlyph("daewoon", pillar.stem, pillar.branch)],
+                )
+                out.append(comp)
 
         year_ganji = {p.label: p.ganji for p in lc.yearly_luck}
         month_ganji = {p.label: p.ganji for p in lc.monthly_luck}
@@ -175,10 +184,15 @@ class CompositeBuilder:
                     level, p.label, daewoon_by_year, year_ganji, month_ganji,
                     seolgi_month,
                 )
-                out.append(self._luck_composite(
+                comp = self._luck_composite(
                     level, p.label, p, natal_entries, natal_ganji_pairs,
                     void, fav_map, parent, upper, **common,
-                ))
+                )
+                if level is not CompositeLevel.DAY:  # 일운은 범위 밖(SSOT §0)
+                    stack = [LuckGlyph(src.value, g[0], g[1]) for src, g in upper]
+                    stack.append(LuckGlyph(level.value, p.stem, p.branch))
+                    comp.pattern_states = evaluate_pattern_states(result, natal_patterns, stack)
+                out.append(comp)
         return out
 
     # ── 내부 ─────────────────────────────────────────────────────

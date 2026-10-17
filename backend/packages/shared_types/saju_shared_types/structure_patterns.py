@@ -75,6 +75,7 @@ class DetectedPattern(BaseModel):
 
     pattern_id: str
     name_ko: str
+    name_hanja: str = ""  # 한자명(사전 승계) — 만세력 화면 한글·한자 병기용(2026-10-17)
     family: list[str] = Field(default_factory=list)
     strength: float = Field(ge=0.0, le=1.0)
     scope: PatternScope = "natal"
@@ -85,10 +86,82 @@ class DetectedPattern(BaseModel):
     llm_tag: str = ""
     classical_note: str | None = None  # 전통 해석층 문구(사전 승계, 사고수 확장)
     aliases: list[str] = Field(default_factory=list)  # 별칭(사전 승계) — 표기 전용
+    #: P0 세력 보정 2중 판정 근거(억부 6종만) — "표면 29%·보정 세력 37%·신약 — 뚜렷한 성립".
+    #: 화면 줄 끝과 llm_line 끝에 붙는다. 길흉이 아니라 성립 강도의 근거다(2026-10-17).
+    basis_note: str = ""
 
     @property
     def llm_line(self) -> str:
-        """LLM 주입 한 줄 = llm_tag + 별칭 병기. 별칭이 없으면 llm_tag 그대로(기존 바이트 불변)."""
-        if not self.aliases:
-            return self.llm_tag
-        return f"{self.llm_tag} [별칭: {'·'.join(self.aliases)}]"
+        """LLM 주입 한 줄 = llm_tag + 별칭 병기 + P0 근거.
+
+        둘 다 없으면 llm_tag 그대로(기존 바이트 불변).
+        """
+        line = self.llm_tag
+        if self.aliases:
+            line = f"{line} [별칭: {'·'.join(self.aliases)}]"
+        if self.basis_note:
+            line = f"{line} [근거: {self.basis_note}]"
+        return line
+
+
+# ── 운 적용 구조 상태(F8-P1, 2026-10-17) ────────────────────────────────────
+PatternTransitStatus = Literal["new", "strengthened", "weakened", "resolved", "unchanged"]
+PatternTransitType = Literal["T1", "T2", "T3", "T4", "T5"]
+
+
+class PatternState(BaseModel):
+    """운 한 층(대운·세운·월운)에서 본 구조 배합 1건의 상태 — 성립과 작동을 분리한다.
+
+    `natal_established` 는 원국 감지(P0 포함)로 고정, `operating` 은 그 층까지 누적한 운 적용
+    세력으로 판정. 상태는 길흉이 아니다(favorability 없음, 점수 불변). 월운 층은 'resolved' 를
+    쓰지 않는다(최대 weakened). SSOT: doc/v2_2/PATTERN_TRANSIT_STATES.md §2.
+    """
+
+    pattern_id: str
+    name_ko: str
+    transit_type: PatternTransitType
+    natal_established: bool
+    operating: bool
+    status_vs_natal: PatternTransitStatus
+    status_vs_parent: PatternTransitStatus
+    strength_natal: float = Field(ge=0.0, le=1.0, default=0.0)
+    strength_operating: float = Field(ge=0.0, le=1.0, default=0.0)
+    activation_sources: list[str] = Field(default_factory=list)  # daewoon|year|month
+    evidence: list[str] = Field(default_factory=list)
+    flags: list[str] = Field(default_factory=list)  # burden|over_control|competition|broken
+
+
+class PatternTimelineCell(BaseModel):
+    """타임라인 한 칸 — 그 층에서의 상태(직전 층 대비)와 작동 여부, 유형별 어휘."""
+
+    status: PatternTransitStatus
+    operating: bool
+    label: str  # 신규 성립/강화/완화/해소/변동 없음(유형별 어휘)
+
+
+class PatternTimelineRow(BaseModel):
+    """패턴 1건의 원국 → 대운 → 세운 → 1~12월 흐름(선택 연도 기준). 성립≠길흉."""
+
+    pattern_id: str
+    name_ko: str
+    name_hanja: str = ""
+    transit_type: PatternTransitType
+    natal_established: bool
+    daewoon: PatternTimelineCell | None = None
+    year: PatternTimelineCell | None = None
+    months: list[PatternTimelineCell | None] = Field(default_factory=list)  # 12칸(없으면 None)
+    flags: list[str] = Field(default_factory=list)
+    summary: str = ""  # "원국 성립 → 대운 완화 → 세운 해소 → 2·3월 재활성" (사전 어휘 치환)
+
+
+class PatternTimeline(BaseModel):
+    """선택 연도의 구조 배합 흐름 종합(만세력 페이지 단일 영역, F8-P1 종합 뷰 — 2026-10-17)."""
+
+    year: int
+    hour_unknown: bool = False
+    daewoon_ganji: str | None = None
+    year_ganji: str | None = None
+    month_labels: list[str] = Field(default_factory=list)
+    month_ganji: list[str] = Field(default_factory=list)
+    rows: list[PatternTimelineRow] = Field(default_factory=list)
+    note: str = ""

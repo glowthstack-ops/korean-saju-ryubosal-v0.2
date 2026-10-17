@@ -12391,3 +12391,69 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 테스트 `test_period_fortune_signals.py` 16건, 기존 비겁 시드·이동 주체·컨텍스트 리듀서·품질군 테스트 통과. validate 116파일 통과.
 - 게이트: 아래 줄에 기록.
   lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=064f447, 지문 동일, exit 0, `var/suite_20261016c.log`). 프론트 변경 없음. 백엔드 8000 재기동 반영.
+
+## 2026-10-17 — 만세력 '원국 구조 상세'에 원국 구조 배합(상관생재·재다신약·재극인 등) 노출 (데굴님 요청·'권고대로' 승인)
+
+- 배경: 구조 패턴 감지기(154종)는 채팅·리포트 LLM 입력에만 배선돼 만세력 결과 페이지에서는 상관생재·재다신약·재극인 성립 여부를 볼 수 없었다. 샘플 5명식 감지 11~27건 중 격국·합충·내부 신호 라벨이 섞여 있어 전부 노출하면 소음.
+- 구현: `saju_engines.structure_patterns.select_manse_display_patterns`(family 허용 7종 + 내부 신호 ID 20종 제외, 상한 없음·strength desc), `ManseV2Result.structure_patterns`(선별본), `DetectedPattern.name_hanja`, `manse_service._calculate` 1회 감지(0.02~0.26초, LRU 캐시 내), 프론트 `StructurePanel` '구조 배합' 블록 + `StructurePatternItem` 타입. 점수·용신·이벤트 불변(inert). 상세: docs/13 §10 F7.
+- 결정(데굴님): 오행 배합(element_image) 포함(단 오행 과다·결핍·조후 불균형·유통 정체·예기 보조 신호 제외), 노출 개수 상한 없음.
+- 테스트: `test_structure_patterns.py` +4(한자명 채움·선별 포함/제외·재다신약 노출 자격·calculate 응답 일치, 시간 미상 포함). 프론트 vitest 38 통과, `tsc` 0, production build 통과.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=be443d4, 지문 동일, exit 0, `var/suite_20261017a.log`). 백엔드 8000 재기동 반영.
+
+## 2026-10-17 — 구조 배합 시주 미상 보정: 후보 전부 일치만 확정(데굴님 지적 "시주 미입력 시 적용 불가")
+
+- 배경: 같은 날 F7로 넣은 '구조 배합'이 시주 미상 명식에도 3기둥 감지를 그대로 노출했고 테스트까지 그렇게 단언하고 있었다. 시주 미상 정책(미상≠없음·불완전 정보 비확정·12후보 일치/상이·고스트 레이어)에 어긋난다.
+- 구현: `HourCandidate.structure_pattern_ids`(후보별 전체 감지, 시주 미상 calculate 안에서 12회 감지 +0.1~0.3초), `hour_unknown_confirmed_ids()` 교집합 필터를 `detect_structure_patterns()` 기본 동작으로(LLM·화면 공통, `apply_hour_unknown_policy=False` 감사 전용), `HourUnknownAnalysis.structure_patterns` ConsensusItem + `unconfirmed` + notice, 일간 분기 시 자동 미확정, 3기둥엔 없지만 후보 전부에 있는 패턴은 첫 후보에서 보충. 프론트 `StructurePanel`: 뱃지(`ConsensusBadge` structure_patterns 확장)·고스트 레이어(앞 6종+외 N종)·산출 불가. 상세: HOUR_UNKNOWN_POLICY §8, docs/13 F7.
+- 실측: 1992-11-02 미상 → 일치 살인상생·재생살, 갈림 27종(관다신약·재다신약·상관생재·재극인 포함). 1985-03-12 미상 → 일치 없음(산출 불가 레이어).
+- 테스트: `test_hour_unknown_keeps_only_patterns_agreed_by_all_candidates`(반례 보장 단언 포함), 기존 시주 미상 정책 15건·골든 통과. 프론트 vitest 38, tsc 0, build 통과.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=be443d4, 지문 동일, exit 0, `var/suite_20261017b.log`). 백엔드 8000 재기동 반영.
+
+## 2026-10-17 — F8-P0 원국 세력 보정 2중 판정(억부 6종) + P0/P1 SSOT 문서 (데굴님 '전부 승인'·'기존 임계로 충분')
+
+- 배경: 구조 패턴의 억부 계열(재다신약 등)이 격국 파격 어댑터의 7칸 개수 규칙만 읽어 지장간·월령·투간 보정 세력(`effective_percent`)을 무시했다(데굴님 "원국만 단편적"). 격국 어댑터는 용신 후보 모델과 연결돼 있어 건드리지 않고 감지기 쪽 2중 판정으로 해결.
+- 구현: `structure_patterns.py` 섹션 H(같은 임계를 보정 세력에 적용, 패턴별 자기 개수 규칙의 신약 집합 유지 — 어댑터 경로는 중화신약 포함, 엔진 규칙은 신약·태신약), 둘 다=0.8/하나만=0.5, `DetectedPattern.basis_note` + `llm_line` 근거 병기, 프론트 줄 끝 병기, 득비이재 파생 유지. 시주 미상 건너뜀. 점수·용신·신강약 불변.
+- 회귀 픽스처: 1980-11-22 +재다신약(29%/35%/신약)·득비이재, 1975-07-07 +군겁쟁재(57%/44%/신강). 제거 0.
+- 문서: `doc/v2_2/PATTERN_TRANSIT_STATES.md` 신설(P0 규칙 + P1 설계 전부: 유형 5종·구조/작동 분리·공통 입력·유형별 조건·경쟁·저장/노출·테스트 요건), docs/13 F8, HOUR_UNKNOWN_POLICY §8(기존).
+- 테스트: `test_p0_*` 6건(반례 명식 4분기 스캔 확보), 구조 패턴 3파일+회귀+골든+시주 미상 83건 통과. 프론트 vitest 38, tsc 0, build 통과.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=be443d4, 지문 동일, exit 0, `var/suite_20261017c.log`). 백엔드 8000 재기동 반영.
+
+## 2026-10-17 — F8-P1 운 적용 구조 상태(대운·세운·월운) — 신규 성립/강화/완화/해소 (데굴님 '전부 승인'·'기존 임계로 충분'·확장 4건 '제안대로')
+
+- 배경: 구조 배합은 원국만 보여 주고, 운 글자의 세력 가감·합충에 의한 해소·강화를 짚지 못했다(데굴님). 외부 검토 글 2편(재다신약 운 변화 / 4조합 운 변화)을 계산 규칙으로 번역 — "일운 반영"만 미채택.
+- 구현: `pattern_transit.py`(운 적용 세력=원국 effective_percent+운 글자 단위 10/17.5·합반 ×0.5·합거 제거·合化 전환·충 ×0.7, 유형 T1 생극 14·T2 제어 15·T3 억부/과다 33·T4 균형 6·T5 천간 배합 8, 구조 성립≠현재 작동, status_vs_natal/parent, 월운 층 해소 금지, 경쟁 플래그), `PatternState`, `LuckComposite.pattern_states`(dict_version 1.1.0), `LuckPillar.pattern_changes`(세운 calculate·월운 luck_months), 채팅 `PeriodFortune.pattern_change_lines` + 프롬프트 블록, 리포트 후보 기간 블록, 프론트 카드 배지, 문구 사전 25칸(모델·린트). 점수·용신·신강약 불변, 시주 미상 미계산. SSOT `PATTERN_TRANSIT_STATES.md` §2·§4.
+- 구현 중 확정: 같은 오행으로의 合化는 손상 아님(亥卯未 木局=재성 강화), 재작동=강화, T3·T4 중립 문구, 플래그 1회. 실측 2026-02 庚寅 寅午戌 火局 → 관성 19.9→37.1%(관다신약 신규 성립)로 삼합 전환 경로 확인.
+- 테스트: `test_pattern_transit.py` 16건(세력 보정·合化 반례·카탈로그·25칸·시주 미상·월운 해소 금지·연 층 신규/해소 반례·경쟁·줄 상한·배선·불변식), 사전 검증 117파일 통과, `test_precompute_wiring` 버전 리터럴 1.1.0. 프론트 vitest 38, tsc 0, build 통과. `test_period_fortune_signals` 3건은 env 미로드 시 DB DSN 오류(env 로드 후 16/16 통과 — 회귀 아님).
+- 남은 것: 노출 밀도(세운 96/100 변동) 실답 검수 후 조정, 환원 전이 체인 통합, 일운·변격 보류.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=be443d4, 지문 동일, exit 0, `var/suite_20261017d.log`). 백엔드 8000 재기동 반영.
+
+## 2026-10-17 — F8-P1 접지 교정(변화는 원국 구조 바탕) + 구조 변화 모바일 탭 노출 (데굴님 검수·'그래 진행해')
+
+- 검수 지적: 얻거나 해소되는 변화는 원국 구조를 바탕으로 해야 하는데, 신왕하지 않은 사주에서 신왕 관련 배합이 나왔다. 감사(5명식×세운 100) 결과 재자약살(신강 전제) 18회·식상설수 7회가 신약·중화 명식에서 신규 성립, 득비이재·살중용인·양인합살·인다용재·관살제겁이 원국 바탕 없이 신규, 운만으로 생긴 상태가 '해소'로 표기, 천간 배합이 운끼리 성립.
+- 교정: `pattern_transit._natal_prereq()` 패턴별 원국 전제 표(원국 감지기 성립 조건에서 승계, 새 규칙 없음) — 신규 성립 후보는 전제 통과 패턴만, 해소는 원국 성립 패턴만, 운 생성 패턴은 작동 중일 때만 상태. 재감사: 신약 명식 재자약살 18→0·7→0, 득비이재 10→0, 살중용인 10→0, 해소 목록은 원국 성립 패턴만(1985 명식 14종→2종). 신강 명식(1978)의 재자약살·식상설수는 유지. 상세 표·숫자: PATTERN_TRANSIT_STATES.md §4.
+- 모바일: 배지 title 툴팁은 모바일에서 못 본다(데굴님). 세운 '선택한 해 상세 정보'에 구조 변화 목록, 대운 탭 시 '선택한 대운 상세 정보' 노트(`DaewoonItem.pattern_changes` 신설·대운 층 스택 enrich), 월운 스트립 아래 접이식 '{연도}년 월운 구조 변화'. 공용 `PatternChangeList`.
+- 테스트: `test_pattern_transit.py` +4(반례 보장 포함) → 20건. 프론트 tsc 0·vitest 38·build 통과.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=be443d4, 지문 동일, exit 0, `var/suite_20261017e.log`). 백엔드 8000 재기동 반영.
+
+## 2026-10-17 — F8-P1 감당 능력 모델 + 구조 배합 흐름 종합 뷰 + 대운 상세 이동 (데굴님 재다신약 예시 대조·'우선 승인'·종합 표시/대운 상세 이동 제안)
+
+- 예시 대조: 비견운에서 일간 측 47% > 재성 33%인데 '완화'에 머묾(감당 능력 미반영). 교정: 재다신약·관다신약·설기태과 작동 = 비율 임계 ∧ 압력 > 일간 측(비겁+인성), 재다신약은 재 > 인×3이면 인성 제외(기존 용신 상수), 격차 ±5%p, 역전 플래그(일간 측 ≥ 압력×2), 재활성 문구. 검색으로 고전 방향(재다신약 희비겁·인수 재에 깨짐·비겁 과하면 관살 제어) 확인.
+- 종합 뷰 실측에서 추가 결함 2건 발견·교정: 丑未충 한 글자로 재성 경로 6종 일괄 해소(→ 손상은 그룹 단위 절반 이상일 때만), 원국 감지 성립이지만 운 모델 작동 조건 원국 미충족 패턴(관인상생·원국 식상>관)이 대운 첫 층에서 무조건 해소(→ 해소 금지·세력 변화만).
+- 종합 뷰: `build_pattern_timeline` + `POST /api/v2/manse/luck/pattern-timeline`, 프론트 `PatternTimelinePanel`(월운 아래 접이식 하나, 표+요약, 기호 범례) — 대운·세운·월운별 구조 변화 영역 제거, 세운 접이식은 삼재·흉방만, '대운 상세 정리'를 대운 스트립 바로 아래로 이동. 시주 미상 산출 불가 레이어. calculate 현재 연도 monthly_luck pattern_changes 채움.
+- 테스트: `test_pattern_transit.py` 25건, 사전 검증 117파일 통과, lint·mypy 2종·tsc 0·vitest 38·build 통과. 상세: PATTERN_TRANSIT_STATES.md §4.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=be443d4, 지문 동일, exit 0, `var/suite_20261017f.log`). 백엔드 8000 재기동 반영.
+
+## 2026-10-17 — 성립 조건 SSOT(원국·운 공용) + 종합 뷰 월 순서·요약 월 번호 교정 (데굴님 검수 "제살태과·전체 검수"·검토 2건 확인)
+
+- 지적: 제살태과·식신제살은 일주 의지처 등 전제가 있어야 하는데 공존만으로 성립. 검수 결과 생극·제어 11종이 `_PRESENCE_RULES`(십성 공존)로 성립했고 운 판정과 조건이 달랐다.
+- 구현: `pattern_conditions.py`(패턴별 성립 조건 한 벌·기존 임계만) — 원국 감지(effective_percent)와 운 판정이 같은 함수. `emit` 게이트로 어댑터 경로도 조건 통과 필수. 검토 반영: 제살태과 핵심=유효 칠살 ∧ 식상 제살 ∧ 과다, 일주 의지처는 독립 표지·신강약은 유형; 식신제살 無印=인성 < 식신(실질 방해), 부재는 표지(10% 임계 미도입). 살중 패턴은 관살 전체 기준.
+- 회귀 픽스처 5명식 갱신(추가 식상생재×2·제살태과 / 제거 편인도식·살중용식·식신제살·상관제살·상관용인·관인상생·살인상생 — 각 근거 PATTERN_TRANSIT_STATES.md §5). 1985 명식 상관생재·재극인 미성립 전환.
+- UI: 흐름표 월 열 방향을 간지 스트립과 동일(오른쪽이 이른 달)·월 구분선·세운 뒤 굵은 선, 요약 월 번호 절기월 라벨 기준(한 달 밀림 교정).
+- 테스트: `test_pattern_conditions.py` 7, `test_pattern_transit.py` 27(패리티·월 번호), 구조 패턴·회귀·골든·시주 미상·사전계산 wiring 통과, 사전 검증 117파일.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`, `production mypy gate clean`, `maintained scripts mypy gate clean`, 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=be443d4, 지문 동일, exit 0, `var/suite_20261017g.log`). 백엔드 8000 재기동 반영.

@@ -10,6 +10,7 @@ import type {
   HourTraitsResponse,
   LlmServiceStatus,
   LuckPillar,
+  PatternTimeline,
   ManseResult,
   PersonaConfig,
   Profile,
@@ -152,6 +153,18 @@ export async function fetchLuckMonths(
   timeOptions?: Record<string, unknown>,
 ): Promise<LuckPillar[]> {
   return postJSON<LuckPillar[]>("/api/v2/manse/luck/months", {
+    birth: profileToBirthInput(profile, referenceDate, timeOptions),
+    year,
+  });
+}
+
+export async function fetchPatternTimeline(
+  profile: Profile,
+  year: number,
+  referenceDate: string = todayISO(),
+  timeOptions?: Record<string, unknown>,
+): Promise<PatternTimeline> {
+  return postJSON<PatternTimeline>("/api/v2/manse/luck/pattern-timeline", {
     birth: profileToBirthInput(profile, referenceDate, timeOptions),
     year,
   });

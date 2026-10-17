@@ -1262,8 +1262,28 @@ def _build_period_fortune(
         hierarchy_lines=hierarchy_lines,
         hierarchy_appendix=hierarchy_appendix,
         luck_hierarchy=hierarchy,
+        pattern_change_lines=_period_pattern_change_lines(
+            composites, _TARGET_LEVEL[fortune_type], start, fortune_type,
+        ),
         dohwa_text_keys=list(grounding.get("dohwa_text_keys", [])),
     )
+
+
+def _period_pattern_change_lines(composites, target_level, target_key, fortune_type) -> list[str]:
+    """이번 기간 composite 의 운 적용 구조 상태 줄(F8-P1).
+
+    일진 질문은 그 달(월운 층) 상태를 쓴다.
+    """
+    from saju_engines.pattern_transit import pattern_change_lines
+    from saju_shared_types.precompute import CompositeLevel
+
+    level, key = target_level, target_key
+    if fortune_type == "daily":
+        level, key = CompositeLevel.MONTH, target_key[:7]
+    target = next((c for c in composites if c.level == level and c.period_key == key), None)
+    if target is None or not target.pattern_states:
+        return []
+    return pattern_change_lines(target.pattern_states, level.value)
 
 
 def _period_relation_semantics(chart, composites, target_level, target_key, pillar) -> list:

@@ -12,10 +12,13 @@ from saju_engines.chart_interpretation import build_chart_interpretation
 from saju_engines.context_reducer import serialize_chart_prefix
 from saju_engines.structure_patterns import (
     _FAILURE_TO_PID,
+    _MANSE_DISPLAY_EXCLUDED_IDS,
+    _MANSE_DISPLAY_FAMILIES,
     _MAX_LLM_PATTERNS,
     detect_structure_patterns,
     load_structure_patterns,
     select_llm_patterns,
+    select_manse_display_patterns,
 )
 from saju_shared_types.birth_input import BirthInput
 
@@ -246,3 +249,134 @@ def test_tomb_patterns_natal_detection(result) -> None:
     )
     assert ("CHUNGGAE" in detected) == clash_present
     assert ("GAEGO" in detected) == analyze_wealth_capacity(result).storage_repeat
+
+
+# ── 만세력 화면 노출 선별(2026-10-17) ───────────────────────────────────────
+
+
+def _display_result(**kw):
+    base = dict(birth_date="1985-03-12", birth_time="14:30", birth_place_name="서울", gender="male")
+    base.update(kw)
+    return calculate(BirthInput(**base))
+
+
+def test_detected_patterns_carry_hanja(result) -> None:
+    # 화면 한글·한자 병기용 — 사전 전 항목에 한자명이 있으므로 감지 결과도 비어 있으면 안 된다.
+    detected = detect_structure_patterns(result)
+    assert detected
+    assert all(d.name_hanja for d in detected)
+
+
+def test_manse_display_excludes_internal_and_other_sections() -> None:
+    # 1985-03-12 14:30 남: 재다신약·토다금매(노출)와 용신 무력·오행 과다·삼형 완성·충동(제외)이
+    # 함께 감지되는 명식. (2026-10-17 성립 조건 SSOT 이후 상관생재(상관 10% 미만)·재극인(재 37% <
+    # 인 40%)은 미성립.)
+    r = _display_result()
+    detected = detect_structure_patterns(r)
+    ids = {d.pattern_id for d in detected}
+    assert {"JAEDA_SINYAK", "TODA_GEUMMAE", "YONGSIN_MURYEOK",
+            "ELEMENT_EXCESS_ACTIVE", "THREE_PUNISHMENT_COMPLETE", "CHUNGDONG"} <= ids
+    assert "JAE_GEUGIN" not in ids  # 반례: 재가 인보다 약하면 재극인 미성립
+    shown = select_manse_display_patterns(detected)
+    shown_ids = [d.pattern_id for d in shown]
+    assert "JAEDA_SINYAK" in shown_ids and "TODA_GEUMMAE" in shown_ids
+    # 내부 신호·삼형·격국/합충 전용 family 는 빠진다.
+    assert not (set(shown_ids) & _MANSE_DISPLAY_EXCLUDED_IDS)
+    assert "CHUNGDONG" not in shown_ids
+    assert all(set(d.family) & _MANSE_DISPLAY_FAMILIES for d in shown)
+    # 상한 없음·입력 순서(strength desc) 보존.
+    assert [d.strength for d in shown] == sorted((d.strength for d in shown), reverse=True)
+    assert len(shown_ids) == len(set(shown_ids))
+
+
+def test_manse_display_keeps_jaeda_sinyak_when_detected() -> None:
+    # 재다신약은 geokguk 파격 어댑터 경로 — overload family 라 노출 대상이어야 한다.
+    dic = load_structure_patterns()
+    entry = next(e for e in dic.patterns if e.pattern_id == "JAEDA_SINYAK")
+    assert set(entry.family) & _MANSE_DISPLAY_FAMILIES
+    assert "JAEDA_SINYAK" not in _MANSE_DISPLAY_EXCLUDED_IDS
+
+
+def test_calculate_exposes_display_patterns() -> None:
+    # calculate 응답에 선별본이 실리고, 감지 전체에 대한 선별 결과와 ID 가 일치한다(시간 미상 포함).
+    r = _display_result()
+    assert r.structure_patterns is not None
+    shown = select_manse_display_patterns(detect_structure_patterns(r))
+    assert [d.pattern_id for d in r.structure_patterns] == [d.pattern_id for d in shown]
+    assert all(d.scope == "natal" for d in r.structure_patterns)
+
+
+def test_hour_unknown_keeps_only_patterns_agreed_by_all_candidates() -> None:
+    # 시주 미상: 3기둥 감지를 확정으로 쓰지 않는다 — 후보 시진 전부에서 성립하는 패턴만 남는다.
+    r = _display_result(birth_time=None, birth_time_unknown=True)
+    hu = r.hour_unknown
+    assert hu is not None and hu.candidates and hu.structure_patterns is not None
+    agreed = set.intersection(*(set(c.structure_pattern_ids) for c in hu.candidates))
+    union = set.union(*(set(c.structure_pattern_ids) for c in hu.candidates))
+    assert agreed < union  # 반례 보장: 이 명식은 후보에 따라 갈리는 패턴이 실제로 있다
+    assert hu.structure_patterns.status == "differ"
+    assert "structure_patterns" in hu.unconfirmed
+    assert hu.structure_patterns.values  # 갈리는 배합 이름
+    # LLM 경로(detect)와 화면 경로(structure_patterns) 모두 확정 집합 안에서만 나온다.
+    assert {d.pattern_id for d in detect_structure_patterns(r)} <= agreed
+    assert r.structure_patterns is not None
+    assert {d.pattern_id for d in r.structure_patterns} <= agreed
+    # 3기둥만으로 감지하면 나오지만 후보 일부에서 사라지는 패턴은 노출되지 않는다.
+    base_ids = {d.pattern_id for d in detect_structure_patterns(r, apply_hour_unknown_policy=False)}
+    assert base_ids - agreed, "반례 없음: 3기둥 감지가 전부 후보 일치라면 이 테스트는 무의미"
+    assert not ((base_ids - agreed) & {d.pattern_id for d in r.structure_patterns})
+
+
+# ── P0 원국 세력 보정 2중 판정(2026-10-17) ──────────────────────────────────
+
+
+def _p0_result(d: str, t: str):
+    return calculate(BirthInput(birth_date=d, birth_time=t, birth_place_name="서울", gender="male"))
+
+
+def _by_id(r, pid):
+    return {x.pattern_id: x for x in detect_structure_patterns(r)}.get(pid)
+
+
+def test_p0_both_criteria_gives_strong_tier() -> None:
+    # 1970-07-24 04:30: 표면 재성 43%·보정 세력 43%·신약 → 개수·세력 둘 다 성립.
+    d = _by_id(_p0_result("1970-07-24", "04:30"), "JAEDA_SINYAK")
+    assert d is not None and d.strength == 0.8
+    assert "뚜렷한 성립" in d.basis_note
+    assert "표면 " in d.basis_note and "보정 세력 " in d.basis_note
+    assert d.basis_note in d.llm_line
+
+
+def test_p0_effective_only_emits_weak_tier() -> None:
+    # 1970-07-24 13:30: 표면 재성 29%(개수 기준 미달)·보정 세력 31.8%·태신약
+    # → 세력 기준만 성립 → 신규 발동 0.5.
+    r = _p0_result("1970-07-24", "13:30")
+    d = _by_id(r, "JAEDA_SINYAK")
+    assert d is not None and d.strength == 0.5 and "보정 세력만" in d.basis_note
+
+
+def test_p0_count_only_downgrades_to_weak_tier() -> None:
+    # 1971-05-26 04:30: 표면 식상 43%(개수 성립)·보정 세력 31.2%(<35) → 개수 기준만 → 0.5.
+    d = _by_id(_p0_result("1971-05-26", "04:30"), "SEOLGI_TAEGWA")
+    assert d is not None and d.strength == 0.5 and "표면 개수만" in d.basis_note
+
+
+def test_p0_neither_criteria_no_pattern() -> None:
+    # 1970-01-01 04:30: 재성 표면 14%·보정 7.9% → 재다신약 없음, 근거 줄도 없음.
+    r = _p0_result("1970-01-01", "04:30")
+    assert _by_id(r, "JAEDA_SINYAK") is None
+
+
+def test_p0_skipped_when_hour_unknown() -> None:
+    # 시주 미상: 세력 비율 판정 자체를 하지 않는다 — 어떤 패턴에도 basis_note 가 없다.
+    r = calculate(BirthInput(birth_date="1970-07-24", birth_time=None, birth_time_unknown=True,
+                             birth_place_name="서울", gender="male"))
+    detected = detect_structure_patterns(r, apply_hour_unknown_policy=False)
+    assert all(not d.basis_note for d in detected)
+
+
+def test_p0_basis_note_only_on_six_overload_patterns() -> None:
+    r = _p0_result("1970-07-24", "04:30")
+    six = {"JAEDA_SINYAK", "GWANDA_SINYAK", "INDA_SINYAK", "SEOLGI_TAEGWA",
+           "GUNGEOP_JAENGJAE", "BIGEOP_TALJAE"}
+    assert all((d.pattern_id in six) or not d.basis_note for d in detect_structure_patterns(r))

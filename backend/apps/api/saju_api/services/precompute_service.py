@@ -32,7 +32,7 @@ _logger = logging.getLogger(__name__)
 _DICTS = Path(__file__).resolve().parents[4] / "dictionaries"
 
 #: 사전계산 사전 버전 — 사전·계산 규칙이 바뀌면 올린다(구버전 레코드는 무효화 대상).
-PRECOMPUTE_DICT_VERSION = "1.0.0"
+PRECOMPUTE_DICT_VERSION = "1.1.0"  # 1.1.0: LuckComposite.pattern_states(F8-P1, 2026-10-17)
 
 #: `off` 로 두면 저장소를 쓰지 않고 항상 즉석 빌드한다(로컬·CI 기본 동작 보존).
 _MODE_ENV = "SAJU_PRECOMPUTE_MODE"

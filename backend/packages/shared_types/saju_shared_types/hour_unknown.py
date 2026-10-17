@@ -50,6 +50,8 @@ class HourCandidate(BaseModel):
     day_ganji: str = ""
     daewoon_start_exact: float | None = None
     daewoon_direction: str = ""  # forward | backward (연간 음양×성별 — 연주가 갈리면 바뀔 수 있다)
+    #: 이 후보 시주로 계산했을 때 감지된 구조 패턴 ID 전체(후보 비교용, 2026-10-17).
+    structure_pattern_ids: list[str] = Field(default_factory=list)
 
 
 class PillarVariant(BaseModel):
@@ -104,6 +106,9 @@ class HourUnknownAnalysis(BaseModel):
     strength_band: ConsensusItem
     geokguk: ConsensusItem
     useful_gods: ConsensusItem
+    #: 구조 배합(상관생재·재다신약 등) 후보 비교 — values = 후보에 따라 갈리는 배합 이름.
+    #: 후보 전부에서 성립하는 배합만 `ManseV2Result.structure_patterns` 에 남긴다(2026-10-17).
+    structure_patterns: ConsensusItem | None = None
     #: 확정에서 제외할 항목 키(상이 항목): 'strength_band' | 'geokguk' | 'useful_gods' |
     #: 'year_pillar' | 'month_branch' | 'day_master'(경계 당일 — 명식 자체가 갈림)
     unconfirmed: list[str] = Field(default_factory=list)
