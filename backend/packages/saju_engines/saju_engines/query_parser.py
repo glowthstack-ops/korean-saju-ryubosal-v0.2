@@ -987,9 +987,18 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
     # Q4 — 택일.
     if re.search(r"손없는\s*날", text):
         return QueryType.DATE_RECOMMENDATION
-    date_words = re.search(r"좋은\s*날|어떤\s*날|날짜|길일|좋을지|적당한\s*달|좋은.*시간대", text)
+    # 날짜어에 '괜찮은/되는/무난한 날'·'좋은 날짜'·'넣기 좋은' 추가, 행위어에 서류 지원(이력서·
+    # 지원서·원서·입사·접수·제출·취업·구직) 추가(2026-10-19 실답: '이력서 넣기 좋은 날'·'괜찮은
+    # 날은 없어?'가 택일이 아닌 분야 개요·월 총운으로 떨어져 일운 표 없이 달 단위로 답함).
+    date_words = re.search(
+        r"좋은\s*날|괜찮은\s*날|되는\s*날|무난한\s*날|어떤\s*날|날짜|길일|좋을지|적당한\s*달"
+        r"|좋은.*시간대|넣기\s*좋은",
+        text,
+    )
     if date_words and re.search(
-        r"이사|계약|결혼|수술|개업|로또|매매|사무실|사업장|점포|상가|오피스", text
+        r"이사|계약|결혼|수술|개업|로또|매매|사무실|사업장|점포|상가|오피스"
+        r"|이력서|지원서|원서|입사|접수|제출|취업|구직",
+        text,
     ):
         return QueryType.DATE_RECOMMENDATION
     # 특정 시점에 계약/이사 등을 '해도 될지' 평가하는 질문도 택일로 본다

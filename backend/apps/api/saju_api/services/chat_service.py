@@ -73,6 +73,7 @@ from saju_engines.effective_subjects import AttachedCompanion, build_effective_s
 from saju_engines.event_engine_config import build_event_engine_v2
 from saju_engines.event_lexicon import event_narration_directive
 from saju_engines.horizon import horizon_directive, month_add, resolve_horizon
+from saju_engines.ilju_mention_audit import audit_ilju_mention
 from saju_engines.intent_event_filter import IntentEventFilter
 from saju_engines.job_separation import is_job_separation
 from saju_engines.lifetime_scan import (
@@ -642,6 +643,13 @@ _COMPILED_REGION_DIRECTIONAL = _BACKEND / "compiled" / "region_directional_summa
 
 # 택일 목적으로 인정되는 이벤트(purpose_profiles 키) — 그 외는 이사로 폴백. 21키 기준(Phase 7).
 _DATE_PURPOSES = DATE_PURPOSES
+# 택일 목적 별칭(2026-10-19): 취업·이직의 서류 제출(이력서·지원서)은 purpose_profiles 에 전용
+# 프로필이 없다 — '계약·문서' 프로필(실행일 가중 0.5·충 회피)을 빌리되 연·월 신호의 도메인은
+# 프로필의 wealth 가 아니라 직업(career)으로 본다. 전용 프로필 신설 여부는 데굴님 결정 대기.
+_DATE_PURPOSE_ALIAS: dict[EventKey, tuple[EventKey, str]] = {
+    EventKey.JOB_GAIN: (EventKey.CONTRACT_DOCUMENT, "career"),
+    EventKey.CAREER_CHANGE: (EventKey.CONTRACT_DOCUMENT, "career"),
+}
 _WEEKDAY_KO = ["월", "화", "수", "목", "금", "토", "일"]
 # 과거 회고 신호 — 있으면 미래지향 앵커링(default_period)을 적용하지 않는다.
 # 과거형 어미('쉬었던/언제였을까' 등) 포함 — 미감지 시 과거 질문이 미래 창으로
@@ -1420,7 +1428,13 @@ def _date_selection_block(
     start_iso = req_start.isoformat()
     end_iso = scan_end.isoformat()
     anchor = req_start
-    purpose = intent.event_key if intent.event_key in _DATE_PURPOSES else EventKey.RELOCATION
+    purpose_domain: str | None = None
+    if intent.event_key in _DATE_PURPOSE_ALIAS:
+        purpose, purpose_domain = _DATE_PURPOSE_ALIAS[intent.event_key]
+    else:
+        purpose = (
+            intent.event_key if intent.event_key in _DATE_PURPOSES else EventKey.RELOCATION
+        )
 
     chart = calculate(birth.model_copy(update={"reference_date": anchor}))
     # 일운을 탐색 윈도우([start, end])로 교체 — 기본 일운은 기준월 1개월치만 채워 월 경계를
@@ -1467,6 +1481,7 @@ def _date_selection_block(
         favorability=favorability,
         stated_direction=constraints.direction,
         relocation_kind=getattr(intent, "relocation_kind", "home"),  # R4 집/사무실 분기
+        domain_override=purpose_domain,
     )
     if not result.candidates:
         return None
@@ -1819,10 +1834,34 @@ def finalize_answer_full(
             answer, ctx.payload.period_fortune, thread_id, ctx.payload.extra_period_fortunes,
         )
         answer = _audit_month_coverage_answer(answer, ctx.payload, thread_id)
+        # 일주 소개 문장 감사(2026-10-19) — 총운·시기·택일 답의 '己亥 일주는 … 구조' 문장 제거.
+        answer = _audit_ilju_mention_answer(answer, ctx, thread_id)
         # 이동 주체 단정 감사(2026-10-15) — 로그 전용, 답 불변.
         answer = _audit_mobility_agency_answer(answer, ctx.payload, ctx.question, thread_id)
         answer = _audit_ten_god_labels_answer(answer, ctx, thread_id)
     return finalize_answer_text(answer, thread_id)
+
+
+def _audit_ilju_mention_answer(
+    answer: str, ctx: ChatPostprocessContext, thread_id: str | None,
+) -> str:
+    """총운·시기·택일 답의 일주 성향 소개 문장을 결정론으로 제거한다(재호출 없음, 2026-10-19).
+
+    지시문(_ILJU_SUMMARY_INSTRUCTION)이 있어도 모델이 '정원사 같은 구조' 서사를 넣던 실답 교정.
+    질문 유형은 payload.resolved_intent 에서 읽는다(없으면 불변).
+    """
+    intent = getattr(ctx.payload, "resolved_intent", None)
+    if intent is None:
+        return answer
+    audit = audit_ilju_mention(
+        answer, getattr(intent, "query_type", None), getattr(intent, "domain", None),
+    )
+    if audit.removed:
+        _logger.warning(
+            "ilju_mention_stripped count=%d qtype=%s removed=%s thread=%s",
+            len(audit.removed), getattr(intent, "query_type", None), audit.removed, thread_id,
+        )
+    return audit.text
 
 
 def _audit_ten_god_labels_answer(

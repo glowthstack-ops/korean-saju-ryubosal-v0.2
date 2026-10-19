@@ -12479,3 +12479,12 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 테스트: `test_ai_tell_audit.py` 29건(사전·지시문·교정 3종 양성/반례·보호 불변식·임계·E-2·tail·배선 3곳), daily guard 개정 표식 갱신. 사전 검증 118파일 통과.
 - 게이트: 아래 줄에 기록.
   lint `All checks passed`(`var/lint_20261019c.log`), `production mypy gate clean`(`var/typecheck_20261019b.log`), `maintained scripts mypy gate clean`(`var/typecheck_scripts_20261019.log`), 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=1d66424, 지문 동일, exit 0, `var/suite_20261019.log`). 사전 검증 118파일 통과.
+
+## 2026-10-19 — 실답 맥락 결함 5건 교정: '이력서 넣기 좋은 날' → '이번달이나 다음달 중에 괜찮은 날은 없어?' (데굴님 점검·승인)
+
+- 재현(파서·ConversationEngine 직접 호출, today=10/19): ①Q1이 `domain_analysis`·사건 없음·시점 없음 → 달·연 단위 10년 창 답 ②Q2 시점이 `2026-10`만(‘이번 달’ 분기 선반환으로 ‘다음 달’ 소실) ③'괜찮은 날'이 날짜어가 아니라 월 총운 ④후속은 연속성으로 career 도메인은 승계했으나 택일·사건은 Q1이 아니어서 없음 ⑤시기 답에 일주 소개('정원사 같은 구조')가 두 답 모두 — 지시문(`_ILJU_SUMMARY_INSTRUCTION`)만으로 못 막음.
+- 교정: `EVENT_WORDS[JOB_GAIN]` += 이력서·지원서·입사 지원 / Q4 택일 날짜어(괜찮은·되는·무난한 날, 좋은 날짜, 넣기 좋은)·행위어(이력서·지원서·원서·입사·접수·제출·취업·구직) 확장 / `time_parser` '이번 달 + 다음 달' 병기 → 당월~다음 달 범위 / 택일 목적 별칭 `_DATE_PURPOSE_ALIAS`(JOB_GAIN·CAREER_CHANGE → contract_document 프로필 + `domain_override="career"`, `DateSelectionEngine.select` 인자 추가) / `ilju_mention_audit.py` + `finalize_answer_full`에 일주 소개 문장 결정론 제거(총운·시기·택일·분야 개요[직업·재물·건강·이사·일반], 운 관계 문장은 보존, 로그 `ilju_mention_stripped`).
+- ④는 기존 `process_turn` 연속성(약한 후속의 query_type·event 승계)으로 충족 — B2 조건 확장은 불필요해 회귀 테스트만 고정. 재현 결과: Q1 `date_recommendation·job_gain`, Q2 `date_recommendation·job_gain·2026-10~2026-11·follow_up`.
+- **결정 대기(데굴님)**: 취업 서류 제출 전용 택일 프로필 신설 여부 — 현재는 계약·문서 프로필(실행일 0.5·충 회피)을 빌리고 연·월 신호만 직업 도메인으로 본다(가정, `_DATE_PURPOSE_ALIAS` 주석).
+- 테스트: `test_resume_date_followup_context.py` 13건(각 교정 양성+반례), `test_answer_postprocess_paths` 픽스처 갱신(일주 문장 제거 확인 추가). 게이트: 아래 줄에 기록.
+  lint `All checks passed`(`var/lint_20261019e.log`), `production mypy gate clean`(`var/typecheck_20261019c.log`), `maintained scripts mypy gate clean`(`var/typecheck_scripts_20261019b.log`), 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=8fafa9f, 지문 동일, exit 0, `var/suite_20261019b.log`).

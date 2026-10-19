@@ -946,6 +946,13 @@ def parse_time(
             type="relative", granularity=Granularity.MONTH,
             start=this_month, end=f"{cur_year}-12", urgency=urgency,
         ), TimeScope.MID_TERM
+    # '이번 달이나 다음 달'·'이달과 내달' — 두 달 병기면 당월~다음 달 범위(2026-10-19 실답:
+    # '이번 달' 분기가 먼저 반환해 '다음 달'이 버려지고 11월이 답에서 통째로 빠짐).
+    if re.search(r"이번\s*달|이달", text) and re.search(r"다음\s*달|내달", text):
+        return TimeRange(
+            type="relative", granularity=Granularity.MONTH,
+            start=this_month, end=shift_month_label(this_month, 1), urgency=urgency,
+        ), TimeScope.SHORT_TERM
     if re.search(r"이번\s*달|이달", text):
         key = this_month  # 절기 기준 당월(주입 없으면 양력 폴백)
         return TimeRange(
