@@ -1,0 +1,641 @@
+{
+  "version": "1.0.0",
+  "note": "한글 AI 티(AI-tell) 표현 사전 — 테마사주·AI채팅상담·오늘의 운세 출력 공통 문체 층(2026-10-19 데굴님 승인). 분류 체계는 im-not-ai(Humanize KR) v2.3.2 ai-tell-taxonomy.md 의 quick 룰북에서 사주 풀이 해요체 평문에 해당하는 항목만 선별·번안했다. 프롬프트 지시문은 이 파일의 directive 문구 치환으로만 생성하고(즉석 작문 금지), 자동 교정(fix)은 의미 무손실이 확실한 3종(A-3·A-8·D-1a)에만 둔다. 간지·숫자·날짜·고유명사·큰따옴표 안은 어떤 경우에도 손대지 않는다(원 저장소 Do-NOT 목록).",
+  "source": {
+    "name": "im-not-ai — Humanize KR 한글 AI 티 제거기 v2.3.2 (ai-tell-taxonomy.md v2.0)",
+    "url": "https://github.com/epoko77-ai/im-not-ai",
+    "license": "MIT",
+    "copyright": "Copyright (c) 2026 epoko77-ai",
+    "excluded": "A-10(~할 수 있다)·G-1(추측 종결)은 분류 체계 스스로 '의학·법률·정책 텍스트 미적용·단정 전환 금지'로 두고 있고 본 서비스의 절대 원칙 3(단정 금지)과 같은 영역이라 제외. 헤딩·불릿·볼드·이모지 계열(C-2·C-3·C-5·C-9·C-10·J)은 시스템 프롬프트 규칙 7이 이미 차단해 제외."
+  },
+  "directive": {
+    "header": "[문체 — 한글 AI 티 제거]",
+    "preamble": {
+      "chat": "아래 표현은 기계 번역·AI 초안 티가 나는 말투다. 사실·간지·날짜·점수 표현·제공된 문구는 그대로 두고, 문장 겉모습만 아래 기준으로 쓴다.",
+      "report": "아래 표현은 기계 번역·AI 초안 티가 나는 말투다. 사실·간지·날짜·점수 표현·제공된 문구와 섹션 제목은 그대로 두고, 본문 산문만 아래 기준으로 쓴다.",
+      "daily": "다음 AI 상투 표현은 더 구체적인 말로 바꾼다"
+    },
+    "s1_label": "쓰지 않는 표현",
+    "s2_label": "밀도를 낮출 표현(답 전체 한두 번까지)",
+    "postamble": {
+      "chat": "완곡 표현을 줄일 때도 가능성·기류 표현을 단정으로 바꾸지 않는다. 답 끝의 정리는 '결론적으로·정리하자면' 없이 내용으로 바로 맺는다. 이 규칙은 문장 겉모습에만 적용하며 판정·시기·근거는 바꾸지 않는다.",
+      "report": "완곡 표현을 줄일 때도 가능성·기류 표현을 단정으로 바꾸지 않는다. 섹션 맺음은 '결론적으로·정리하자면' 없이 내용으로 바로 맺는다. 이 규칙은 문장 겉모습에만 적용하며 판정·시기·근거는 바꾸지 않는다.",
+      "daily": ""
+    }
+  },
+  "items": [
+    {
+      "id": "A-3",
+      "severity": "S1",
+      "category": "A",
+      "label": "'~에 있어(서)' 번역투",
+      "patterns": [
+        "(?:관계|인간관계|직장|재물|금전|경제|연애|결혼|일|업무|사업|투자|결정|선택|판단|건강|커리어|진로|학업|시험|생활|시기|흐름|문제|운)에\\s?있어서?(?=[\\s,.])",
+        "[가-힣]+에\\s?있어\\s"
+      ],
+      "threshold": 1,
+      "region": "all",
+      "directive": "'~에 있어서'는 '~에서'로",
+      "scopes": [
+        "chat",
+        "report",
+        "daily"
+      ],
+      "fix": [
+        {
+          "pattern": "((?:관계|인간관계|직장|재물|금전|경제|연애|결혼|일|업무|사업|투자|결정|선택|판단|건강|커리어|진로|학업|시험|생활|시기|흐름|문제|운))에\\s?있어서?(?=[\\s,.])",
+          "repl": "\\1에서"
+        }
+      ],
+      "reviewed": false,
+      "note": "자동 교정은 추상명사 앞에서만 — '집에 있어서(머물러서)' 같은 실제 동사 용법은 손대지 않는다."
+    },
+    {
+      "id": "A-7",
+      "severity": "S1",
+      "category": "A",
+      "label": "'가지고 있다' 직역",
+      "patterns": [
+        "가지고\\s?있"
+      ],
+      "threshold": 1,
+      "region": "all",
+      "directive": "'가지고 있어요'는 '있어요'·'강해요'처럼 형용사·동사로",
+      "scopes": [
+        "chat",
+        "report",
+        "daily"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "A-8",
+      "severity": "S1",
+      "category": "A",
+      "label": "이중 피동 '~되어지다·~지게 되다'",
+      "patterns": [
+        "되어지|되어진|되어져|되어집",
+        "[가-힣]지게\\s?(?:되|돼|됩)"
+      ],
+      "threshold": 1,
+      "region": "all",
+      "directive": "이중 피동 '되어져요·되어집니다'는 '돼요·됩니다'로",
+      "scopes": [
+        "chat",
+        "report",
+        "daily"
+      ],
+      "fix": [
+        {
+          "pattern": "되어집니다",
+          "repl": "됩니다"
+        },
+        {
+          "pattern": "되어진다",
+          "repl": "된다"
+        },
+        {
+          "pattern": "되어져요",
+          "repl": "돼요"
+        },
+        {
+          "pattern": "되어져",
+          "repl": "돼"
+        },
+        {
+          "pattern": "되어진",
+          "repl": "된"
+        },
+        {
+          "pattern": "되어지",
+          "repl": "되"
+        }
+      ],
+      "reviewed": false,
+      "note": "자동 교정은 '되어지' 계열만. '~지게 되다'는 탐지·로그 전용."
+    },
+    {
+      "id": "C-8",
+      "severity": "S1",
+      "category": "C",
+      "label": "대구 공식 'A가 아니라 B' 반복",
+      "patterns": [
+        "(?:가|이|은|는|을|를|것이|게)\\s?아니라\\s",
+        "인가,?\\s[^.?!]{1,30}인가"
+      ],
+      "threshold": 2,
+      "region": "all",
+      "directive": "'A가 아니라 B' 대구는 답 전체에서 한 번까지만",
+      "scopes": [
+        "chat",
+        "report",
+        "daily"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "C-11",
+      "severity": "S1",
+      "category": "C",
+      "label": "연결어미 뒤 쉼표",
+      "patterns": [
+        "[가-힣](?:고|며|지만|면서|아서|어서|는데|인데|니),\\s"
+      ],
+      "threshold": 3,
+      "region": "all",
+      "directive": "'~고,' '~지만,' '~면서,' 처럼 연결어미 바로 뒤에 쉼표를 찍지 않기",
+      "scopes": [
+        "chat",
+        "report"
+      ],
+      "fix": null,
+      "reviewed": false,
+      "note": "사람 글에도 흔해 오판 위험(Pebblous 사례) — 자동 교정 없음, 3회 이상만 기록."
+    },
+    {
+      "id": "D-1a",
+      "severity": "S1",
+      "category": "D",
+      "label": "결산 상투구(결론적으로·정리하자면)",
+      "patterns": [
+        "결론적으로|요약하면|종합하면|정리하자면|정리하면|요컨대"
+      ],
+      "threshold": 1,
+      "region": "all",
+      "directive": "'결론적으로·정리하자면·요약하면' 없이 내용으로 바로 맺기",
+      "scopes": [
+        "chat",
+        "report",
+        "daily"
+      ],
+      "fix": [
+        {
+          "pattern": "(?:^|(?<=[.!?]\\s)|(?<=\\n))(?:결론적으로|요약하면|종합하면|정리하자면|정리하면|요컨대)\\s*,?\\s*",
+          "repl": ""
+        }
+      ],
+      "reviewed": false,
+      "note": "자동 교정은 문두(문장 첫머리)에 온 경우만 삭제 — 문장 의미 불변."
+    },
+    {
+      "id": "D-2",
+      "severity": "S1",
+      "category": "D",
+      "label": "의의·중요성 과장",
+      "patterns": [
+        "시사하는\\s?바|주목할\\s?만|매우\\s?중요|간과할\\s?수\\s?없|무시할\\s?수\\s?없|의미심장|지평을\\s?열|방점을\\s?찍|의미가\\s?(?:적지\\s?않|크)"
+      ],
+      "threshold": 1,
+      "region": "all",
+      "directive": "'시사하는 바가 커요·주목할 만해요·매우 중요해요' 대신 구체적인 결론으로",
+      "scopes": [
+        "chat",
+        "report",
+        "daily"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "D-3",
+      "severity": "S1",
+      "category": "D",
+      "label": "열거 도입구",
+      "patterns": [
+        "크게\\s?[두세네]\\s?가지|다음과\\s?같(?:은|이)"
+      ],
+      "threshold": 1,
+      "region": "all",
+      "directive": "'크게 세 가지로·다음과 같이' 도입구 없이 바로 본론으로",
+      "scopes": [
+        "chat",
+        "report",
+        "daily"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "A-1",
+      "severity": "S2",
+      "category": "A",
+      "label": "'~에 대해' 밀집",
+      "patterns": [
+        "에\\s?대해(?:서)?|에\\s?대한"
+      ],
+      "threshold": 3,
+      "region": "all",
+      "directive": "'~에 대해'는 목적격으로 직결('X에 대해 고민'→'X를 고민')",
+      "scopes": [
+        "chat",
+        "report"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "A-2",
+      "severity": "S2",
+      "category": "A",
+      "label": "'~를 통해' 남발",
+      "patterns": [
+        "[을를]\\s?통해|통하여"
+      ],
+      "threshold": 2,
+      "region": "all",
+      "directive": "'~를 통해'는 '~로'·'~에서'로",
+      "scopes": [
+        "chat",
+        "report"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "A-5",
+      "severity": "S2",
+      "category": "A",
+      "label": "'~와 관련하여'",
+      "patterns": [
+        "[와과]\\s?관련(?:하여|된|해|해서)"
+      ],
+      "threshold": 2,
+      "region": "all",
+      "directive": "'~와 관련된'은 '~의'·'~에'로",
+      "scopes": [
+        "chat",
+        "report"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "A-6",
+      "severity": "S2",
+      "category": "A",
+      "label": "'~을 바탕으로·~에 기반하여'",
+      "patterns": [
+        "[을를]\\s?바탕으로|에\\s?기반(?:하여|해)"
+      ],
+      "threshold": 2,
+      "region": "all",
+      "directive": "'~을 바탕으로'는 '~로 보면'·'~을 보고'로",
+      "scopes": [
+        "chat",
+        "report"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "A-9",
+      "severity": "S2",
+      "category": "A",
+      "label": "'~에 의해' 피동",
+      "patterns": [
+        "에\\s?의해"
+      ],
+      "threshold": 2,
+      "region": "all",
+      "directive": "'~에 의해'는 행위자를 주어로('운에 의해 흔들려요'→'운이 흔들어요')",
+      "scopes": [
+        "chat",
+        "report"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "A-15",
+      "severity": "S2",
+      "category": "A",
+      "label": "추상 주어+만능 동사",
+      "patterns": [
+        "(?:흐름|기운|에너지|구조|신호)[이가]\\s?[^.?!]{0,24}?(?:보여\\s?(?:줘요|줍니다)|제공(?:해요|합니다)|가져다\\s?(?:줘요|줍니다)|만들어\\s?(?:줘요|줍니다))"
+      ],
+      "threshold": 3,
+      "region": "all",
+      "directive": "'기운이 ~을 제공해요·보여줘요' 대신 사람이 겪는 일로('연락이 와요·결정을 미루게 돼요')",
+      "scopes": [
+        "chat",
+        "report"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "A-21",
+      "severity": "S2",
+      "category": "A",
+      "label": "범위 상승 '단순한 X를 넘어 Y'",
+      "patterns": [
+        "단순(?:한|히)\\s?[^.?!]{1,20}?[을를]\\s?넘어"
+      ],
+      "threshold": 1,
+      "region": "all",
+      "directive": "'단순한 X를 넘어 Y'는 'X만이 아니라 Y예요'로",
+      "scopes": [
+        "chat",
+        "report"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "D-1b",
+      "severity": "S2",
+      "category": "D",
+      "label": "결산 접속어 밀집(따라서·그러므로·이를 통해)",
+      "patterns": [
+        "따라서|그러므로|이를\\s?통해"
+      ],
+      "threshold": 3,
+      "region": "all",
+      "directive": "'따라서·그러므로·이를 통해'는 답 전체 1~2회까지",
+      "scopes": [
+        "chat",
+        "report"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "D-6",
+      "severity": "S2",
+      "category": "D",
+      "label": "완결 공식 결말 '~할 때예요·시점이에요'",
+      "patterns": [
+        "[가-힣]?[할될볼둘갈낼쓸]\\s?(?:때|시점|순간)(?:이에요|예요|입니다|이죠|이다)"
+      ],
+      "threshold": 2,
+      "region": "all",
+      "directive": "'~할 때예요·~할 시점이에요' 결말은 답 전체 한 번까지",
+      "scopes": [
+        "chat",
+        "report",
+        "daily"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "D-7",
+      "severity": "S2",
+      "category": "D",
+      "label": "변환 공식 'X에서 Y로'",
+      "patterns": [
+        "['‘\\\"“][^'’\\\"”]{1,20}['’\\\"”]\\s?에서\\s?['‘\\\"“][^'’\\\"”]{1,20}['’\\\"”]\\s?(?:으로|로)",
+        "[을를]\\s?넘어\\s?[^.?!]{1,20}?(?:으로|로)\\s"
+      ],
+      "threshold": 1,
+      "region": "all",
+      "directive": "'X에서 Y로' 구호식 변환 공식 대신 직접 서술로",
+      "scopes": [
+        "chat",
+        "report"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "D-8",
+      "severity": "S2",
+      "category": "D",
+      "label": "분열문 '중요한 것은 ~이에요'",
+      "patterns": [
+        "(?:필요한|중요한)\\s?(?:것은|건|점은)|(?:문제는|핵심은|관건은|답은|포인트는)\\s"
+      ],
+      "threshold": 1,
+      "region": "all",
+      "directive": "'중요한 것은 X예요·핵심은 X예요'는 'X가 중요해요'로 직결",
+      "scopes": [
+        "chat",
+        "report",
+        "daily"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "D-9",
+      "severity": "S2",
+      "category": "D",
+      "label": "인과 결산 '결국 ~로 이어져요'",
+      "patterns": [
+        "결국",
+        "(?:으로|로)\\s?이어(?:져요|집니다|지죠|진다|질\\s)"
+      ],
+      "threshold": 3,
+      "region": "all",
+      "directive": "'결국 ~로 이어져요' 압축 대신 어떤 경로로 이어지는지 구체적으로",
+      "scopes": [
+        "chat",
+        "report"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "D-10",
+      "severity": "S2",
+      "category": "D",
+      "label": "역방향 결산 '~하는 이유예요'",
+      "patterns": [
+        "이유(?:예요|이에요|입니다|죠|다)(?=[.!?]|$)"
+      ],
+      "threshold": 1,
+      "region": "all",
+      "directive": "'~하는 이유예요' 도치 결산은 '그래서 ~해요'로",
+      "scopes": [
+        "chat",
+        "report"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "D-11",
+      "severity": "S2",
+      "category": "D",
+      "label": "결말부 막연한 시간 '앞으로·향후'",
+      "patterns": [
+        "(?:^|(?<=[.!?]\\s)|(?<=\\n))(?:향후|앞으로|중장기적으로)"
+      ],
+      "threshold": 1,
+      "region": "tail",
+      "directive": "맺음에서 '앞으로·향후·중장기적으로' 대신 제공된 실제 시기로",
+      "scopes": [
+        "chat",
+        "report"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "D-12",
+      "severity": "S2",
+      "category": "D",
+      "label": "내용 없는 반론 슬롯",
+      "patterns": [
+        "과제도\\s?남아|한계도\\s?(?:분명|있|남아)|아쉬운\\s?점도"
+      ],
+      "threshold": 1,
+      "region": "all",
+      "directive": "'과제도 남아 있어요·한계도 있어요' 문패 대신 그 과제를 바로 쓰기",
+      "scopes": [
+        "chat",
+        "report"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "D-14",
+      "severity": "S2",
+      "category": "D",
+      "label": "생성형 은유 남용",
+      "patterns": [
+        "적신호|청사진|경고등|신호탄|움켜쥐|뿌리내리|짓누르|잠식"
+      ],
+      "threshold": 1,
+      "region": "all",
+      "directive": "'적신호·청사진·뿌리내리다' 같은 은유 대신 눈에 보이는 일로",
+      "scopes": [
+        "chat",
+        "report",
+        "daily"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "E-2",
+      "severity": "S2",
+      "category": "E",
+      "label": "동일 종결어미 연속",
+      "patterns": [],
+      "threshold": 4,
+      "region": "all",
+      "directive": "같은 종결어미(…예요/…해요/…죠)를 네 문장 넘게 잇지 않기",
+      "scopes": [
+        "chat",
+        "report"
+      ],
+      "fix": null,
+      "reviewed": false,
+      "note": "패턴 없음 — 엔진이 문장 종결 토큰의 최장 연속 길이로 판정한다(임계 4)."
+    },
+    {
+      "id": "F-5",
+      "severity": "S2",
+      "category": "F",
+      "label": "'~적 N' 추상어 체인",
+      "patterns": [
+        "[가-힣]{1,4}적\\s[가-힣]{1,4}"
+      ],
+      "threshold": 3,
+      "region": "all",
+      "directive": "'전략적 함의' 식 '~적 N' 체인은 풀어 쓰기",
+      "scopes": [
+        "chat",
+        "report"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "G-2",
+      "severity": "S2",
+      "category": "G",
+      "label": "이중·삼중 완곡",
+      "patterns": [
+        "가능성이\\s?있을\\s?수|보일\\s?수\\s?있|보여질\\s?수|있을\\s?것으로\\s?보|있을\\s?것\\s?같|것으로\\s?보일\\s?수|할\\s?수도\\s?있을\\s?것"
+      ],
+      "threshold": 1,
+      "region": "all",
+      "directive": "'~할 수 있을 것으로 보여요' 같은 겹완곡은 하나만 남기되 단정으로 바꾸지 않기",
+      "scopes": [
+        "chat",
+        "report",
+        "daily"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "H-4",
+      "severity": "S2",
+      "category": "H",
+      "label": "'즉' 남발",
+      "patterns": [
+        "(?:^|(?<=[.!?]\\s)|(?<=\\n))즉[,\\s]"
+      ],
+      "threshold": 2,
+      "region": "all",
+      "directive": "'즉'은 답 전체 두 번까지",
+      "scopes": [
+        "chat",
+        "report"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "I-2",
+      "severity": "S2",
+      "category": "I",
+      "label": "형식명사 강조 '주목할 점은'",
+      "patterns": [
+        "주목할\\s?점은|점에\\s?있(?:어요|습니다|다)"
+      ],
+      "threshold": 1,
+      "region": "all",
+      "directive": "'주목할 점은 X예요'는 'X예요'로 직설",
+      "scopes": [
+        "chat",
+        "report"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "I-3",
+      "severity": "S2",
+      "category": "I",
+      "label": "'~다는 것이에요' 결말",
+      "patterns": [
+        "(?:다는|라는)\\s?(?:것이에요|거예요|것입니다|뜻이에요|뜻입니다|의미예요|의미입니다)"
+      ],
+      "threshold": 2,
+      "region": "all",
+      "directive": "'~다는 것이에요·~다는 뜻이에요' 결말은 '~예요'로 직접 종결",
+      "scopes": [
+        "chat",
+        "report",
+        "daily"
+      ],
+      "fix": null,
+      "reviewed": false
+    },
+    {
+      "id": "I-4",
+      "severity": "S2",
+      "category": "I",
+      "label": "당위 결말 '~할 필요가 있어요'",
+      "patterns": [
+        "필요가\\s?있(?:어요|습니다|다)"
+      ],
+      "threshold": 2,
+      "region": "all",
+      "directive": "'~할 필요가 있어요' 당위 결말은 두 문단 이상 반복하지 않기",
+      "scopes": [
+        "chat",
+        "report"
+      ],
+      "fix": null,
+      "reviewed": false
+    }
+  ]
+}

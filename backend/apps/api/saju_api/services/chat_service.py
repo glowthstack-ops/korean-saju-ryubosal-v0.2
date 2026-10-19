@@ -33,6 +33,7 @@ from saju_engines import (
     period_v2_config,
 )
 from saju_engines.agent_relations import agent_relation_lines, detect_agent_question
+from saju_engines.ai_tell_audit import audit_ai_tells
 from saju_engines.assistant_commitments import (
     extract_commitments,
     match_commitments,
@@ -1887,6 +1888,12 @@ def finalize_answer_text(answer: str, thread_id: str | None = None) -> str:
         _logger.warning(
             "wealth_generation_term_fixed changes=%s thread=%s", _term_changes, thread_id,
         )
+    # ⑤ 한글 AI 티 문체 감사(2026-10-19) — 자동 교정 3종(A-3·A-8·D-1a)만 본문에 반영, 나머지는
+    # 로그 전용. 간지·숫자가 변하면 엔진이 교정을 폐기한다(실답 검수는 이 로그로).
+    _tell = audit_ai_tells(answer, "chat")
+    if _tell.fixes or _tell.findings:
+        _logger.warning("ai_tell_audit scope=chat %s thread=%s", _tell.summary(), thread_id)
+    answer = _tell.text
     return _normalize_ganji_gloss(answer)
 
 

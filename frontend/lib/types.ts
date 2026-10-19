@@ -448,7 +448,7 @@ export interface DaewoonItem {
   luck_label_code?: string;
   luck_summary?: string;
   volatility_score: number;
-  pattern_changes?: string[]; // 대운 층 구조 변화(F8-P1, 성립≠길흉)
+  pattern_changes?: string[]; // 대운 층 구조 변화(F8-P1, 성립≠길흉) — 화면 미표시, 구조 배합 흐름 종합 뷰로 대체(2026-10-19)
   relations_to_chart: string[];
   luck_sinsal?: LuckSinsal[];
   sewoon?: LuckPillar[];
@@ -473,7 +473,7 @@ export interface LuckPillar {
   solar_term_range?: string | null;
   luck_sinsal?: LuckSinsal[];
   samjae?: SamjaeInfo | null; // 세운(period_type=year)에만 채워진다
-  pattern_changes?: string[]; // 세운·월운 — 운 적용 구조 상태 줄(F8-P1, 성립≠길흉)
+  pattern_changes?: string[]; // 세운·월운 — 운 적용 구조 상태 줄(F8-P1, 성립≠길흉) — 화면 미표시, 종합 뷰로 대체(2026-10-19)
   folk_taboos?: FolkTabooHit[]; // 세운 전용 — 그해 이사 판정층 흉방(삼살·대장군, 추가 정보, 점수 무관)
 }
 

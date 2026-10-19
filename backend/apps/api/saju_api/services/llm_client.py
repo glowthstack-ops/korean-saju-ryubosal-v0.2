@@ -31,6 +31,7 @@ from typing import Any
 
 import httpx
 
+from saju_engines.ai_tell_audit import build_style_directive
 from saju_engines.llm_guard import LLMCallGuard, LLMCostLedger
 from saju_engines.report_builder import load_model_prices
 from saju_shared_types.constants import BRANCH_KO, STEM_KO
@@ -802,6 +803,11 @@ _SYSTEM_PROMPT = (
     "답한다. 제공된 운에 그 시기 신호가 있어도 사용자 의사를 우선한다.\n"
     "응답은 한국어로, 제공된 근거를 인용하며 서술한다."
 )
+# 한글 AI 티 제거 문체 블록(2026-10-19 데굴님 승인) — 규칙 1~9 리터럴은 그대로 두고 뒤에 붙인다.
+# 내용은 templates/ai_tell_patterns.json 치환(즉석 작문 없음). 페르소나 블록은 호출부가 이 뒤에
+# 더한다.
+CHAT_STYLE_BLOCK = build_style_directive("chat")
+_SYSTEM_PROMPT = _SYSTEM_PROMPT + "\n\n" + CHAT_STYLE_BLOCK
 
 # 보고서(RPT_*) 전용 시스템 프롬프트 — 대화(_SYSTEM_PROMPT)와 분리 관리(2026-06-14 사용자 확정).
 # _SYSTEM_PROMPT 최소 변경 원칙: 문체·평문·점수 규칙은 검증된 대화 프롬프트를 그대로 유지하고
@@ -837,3 +843,5 @@ _REPORT_SYSTEM_PROMPT = (
     "고친 흔적 없이 최종 확정 내용만 쓴다.\n"
     "응답은 한국어로, 제공된 근거를 인용하며 서술한다."
 )
+REPORT_STYLE_BLOCK = build_style_directive("report")
+_REPORT_SYSTEM_PROMPT = _REPORT_SYSTEM_PROMPT + "\n\n" + REPORT_STYLE_BLOCK

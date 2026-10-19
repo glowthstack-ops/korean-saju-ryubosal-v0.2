@@ -12462,3 +12462,20 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 
 - 원인: ①결과(lc) 재계산 시 흐름표 캐시를 비우는데 조회 훅 의존성에 캐시가 없어 "조회 완료 → 캐시 비움" 순서면 재조회가 없었다 ②`timeOptions` 객체가 렌더마다 새로 만들어져 정리 함수가 진행 중 조회 결과를 버렸다.
 - 수정: 캐시를 의존성에 포함(비워지면 재조회), 취소 대신 세대 번호(`tlEpoch`)로 이전 결과만 폐기, 진행 중 연도 집합으로 중복 조회 방지, 옵션은 JSON 키로 비교. 프론트 전용(tsc 0·vitest 38·build 통과).
+
+## 2026-10-19 — 운 스트립 셀의 '구조 N' 배지·신살 마우스 오버 설명 제거 (데굴님 지적·승인)
+
+- 지적: 대운·세운·월운 셀의 "구조 N" 배지는 `pattern_change_lines` 상한 3줄 기준이라 전체 변화 수가 아니고, 내용은 하단 '구조 배합 흐름' 종합 뷰(2026-10-17)가 전부 담는다. 배지·신살 글자의 `title` 툴팁은 마우스 오버 전용이라 모바일에서 보이지 않고 혼란만 준다.
+- 변경(프론트 전용): `LuckCol`의 `patterns` prop·배지 블록 삭제, 호출부 3곳 정리, 신살 글자 `title` 제거 및 툴팁 전용 헬퍼(`sinsalTitle`·`SINSAL_POLARITY_KO`·`BOGEUM_DESC`) 삭제. 삼재·흉방 배지는 세운 탭 시 하단 상세로 대체 경로가 있어 유지.
+- 계약 불변: 백엔드 `LuckPillar.pattern_changes` 필드·enrich 경로는 그대로(소비처 없음, `types.ts` 주석만 "화면 미표시" 표기). 채팅·리포트의 `pattern_change_lines` 경로는 별개라 LLM 입력 영향 없음.
+- 게이트: tsc 0(`var/frontend_tsc_20261019.log`), production build 통과(`var/frontend_build_20261019.log`), vitest 38/38(`var/frontend_vitest_20261019.log`). 백엔드 미변경.
+
+## 2026-10-19 — 한글 AI 티 제거 문체 층(테마사주·AI채팅상담·오늘의 운세 공통) (데굴님 승인·교정 3종 ON)
+
+- 배경: im-not-ai(Humanize KR v2.3.2, MIT) 분류 체계를 바탕으로 세 출력의 번역투·AI 관용구·이중 피동·형식명사 결말을 교정해 달라는 요청. SSOT `doc/v2_2/AI_TELL_STYLE_LAYER.md`.
+- 사전: `templates/ai_tell_patterns.json` 31종(S1 8·S2 23, 출처·MIT 표기, 모두 `reviewed:false`). 제외 근거(A-10·G-1=단정 금지 영역, C/J 서식 계열=규칙 7 기차단)는 `source.excluded`.
+- 엔진: `saju_engines/ai_tell_audit.py` — 사전 치환 지시문(`build_style_directive`), 임계 탐지(E-2는 종결 토큰 연속), 자동 교정 3종(A-3 추상명사 한정·A-8 '되어지' 계열·D-1a 문두 결산어)과 보호 불변식(큰따옴표 안 제외, 간지·숫자 다중집합 불일치 시 교정 전부 폐기).
+- 배선: `_SYSTEM_PROMPT`·`_REPORT_SYSTEM_PROMPT` 뒤에 블록(규칙 리터럴 불변, 페르소나 블록은 그 뒤), `finalize_answer_text` ⑤·`_audit_section_text` 끝에 감사+교정(로그 `ai_tell_audit scope=…`), daily 규칙 7 상투구 목록을 사전 치환으로 교체(`PROMPT_REVISION 2026-10-19.ai-tell-style`)·`_reject_reason`에 신규 S1 줄 폐기.
+- 테스트: `test_ai_tell_audit.py` 29건(사전·지시문·교정 3종 양성/반례·보호 불변식·임계·E-2·tail·배선 3곳), daily guard 개정 표식 갱신. 사전 검증 118파일 통과.
+- 게이트: 아래 줄에 기록.
+  lint `All checks passed`(`var/lint_20261019c.log`), `production mypy gate clean`(`var/typecheck_20261019b.log`), `maintained scripts mypy gate clean`(`var/typecheck_scripts_20261019.log`), 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=1d66424, 지문 동일, exit 0, `var/suite_20261019.log`). 사전 검증 118파일 통과.

@@ -193,6 +193,6 @@ def test_polish_prompt_has_prose_rule_without_version_bump() -> None:
     assert PROMPT_VERSION == "polish.v1"
     # 개정 표식은 감사 전용 — 2026-09-10 이모지·기호 금지(규칙 8), 2026-09-18 사건 어휘(규칙 9)도
     # REVISION 만 올렸다.
-    assert polish.PROMPT_REVISION == "2026-09-18.observable-events"
+    assert polish.PROMPT_REVISION == "2026-10-19.ai-tell-style"
     assert "8) 이모지" in polish._SYSTEM
     assert "9) 사건 어휘" in polish._SYSTEM and "빼앗긴다'로 못 박지" in polish._SYSTEM

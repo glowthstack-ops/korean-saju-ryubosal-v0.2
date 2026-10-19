@@ -20,6 +20,7 @@ import threading
 from datetime import date
 from typing import Any
 
+from saju_engines.ai_tell_audit import build_style_directive, s1_ids
 from saju_engines.daily_fortune_cache import DailyFortuneCache
 from saju_engines.daily_fortune_v2 import active_content_version
 from saju_engines.daily_text_policy import strip_symbols
@@ -42,7 +43,7 @@ _CALL_TYPE = "daily_fortune_polish"
 # namespace·베타 풀 대조)의 구성 요소라 문구 개정만으로 올리면 당일 보드가 재생성·재교정되고
 # 동결된 베타 풀과 어긋난다. 개정은 다음 교정 호출부터 자연 적용된다.
 # 2026-09-18: 체감→관찰 가능 사건 번역·12운성 가드(데굴님 지시)
-PROMPT_REVISION = "2026-09-18.observable-events"
+PROMPT_REVISION = "2026-10-19.ai-tell-style"
 MAX_HEADLINE_CHARS = 120
 MAX_PLACE_CHARS = 60
 MAX_LOTTO_CHARS = 80
@@ -83,8 +84,11 @@ _SYSTEM = (
     "앞뒤로 알 수 있는 주어('당신은'·'오늘 당신의')와 되풀이되는 목적어는 빼고 이어 쓴다. "
     "문장 길이를 똑같이 맞추지 말고 한 문장은 짧게, 한 문장은 조금 길게 호흡을 달리한다. "
     "'A는 B예요' 식 설명문만 잇지 말고 문맥에 맞을 때는 행동이나 결론을 앞에 둔다. "
-    "'결론적으로'·'중요한 것은'·'~하는 것이 중요해요'·'~라고 할 수 있어요' 같은 상투구는 "
-    "더 구체적인 말로 바꾼다. 말줄임표·감탄 기호는 원문에 있던 만큼만 쓴다.\n"
+    # 상투구 목록은 한글 AI 티 사전(templates/ai_tell_patterns.json, daily 범위) 치환
+    # (PROMPT_REVISION 2026-10-19 데굴님 승인) — '~하는 것이 중요해요'·'~라고 할 수 있어요'는
+    # 사전의 D-8·I-3 항목이 흡수한다. 원문에 없던 S1 상투구가 새로 생긴 줄은 검증기가 폐기한다.
+    + build_style_directive("daily") + " 상투구를 새로 만들지 않는다. "
+    "말줄임표·감탄 기호는 원문에 있던 만큼만 쓴다.\n"
     "8) 이모지와 장식 기호(♪ ♥ ★ ✨ 화살표 등)는 쓰지 않는다 — 문장부호는 마침표·쉼표·"
     "물음표·느낌표·가운뎃점만 쓴다.\n"
     # 9) 사건 어휘(PROMPT_REVISION 2026-09-18 데굴님 승인 — 전문가 참고 기준 B3): 체감 표현은
@@ -124,6 +128,11 @@ def _reject_reason(text: str, raw: str, max_chars: int) -> str | None:
     for term in _FORBIDDEN:
         if term in text and term not in raw:
             return f"forbidden:{term}"
+    # 한글 AI 티 S1 패턴(결산 상투구·번역투·이중 피동)이 원문에 없다가 새로 생기면
+    # 그 줄을 폐기한다(2026-10-19).
+    new_tells = s1_ids(text, "daily") - s1_ids(raw, "daily")
+    if new_tells:
+        return "ai_tell:" + ",".join(sorted(new_tells))
     return None
 
 

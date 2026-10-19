@@ -961,22 +961,6 @@ function polSign(p?: { element: string; score: number } | null) {
 }
 
 // 만세력 카드 한 칸: 상단 라벨 + 천간/십성 박스 + 지지/운성 박스(오행색). 선택·클릭 지원.
-// 신살 polarity → 한글 분류(툴팁용).
-const SINSAL_POLARITY_KO: Record<string, string> = {
-  positive: "길신",
-  caution: "흉성",
-  neutral: "신살",
-};
-
-// 일주복음 전용 툴팁 — 운 간지가 일주와 동일할 때만 등장.
-const BOGEUM_DESC =
-  "복음(伏吟) · 운의 간지가 일주와 동일 — 엎드려 신음하는 형국으로 정체·반복·내적 침체를 의미";
-
-function sinsalTitle(s: LuckSinsal): string {
-  if (s.name === "복음") return BOGEUM_DESC;
-  return `${SINSAL_POLARITY_KO[s.polarity] ?? "신살"} · ${s.name}`;
-}
-
 // 삼재 배지 색 — 복(emerald)/평(violet)/악(rose)/미평가(violet). 색은 '성격'이지 길흉 확정이 아니다.
 const SAMJAE_QUALITY_STYLE: Record<string, string> = {
   bok: "bg-emerald-50 text-emerald-700 ring-emerald-200",
@@ -1007,7 +991,7 @@ function folkTitle(hits: FolkTabooHit[]): string {
 
 function LuckCol({
   topLabel, stem, branch, stemEl, branchEl, stemGod, branchGod, unseong, sinsal, samjae, folk,
-  patterns, current, selected, onClick, colRef,
+  current, selected, onClick, colRef,
 }: {
   topLabel: string;
   stem: string;
@@ -1020,7 +1004,6 @@ function LuckCol({
   sinsal?: LuckSinsal[];
   samjae?: SamjaeInfo | null;
   folk?: FolkTabooHit[];
-  patterns?: string[]; // 운 적용 구조 상태(세운·월운) — 성립≠길흉
   current?: boolean;
   selected?: boolean;
   onClick?: () => void;
@@ -1056,14 +1039,6 @@ function LuckCol({
           {samjae.label_ko}{samjae.quality_label ? `·${samjae.quality_label.charAt(0)}` : ""}
         </span>
       )}
-      {patterns && patterns.length > 0 && (
-        <span
-          title={`구조 변화(이 기간 한정 작동 · 길흉 아님)\n${patterns.join("\n")}`}
-          className="rounded bg-sky-50 px-1 text-[9px] font-medium leading-tight text-sky-700 ring-1 ring-sky-200"
-        >
-          구조 {patterns.length}
-        </span>
-      )}
       {folk && folk.length > 0 && (
         <span
           title={folkTitle(folk)}
@@ -1078,7 +1053,6 @@ function LuckCol({
             {withoutBranchMarkers(sinsal).map((s, i) => (
               <span
                 key={i}
-                title={sinsalTitle(s)}
                 className={s.name === "복음"
                   ? "text-[9px] font-medium text-amber-600"
                   : "text-[9px] text-gray-500"}
@@ -1097,7 +1071,9 @@ function LuckCol({
 // 배지의 title 툴팁은 마우스 오버 전용이라 모바일에서 볼 수 없었다. 세운 컬럼을 탭(=선택)하는 기존
 // 제스처로 같은 정보를 펼친다. 배지가 없는 해는 렌더하지 않는다(무소음).
 // 구조 배합 흐름 종합 — 대운·세운·월운에 나눠 보이던 '구조 변화'를 한 영역으로 합쳤다(2026-10-17 데굴님 제안).
-// 배지의 title 툴팁은 모바일에서 볼 수 없으므로 내용은 전부 이 영역(접이식)에서 읽는다.
+// 셀의 '구조 N' 배지는 2026-10-19 제거(데굴님 지적): 숫자가 상한 3줄 기준이라 전체 변화 수가 아니었고,
+// title 툴팁은 모바일에서 볼 수 없었다. 신살 글자의 마우스 오버 설명도 같은 이유로 함께 제거.
+// 구조 변화는 이 영역(접이식)에서만 읽는다. API 의 pattern_changes 필드는 계약 유지(화면 미표시).
 const CELL_SYMBOL: Record<PatternTimelineCell["status"], string> = {
   new: "＋", strengthened: "↑", weakened: "↓", resolved: "×", unchanged: "·",
 };
@@ -1416,7 +1392,7 @@ export function LuckPanel({
           <LuckCol key={d.index} topLabel={`${d.start_age}세`} stem={d.stem} branch={d.branch}
             stemEl={d.stem_effect?.element} branchEl={d.branch_effect?.element}
             stemGod={d.stem_ten_god} branchGod={d.branch_ten_god} unseong={d.twelve_unseong}
-            sinsal={d.luck_sinsal} patterns={d.pattern_changes}
+            sinsal={d.luck_sinsal}
             current={d.index === lc.current_daewoon_index} selected={d.index === selDaewoon}
             colRef={d.index === selDaewoon ? dwRef : undefined}
             onClick={() => selectDaewoon(d.index)} />
@@ -1483,7 +1459,7 @@ export function LuckPanel({
             <LuckCol key={y.label} topLabel={y.label} stem={y.stem} branch={y.branch}
               stemEl={y.stem_effect?.element} branchEl={y.branch_effect?.element}
               stemGod={y.stem_ten_god} branchGod={y.branch_ten_god} unseong={y.twelve_unseong}
-              sinsal={y.luck_sinsal} samjae={y.samjae} folk={y.folk_taboos} patterns={y.pattern_changes}
+              sinsal={y.luck_sinsal} samjae={y.samjae} folk={y.folk_taboos}
               current={Number(y.label) === lc.current_year} selected={Number(y.label) === selYear}
               colRef={Number(y.label) === selYear ? syRef : undefined}
               onClick={() => selectYear(Number(y.label))} />
@@ -1514,7 +1490,7 @@ export function LuckPanel({
               <LuckCol key={m.label} topLabel={`${Number(m.label.slice(5))}월`} stem={m.stem} branch={m.branch}
                 stemEl={m.stem_effect?.element} branchEl={m.branch_effect?.element}
                 stemGod={m.stem_ten_god} branchGod={m.branch_ten_god} unseong={m.twelve_unseong}
-                sinsal={m.luck_sinsal} patterns={m.pattern_changes}
+                sinsal={m.luck_sinsal}
                 current={m.label === curMonthLabel}
                 colRef={m.label === curMonthLabel ? moRef : undefined}
                 onClick={() => selectMonth(m.label)} />
