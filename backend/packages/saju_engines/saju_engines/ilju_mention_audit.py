@@ -33,6 +33,11 @@ _TRAIT_CUE_RE = re.compile(
 # 운과의 관계 언급 — 소개가 아니므로 보존.
 _LUCK_RELATION_RE = re.compile(r"복음|같은\s*간지|동일|겹치|충돌|충하|합하|일지")
 _ILJU_RE = re.compile(r"일주")
+# 다음 문장이 소개 문장을 지시어로 받으면('이러한 성향은 …') 지울 때 지시 대상이 사라진다
+# (2026-10-19 실답 web-mvf73q3h) — 그때는 지우지 않고 로그만 남긴다.
+_REFERENT_START_RE = re.compile(
+    r"^\s*(?:이러한|이런|그러한|그런|이|그|이와\s*같은)\s*(?:성향|기질|성격|구조|면|특징|결|모습|기운|경향)"
+)
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 
 
@@ -42,6 +47,7 @@ class IljuMentionAudit(BaseModel):
     text: str
     removed: list[str]
     gated: bool
+    kept_referenced: list[str] = []
 
 
 def should_strip(query_type: QueryType | None, domain: Domain | None) -> bool:
@@ -79,20 +85,31 @@ def audit_ilju_mention(
     if not gated or not answer:
         return IljuMentionAudit(text=answer, removed=[], gated=gated)
     removed: list[str] = []
-    out_paras: list[str] = []
-    for para in answer.split("\n"):
-        if not para.strip():
-            out_paras.append(para)
+    kept_ref: list[str] = []
+    paras = [
+        [s for s in _SENTENCE_SPLIT_RE.split(p) if s.strip()] if p.strip() else []
+        for p in answer.split("\n")
+    ]
+    flat = [(pi, si) for pi, sents in enumerate(paras) for si in range(len(sents))]
+    drop: set[tuple[int, int]] = set()
+    for k, (pi, si) in enumerate(flat):
+        sent = paras[pi][si]
+        if not is_ilju_intro_sentence(sent):
             continue
-        kept = []
-        for sent in _SENTENCE_SPLIT_RE.split(para):
-            if is_ilju_intro_sentence(sent):
-                removed.append(sent.strip()[:80])
-            else:
-                kept.append(sent)
-        out_paras.append(" ".join(s.strip() for s in kept if s.strip()))
+        nxt = paras[flat[k + 1][0]][flat[k + 1][1]] if k + 1 < len(flat) else ""
+        if _REFERENT_START_RE.search(nxt):
+            kept_ref.append(sent.strip()[:80])
+            continue
+        drop.add((pi, si))
+        removed.append(sent.strip()[:80])
     if not removed:
-        return IljuMentionAudit(text=answer, removed=[], gated=gated)
-    text = "\n".join(out_paras)
-    text = re.sub(r"\n{3,}", "\n\n", text).strip("\n")
-    return IljuMentionAudit(text=text, removed=removed, gated=gated)
+        return IljuMentionAudit(
+            text=answer, removed=[], gated=gated, kept_referenced=kept_ref,
+        )
+    out_paras = [
+        " ".join(s.strip() for si, s in enumerate(sents) if (pi, si) not in drop)
+        if sents else ""
+        for pi, sents in enumerate(paras)
+    ]
+    text = re.sub(r"\n{3,}", "\n\n", "\n".join(out_paras)).strip("\n")
+    return IljuMentionAudit(text=text, removed=removed, gated=gated, kept_referenced=kept_ref)

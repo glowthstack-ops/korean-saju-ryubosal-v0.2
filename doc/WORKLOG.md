@@ -12488,3 +12488,13 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - **결정 대기(데굴님)**: 취업 서류 제출 전용 택일 프로필 신설 여부 — 현재는 계약·문서 프로필(실행일 0.5·충 회피)을 빌리고 연·월 신호만 직업 도메인으로 본다(가정, `_DATE_PURPOSE_ALIAS` 주석).
 - 테스트: `test_resume_date_followup_context.py` 13건(각 교정 양성+반례), `test_answer_postprocess_paths` 픽스처 갱신(일주 문장 제거 확인 추가). 게이트: 아래 줄에 기록.
   lint `All checks passed`(`var/lint_20261019e.log`), `production mypy gate clean`(`var/typecheck_20261019c.log`), `maintained scripts mypy gate clean`(`var/typecheck_scripts_20261019b.log`), 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=8fafa9f, 지문 동일, exit 0, `var/suite_20261019b.log`).
+
+## 2026-10-19 — 실답 web-mvf73q3h 교정 9건: 공망 오지목·택일 지평·회피 구간·정정 처리 (데굴님 점검·결정·승인)
+
+- 점검(스레드 로그·명식 재계산·1턴 dry-run 대조): ①11월 己亥의 亥를 공망으로 지목(입력엔 '지연·보류'뿐, 실제 공망 사실은 시지 巳·현재 대운 壬辰의 辰) ②엔진 추천일 10/20을 "19~24일 피하라"로 묶음 ③택일 질문이 분야 기본 12개월 지평 + 유력 달 종합·기반 최고 달 '누락 금지'로 2027년 달부터 서술 ④일주 문장 제거 후 "이러한 성향은" 지시 대상 소실(어제 감사의 회귀) ⑤택일 표 라벨 '계약·문서'로 답이 도장·계약 조건으로 흐름(어제 별칭의 회귀) ⑥커리어 폴백이 '지원·제안 전제 금지' 가드까지 제거 → "이미 들어온 제안" ⑦"~와 상관없는 글자인데 ~거야?"가 이의가 아닌 명식 세부 질문으로 분류 ⑧11월을 "합격·취업 제안"으로 과장(턴 간 모순) ⑨마무리 질문 뒤 문장.
+- 데굴님 결정: 현재 대운 지지가 공망 글자인 사실을 명확히 서술하고, 월운 글자를 공망처럼 쓰지 않는다(GONGMANG_HAP_SEMANTICS.md §6).
+- 교정: `horizon.resolve_horizon` 택일=`date_window`(2개월·추천일 먼저·회피일 나열 지시) / reducer 택일 시 기반 최고 달·유력 달 종합 미주입, 대운 지지 공망 사실 줄 / 월 커버리지 감사 택일 제외 / 택일 별칭 라벨 '취업·이직 서류 제출' / `gongmang_claim_audit` / `date_answer_audit`(회피 구간 재작성·마무리 질문 뒤 꼬리 제거) / 일주 감사 지시어 보존(`ilju_mention_kept_referenced`) / `challenge_detect.FACT_REBUTTAL_RE` / 커리어 폴백 `[전제 금지]` 가드 유지.
+- 재현: 1턴 프롬프트 30,139→23,199자, 기반 최고·유력 달 종합 0건, 월 표 10~11월, 라벨 '취업 서류 제출', 대운 공망 줄 있음 / 2턴 `feedback_correction`·challenge.
+- ⑧(턴 간 모순)은 ②정정 경로(challenge→정정 답 계약)와 ①입력 사실 보강으로 대응 — 별도 감사 없음.
+- 테스트: `test_gongmang_date_answer_audits.py` 22건(교정마다 반례). 게이트: 아래 줄에 기록.
+  1차 스위트 `TESTS_FAILED`(`var/suite_20261019c.log`) — 마무리 꼬리 제거가 질문 뒤 줄의 '※ 관계 신호는 시험(beta) 관측치예요' 고지까지 지움(통합 `test_offer_save_failure_does_not_break_the_answer`). 같은 문단에 붙은 문장만 지우고 '※' 줄 제외로 좁힘 + 반례 테스트. 재실행: lint `All checks passed`(`var/lint_20261019k.log`), `production mypy gate clean`(`var/typecheck_20261019e.log`), `maintained scripts mypy gate clean`(`var/typecheck_scripts_20261019d.log`), 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=88a0e9c, 지문 동일, exit 0, `var/suite_20261019d.log`).

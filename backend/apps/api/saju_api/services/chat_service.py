@@ -68,10 +68,12 @@ from saju_engines.counterfactual_context import (
     counterfactual_lines,
 )
 from saju_engines.daewoon_progression import resolve_all_daewoon_progressions
+from saju_engines.date_answer_audit import rewrite_avoid_ranges, strip_after_closing_question
 from saju_engines.date_selection import DateSelectionEngine
 from saju_engines.effective_subjects import AttachedCompanion, build_effective_subjects
 from saju_engines.event_engine_config import build_event_engine_v2
 from saju_engines.event_lexicon import event_narration_directive
+from saju_engines.gongmang_claim_audit import audit_gongmang_claims
 from saju_engines.horizon import horizon_directive, month_add, resolve_horizon
 from saju_engines.ilju_mention_audit import audit_ilju_mention
 from saju_engines.intent_event_filter import IntentEventFilter
@@ -646,9 +648,11 @@ _DATE_PURPOSES = DATE_PURPOSES
 # 택일 목적 별칭(2026-10-19): 취업·이직의 서류 제출(이력서·지원서)은 purpose_profiles 에 전용
 # 프로필이 없다 — '계약·문서' 프로필(실행일 가중 0.5·충 회피)을 빌리되 연·월 신호의 도메인은
 # 프로필의 wealth 가 아니라 직업(career)으로 본다. 전용 프로필 신설 여부는 데굴님 결정 대기.
-_DATE_PURPOSE_ALIAS: dict[EventKey, tuple[EventKey, str]] = {
-    EventKey.JOB_GAIN: (EventKey.CONTRACT_DOCUMENT, "career"),
-    EventKey.CAREER_CHANGE: (EventKey.CONTRACT_DOCUMENT, "career"),
+# 세 번째 값은 [택일 결과] 머리 라벨 — 프로필 이름('계약·문서')이 나가면 답이 '도장·계약 조건'으로
+# 흘렀다(2026-10-19 실답 web-mvf73q3h).
+_DATE_PURPOSE_ALIAS: dict[EventKey, tuple[EventKey, str, str]] = {
+    EventKey.JOB_GAIN: (EventKey.CONTRACT_DOCUMENT, "career", "취업 서류 제출"),
+    EventKey.CAREER_CHANGE: (EventKey.CONTRACT_DOCUMENT, "career", "이직 서류 제출"),
 }
 _WEEKDAY_KO = ["월", "화", "수", "목", "금", "토", "일"]
 # 과거 회고 신호 — 있으면 미래지향 앵커링(default_period)을 적용하지 않는다.
@@ -1429,8 +1433,9 @@ def _date_selection_block(
     end_iso = scan_end.isoformat()
     anchor = req_start
     purpose_domain: str | None = None
+    purpose_label: str | None = None
     if intent.event_key in _DATE_PURPOSE_ALIAS:
-        purpose, purpose_domain = _DATE_PURPOSE_ALIAS[intent.event_key]
+        purpose, purpose_domain, purpose_label = _DATE_PURPOSE_ALIAS[intent.event_key]
     else:
         purpose = (
             intent.event_key if intent.event_key in _DATE_PURPOSES else EventKey.RELOCATION
@@ -1522,7 +1527,7 @@ def _date_selection_block(
         _relocation_reason_lines(composites, start_iso[:4], start_iso[:7]) if is_relocation else []
     )
     return DateSelectionBlock(
-        purpose_ko=event_ko(purpose),
+        purpose_ko=purpose_label or event_ko(purpose),
         period=f"{start_iso} ~ {end_iso}",
         frame_notes=_week_frame_notes(tr, purpose, today),
         rows=rows,
@@ -1834,12 +1839,62 @@ def finalize_answer_full(
             answer, ctx.payload.period_fortune, thread_id, ctx.payload.extra_period_fortunes,
         )
         answer = _audit_month_coverage_answer(answer, ctx.payload, thread_id)
+        # 공망 지목 감사·택일 회피 구간 감사(2026-10-19) — 재호출 없는 결정론 교정.
+        answer = _audit_gongmang_claims_answer(answer, ctx.payload, thread_id)
+        answer = _audit_date_avoid_answer(answer, ctx.payload, thread_id)
         # 일주 소개 문장 감사(2026-10-19) — 총운·시기·택일 답의 '己亥 일주는 … 구조' 문장 제거.
         answer = _audit_ilju_mention_answer(answer, ctx, thread_id)
         # 이동 주체 단정 감사(2026-10-15) — 로그 전용, 답 불변.
         answer = _audit_mobility_agency_answer(answer, ctx.payload, ctx.question, thread_id)
         answer = _audit_ten_god_labels_answer(answer, ctx, thread_id)
     return finalize_answer_text(answer, thread_id)
+
+
+def _audit_gongmang_claims_answer(
+    answer: str, payload: LlmInput, thread_id: str | None,
+) -> str:
+    """공망을 잘못 지목한 문장 제거(2026-10-19).
+
+    대상은 공망 신호 없는 달이나 공망 아닌 글자를 공망으로 쓴 문장이다.
+    """
+    signal_periods = {
+        c.period for c in payload.event_candidates if any("공망" in s for s in c.signals_ko)
+    }
+    for pf in (payload.period_fortune, *payload.extra_period_fortunes):
+        if pf is not None and pf.gongmang:
+            label = pf.period_label
+            signal_periods.add(label[:7] if len(label) >= 7 else label)
+    audit = audit_gongmang_claims(
+        answer, payload.birth_chart_summary.void_branches, signal_periods,
+    )
+    if audit.removed:
+        _logger.warning(
+            "gongmang_claim_stripped count=%d removed=%s thread=%s",
+            len(audit.removed), audit.removed, thread_id,
+        )
+    return audit.text
+
+
+def _audit_date_avoid_answer(answer: str, payload: LlmInput, thread_id: str | None) -> str:
+    """택일 회피 구간에 엔진 추천일이 끼면 회피일 목록으로 다시 쓴다(2026-10-19)."""
+    ds = payload.date_selection
+    if ds is None or not ds.rows or not ds.avoid:
+        return answer
+    try:
+        year = int(ds.period[:4])
+    except ValueError:
+        return answer
+    audit = rewrite_avoid_ranges(
+        answer,
+        [r.date for r in ds.rows],
+        [str(a.get("date")) for a in ds.avoid if a.get("date")],
+        year,
+    )
+    if audit.rewritten:
+        _logger.warning(
+            "date_avoid_range_rewritten ranges=%s thread=%s", audit.rewritten, thread_id,
+        )
+    return audit.text
 
 
 def _audit_ilju_mention_answer(
@@ -1860,6 +1915,10 @@ def _audit_ilju_mention_answer(
         _logger.warning(
             "ilju_mention_stripped count=%d qtype=%s removed=%s thread=%s",
             len(audit.removed), getattr(intent, "query_type", None), audit.removed, thread_id,
+        )
+    if audit.kept_referenced:
+        _logger.warning(
+            "ilju_mention_kept_referenced kept=%s thread=%s", audit.kept_referenced, thread_id,
         )
     return audit.text
 
@@ -1933,6 +1992,13 @@ def finalize_answer_text(answer: str, thread_id: str | None = None) -> str:
     if _tell.fixes or _tell.findings:
         _logger.warning("ai_tell_audit scope=chat %s thread=%s", _tell.summary(), thread_id)
     answer = _tell.text
+    # ⑥ 마무리 질문 뒤 꼬리 문장 제거(2026-10-19) — 규칙 8: 물음표 문장이 답의 맨 끝.
+    _closing = strip_after_closing_question(answer)
+    if _closing.rewritten:
+        _logger.warning(
+            "closing_tail_stripped tail=%s thread=%s", _closing.rewritten, thread_id,
+        )
+    answer = _closing.text
     return _normalize_ganji_gloss(answer)
 
 
@@ -7183,6 +7249,14 @@ def _log_career_vector_telemetry(prep, vector, thread_id) -> None:
     )
 
 
+_CAREER_NO_FACT_MARK = "확인된 지원·면접 사실이 없"
+_CAREER_PRESUPPOSITION_GUARD = (
+    "[전제 금지] 사용자가 말하지 않은 지원·면접·제안·오퍼가 이미 있다고 전제하지 말 것 — "
+    "'이미 들어온 제안'·'받은 제안'·'들어오는 제안들' "
+    "같은 표현은 사용자가 그 사실을 말했을 때만 쓴다."
+)
+
+
 def _audit_career_transition_answer(
     answer, preparation, prompt_text, call_type, system, owner_id, thread_id
 ):
@@ -7199,6 +7273,11 @@ def _audit_career_transition_answer(
         [v.value for v in audit.violations], thread_id,
     )
     legacy_prompt = prompt_text.replace(preparation.directive or "", "").strip()
+    # 지시문을 통째로 빼면 그 안의 '확인된 지원·면접 사실 없음 — 전제 금지' 가드도
+    # 사라진다(2026-10-19
+    # 실답: 재생성 답이 '이미 들어온 제안'을 전제). 그 가드는 재생성에도 남긴다.
+    if _CAREER_NO_FACT_MARK in (preparation.directive or ""):
+        legacy_prompt += "\n\n" + _CAREER_PRESUPPOSITION_GUARD
     retried = llm_client.generate_reading(
         legacy_prompt, call_type=call_type, system=system,
         owner_id=owner_id, surface="chat", ref_id=thread_id,
@@ -7232,6 +7311,9 @@ def _audit_month_coverage_answer(answer: str, payload: LlmInput, thread_id: str 
         return answer
     if payload.overview_mode or not payload.monthly_overview:
         return answer
+    _ri = getattr(payload, "resolved_intent", None)
+    if _ri is not None and _ri.query_type is QueryType.DATE_RECOMMENDATION:
+        return answer  # 택일은 날이 골자 — 기반 최고 달 의무를 싣지 않는다(2026-10-19)
     types_by_period: dict[str, set[str]] = {}
     for c in payload.event_candidates:
         if c.process_types:

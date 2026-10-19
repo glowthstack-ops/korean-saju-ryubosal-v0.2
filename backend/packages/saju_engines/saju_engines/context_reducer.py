@@ -2762,6 +2762,19 @@ def serialize_llm_input(payload: LlmInput) -> str:
         }.get(d.status, "")
         _dw_any_status = _dw_any_status or bool(_dtag)
         lines.append(f"대운 {d.ganji} ({period}, {ages}{jiao}){_dtag}")
+        # 대운 지지 공망 사실(2026-10-19 데굴님 결정) — 현재 대운의 지지가 원국 공망 글자면 그
+        # 사실을
+        # 명시한다. 실답: 이 사실 없이 '지연'만 보이자 LLM이 그 달(己亥)의 亥를 공망처럼 썼다.
+        _void = payload.birth_chart_summary.void_branches
+        if d.status == "현재" and len(d.ganji) == 2 and d.ganji[1] in _void:
+            lines.append(
+                "대운 지지 공망(엔진 사실): 현재 대운 "
+                f"{d.ganji}의 지지 {d.ganji[1]}은(는) 원국 공망"
+                f"({''.join(_void)}) 글자다. 공망을 말할 때는 "
+                "이 사실(대운 지지가 공망 글자)과 원국 "
+                "공망 자리만 근거로 쓰고, 월운·세운 글자를 공망이라 부르지 말 것. 대운 지지가 공망 "
+                "글자라는 사실 외의 길흉·사건 판정은 운별 신호로만 말할 것."
+            )
     if _dw_any_status:
         lines.append(
             "※ 현재 대운·지남/예정 판정은 위 엔진 표기가 확정값이다 — 나이·연도 계산으로 "
@@ -3013,7 +3026,10 @@ def serialize_llm_input(payload: LlmInput) -> str:
             lines.append(f"[월별 요약 — {_span} {len(_ov)}개월(값 그대로 사용, 추측 금지)]")
         # 기반 최고 시기를 이름 박아 별도 지목 — intent 질문(이직 등)에서 그 시기에 해당 사건이
         # 없으면 표 범례 지시가 묻혀 누락되던 문제(2026-06-16). 사건과 무관하게 반드시 한 번 짚게.
-        _best = _best_quality_months(_ov)
+        # 택일(날 고르기)은 기반 최고 달·유력 달 종합 의무를 싣지 않는다(2026-10-19 데굴님 승인) —
+        # 답의 골자는 [택일 결과]의 날이고, 달 순위 '누락 금지'가 답을 달 서술로 끌고 갔다.
+        _date_pick = payload.resolved_intent.query_type is QueryType.DATE_RECOMMENDATION
+        _best = None if _date_pick else _best_quality_months(_ov)
         if _best:
             lines.append(
                 f"※ [기반 최고 {_unit}] {_best} — 질문하신 사건이 이 {_unit}에 약하거나 없더라도, "
@@ -3120,7 +3136,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
             (r for r in payload.monthly_overview if r.strength_rank is not None),
             key=lambda r: r.strength_rank or 9,
         )
-        if ranked_rows:
+        if ranked_rows and not _date_pick:
             asked_ko = (
                 event_ko(payload.resolved_intent.event_key)
                 if payload.resolved_intent.event_key is not None

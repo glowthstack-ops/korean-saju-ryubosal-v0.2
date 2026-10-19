@@ -28,6 +28,15 @@ _SPEECH_VERB = (
 )
 _QUOTE_END = r"(?:[했줬랬댔봤왔갔]잖|라고\s*했|그랬|말했|했다)"
 
+# 사실 반박형(2026-10-19 데굴님 승인) — 2인칭·인용 표지 없이 직전 답의 사실을 반박하는 반문.
+# 실답 web-mvf73q3h: "지지의 정재는 공망이랑 상관없는 글자인데 대운의 공망을 이야기 하는거야?"가
+# 명식 구조 세부 질문으로 분류돼 앞 답의 오류를 인정하지 않고 화제를 돌렸다.
+# 형태: '…(와|과|랑|이랑|하고) 상관없는/관계없는/무관한 … 인데' 또는 '…가 아닌데/아니잖아'
+# + 같은 문장의 확인형 반문(거야?·건가?·건지·말이야?·맞아?·왜 …).
+FACT_REBUTTAL_RE = re.compile(
+    r"(?:(?:와|과|랑|이랑|하고)\s*(?:는\s*)?(?:상관\s*없|관계\s*없|무관)|(?:이|가)\s*아닌데|아니잖)"
+    r"[^.!\n]{0,40}?(?:거야|건가|건지|말이야|맞아|맞나|왜)"
+)
 CHALLENGE_RE = re.compile(
     rf"{_SECOND_PERSON}[^.!?\n]{{0,30}}?{_QUOTE_END}"
     rf"|{_TIME_REF}[^.!?\n]{{0,30}}?{_SPEECH_VERB}"
@@ -55,6 +64,8 @@ def is_challenge(text: str) -> bool:
     걸린 절에 2인칭 지칭이 없고 1인칭 주어("내가 아까 말한 …")나 과거 사실 표지("3년 전에
     이사했잖아")가 있으면 사용자 자신의 발화·사실이라 이의로 보지 않는다.
     """
+    if FACT_REBUTTAL_RE.search(text):
+        return True
     for m in CHALLENGE_RE.finditer(text):
         clause = _clause_at(text, m.start())
         if re.search(_SECOND_PERSON, clause):

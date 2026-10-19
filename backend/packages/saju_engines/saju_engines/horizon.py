@@ -21,7 +21,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from saju_shared_types.intent import IntentJson, TimeScope
+from saju_shared_types.intent import IntentJson, QueryType, TimeScope
 
 from .job_separation import is_job_separation
 from .rewriter import DEFAULT_PERIOD_MONTHS
@@ -59,6 +59,15 @@ def resolve_horizon(question: str, intent: IntentJson) -> HorizonPolicy | None:
     호출 측(chat)은 vague_future(시점 미지정·미래·비구조 질문)에서만 호출한다 —
     명시 시점·과거 회고·CHART_ANALYSIS·택일은 기존 경로가 담당.
     """
+    # 택일(날 고르기) 질문은 탐색 창(오늘부터 약 한 달 — 이번 달·다음 달) 지평이다(2026-10-19 데굴님
+    # 승인). 실답: 시점 없는 '이력서 넣기 좋은 날'이 분야 기본 12개월 지평을 타 유력 달 종합·기반
+    # 최고
+    # 달 '누락 금지' 지시와 함께 2027년 달들을 먼저 풀고, 추천일은 여섯째 문단에 묻혔다.
+    if intent.query_type is QueryType.DATE_RECOMMENDATION:
+        return HorizonPolicy(
+            kind="date_window", months_detail=2, years_span=0, natal_fit=False,
+            label="택일 탐색 창(오늘부터 약 한 달)",
+        )
     if _LONG_TERM_RE.search(question) or intent.time_scope in (
         TimeScope.LONG_TERM,
         TimeScope.LIFE_STAGE,
@@ -131,6 +140,15 @@ def horizon_directive(policy: HorizonPolicy) -> str:
             "이 질문은 인생 구조를 바꾸는 결정이다 — ① 원국 기준 적합성(격국·용신·성향)을 "
             "먼저 판단하고 ② 현재 대운 배경 ③ 향후 5년 연 단위 흐름 ④ 당장 3개월의 "
             "움직임 순으로 구성하라."
+        )
+    elif policy.kind == "date_window":
+        parts.append(
+            "사용자는 '날'을 물었다 — 첫 문단에서 [택일 "
+            "결과]의 추천일을 먼저 제시하고 날마다 이유를 "
+            "한 줄씩 붙여라. 월운은 그 날의 배경으로 한두 "
+            "줄만 쓰고, 탐색 창 밖의 달·해(내년 용신운 "
+            "등)는 서술하지 말 것. 회피일은 표에 적힌 날짜를 그대로 나열하고, 추천일이 끼는 구간"
+            "('○일부터 ○일까지')으로 묶지 말 것."
         )
     elif policy.kind == "transactional_when":
         parts.append(
