@@ -674,6 +674,76 @@ class ProhibitedStylesFile(_AliasModel):
     items: list[ProhibitedStyleItem] = Field(min_length=10)
 
 
+class AiTellFix(_AliasModel):
+    """AI 티 자동 교정 규칙 1건 — 의미 무손실이 확실한 표층 치환만.
+
+    출처: templates/ai_tell_patterns.json.
+    """
+
+    pattern: str
+    repl: str
+
+
+class AiTellPatternItem(_AliasModel):
+    """한글 AI 티 패턴 항목(templates/ai_tell_patterns.json) — im-not-ai 분류 체계 번안."""
+
+    id: str
+    severity: Literal["S1", "S2"]
+    category: str  # A 번역투 / C 구조 / D 관용구 / E 리듬 / F 수식 / G 완곡 / H 접속사 / I 형식명사
+    label: str
+    patterns: list[str]
+    threshold: int = Field(ge=1)
+    region: Literal["all", "tail"] = "all"
+    directive: str
+    scopes: list[Literal["chat", "report", "daily"]] = Field(min_length=1)
+    fix: list[AiTellFix] | None = None
+    reviewed: bool
+    note: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_regex(self) -> AiTellPatternItem:
+        import re
+
+        for pat in self.patterns:
+            re.compile(pat)
+        for fx in self.fix or []:
+            re.compile(fx.pattern)
+        if not self.patterns and self.id != "E-2":
+            raise ValueError(f"{self.id}: 패턴 없는 항목은 엔진 전용(E-2)만 허용")
+        return self
+
+
+class AiTellDirectiveText(_AliasModel):
+    header: str
+    preamble: dict[Literal["chat", "report", "daily"], str]
+    s1_label: str
+    s2_label: str
+    postamble: dict[Literal["chat", "report", "daily"], str]
+
+
+class AiTellSource(_AliasModel):
+    name: str
+    url: str
+    license: str
+    copyright: str
+    excluded: str | None = None
+
+
+class AiTellPatternsFile(_AliasModel):
+    version: str
+    note: str | None = None
+    source: AiTellSource
+    directive: AiTellDirectiveText
+    items: list[AiTellPatternItem] = Field(min_length=20)
+
+    @model_validator(mode="after")
+    def _unique_ids(self) -> AiTellPatternsFile:
+        ids = [it.id for it in self.items]
+        if len(ids) != len(set(ids)):
+            raise ValueError("ai_tell_patterns: id 중복")
+        return self
+
+
 class TenGodsTextFile(_AliasModel):
     version: str
     note: str | None = None
@@ -2550,6 +2620,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "terminology.json": TerminologyFile,
     "templates/interpretation.json": InterpretationTemplatesFile,
     "templates/prohibited_styles.json": ProhibitedStylesFile,
+    "templates/ai_tell_patterns.json": AiTellPatternsFile,
     "region/region_hanja_tokens.json": RegionHanjaTokensFile,
     "region/region_phonetic.json": RegionPhoneticFile,
     "region/region_layer_weights.json": RegionLayerWeightsFile,

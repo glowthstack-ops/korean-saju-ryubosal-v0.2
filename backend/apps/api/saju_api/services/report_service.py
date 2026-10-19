@@ -23,6 +23,7 @@ from typing import Any, Protocol
 from saju_manse_analysis.luck.luck_calendar import luck_month_label
 
 from saju_engines import counseling_arbiter, period_v2_config
+from saju_engines.ai_tell_audit import audit_ai_tells
 from saju_engines.candidate_semantics import candidate_semantics
 from saju_engines.career_field import build_career_field_facts, render_career_field_lines
 from saju_engines.chart_interpretation import build_chart_interpretation
@@ -4310,6 +4311,21 @@ _BG_SECTION_FALLBACK = (
 
 
 def _audit_section_text(
+    section_id: str, text: str, *, background_present: bool = False
+) -> str:
+    """섹션 본문 감사 — ①금지 주장 감사·교체 ②한글 AI 티 문체 감사(2026-10-19).
+
+    ②는 자동 교정 3종(A-3·A-8·D-1a)만 본문에 반영하고 나머지는 로그 전용. 간지·숫자가
+    변하면 엔진이 교정을 폐기한다. 섹션 제목은 본문 밖이라 대상이 아니다.
+    """
+    text = _audit_section_claims(section_id, text, background_present=background_present)
+    tell = audit_ai_tells(text, "report")
+    if tell.fixes or tell.findings:
+        _logger.warning("ai_tell_audit scope=report section=%s %s", section_id, tell.summary())
+    return tell.text
+
+
+def _audit_section_claims(
     section_id: str, text: str, *, background_present: bool = False
 ) -> str:
     """섹션 본문의 금지 주장 감사·교체. 정책이 없으면 원문 그대로.
