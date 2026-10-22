@@ -12552,3 +12552,9 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 오탐 측정 추가(`measure_employment_history_loo.py` `measure_false_positive`): not_happened job_gain 4년 48달 중 job_gain Top-1 — engine 6 / base·glyph 33 / cap0.6 13. Top-3 회수 불변(14/17)이라 정밀도 기준으로 상한 적용(`repeat_cap=0.6`), 테스트 기본값 반영.
 - 리포트: `entry_channel.py` 공용화(채팅 위임), `PERSONAL_REPEAT_DIRECTIVE`·`has_personal_repeat_signal` 공용, J-06·J-07에 진입 통로·두 칸·수치 지시, 후처리 순위·라벨 교정. 테스트 `test_entry_channel.py` 2건.
 - 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head cacc922 동일, 지문 동일, `var/suite_20261022_eh_p3.log`). 백엔드 8888 재기동.
+
+## 2026-10-22 — 직장 이력 P2 4차 감수 교정 (데굴님 검수 대화)
+
+- 결함: 라벨 교정의 '2026-11월'→'11월월' 부작용·'05월' 미정규화 / 상대 연도("내년…내후년") 한 해 밀림.
+- 교정: `rewrite_raw_period_labels` 月 접미 흡수·0M월·월월 방어, `relative_year_mentions` 로그, 두 칸 지시에 숫자 연도 요구. 테스트 +2.
+- 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 2f2b3b9 동일, 지문 동일, `var/suite_20261022_eh_p4.log`). 커밋 후 데굴님 지시로 서버·PC 종료(재기동 없음 — 다음 기동 시 memory 절차대로).

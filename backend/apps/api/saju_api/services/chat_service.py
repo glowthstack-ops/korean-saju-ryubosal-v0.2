@@ -36,6 +36,7 @@ from saju_engines.agent_relations import agent_relation_lines, detect_agent_ques
 from saju_engines.ai_tell_audit import audit_ai_tells
 from saju_engines.answer_label_audit import (
     entry_window_labels_present,
+    relative_year_mentions,
     rewrite_rank_labels,
     rewrite_raw_period_labels,
 )
@@ -2016,6 +2017,9 @@ def finalize_answer_text(answer: str, thread_id: str | None = None) -> str:
             "internal_label_rewritten rank=%s period=%s thread=%s",
             _rank_changes, _label_changes, thread_id,
         )
+    _rel_years = relative_year_mentions(answer)
+    if _rel_years:
+        _logger.info("relative_year_mentions words=%s thread=%s", _rel_years, thread_id)
     # 식신생재·상관생재 용어를 문단에 적힌 십성에 맞춘다(2026-10-04 실답: 식신+정재를 '상관생재').
     answer, _term_changes = fix_wealth_generation_term(answer)
     if _term_changes:

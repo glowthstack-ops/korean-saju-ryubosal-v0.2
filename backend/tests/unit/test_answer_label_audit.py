@@ -37,6 +37,24 @@ def test_raw_period_labels_rewritten_but_dates_and_ranges_kept() -> None:
     assert [c[0] for c in changes] == ["2026-12", "2027-01"]
 
 
+def test_raw_period_label_with_month_suffix_and_zero_padded_month() -> None:
+    """실답(web-mvjm3vcc): '2026-11월' → '2026년 11월월', '05월' 그대로 — 둘 다 교정."""
+    text = "2026-11월에는 비견이 들어오고, 2027년 2월월과 05월은 성사 달이다. 2026-10-05에 본다."
+    out, changes = rewrite_raw_period_labels(text)
+    assert out == ("2026년 11월에는 비견이 들어오고, 2027년 2월과 5월은 성사 달이다. "
+                   "2026-10-05에 본다.")
+    assert ("2026-11월", "2026년 11월") in changes and ("월월", "월") in changes
+    assert "월월" not in out
+
+
+def test_relative_year_mentions_log_only() -> None:
+    from saju_engines.answer_label_audit import relative_year_mentions
+
+    words = relative_year_mentions("내년 하반기부터 준비해 내후년 상반기에 결론")
+    assert words == ["내년", "내후년"]
+    assert relative_year_mentions("2027년 2월이 성사 달이에요.") == []
+
+
 def test_entry_window_labels_present_first_paragraph_only() -> None:
     present = entry_window_labels_present
     assert present("성사 달은 2월, 움직이는 달은 1월이에요.\n\n본문") == (True, True)
