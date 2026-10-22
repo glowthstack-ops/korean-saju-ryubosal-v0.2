@@ -103,6 +103,12 @@ DB: `migrations/020_life_event_attrs.sql` — `attrs JSONB NOT NULL DEFAULT '{}'
 - 교정 ②(프롬프트 전용): `ENTRY_WINDOW_DIRECTIVE`를 지평 경로와 분리해 `_entry_window_directive_needed`(진입 사건·미래·비구조·지평 지시 미포함)이면 시점 명시 질문에도 붙이고, 첫 문단에 '성사 달 ○월·움직이는 달 ○월'을 이름 붙여 쓰고 특정 달 질문이면 그 달이 어느 칸인지부터 밝히라는 형식 문장을 추가.
 - 교정 ③(점수 규칙, **값 미확정**): 반복 가중 상한 `repeat_cap`(사전 `personal_glyph_weights.json`, 기본 null=무상한) + `apply_personal_match(repeat_cap=)`·`LifeFitRanker.rank(repeat_cap=)`. 측정(`var/eh_loo_20261022b.md`, --repeat-cap 0.6): Top-3 적중 glyph 5/11 = glyph_cap 5/11(평균 순위 4.64→4.73). 반복 항은 같은 키의 모든 달에 같은 값이라 **달 순서(LOO)에는 영향이 없고**, 사건 키 간 순서와 확신도 티어 포화(톤)에만 작용한다. 85사례는 시그니처가 없어 불변. 값 결정은 데굴님.
 
+### 4-2. 2차 감수 교정 (2026-10-22, thread web-mvjij2wx "언제 취업할 수 있을까" / "돈이 없어서 빨리 취업해야해")
+확인: 수치 라벨이 2턴에 "11건 중 4건"으로 닿았고(회사명 없음), 통로 블록 두 턴 반영(관성·인성 / 비겁·식상), 두 칸은 역할 구분만 되고 첫 문단 이름표('성사 달·움직이는 달')는 없음. 1턴은 숫자 없이 "반복되는 경향"으로 뭉뚱그림. 새 누수: "성취 신호가 1위로 나타나지만"(창 내 상대 순위 블록 내부 용어), "2026-12 庚子월"(후보 라벨 원문). 기존 결함: 1턴 일주 소개 두 문장이 참조 예외(`ilju_mention_kept_referenced`)로 통과.
+- 교정 ①: `_PERSONAL_REPEAT_DIRECTIVE`를 "숫자(일치/표본)를 그대로 적어라 — 뭉뚱그리지 말 것"으로 강화. 두 칸 이름표 준수는 `ChatPostprocessContext.entry_window` + `answer_label_audit.entry_window_labels_present`로 **로그만**(`entry_window_audit result=pass|miss`).
+- 교정 ②: `saju_engines/answer_label_audit.py` — `rewrite_rank_labels`('1~3위'+조사 → 가장 강하게/두 번째로/세 번째로, 10위권·2·3위 제외), `rewrite_raw_period_labels`('YYYY-MM' 단독 → 'YYYY년 M월', 날짜·범위 제외). `finalize_answer_text`에서 거짓 역접 교정 뒤 적용, 로그 `internal_label_rewritten`.
+- 교정 ③: `ilju_mention_audit.strips_referent` — 질문 유형으로 걸린 답(총운·시기·택일)은 참조 예외 없이 지시 문장까지 제거(`removed_referents`, 로그 `ilju_mention_referent_stripped`). 분야 개요(domain_analysis)는 기존 예외 유지. 기존 테스트 2건은 새 규칙으로 개정(택일 답의 '이러한 성향은 … 월운을 만나며' 문장도 성향 서술이라 함께 제거).
+
 ## 5. 결정 기록
 
 1. 퇴사 키 `resignation` — 승인(원장 전용 키로 구현, §2-2).

@@ -137,22 +137,36 @@ def test_signal_month_gongmang_kept() -> None:
 # ── ⑥ 일주 지시어 보존 ───────────────────────────────────────────────────
 
 
-def test_ilju_intro_kept_when_next_sentence_refers_to_it() -> None:
+def test_ilju_intro_and_referent_both_removed_for_timing_types() -> None:
+    """2026-10-22 개정: 총운·시기·택일(질문 유형으로 걸린 답)은 참조 예외 없이 지시 문장까지 제거.
+    실답 '언제 취업할 수 있을까'에서 '己亥 일주는 … 이러한 기질은 …' 두 문장이 통째로 남던 결함."""
     answer = (
         "데굴님의 己亥(기해) 일주는 다정하고 실리를 추구하는 구조입니다. "
         "이러한 성향은 2026년 11월 己亥 월운을 만나며 더욱 뚜렷해집니다."
     )
     out = audit_ilju_mention(answer, QueryType.DATE_RECOMMENDATION, Domain.CAREER)
-    assert out.text == answer and not out.removed and out.kept_referenced
+    assert out.text == "" and len(out.removed) == 1 and len(out.removed_referents) == 1
+    assert not out.kept_referenced
 
 
-def test_ilju_intro_across_paragraph_referent_kept() -> None:
+def test_ilju_intro_across_paragraph_referent_removed_too() -> None:
     answer = (
         "추천일은 11월 1일이에요.\n\n데굴님의 己亥(기해) 일주는 다정한 구조입니다.\n\n"
         "이런 기질은 서류 준비에서 드러나요."
     )
     out = audit_ilju_mention(answer, QueryType.DATE_RECOMMENDATION, Domain.CAREER)
-    assert out.text == answer
+    assert out.text == "추천일은 11월 1일이에요."
+    assert out.removed_referents == ["이런 기질은 서류 준비에서 드러나요."]
+
+
+def test_ilju_intro_referent_kept_for_domain_analysis() -> None:
+    """분야 개요(domain_analysis)는 기존 참조 예외 유지 — 로그만 남긴다."""
+    answer = (
+        "데굴님의 己亥(기해) 일주는 다정하고 실리를 추구하는 구조입니다. "
+        "이러한 성향은 2026년 11월 己亥 월운을 만나며 더욱 뚜렷해집니다."
+    )
+    out = audit_ilju_mention(answer, QueryType.DOMAIN_ANALYSIS, Domain.CAREER)
+    assert out.text == answer and not out.removed and out.kept_referenced
 
 
 # ── ⑦ 사실 반박형 이의 ───────────────────────────────────────────────────

@@ -34,6 +34,11 @@ from saju_engines import (
 )
 from saju_engines.agent_relations import agent_relation_lines, detect_agent_question
 from saju_engines.ai_tell_audit import audit_ai_tells
+from saju_engines.answer_label_audit import (
+    entry_window_labels_present,
+    rewrite_rank_labels,
+    rewrite_raw_period_labels,
+)
 from saju_engines.assistant_commitments import (
     extract_commitments,
     match_commitments,
@@ -856,6 +861,9 @@ class ChatPostprocessContext(BaseModel):
     owner_id: str | None = None
     # 이번 턴 질문 원문 — 이동 주체 감사(2026-10-15)가 주체 질문 여부를 본다. 미전달이면 "".
     question: str = ""
+    # 진입 시기 두 칸 지시가 붙은 턴 — 첫 문단 '성사 달·움직이는 달' 준수 관측(로그 전용,
+    # 2026-10-22).
+    entry_window: bool = False
 
 
 class ChatResponse(BaseModel):
@@ -1850,6 +1858,12 @@ def finalize_answer_full(
         answer = _audit_date_avoid_answer(answer, ctx.payload, thread_id)
         # 일주 소개 문장 감사(2026-10-19) — 총운·시기·택일 답의 '己亥 일주는 … 구조' 문장 제거.
         answer = _audit_ilju_mention_answer(answer, ctx, thread_id)
+        if ctx.entry_window and answer:
+            _has_done, _has_move = entry_window_labels_present(answer)
+            _logger.info(
+                "entry_window_audit result=%s done_label=%s move_label=%s thread=%s",
+                "pass" if (_has_done and _has_move) else "miss", _has_done, _has_move, thread_id,
+            )
         # 이동 주체 단정 감사(2026-10-15) — 로그 전용, 답 불변.
         answer = _audit_mobility_agency_answer(answer, ctx.payload, ctx.question, thread_id)
         answer = _audit_ten_god_labels_answer(answer, ctx, thread_id)
@@ -1922,6 +1936,11 @@ def _audit_ilju_mention_answer(
             "ilju_mention_stripped count=%d qtype=%s removed=%s thread=%s",
             len(audit.removed), getattr(intent, "query_type", None), audit.removed, thread_id,
         )
+    if audit.removed_referents:
+        _logger.warning(
+            "ilju_mention_referent_stripped removed=%s thread=%s",
+            audit.removed_referents, thread_id,
+        )
     if audit.kept_referenced:
         _logger.warning(
             "ilju_mention_kept_referenced kept=%s thread=%s", audit.kept_referenced, thread_id,
@@ -1985,6 +2004,15 @@ def finalize_answer_text(answer: str, thread_id: str | None = None) -> str:
         _logger.warning(
             "false_contrast_rewritten count=%d before=%s thread=%s",
             len(_changes), [c[0][:60] for c in _changes], thread_id,
+        )
+    # 내부 표기 누수(2026-10-22 실답): 순위('1위로') → 서술어, 기간 라벨 원문('2026-12') →
+    # 'YYYY년 M월'.
+    answer, _rank_changes = rewrite_rank_labels(answer)
+    answer, _label_changes = rewrite_raw_period_labels(answer)
+    if _rank_changes or _label_changes:
+        _logger.warning(
+            "internal_label_rewritten rank=%s period=%s thread=%s",
+            _rank_changes, _label_changes, thread_id,
         )
     # 식신생재·상관생재 용어를 문단에 적힌 십성에 맞춘다(2026-10-04 실답: 식신+정재를 '상관생재').
     answer, _term_changes = fix_wealth_generation_term(answer)
@@ -4404,9 +4432,9 @@ def _entry_channel_context(
 
 
 _PERSONAL_REPEAT_DIRECTIVE = (
-    "[개인 이력 반복] 동반 신호에 '개인 이력 반복'이 있는 달은 그 수치(예: 같은 글자 달에 같은 "
-    "사건 4/11건)를 한 문장으로 언급하라. 회사명·고용주·사례 이름은 쓰지 말고, 반복은 경향이지 "
-    "확정이 아니라고 덧붙여라."
+    "[개인 이력 반복] 동반 신호에 '개인 이력 반복'이 있는 달은 그 숫자(일치/표본, 예: 11건 중 "
+    "4건)를 그대로 적어 한 문장으로 언급하라 — '반복되는 경향'처럼 숫자 없이 뭉뚱그리지 말 것. "
+    "회사명·고용주·사례 이름은 쓰지 말고, 반복은 경향이지 확정이 아니라고 덧붙여라."
 )
 
 
@@ -6372,10 +6400,12 @@ def chat(
             trailing.extend(_entry_lines)
             trailing.append(_ENTRY_CHANNEL_DIRECTIVE)
     # 두 칸 지시(성사 달·움직이는 달) — 지평 경로를 타지 않은 진입 질문(시점 명시 등)에도 붙인다.
+    _entry_window_on = bool(horizon is not None and getattr(horizon, "entry_window", False))
     if _entry_window_directive_needed(
         intent, horizon, is_retro=bool(is_retro), is_structural=bool(is_structural),
     ):
         trailing.append(ENTRY_WINDOW_DIRECTIVE)
+        _entry_window_on = True
     # 개인 이력 반복 수치 서술(회사명 없음) — 동반 신호에 라벨이 실린 후보가 있을 때만.
     if _personal_repeat_present(list(payload.event_candidates)):
         trailing.append(_PERSONAL_REPEAT_DIRECTIVE)
@@ -7016,6 +7046,7 @@ def chat(
             postprocess=ChatPostprocessContext(
                 payload=payload, career_prep=_career_prep, prompt_text=prompt_text,
                 call_type=call_type, system=system, owner_id=owner_id, question=question,
+                entry_window=_entry_window_on,
             ),
         )
 
@@ -7080,6 +7111,7 @@ def chat(
             ChatPostprocessContext(
                 payload=payload, career_prep=_career_prep, prompt_text=prompt_text,
                 call_type=call_type, system=system, owner_id=owner_id, question=question,
+                entry_window=_entry_window_on,
             ),
             thread_id,
         )

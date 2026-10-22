@@ -48,6 +48,16 @@ class IljuMentionAudit(BaseModel):
     removed: list[str]
     gated: bool
     kept_referenced: list[str] = []
+    removed_referents: list[str] = []  # 소개 문장을 받던 지시 문장도 함께 제거(시기 질문)
+
+
+def strips_referent(query_type: QueryType | None) -> bool:
+    """질문 유형 자체로 걸린 답(총운·시기·택일)은 참조 예외 없이 지시 문장까지 걷어낸다.
+
+    실답(2026-10-22 '언제 취업할 수 있을까'): '己亥 일주는 … 이러한 기질은 조직 내에서 …' 두 문장이
+    참조 예외로 통째로 남았다. 분야 개요(domain_analysis)는 기존 예외(로그만)를 유지한다.
+    """
+    return query_type in _STRIP_QUERY_TYPES
 
 
 def should_strip(query_type: QueryType | None, domain: Domain | None) -> bool:
@@ -84,8 +94,10 @@ def audit_ilju_mention(
     gated = should_strip(query_type, domain)
     if not gated or not answer:
         return IljuMentionAudit(text=answer, removed=[], gated=gated)
+    drop_ref = strips_referent(query_type)
     removed: list[str] = []
     kept_ref: list[str] = []
+    removed_ref: list[str] = []
     paras = [
         [s for s in _SENTENCE_SPLIT_RE.split(p) if s.strip()] if p.strip() else []
         for p in answer.split("\n")
@@ -98,8 +110,12 @@ def audit_ilju_mention(
             continue
         nxt = paras[flat[k + 1][0]][flat[k + 1][1]] if k + 1 < len(flat) else ""
         if _REFERENT_START_RE.search(nxt):
-            kept_ref.append(sent.strip()[:80])
-            continue
+            if not drop_ref:
+                kept_ref.append(sent.strip()[:80])
+                continue
+            # 시기 질문: 지시 문장도 같이 제거(지시 대상이 사라져 문장이 공중에 뜨지 않게).
+            drop.add(flat[k + 1])
+            removed_ref.append(nxt.strip()[:80])
         drop.add((pi, si))
         removed.append(sent.strip()[:80])
     if not removed:
@@ -112,4 +128,7 @@ def audit_ilju_mention(
         for pi, sents in enumerate(paras)
     ]
     text = re.sub(r"\n{3,}", "\n\n", "\n".join(out_paras)).strip("\n")
-    return IljuMentionAudit(text=text, removed=removed, gated=gated, kept_referenced=kept_ref)
+    return IljuMentionAudit(
+        text=text, removed=removed, gated=gated, kept_referenced=kept_ref,
+        removed_referents=removed_ref,
+    )

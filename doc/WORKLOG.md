@@ -12533,3 +12533,10 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 교정: `context_reducer` 개인 이력 반복 라벨 상한 예외(`PERSONAL_REPEAT_LABEL_PREFIX`) + `_PERSONAL_REPEAT_DIRECTIVE` / `ENTRY_WINDOW_DIRECTIVE` 지평 분리 주입(`_entry_window_directive_needed`)·형식 문장 강화 / `repeat_cap` 설정값(기본 null)·ranker 전달·LOO `glyph_cap` 모드. 측정: 적중 5/11 동일(달 순서 무영향), 톤 포화만 완화 → 값(0.6) 적용 여부는 데굴님 결정.
 - 테스트: `test_employment_history_p2.py` +4(상한 예외·분리 주입 조건·지시 트리거·상한 효과), `test_personal_glyph.py` 플래그 검증을 env 무관하게(monkeypatch).
 - 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head d61f914 동일, 지문 동일, `var/suite_20261022_eh_p2c.log`). 백엔드 재기동은 아래 커밋 뒤.
+
+## 2026-10-22 — 직장 이력 P2 2차 감수 교정 3건 (데굴님 "진행하자")
+
+- 감수(thread web-mvjij2wx): 수치 라벨 2턴 도달("11건 중 4건")·통로 반영 확인 / 1턴 숫자 생략 / 두 칸 이름표 없음 / 누수 "1위로 나타나지만"·"2026-12 庚子월" / 일주 두 문장 참조 예외 통과.
+- 교정: 수치 지시 강화 + `entry_window_audit` 로그 / `answer_label_audit.py`(순위·기간 라벨 원문 결정론 교정, `internal_label_rewritten`) / `ilju_mention_audit.strips_referent`(시기·총운·택일은 참조 문장까지 제거, 분야 개요는 예외 유지) — 기존 테스트 2건 개정.
+- 테스트: `test_answer_label_audit.py` 4건(순위 조사별·4위 이상 제외, 라벨 vs 날짜·범위, 첫 문단 관측, 일주 참조 제거/유지), `test_gongmang_date_answer_audits.py` 2건 개정 +1.
+- 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 6cb8aef 동일, 지문 동일, `var/suite_20261022_eh_p2e.log`). 백엔드 8888 재기동.
