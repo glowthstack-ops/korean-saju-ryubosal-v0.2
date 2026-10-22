@@ -6,6 +6,7 @@ doc/v2_2/LIFE_EVENT_INFERENCE.md. 사용자 확인 사건(원자 행)과 코호�
 
 from __future__ import annotations
 
+from datetime import date
 from enum import StrEnum
 from typing import Literal
 
@@ -31,6 +32,18 @@ class LifeEventSource(StrEnum):
     CHAT_CORRECTION = "chat_correction"                        # 채팅 맞음/틀림 정정
     CHAT_RATING = "chat_rating"                                # 채팅 평가(👍/👎)
     DELAYED_OUTCOME = "delayed_outcome"                        # 시점 경과 결과 — 최상
+    EMPLOYMENT_HISTORY = "employment_history"                  # 직장 이력(자격득실 수준) — 정본
+
+
+#: 원장 전용 사건 키 — 채점 taxonomy(EventKeyV2 21종)에는 없고 **저장·대조에만** 쓴다.
+#: docs/02 Event Taxonomy의 `resignation`을 퇴사·직장 상실 행의 키로 쓴다. 후보 생성(시드)
+#: 대상이 아니며, personal_calibration 은 이 키를 EventKeyV2 로 변환하지 않는다(2026-10-22).
+LEDGER_ONLY_EVENT_KEYS: frozenset[str] = frozenset({"resignation"})
+
+EventNature = Literal["regular", "dispatch", "intern", "military", "conversion"]
+EntryChannel = Literal["direct", "offer", "referral", "conversion"]
+ExitReason = Literal["voluntary", "involuntary", "contract_end"]
+DatePrecision = Literal["day", "month", "year"]
 
 
 class SignalFingerprint(BaseModel):
@@ -40,6 +53,24 @@ class SignalFingerprint(BaseModel):
     palace: str | None = None        # year_pillar/month_pillar/day_pillar/hour_pillar
     relation: str | None = None      # HAP/CHUNG/HYEONG/PA/HAE
     twelve_stage: str | None = None  # JANGSAENG ... YANG
+
+
+class LifeEventAttrs(BaseModel):
+    """사용자 제공 사실의 부가 속성(EMPLOYMENT_HISTORY_CALIBRATION.md §2-1) — 모두 선택.
+
+    점수에 쓰지 않는 사실 정보다. `event_date`가 있으면 period·월운 지문은 그 날짜의 절기월로
+    계산된다(정오 KST 기준). `nature`가 regular/dispatch 가 아닌 행은 취업 통계(기저율·통로)
+    집계에서 제외한다. `employment_group`이 같은 행들은 한 직장(파견→전환 등)이다.
+    """
+
+    event_date: date | None = None
+    date_precision: DatePrecision | None = None
+    nature: EventNature | None = None
+    entry_channel: EntryChannel | None = None   # 입사 행만
+    exit_reason: ExitReason | None = None       # 퇴사 행만(모르면 None)
+    employment_group: str | None = None         # 같은 직장 묶기 키
+    label: str | None = None                    # 사용자가 준 회사명 — 연결 사례 서술 전용
+    luck_month_label: str | None = None         # 엔진이 정한 절기월 라벨('YYYY-MM', 절입 날짜 기준)
 
 
 class LifeEventRow(BaseModel):
@@ -61,6 +92,23 @@ class LifeEventRow(BaseModel):
     outcome: LifeEventOutcome
     source: LifeEventSource
     weight: float = 1.0
+    attrs: LifeEventAttrs = Field(default_factory=LifeEventAttrs)  # 020 attrs JSONB
+
+
+class EmploymentHistoryEntry(BaseModel):
+    """직장 이력 입력 한 줄(사용자 제공 — 자격득실 내역 수준).
+
+    날짜는 'YYYY-MM-DD' 또는 'YYYY-MM'(일 미상은 'YYYY-MM-??'도 허용).
+    """
+
+    date: str
+    kind: Literal["entry", "exit", "conversion"]
+    org: str | None = None
+    nature: EventNature = "regular"
+    channel: EntryChannel | None = None
+    exit_reason: ExitReason | None = None
+    group: str | None = None
+    note: str | None = None
 
 
 # ── 현실 신호 캘리브레이션 질문 (주요 ~10개 연도 · 연도별 이벤트 선택) ──

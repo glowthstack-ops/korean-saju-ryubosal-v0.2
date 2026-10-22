@@ -49,6 +49,8 @@ MAINTAINED=(
     scripts/shadow_daewoon_hwa_post_selection.py
     # 임계값 판정 기준선 — ROLE_CLOSE_MARGIN 을 조정할 때마다 같은 모집단으로 재측정한다
     scripts/audits/measure_role_margin_census.py
+    # 직장 이력 정본 적재 — 이력이 갱신될 때마다 재실행(EMPLOYMENT_HISTORY_CALIBRATION.md §2-3)
+    scripts/load_employment_history.py
 )
 
 missing=()

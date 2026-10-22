@@ -12498,3 +12498,14 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - ⑧(턴 간 모순)은 ②정정 경로(challenge→정정 답 계약)와 ①입력 사실 보강으로 대응 — 별도 감사 없음.
 - 테스트: `test_gongmang_date_answer_audits.py` 22건(교정마다 반례). 게이트: 아래 줄에 기록.
   1차 스위트 `TESTS_FAILED`(`var/suite_20261019c.log`) — 마무리 꼬리 제거가 질문 뒤 줄의 '※ 관계 신호는 시험(beta) 관측치예요' 고지까지 지움(통합 `test_offer_save_failure_does_not_break_the_answer`). 같은 문단에 붙은 문장만 지우고 '※' 줄 제외로 좁힘 + 반례 테스트. 재실행: lint `All checks passed`(`var/lint_20261019k.log`), `production mypy gate clean`(`var/typecheck_20261019e.log`), `maintained scripts mypy gate clean`(`var/typecheck_scripts_20261019d.log`), 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=88a0e9c, 지문 동일, exit 0, `var/suite_20261019d.log`).
+
+## 2026-10-22 — 직장 이력 캘리브레이션 P0 (원장 확장·정본 적재) — 데굴님 승인
+
+- 배경: 데굴님 본인 입퇴사 이력 분석(`career_timing_20261022.pdf`, 정본)을 풀이·엔진에 연결하기 위한 1단계. SSOT `doc/v2_2/EMPLOYMENT_HISTORY_CALIBRATION.md`(결함 F1~F6·P0~P2·결정 4건).
+- 결정(데굴님): ①퇴사 키 `resignation` 추가 ②군복무·인턴은 `nature` 태그 ③미상 일자는 월 정밀도 ④P1 글자 가중 초기값은 reviewed:false 제안 후 측정으로 확정.
+- 구현: `LifeEventAttrs`(event_date·date_precision·nature·entry_channel·exit_reason·employment_group·label·luck_month_label) + `LifeEventRow.attrs` / `LifeEventSource.EMPLOYMENT_HISTORY` / `LEDGER_ONLY_EVENT_KEYS={"resignation"}`(EventKeyV2 21종 불변 — 21키 전수 사전이 명리 내용을 요구하므로 저장 전용 키는 taxonomy 밖에 둔다) / `EmploymentHistoryEntry` 입력 모델 / 마이그레이션 020(attrs JSONB·source CHECK) / `LifeEventStore.append_rows·subject_signature` attrs 왕복, `delete_subject_rows(source=)`, `delete_superseded_rows` / `saju_engines/employment_history.py`(절기월 라벨=정오 KST·직전 節 KST 'YYYY-MM', `reference_date_for_label`, `rows_from_history`) / `scripts/load_employment_history.py`(dry-run 기본, allowlist 등재) / `seed_missing_events` 원장 전용 키 가드.
+- 교정: F3(캘리브레이션 재제출이 전체 행 삭제 → 소스 범위 삭제), F6(1월 라벨 丑월이 전년 monthly_luck에만 있어 월운 지문이 비던 결함 — loader·`_month_fingerprints` 공통 교정).
+- 데이터: 데굴님 subject에 27행 적재(employment_history), 치환 1·수동 정리 3(2009-03 정체 불명 job_gain, 2001-08·2003-10 career_change→군복무 태그 행, 2006-06 job_gain 회상 중복). 라이브 DB에 020 수동 적용.
+- 테스트: `test_employment_history.py` 11건(절기 경계 3·기존 period 호환 3·1월 라벨·키/attrs/id·시드 가드·attrs 왕복), `test_lei_db_golden.py` +1(DB).
+- 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, start_head=end_head 0db1bd8, 지문 동일, `var/suite_20261022_eh_p0.log`).
+- 남음: P1(지문에 글자·원국 재현·전월 차원 + 기저율 lift, 데굴님 입사 11건 leave-one-out 측정 후 플래그), P2(시기 답 2칸·연결 사례·통로 제안·입력 UI). 커밋은 데굴님 지시 후.

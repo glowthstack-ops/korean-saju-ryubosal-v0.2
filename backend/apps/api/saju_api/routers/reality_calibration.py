@@ -15,6 +15,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from saju_engines.employment_history import reference_date_for_label
 from saju_engines.event_engine_v2 import EventEngineV2
 from saju_engines.life_event_store import LifeEventStore
 from saju_engines.reality_calibration import (
@@ -28,6 +29,7 @@ from saju_engines.reality_calibration import (
 from saju_engines.subject_store import SubjectStore
 from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.life_event import (
+    LifeEventSource,
     RealityCalibrationQuestionSet,
     RealityCalibrationSubmission,
     RealityCalibrationSubmitResult,
@@ -108,8 +110,11 @@ def submit(
     submission = submission.model_copy(update={"owner_id": owner_id})
     month_fp = _month_fingerprints(record.birth, submission)
     rows = rows_from_submission(submission, question, pillars_signature(chart), month_fp)
-    # 재제출은 치환(수정) — 기존 행을 지우고 새로 적재해 선택 해제·중복을 반영한다.
-    life_events.delete_subject_rows(owner_id, subject_id)
+    # 재제출은 치환(수정) — 캘리브레이션 소스 행만 지우고 새로 적재해 선택 해제·중복을 반영한다.
+    # 다른 경로(직장 이력 employment_history)로 적재한 행은 보존한다(F3 교정, 2026-10-22).
+    life_events.delete_subject_rows(
+        owner_id, subject_id, source=str(LifeEventSource.REALITY_SIGNAL_CALIBRATION),
+    )
     stored = life_events.append_rows(rows)
     # 해상도 값(연 체감·영역·사건 경험)은 별도 blob에 답변 원본 그대로 저장(수정 프리필용).
     life_events.save_reality_payload(owner_id, subject_id, {
@@ -130,7 +135,11 @@ def _month_fingerprints(
                 wanted.setdefault((ans.year, occ.month), set()).add(occ.event_key)
     out: dict[tuple[int, int, str], SignalFingerprint] = {}
     for (year, month), keys in wanted.items():
-        chart = calculate(birth.model_copy(update={"reference_date": date(year, month, 15)}))
+        # 1월 회상(丑월)은 전년 입춘 기준 목록에만 있어 15일 기준일로는 지문이 비던 결함 교정
+        # (2026-10-22, employment_history.reference_date_for_label 과 같은 규칙).
+        chart = calculate(birth.model_copy(
+            update={"reference_date": reference_date_for_label(f"{year}-{month:02d}")},
+        ))
         cands = _get_engine().score(chart, levels={GanjiLevel.MONTH})
         fps = month_event_fingerprints(cands, f"{year}-{month:02d}")
         for ek in keys:

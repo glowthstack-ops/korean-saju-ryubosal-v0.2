@@ -19,6 +19,8 @@ from saju_shared_types.event_engine import (
 from saju_shared_types.life_event import LifeEventOutcome, LifeEventRow, SignalFingerprint
 
 _OCCURRED = {LifeEventOutcome.CONFIRMED, LifeEventOutcome.PLANNED}
+# 시드 가능한 키 = 채점 taxonomy(EventKeyV2). 원장 전용 키(LEDGER_ONLY_EVENT_KEYS)는 제외.
+_SEEDABLE_KEYS = frozenset(k.value for k in EventKeyV2)
 
 
 def candidate_fingerprint(c: EventCandidateV2) -> SignalFingerprint:
@@ -138,8 +140,8 @@ def seed_missing_events(
     seeds: list[EventCandidateV2] = []
     for period in periods:
         for ek, rows in themes.items():
-            if (ek, period) in present:
-                continue
+            if (ek, period) in present or ek not in _SEEDABLE_KEYS:
+                continue  # 원장 전용 키(resignation 등)는 후보로 시드하지 않는다
             rep = rows[0]
             repeats = max(0, len({r.period for r in rows}) - 1)
             seeds.append(EventCandidateV2(

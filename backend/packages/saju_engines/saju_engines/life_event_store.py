@@ -20,6 +20,8 @@ _MIGRATIONS_DIR = Path(__file__).resolve().parents[3] / "migrations"
 _MIGRATION = _MIGRATIONS_DIR / "008_life_events.sql"
 # 현실 캘리브레이션 해상도 값(연 단위 체감·영역·경험) blob(docs/14 결정①).
 _MIGRATION_CALIB = _MIGRATIONS_DIR / "014_subject_reality_calibration.sql"
+# 직장 이력 P0 — attrs JSONB + source 'employment_history'(EMPLOYMENT_HISTORY_CALIBRATION.md §2-1).
+_MIGRATION_ATTRS = _MIGRATIONS_DIR / "020_life_event_attrs.sql"
 
 
 class LifeEventStore:
@@ -39,6 +41,7 @@ class LifeEventStore:
         with self._connect() as conn:
             conn.execute(_MIGRATION.read_text(encoding="utf-8"))
             conn.execute(_MIGRATION_CALIB.read_text(encoding="utf-8"))
+            conn.execute(_MIGRATION_ATTRS.read_text(encoding="utf-8"))
 
     def save_reality_payload(self, owner_id: str, subject_id: str, payload: dict) -> None:
         """현실 캘리브레이션 해상도 payload(연 단위 체감·영역·사건 경험) 저장(UPSERT).
@@ -74,12 +77,12 @@ class LifeEventStore:
                     INSERT INTO subject_life_events
                       (event_row_id, subject_id, owner_id, pillar_year, pillar_month,
                        pillar_day, pillar_hour, gender, event_key, period,
-                       signal_fingerprint, outcome, source, weight)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s,%s)
+                       signal_fingerprint, outcome, source, weight, attrs)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s,%s,%s::jsonb)
                     ON CONFLICT (event_row_id) DO UPDATE SET
                       signal_fingerprint=EXCLUDED.signal_fingerprint,
                       outcome=EXCLUDED.outcome, source=EXCLUDED.source,
-                      weight=EXCLUDED.weight
+                      weight=EXCLUDED.weight, attrs=EXCLUDED.attrs
                     """,
                     (
                         r.event_row_id, r.subject_id, r.owner_id,
@@ -87,17 +90,31 @@ class LifeEventStore:
                         r.gender, r.event_key, r.period,
                         r.signal_fingerprint.model_dump_json(),
                         str(r.outcome), str(r.source), r.weight,
+                        r.attrs.model_dump_json(exclude_none=True),
                     ),
                 )
         return len(rows)
 
-    def delete_subject_rows(self, owner_id: str, subject_id: str) -> int:
-        """그 subject의 확인 사건 전체 삭제(재제출 치환용). 삭제 행 수 반환."""
+    def delete_subject_rows(
+        self, owner_id: str, subject_id: str, source: str | None = None,
+    ) -> int:
+        """그 subject의 확인 사건 삭제(재제출 치환용). 삭제 행 수 반환.
+
+        `source`를 주면 그 소스의 행만 지운다 — 캘리브레이션 재제출이 다른 경로(직장 이력)로
+        적재한 행까지 지우던 결함의 교정(EMPLOYMENT_HISTORY_CALIBRATION.md F3). None 이면 전체.
+        """
         with self._connect() as conn:
-            cur = conn.execute(
-                "DELETE FROM subject_life_events WHERE owner_id=%s AND subject_id=%s",
-                (owner_id, subject_id),
-            )
+            if source is None:
+                cur = conn.execute(
+                    "DELETE FROM subject_life_events WHERE owner_id=%s AND subject_id=%s",
+                    (owner_id, subject_id),
+                )
+            else:
+                cur = conn.execute(
+                    "DELETE FROM subject_life_events "
+                    "WHERE owner_id=%s AND subject_id=%s AND source=%s",
+                    (owner_id, subject_id, source),
+                )
             return cur.rowcount
 
     def cohort_count(
@@ -170,7 +187,7 @@ class LifeEventStore:
                 """
                 SELECT event_row_id, subject_id, owner_id, pillar_year, pillar_month,
                        pillar_day, pillar_hour, gender, event_key, period,
-                       signal_fingerprint, outcome, source, weight
+                       signal_fingerprint, outcome, source, weight, attrs
                 FROM subject_life_events
                 WHERE owner_id=%s AND subject_id=%s
                 """,
@@ -183,5 +200,25 @@ class LifeEventStore:
                 pillar_year=r[3], pillar_month=r[4], pillar_day=r[5], pillar_hour=r[6],
                 gender=r[7], event_key=r[8], period=r[9],
                 signal_fingerprint=r[10], outcome=r[11], source=r[12], weight=r[13],
+                attrs=r[14] or {},
             ))
         return out
+
+    def delete_superseded_rows(
+        self, owner_id: str, subject_id: str, keys_periods: list[tuple[str, str]],
+        keep_source: str,
+    ) -> int:
+        """같은 (event_key, period)의 다른 소스 행을 지운다 — 정본(직장 이력) 적재 시 캘리브레이션의
+        같은 달 회상 행이 중복 가산되지 않게 한다. 삭제 행 수 반환."""
+        if not keys_periods:
+            return 0
+        n = 0
+        with self._connect() as conn:
+            for ek, period in keys_periods:
+                cur = conn.execute(
+                    "DELETE FROM subject_life_events WHERE owner_id=%s AND subject_id=%s "
+                    "AND event_key=%s AND period=%s AND source<>%s",
+                    (owner_id, subject_id, ek, period, keep_source),
+                )
+                n += cur.rowcount or 0
+        return n
