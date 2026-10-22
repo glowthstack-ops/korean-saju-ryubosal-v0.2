@@ -53,6 +53,7 @@ from saju_engines.companion_alias import AliasEntry, merge_attached_partner
 from saju_engines.companion_similarity import augment_relation_type, augment_subject_mode
 from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
 from saju_engines.context_reducer import (
+    PERSONAL_REPEAT_DIRECTIVE,
     PERSONAL_REPEAT_LABEL_PREFIX,
     build_birth_summary,
     build_llm_input,
@@ -77,6 +78,7 @@ from saju_engines.daewoon_progression import resolve_all_daewoon_progressions
 from saju_engines.date_answer_audit import rewrite_avoid_ranges, strip_after_closing_question
 from saju_engines.date_selection import DateSelectionEngine
 from saju_engines.effective_subjects import AttachedCompanion, build_effective_subjects
+from saju_engines.entry_channel import ENTRY_CHANNEL_DIRECTIVE, entry_channel_lines
 from saju_engines.event_engine_config import build_event_engine_v2
 from saju_engines.event_lexicon import event_narration_directive
 from saju_engines.gongmang_claim_audit import audit_gongmang_claims
@@ -4375,12 +4377,8 @@ def _agent_relation_context(
 
 #: 진입 사건 키 — 통로 블록 대상(EMPLOYMENT_HISTORY_CALIBRATION.md §4, 2026-10-22).
 _ENTRY_CHANNEL_KEYS = frozenset({EventKey.JOB_GAIN, EventKey.CAREER_CHANGE})
-_ENTRY_CHANNEL_DIRECTIVE = (
-    "[진입 통로] 위 근거표의 관계 범주를 그대로 옮겨 '어떤 관계 쪽에서 제안·소개·공고가 올 수 "
-    "있는가'를 "
-    "후보 달마다 한 줄로만 쓰라. 통로를 단정하거나 특정인·특정 회사를 지목하지 말고, 근거표에 없는 "
-    "관계 범주를 더하지 말 것."
-)
+_ENTRY_CHANNEL_DIRECTIVE = ENTRY_CHANNEL_DIRECTIVE  # 공용(entry_channel) — 리포트와 동일
+_PERSONAL_REPEAT_DIRECTIVE = PERSONAL_REPEAT_DIRECTIVE  # 공용(context_reducer) — 리포트와 동일
 
 
 def _entry_channel_context(
@@ -4395,28 +4393,16 @@ def _entry_channel_context(
 ) -> list[str]:
     """진입 사건(입사·이직) 질문 — 후보 상위 달(최대 2)의 운 십성을 관계 범주로 옮긴 '통로' 블록.
 
-    관계 대상 질문(`_agent_relation_context`)과 같은 근거표(ten_god_relations)를 쓰되 가족 칸은
-    붙이지 않는다. 사건 후보가 없으면 블록도 없다(규칙 11).
+    본체는 `saju_engines.entry_channel`(리포트 J-06·J-07 과 공용). 관계 대상 질문과는 배타이고
+    사건 후보가 없으면 블록도 없다(규칙 11).
     """
     if intent.event_key not in _ENTRY_CHANNEL_KEYS or detect_agent_question(question):
-        return []
-    periods: list[str] = []
-    for c in sorted(candidates, key=lambda c: -int(getattr(c, "score", 0))):
-        if str(getattr(c, "event_key", "")) not in {k.value for k in _ENTRY_CHANNEL_KEYS}:
-            continue
-        label = str(getattr(c, "period", ""))
-        if label and label not in periods:
-            periods.append(label)
-        if len(periods) >= 2:
-            break
-    pillars = [pl for pl in (_luck_pillar_for_label(birth, lb) for lb in periods) if pl]
-    if not pillars:
         return []
     from saju_engines.event_scoring import favorability_map
 
     gender = str(result.input_summary.get("gender", ""))
-    lines, keys = agent_relation_lines(
-        pillars, favorability_map(result), gender, include_family=False,
+    lines, keys, periods = entry_channel_lines(
+        candidates, lambda lb: _luck_pillar_for_label(birth, lb), favorability_map(result), gender,
     )
     if not lines:
         return []
@@ -4424,20 +4410,7 @@ def _entry_channel_context(
         "entry_channel_exposed thread=%s turn=%s periods=%s keys=%s",
         thread_id, turn_no, periods, keys,
     )
-    return [
-        "[진입 통로 — 후보 달 운 십성의 관계 범주(엔진 값·근거표). 제안·소개·공고가 올 수 있는 "
-        "관계 범주이지 특정인·특정 회사가 아니다]",
-        *lines,
-    ]
-
-
-_PERSONAL_REPEAT_DIRECTIVE = (
-    "[개인 이력 반복] 동반 신호에 '개인 이력 반복'이 있는 달은 그 숫자(일치/표본, 예: 11건 중 "
-    "4건)를 그대로 적어 한 문장으로 언급하라 — '반복되는 경향'처럼 숫자 없이 뭉뚱그리지 말 것. "
-    "회사명·고용주·사례 이름은 쓰지 말고, 반복은 경향이지 확정이 아니라고 덧붙여라. 그 반복은 "
-    "그 달에 그 사건이 실제로 성사됐던 이력이므로, 그 달을 검토·준비 달로만 격하하지 말고 성사 "
-    "후보로도 함께 적어라(엔진 후보 순위가 더 높은 달이 있으면 그 달을 앞에 두되 생략하지 말 것)."
-)
+    return lines
 
 
 def _personal_repeat_present(candidates: list) -> bool:

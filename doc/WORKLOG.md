@@ -12546,3 +12546,9 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 측정(사건 종류 간, 확정 월 17건 LOO): base/glyph Top-1 11/17·Top-3 14/17, cap 0.6·0.4 Top-1 6/17·Top-3 14/17 → 상한 **미적용**(repeat_cap=null). 오탐(사건 없는 달) 측정은 다음 과제(SSOT §3-3).
 - 3차 감수(web-mvjjpmvz): 숫자·통로·누수 제거·일주 제거 모두 확인, 두 칸 이름표만 miss(의미는 충족). 교정: 관측 어간 기준 완화, 반복 이력 달 '성사 후보' 병기 지시.
 - 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 660d4fb 동일, 지문 동일, `var/suite_20261022_eh_p2f.log`). 백엔드 8888 재기동.
+
+## 2026-10-22 — 반복 가중 상한 0.6 적용(오탐 측정) + 리포트 배선 J-06·J-07 (데굴님 "진행해줘")
+
+- 오탐 측정 추가(`measure_employment_history_loo.py` `measure_false_positive`): not_happened job_gain 4년 48달 중 job_gain Top-1 — engine 6 / base·glyph 33 / cap0.6 13. Top-3 회수 불변(14/17)이라 정밀도 기준으로 상한 적용(`repeat_cap=0.6`), 테스트 기본값 반영.
+- 리포트: `entry_channel.py` 공용화(채팅 위임), `PERSONAL_REPEAT_DIRECTIVE`·`has_personal_repeat_signal` 공용, J-06·J-07에 진입 통로·두 칸·수치 지시, 후처리 순위·라벨 교정. 테스트 `test_entry_channel.py` 2건.
+- 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head cacc922 동일, 지문 동일, `var/suite_20261022_eh_p3.log`). 백엔드 8888 재기동.

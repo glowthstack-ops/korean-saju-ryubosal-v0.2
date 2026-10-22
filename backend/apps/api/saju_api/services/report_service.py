@@ -24,6 +24,7 @@ from saju_manse_analysis.luck.luck_calendar import luck_month_label
 
 from saju_engines import counseling_arbiter, period_v2_config
 from saju_engines.ai_tell_audit import audit_ai_tells
+from saju_engines.answer_label_audit import rewrite_rank_labels, rewrite_raw_period_labels
 from saju_engines.candidate_semantics import candidate_semantics
 from saju_engines.career_field import build_career_field_facts, render_career_field_lines
 from saju_engines.chart_interpretation import build_chart_interpretation
@@ -32,9 +33,11 @@ from saju_engines.context_reducer import (
     _DOMAIN_EVENT_KEYS,
     _PROFILE_FACTS_INSTRUCTION,
     _STRUCTURE_PATTERN_INSTRUCTION,
+    PERSONAL_REPEAT_DIRECTIVE,
     build_birth_summary,
     event_ko,
     first_sentence,
+    has_personal_repeat_signal,
     overview_cluster_key,
     serialize_chart_prefix,
 )
@@ -52,6 +55,7 @@ from saju_engines.direction_suggestion import (
     format_direction_suggestion_lines,
     select_direction_suggestions,
 )
+from saju_engines.entry_channel import ENTRY_CHANNEL_DIRECTIVE, entry_channel_lines
 from saju_engines.event_engine_config import (
     DaewoonHwaMode,
     active_event_engine_flags,
@@ -66,6 +70,7 @@ from saju_engines.folk_direction import (
 )
 from saju_engines.hap_lines import luck_hap_mode_lines
 from saju_engines.health_vulnerability import analyze_health_vulnerability
+from saju_engines.horizon import ENTRY_WINDOW_DIRECTIVE
 from saju_engines.intent_event_filter import IntentEventFilter
 from saju_engines.lifetime_scan import (
     PER_CLUSTER_CAP,
@@ -913,6 +918,9 @@ _NON_NORMATIVE_SECTIONS = {"R-07", "RP-09"}
 # 시기 단정 금지 디렉티브를 붙일 주목할 달 섹션 — 우선 직업 테마 J-06만(사례 §6 모방 금지,
 # 감수·실측 후 타 테마 '주목할 달' 확장 검토).
 _DATE_CERTAINTY_SECTIONS = {"J-06"}
+#: 진입 시기 두 칸·진입 통로·개인 이력 반복 지시를 붙이는 직업 섹션(2026-10-22) — 주목할 달·
+#: 행동 전략.
+_ENTRY_WINDOW_SECTIONS = frozenset({"J-06", "J-07"})
 
 
 @lru_cache(maxsize=1)
@@ -2215,6 +2223,33 @@ class _ReportData:
             if line:
                 out.append(f"{period}: {line}")
         return out
+
+    def entry_channel_block(self) -> list[str]:
+        """진입 통로 블록(J-06·J-07) — 직업 후보 상위 달 2개의 운 십성을 관계 범주로(공용 모듈).
+
+        운 기둥은 라벨의 절기 연도 월운(1월 라벨은 전년) 또는 세운에서 찾는다. 없으면 빈 목록.
+        """
+        def _pillar(label: str) -> object | None:
+            try:
+                if len(label) == 4:
+                    pls = luck_years(self._chart_birth, [int(label)])
+                elif len(label) == 7:
+                    year = int(label[:4]) - (1 if label[5:7] == "01" else 0)
+                    pls = luck_months(self._chart_birth, year)
+                else:
+                    return None
+            except (ValueError, TypeError):
+                return None
+            return next((p for p in pls if p.label == label), None)
+
+        gender = str((self.result.input_summary or {}).get("gender", ""))
+        lines, keys, periods = entry_channel_lines(
+            self.domain_candidates("career"), _pillar, self.fav_map, gender,
+        )
+        if lines:
+            _logger.info("entry_channel_exposed surface=report periods=%s keys=%s", periods, keys)
+            lines = [*lines, ENTRY_CHANNEL_DIRECTIVE]
+        return lines
 
     def career_field_block(self) -> list[str]:
         """[직업 분야 근거] 블록(캐시) — 원국 십성 기능 표 + 제안 통로(현재 대운·세운 천간 십성).
@@ -3733,6 +3768,14 @@ def build_section_context(
             if sid in _DATE_CERTAINTY_SECTIONS:
                 lines.append(AVOID_DATE_CERTAINTY_DIRECTIVE)
             lines.append("")
+        # 직장 이력 캘리브레이션 P2 리포트 배선(2026-10-22, EMPLOYMENT_HISTORY_CALIBRATION.md §4-4):
+        # 주목할 달(J-06)·행동 전략(J-07)에 진입 시기 두 칸·진입 통로·개인 이력 반복 수치 지시 —
+        # 채팅과 같은 공용 모듈·지시문(회사명 없음). 후보가 없으면 블록 없음(규칙 11).
+        if sid in _ENTRY_WINDOW_SECTIONS:
+            lines += ["", *data.entry_channel_block(), ENTRY_WINDOW_DIRECTIVE]
+            if has_personal_repeat_signal(data.domain_candidates("career")):
+                lines.append(PERSONAL_REPEAT_DIRECTIVE)
+            lines.append("")
         # P1 — 정책 등록 섹션은 named view 만 쓴다. 전역 top-8 fallback 을 타지 않는다.
         policy = (
             _SECTION_EVIDENCE_POLICY.get(sid)
@@ -4490,6 +4533,15 @@ def generate_report(
                     _logger.warning(
                         "false_contrast_rewritten surface=report section=%s count=%d",
                         plan.section_id, len(_fc),
+                    )
+                # 내부 표기 누수 교정(2026-10-22, 채팅과 동일): '1위로' → 서술어, 'YYYY-MM' →
+                # 'YYYY년 M월'.
+                text, _rank = rewrite_rank_labels(text)
+                text, _plabel = rewrite_raw_period_labels(text)
+                if _rank or _plabel:
+                    _logger.warning(
+                        "internal_label_rewritten surface=report section=%s rank=%s period=%s",
+                        plan.section_id, _rank, _plabel,
                     )
                 # 원국 지지 자리 십성 표기 감사(2026-10-13) — 명확한 불일치만 결정론 교정. 궁합처럼
                 # 두 사람이 나오는 리포트는 어느 사람의 자리인지 확정할 수 없어 건너뛴다.

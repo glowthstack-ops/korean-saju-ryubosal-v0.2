@@ -172,7 +172,9 @@ def test_repeat_cap_limits_personal_match_without_changing_order() -> None:
     sig = [row(f"20{10 + i}-05") for i in range(11)]  # 11개 기간 → 반복 항 2.0
     c = EventCandidateV2(event_key="job_gain", period="2026-11", score=40,
                          confidence_level=ConfidenceLevel.EVENT_CANDIDATE)
-    free = apply_personal_match([c], sig)[0]
+    free = apply_personal_match([c], sig, repeat_cap=99.0)[0]   # 사실상 무상한
     capped = apply_personal_match([c], sig, repeat_cap=0.6)[0]
+    default = apply_personal_match([c], sig)[0]                  # 사전값(0.6, 2026-10-22 적용)
     assert free.personal_match >= 200 and capped.personal_match <= 100
     assert capped.personal_match < free.personal_match
+    assert default.personal_match == capped.personal_match

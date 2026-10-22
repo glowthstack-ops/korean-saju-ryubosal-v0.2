@@ -102,7 +102,7 @@ DB: `migrations/020_life_event_attrs.sql` — `attrs JSONB NOT NULL DEFAULT '{}'
 - 교정 ①(프롬프트 전용): `context_reducer` 동반 신호 상한에서 `개인 이력 반복(` 라벨 1개 예외 보장 + `_PERSONAL_REPEAT_DIRECTIVE`(라벨이 실린 후보가 있을 때 수치 한 문장, 회사명 없음, 경향≠확정).
 - 교정 ②(프롬프트 전용): `ENTRY_WINDOW_DIRECTIVE`를 지평 경로와 분리해 `_entry_window_directive_needed`(진입 사건·미래·비구조·지평 지시 미포함)이면 시점 명시 질문에도 붙이고, 첫 문단에 '성사 달 ○월·움직이는 달 ○월'을 이름 붙여 쓰고 특정 달 질문이면 그 달이 어느 칸인지부터 밝히라는 형식 문장을 추가.
 - 교정 ③(점수 규칙, **값 미확정**): 반복 가중 상한 `repeat_cap`(사전 `personal_glyph_weights.json`, 기본 null=무상한) + `apply_personal_match(repeat_cap=)`·`LifeFitRanker.rank(repeat_cap=)`. 측정(`var/eh_loo_20261022b.md`, --repeat-cap 0.6): Top-3 적중 glyph 5/11 = glyph_cap 5/11(평균 순위 4.64→4.73). 반복 항은 같은 키의 모든 달에 같은 값이라 **달 순서(LOO)에는 영향이 없고**, 사건 키 간 순서와 확신도 티어 포화(톤)에만 작용한다. 85사례는 시그니처가 없어 불변. 값 결정은 데굴님.
-- **상한 적용 보류(2026-10-22 데굴님 기준 "적중률에 긍정적이면 적용")**: 사건 종류 간 측정 — 확정 월 17건(job_gain 11·career_change 4·contract_document 1·relationship_change 1) leave-one-out, 그 달 후보의 Top-1/Top-3 사건이 실제 사건과 일치하는 비율. base·glyph Top-1 11/17 · Top-3 14/17, cap 0.6·0.4 Top-1 **6/17** · Top-3 14/17. 상한을 두면 job_gain 달 5건이 Top-1에서 2~3위로 내려가고 비-job 행은 변화 없음 → 적중률에 긍정적이지 않아 **미적용(repeat_cap=null 유지)**. 단 이 측정은 사건이 있던 달만 보므로, 무상한이 사건 없는 달에도 job_gain을 1위로 올리는 편향(오탐)은 측정 밖이다. 오탐 측정은 `not_happened` 연도(캘리브레이션 50행)의 월별 Top-1 job_gain 비율로 가능 — 다음 과제.
+- **상한 0.6 적용(2026-10-22, 데굴님 기준 "적중률에 긍정적이면 적용")**: 두 측정을 합쳐 판단했다. ①사건 종류 간(확정 월 17건 LOO) Top-1 11/17→6/17, Top-3 14/17 불변 ②**오탐**(캘리브레이션 not_happened job_gain 4년 × 12달 = 48달에서 job_gain 이 월 Top-1 인 달 수, `measure_false_positive`): engine 6 · base/glyph **33(69%)** · cap0.6 **13(27%)**. 무상한은 사건 없는 해의 달 셋 중 둘에 취업을 1위로 올려 ①의 Top-1 11/17 이 "어느 달이나 취업 1위"의 부산물이었다. 정밀도 기준으로 상한이 명백히 낫고 Top-3 회수는 같으므로 `repeat_cap=0.6` 적용(`personal_glyph_weights.json`). 재측정: `measure_employment_history_loo.py --repeat-cap`(`var/eh_loo_20261022c.md`).
 
 ### 4-2. 2차 감수 교정 (2026-10-22, thread web-mvjij2wx "언제 취업할 수 있을까" / "돈이 없어서 빨리 취업해야해")
 확인: 수치 라벨이 2턴에 "11건 중 4건"으로 닿았고(회사명 없음), 통로 블록 두 턴 반영(관성·인성 / 비겁·식상), 두 칸은 역할 구분만 되고 첫 문단 이름표('성사 달·움직이는 달')는 없음. 1턴은 숫자 없이 "반복되는 경향"으로 뭉뚱그림. 새 누수: "성취 신호가 1위로 나타나지만"(창 내 상대 순위 블록 내부 용어), "2026-12 庚子월"(후보 라벨 원문). 기존 결함: 1턴 일주 소개 두 문장이 참조 예외(`ilju_mention_kept_referenced`)로 통과.
@@ -113,6 +113,12 @@ DB: `migrations/020_life_event_attrs.sql` — `attrs JSONB NOT NULL DEFAULT '{}'
 ### 4-3. 3차 감수 (2026-10-22, thread web-mvjjpmvz "언제 취업할 수 있을까")
 확인: 숫자 도달("과거 11건 중 4건"), 통로 반영(2027-02 재성·관성, 2027-05 인성), '1위'·라벨 원문·일주 소개 없음(`ilju_mention_stripped`). `entry_window_audit=miss` — 첫 문단이 "성사 기운이 뚜렷한 달 … 미리 움직이며"로 의미는 지켰으나 '성사 달·움직이는 달' 표기는 없음. 또 11월(亥 4/11 입사 이력)을 "검토월"로만 격하.
 - 교정: 관측 어간 기준(`성사`·`움직이`)으로 완화(로그 전용), `_PERSONAL_REPEAT_DIRECTIVE`에 "반복 이력 달은 성사 후보로도 적어라(엔진 상위 달은 앞에)" 추가.
+
+### 4-4. 리포트 배선 (2026-10-22)
+- 공용 모듈 `saju_engines/entry_channel.py`(`entry_periods`·`entry_channel_lines`·`ENTRY_CHANNEL_DIRECTIVE`) — 채팅 `_entry_channel_context`가 위임, 리포트 `_ReportData.entry_channel_block`(라벨 절기 연도 월운/세운에서 기둥 해석).
+- 지시문 공용화: `context_reducer.PERSONAL_REPEAT_DIRECTIVE`·`has_personal_repeat_signal`(레거시 후보 신호 판정), `horizon.ENTRY_WINDOW_DIRECTIVE`.
+- 리포트 섹션 **J-06(주목할 달)·J-07(행동 전략)**: 진입 통로 블록 + 두 칸 지시 + (개인 이력 반복 라벨이 실린 직업 후보가 있을 때) 수치 지시. 후보 없으면 블록 없음. 리포트 후처리에 순위·기간 라벨 원문 교정 추가(`internal_label_rewritten surface=report`). F-15 는 적합 분야 섹션이라 배선하지 않았다(시기 서술 아님).
+- 회사명은 리포트에도 없다(후보만 직렬화). 리포트 실답 감수는 다음 생성 때.
 
 ## 5. 결정 기록
 

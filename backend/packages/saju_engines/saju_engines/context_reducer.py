@@ -1462,6 +1462,25 @@ def build_birth_summary(result: ManseV2Result) -> BirthChartSummary:
 _MAX_SIGNALS_KO = 4  # 후보별 동반 신호 표기 상한
 #: 개인 이력 반복 라벨 접두(llm_event_serializer 의 PERSONAL_GLYPH_REPEAT 수치 라벨) — 상한 예외.
 PERSONAL_REPEAT_LABEL_PREFIX = "개인 이력 반복("
+#: 개인 이력 반복 수치 서술 지시(채팅·리포트 공용, EMPLOYMENT_HISTORY_CALIBRATION.md §4) —
+#: 회사명 없음.
+PERSONAL_REPEAT_DIRECTIVE = (
+    "[개인 이력 반복] 동반 신호에 '개인 이력 반복'이 있는 달은 그 숫자(일치/표본, 예: 11건 중 "
+    "4건)를 그대로 적어 한 문장으로 언급하라 — '반복되는 경향'처럼 숫자 없이 뭉뚱그리지 말 것. "
+    "회사명·고용주·사례 이름은 쓰지 말고, 반복은 경향이지 확정이 아니라고 덧붙여라. 그 반복은 "
+    "그 달에 그 사건이 실제로 성사됐던 이력이므로, 그 달을 검토·준비 달로만 격하하지 말고 성사 "
+    "후보로도 함께 적어라(엔진 후보 순위가 더 높은 달이 있으면 그 달을 앞에 두되 생략하지 말 것)."
+)
+
+
+def has_personal_repeat_signal(candidates: list[EventCandidate]) -> bool:
+    """레거시 후보의 신호에 개인 이력 반복 라벨이 있는가(리포트 섹션 지시 부착 판정)."""
+    return any(
+        str(getattr(sig, "effect", "") or getattr(sig, "name", "")).startswith(
+            PERSONAL_REPEAT_LABEL_PREFIX
+        )
+        for c in candidates for sig in (getattr(c, "signals", None) or [])
+    )
 
 # 검토월 고정 문구(P0-2) — 판정은 LlmEventCandidate.review_month(구조 필드), 노출은 이 문구.
 # 2026-08-21 개정: '중복 충'은 어떤 코드도 생산하지 않는 죽은 표현이라 제거하고,

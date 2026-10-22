@@ -23,6 +23,7 @@ import json
 import os
 import sys
 from dataclasses import asdict, dataclass
+from datetime import date
 from pathlib import Path
 
 from saju_api.services.manse_service import calculate
@@ -109,6 +110,69 @@ def measure(
     return out
 
 
+@dataclass
+class FalsePositiveYear:
+    """사건이 없던 해(캘리브레이션 not_happened) — 모드별 job_gain 이 월 Top-1 인 달 수."""
+
+    year: int
+    top1_months: dict[str, int]
+
+
+def measure_false_positive(
+    birth, signature: list[LifeEventRow], engine: EventEngineV2, repeat_cap: float = 0.6,
+) -> list[FalsePositiveYear]:
+    """not_happened(job_gain, 연 단위) 해의 12개월에서 job_gain 이 그 달 Top-1 후보인 달 수.
+
+    무상한 반복 가중이 '사건 없는 달'에도 job_gain 을 1위로 올리는 편향(오탐)을 잰다. 시그니처는
+    운영과 같은 전체(그 해 not_happened 행 포함 — 운영도 그 행을 보므로).
+    """
+    years = sorted({
+        int(r.period) for r in signature
+        if r.event_key == "job_gain" and r.outcome is LifeEventOutcome.NOT_HAPPENED
+        and len(r.period) == 4
+    })
+    glyph_w = float(_GLYPH_CFG["glyph_weight"])
+    out: list[FalsePositiveYear] = []
+    for y in years:
+        chart = calculate(birth.model_copy(update={"reference_date": date(y, 7, 1)}))
+        cands = engine.score(chart, levels={GanjiLevel.MONTH})
+        ctx = GlyphContext.from_result(chart)
+        counts: dict[str, int] = {}
+        for mode in _MODES:
+            if mode == "engine":
+                ranked = LifeFitRanker().rank(cands)
+            else:
+                ranked = LifeFitRanker().rank(
+                    cands, signature=signature, glyph_context=ctx,
+                    glyph_weight=0.0 if mode == "base" else glyph_w,
+                    repeat_cap=repeat_cap if mode == "glyph_cap" else None,
+                )
+            top_by_period: dict[str, str] = {}
+            for c in ranked:
+                top_by_period.setdefault(c.period, str(c.event_key))
+            counts[mode] = sum(1 for k in top_by_period.values() if k == "job_gain")
+        out.append(FalsePositiveYear(year=y, top1_months=counts))
+    return out
+
+
+def render_fp_md(rows: list[FalsePositiveYear]) -> str:
+    """오탐 표 — 모드별 (job_gain Top-1 달 수 / 12×해 수)."""
+    if not rows:
+        return "오탐 측정: not_happened(job_gain) 연도 없음."
+    total = 12 * len(rows)
+    lines = [f"오탐(사건 없던 해 {len(rows)}년 × 12달 = {total}달 중 job_gain Top-1 달 수)",
+             "| 모드 | Top-1 달 수 | 비율 |", "|---|---|---|"]
+    for mode in _MODES:
+        n = sum(r.top1_months[mode] for r in rows)
+        lines.append(f"| {mode} | {n} | {round(n / total, 3)} |")
+    lines.append("")
+    lines.append("| 해 | " + " | ".join(_MODES) + " |")
+    lines.append("|---|" + "---|" * len(_MODES))
+    for r in rows:
+        lines.append(f"| {r.year} | " + " | ".join(str(r.top1_months[m]) for m in _MODES) + " |")
+    return "\n".join(lines)
+
+
 def summarize(rows: list[HeldOut]) -> dict[str, dict[str, float | int]]:
     """모드별 Top-3 적중 수·비율·평균 순위."""
     summary: dict[str, dict[str, float | int]] = {}
@@ -162,11 +226,13 @@ def main(argv: list[str] | None = None) -> int:
     engine = EventEngineV2(_BACKEND / "dictionaries")
     rows = measure(record.birth, signature, engine, repeat_cap=args.repeat_cap)
     summary = summarize(rows)
-    md = render_md(rows, summary)
+    fp_rows = measure_false_positive(record.birth, signature, engine, repeat_cap=args.repeat_cap)
+    md = render_md(rows, summary) + "\n\n" + render_fp_md(fp_rows)
     print(md)
     if args.json:
         args.json.write_text(json.dumps(
-            {"summary": summary, "rows": [asdict(r) for r in rows]}, ensure_ascii=False, indent=2,
+            {"summary": summary, "rows": [asdict(r) for r in rows],
+             "false_positive": [asdict(r) for r in fp_rows]}, ensure_ascii=False, indent=2,
         ), encoding="utf-8")
     if args.md:
         args.md.write_text(md + "\n", encoding="utf-8")
