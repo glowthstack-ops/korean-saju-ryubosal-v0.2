@@ -51,6 +51,8 @@ MAINTAINED=(
     scripts/audits/measure_role_margin_census.py
     # 직장 이력 정본 적재 — 이력이 갱신될 때마다 재실행(EMPLOYMENT_HISTORY_CALIBRATION.md §2-3)
     scripts/load_employment_history.py
+    # 직장 이력 leave-one-out 적중 측정 — 글자 가중 ON/OFF 판정 기준선(§3-3), 이력·가중 변경마다 재실행
+    scripts/measure_employment_history_loo.py
 )
 
 missing=()

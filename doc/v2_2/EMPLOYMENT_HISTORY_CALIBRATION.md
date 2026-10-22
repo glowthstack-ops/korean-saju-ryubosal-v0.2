@@ -56,26 +56,38 @@ DB: `migrations/020_life_event_attrs.sql` — `attrs JSONB NOT NULL DEFAULT '{}'
 - 통합 `tests/integration/test_lei_db_golden.py`: attrs 왕복·치환 삭제·소스 범위 삭제(DB 미기동 시 skip).
 - 게이트 4종 — 결과는 WORKLOG 에 기록.
 
-## 3. P1 — 지문 확장과 적중 측정 (PR 2)
+## 3. P1 — 지문 확장과 적중 측정 (PR 2, 구현 완료 2026-10-22)
 
 ### 3-1. 지문
-`SignalFingerprint`에 선택 필드 추가:
+`SignalFingerprint`에 추가(기본 빈 값 — 저장된 기존 JSONB와 호환):
 
 | 필드 | 값 | 비고 |
 |---|---|---|
-| `glyphs` | `{sewoon_stem, sewoon_branch, wolwoon_stem, wolwoon_branch}` | 해당 달의 네 글자 |
-| `natal_echo` | 운 글자가 겹치는 원국 자리 목록 (`month_branch`, `day_branch` …) | 亥=월지·일지 같은 재현 |
-| `prev_month` | 전월(달력 한 달 전 날짜의 절기월) 네 글자 | 기회 달. 당월과 독립 가산 금지 — 유사도 항 하나로만 |
+| `glyphs` | `{sewoon_stem, sewoon_branch, wolwoon_stem, wolwoon_branch}` | 연 지문은 세운 두 칸만. 1월 라벨(丑월)의 관할 세운은 전년 |
+| `natal_echo` | `['wolwoon_branch=month_branch', …]` | 운 글자가 겹치는 원국 자리(천간↔천간, 지지↔지지) |
+
+**전월 글자는 넣지 않는다.** 절기월은 순환하므로 직전 달의 간지는 당월 간지로 결정된다(亥월의 전월은 언제나 戌월, 천간도 순차). PDF의 "입사 전월 戌 4건"은 "당월 亥 4건"의 재진술이라 정보가 0이고 중복 가산만 된다. '움직이는 달 = 성사 달 − 1'은 P2 서술 규칙으로만 쓴다.
+
+구현: `saju_engines/glyph_context.py` — `GlyphContext.from_result(ManseV2Result)`(원국·대운표 세운·monthly_luck), `glyphs_for(period)`, `natal_echo`, `with_glyphs(fp, period)`. 후보 쪽은 `candidate_fingerprint(c, ctx)`, 원장 쪽은 적재 스크립트가 같은 컨텍스트로 채운다(27행 재적재 완료).
 
 ### 3-2. 유사도와 기저율
-- `fingerprint_similarity`에 글자 항 추가. 초기 가중은 `reviewed:false`로 사전에 두고 기존 상한(±8점·±1티어)은 유지.
-- 개인 기저율 lift = (해당 글자에서 사건 비율) / (전체 기간 중 그 글자 달의 비율). 사건 표본 5건 미만이면 lift 산출 금지. lift는 **근거 코드 `PERSONAL_GLYPH_REPEAT`와 서술에만** 쓰고 점수엔 넣지 않는다(측정 전).
-- `resignation` 시그니처는 입사 후보 매칭에서 제외(Exit/Entry 분리의 실효).
+- 사전 `dictionaries/event_engine/personal_glyph_weights.json`(`reviewed:false`, 결정 ④): 자리 가중 wolwoon_branch 0.4 · wolwoon_stem 0.2 · sewoon_branch 0.2 · sewoon_stem 0.2, 원국 재현 공통 보너스 0.1(상한 1.0), `glyph_weight` 0.35, lift 기준(min_rows 5 · min_hits 2 · min_lift 2.0 · 기대 비율 지지 1/12·천간 1/10).
+- `fingerprint_similarity(a, b, glyph_weight)` = (1−w)·기존 식 + w·글자 유사도(양쪽에 글자가 있을 때만). w=0 이면 기존 식과 동일(점수 불변).
+- 플래그 `SAJU_PERSONAL_GLYPH_SCORE_ENABLED`(기본 **OFF**) → `default_glyph_weight()`. OFF 에서도 월지 lift 가 기준을 넘으면 근거 코드 `PERSONAL_GLYPH_REPEAT`만 붙는다(서술 전용, 점수·personal_match 불변 — 테스트로 고정).
+- lift 집계 행 = 같은 키·확정·취업 통계 성격(None/regular/dispatch). 군복무·인턴·전환 제외. `resignation`(원장 전용)은 후보 키와 만나지 않아 매칭·시드 모두 무해.
+- 배선: `LifeFitRanker.rank(glyph_context=, glyph_weight=)` ← `EventEngineV2.score_legacy_personalized`가 시그니처가 있을 때 `GlyphContext.from_result(result)`를 넘긴다.
 
-### 3-3. 적중 측정(ON 판정 기준)
-- 데굴님 명식 leave-one-out: 정규·파견 입사 11건 중 1건을 빼고 나머지 10건으로 지문을 만든 뒤, 그 해 12개 절기월 중 Top-3에 실제 입사월이 드는 비율. 기준선 = 지문 확장 전 같은 절차.
-- 85사례 replay 적중 불변 + 연도 top-1 변동 보고.
-- 두 지표가 모두 하락하지 않을 때만 점수 반영 플래그(`SAJU_PERSONAL_GLYPH_SCORE_ENABLED`, 기본 OFF) ON 제안.
+### 3-3. 적중 측정 (`scripts/measure_employment_history_loo.py`, 유지 스크립트)
+데굴님 명식, 정규·파견 입사 11건 leave-one-out, 그 절기년 12개월 job_gain 후보 Top-3 적중(우연 25%). 2026-10-22 실측(`var/eh_loo_20261022.md`):
+
+| 모드 | Top-3 적중 | 비율 | 평균 순위 |
+|---|---|---|---|
+| engine(개인화 없음) | 3/11 | 0.273 | 5.45 |
+| base(시그니처, 글자 가중 0 = 현재 운영) | 3/11 | 0.273 | 5.73 |
+| glyph(가중 0.35 = 플래그 ON) | 5/11 | 0.455 | 4.64 |
+
+- 십성 그룹 지문만으로는(base) 엔진 대비 개선이 없고, 글자 차원이 +2건이다. 다만 표본 11건이라 **ON 판정은 데굴님 결정**이며, 켜더라도 개인 시그니처가 있는 subject 에만 작용한다(85사례 fixture 는 시그니처가 없어 불변).
+- 가중을 켜면 나빠지는 사례도 있다(2006-05 키스템프: engine 1위 → glyph 8위, 巳월 표본 1건). 가중·lift 기준 조정은 이 스크립트로 같은 11건을 재측정한 뒤 한다.
 
 ## 4. P2 — 노출 (PR 3)
 
@@ -84,9 +96,9 @@ DB: `migrations/020_life_event_attrs.sql` — `attrs JSONB NOT NULL DEFAULT '{}'
 - 통로 제안: 운 십성→관계 유형 매핑(`ten_god_relations.json`)으로 "사람 통로 우선 / 공고 통로 우선" 한 줄.
 - 입력 UI: `StepRealityCalibration` 옆에 선택 탭 "직장 이력" — 행 단위(회사명·입사월일·퇴사월일·성격·통로·같은 직장 묶기). 날짜는 일 단위 선택, 모르면 월만.
 
-## 5. 결정 필요 항목
+## 5. 결정 기록
 
-1. 퇴사 키 `resignation` 추가(규격 내) 승인 여부.
-2. 군복무·인턴을 키가 아닌 `nature` 태그로 두는 방식 승인 여부.
-3. 인턴 시작일(2003.11 초순 여부)·권고사직 통보일. 모르면 `month` 정밀도로 적재.
-4. P1 글자 가중 초기값은 제가 `reviewed:false`로 제안하고 측정으로 결정 — 동의 여부.
+1. 퇴사 키 `resignation` — 승인(원장 전용 키로 구현, §2-2).
+2. 군복무·인턴 — `nature` 태그로 승인.
+3. 인턴 시작일·권고사직 통보일 미상 — `month` 정밀도로 적재.
+4. P1 글자 가중 초기값 `reviewed:false` 제안 후 측정 — 승인. **플래그 ON 여부는 §3-3 실측을 보고 데굴님이 결정(미결).**

@@ -15,6 +15,7 @@ from saju_shared_types.event_engine import EventCandidateV2, lei_rank_key
 from saju_shared_types.life_event import LifeEventRow
 
 from .cohort_calibration import CohortStats, apply_cohort_match
+from .glyph_context import GlyphContext
 from .personal_calibration import apply_personal_match, seed_missing_events
 from .reality_context import RealityContext, apply_life_fit
 
@@ -29,16 +30,20 @@ class LifeFitRanker:
         signature: list[LifeEventRow] | None = None,
         reality_context: RealityContext | None = None,
         cohort: CohortStats | None = None,
+        glyph_context: GlyphContext | None = None,
+        glyph_weight: float | None = None,
     ) -> list[EventCandidateV2]:
         """시드 → personal_match(개인) → 코호트 합산 → life_fit 적용 후 LEI 정렬축으로 재정렬한다.
 
         코호트는 활성 게이트(§4.4)를 통과한 CohortStats만 personal_match에 합산된다(미활성=미반영).
+        `glyph_context`는 개인 글자 지문(P1) — 없으면 글자 차원 없이 기존과 동일. `glyph_weight`는
+        측정 스크립트용 명시값(None=플래그 기준).
         """
         out = list(candidates)
         if signature:
             periods = sorted({c.period for c in out})
             out = seed_missing_events(out, signature, periods)
-            out = apply_personal_match(out, signature)
+            out = apply_personal_match(out, signature, glyph_context, glyph_weight)
         if cohort is not None:
             out = apply_cohort_match(out, cohort)
         out = apply_life_fit(out, reality_context)

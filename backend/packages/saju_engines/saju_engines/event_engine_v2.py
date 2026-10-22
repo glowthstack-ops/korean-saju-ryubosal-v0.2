@@ -92,6 +92,7 @@ from .event_scoring import daewoon_transition_boost, favorability_map
 from .exam_outcome_modifier import ExamOutcomeModifier
 from .favorable_role_tiering import load_favorable_tiering
 from .ganji_calendar import relation_hits
+from .glyph_context import GlyphContext
 from .layer_evidence_scope import normalize_layers
 from .layer_flow_modifier import LayerFlowModifier
 from .life_fit_ranker import LifeFitRanker
@@ -616,6 +617,7 @@ class EventEngineV2:
         )
         v2 = LifeFitRanker().rank(
             v2, signature=signature, reality_context=reality_context, cohort=cohort,
+            glyph_context=GlyphContext.from_result(result) if signature else None,
         )
         return [to_legacy_candidate(c) for c in v2]
 

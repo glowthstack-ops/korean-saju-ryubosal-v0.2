@@ -119,6 +119,13 @@ PEER_GISIN_MOBILITY_ENABLED: bool = (
     os.environ.get("SAJU_PEER_GISIN_MOBILITY_ENABLED", "true").strip().lower()
     in ("1", "true", "yes")
 )
+# 개인 글자 지문의 점수 반영(직장 이력 캘리브레이션 P1, 2026-10-22). 기본 OFF — 글자 차원은
+# 근거 코드·서술에만 쓰고, 점수 가중은 leave-one-out 적중 측정이 기준선을 넘을 때만 켠다
+# (EMPLOYMENT_HISTORY_CALIBRATION.md §3-3). 'true'로만 켠다.
+PERSONAL_GLYPH_SCORE_ENABLED: bool = (
+    os.environ.get("SAJU_PERSONAL_GLYPH_SCORE_ENABLED", "false").strip().lower()
+    in ("1", "true", "yes")
+)
 # 이중 충 표지(2026-10-15, 교재 2장·기타절) — favorability 만, 기본 ON(점수 불변이라 적중 영향
 # 없음).
 DOUBLE_CLASH_FLAG_ENABLED: bool = (
@@ -217,6 +224,7 @@ def active_versions() -> dict[str, str | bool]:
         "health_window_channel_enabled": HEALTH_WINDOW_CHANNEL_ENABLED,
         "peer_yongsin_mobility_enabled": PEER_YONGSIN_MOBILITY_ENABLED,
         "peer_gisin_mobility_enabled": PEER_GISIN_MOBILITY_ENABLED,
+        "personal_glyph_score_enabled": PERSONAL_GLYPH_SCORE_ENABLED,
         "yearly_ten_god_signals_enabled": YEARLY_TEN_GOD_SIGNALS_ENABLED,
         "double_clash_flag_enabled": DOUBLE_CLASH_FLAG_ENABLED,
         "yong_tiered_multiplier_mode": YONG_TIERED_MULTIPLIER_MODE,

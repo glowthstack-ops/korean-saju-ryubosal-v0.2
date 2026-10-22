@@ -12509,3 +12509,12 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 테스트: `test_employment_history.py` 11건(절기 경계 3·기존 period 호환 3·1월 라벨·키/attrs/id·시드 가드·attrs 왕복), `test_lei_db_golden.py` +1(DB).
 - 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, start_head=end_head 0db1bd8, 지문 동일, `var/suite_20261022_eh_p0.log`).
 - 남음: P1(지문에 글자·원국 재현·전월 차원 + 기저율 lift, 데굴님 입사 11건 leave-one-out 측정 후 플래그), P2(시기 답 2칸·연결 사례·통로 제안·입력 UI). 커밋은 데굴님 지시 후.
+
+## 2026-10-22 — 직장 이력 캘리브레이션 P1 (글자 지문·lift·leave-one-out 측정) — 데굴님 승인
+
+- 구현: `SignalFingerprint.glyphs/natal_echo` · `saju_engines/glyph_context.py`(원국·세운·월운 글자, 1월 라벨 전년 세운, 원국 재현) · `personal_calibration`(`candidate_fingerprint(c, ctx)`, `glyph_similarity`, `fingerprint_similarity(glyph_weight)`, `glyph_lift`, 근거 코드 `PERSONAL_GLYPH_REPEAT`, 취업 통계 성격 필터) · 사전 `event_engine/personal_glyph_weights.json`(reviewed:false) · 플래그 `SAJU_PERSONAL_GLYPH_SCORE_ENABLED`(기본 OFF, active_versions 노출) · `LifeFitRanker.rank(glyph_context, glyph_weight)` · `score_legacy_personalized` 컨텍스트 전달 · 적재 스크립트 글자 채움(27행 재적재) · 측정 `scripts/measure_employment_history_loo.py`(allowlist).
+- 설계 결정: 전월 글자는 지문에 넣지 않는다 — 절기월 순환으로 당월 간지가 전월 간지를 결정해 정보 0·중복 가산(SSOT §3-1).
+- 실측(11건 LOO Top-3): engine 3/11 · base 3/11 · glyph 5/11(평균 순위 5.45→4.64). 플래그 ON 은 데굴님 결정 대기(기본 OFF, 점수 불변 테스트 고정).
+- 테스트: `test_personal_glyph.py` 9건(컨텍스트·1월 라벨·유사도·가중 0 불변·lift 표본/성격 필터·가중 ON 우대·원장 전용 키 무해).
+- 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head b92a303 동일, 지문 동일, `var/suite_20261022_eh_p1.log`).
+- 남음: 플래그 ON 결정(데굴님), P2(시기 답 2칸·연결 사례·통로 제안·입력 UI).

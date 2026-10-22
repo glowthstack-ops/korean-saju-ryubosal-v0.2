@@ -53,6 +53,11 @@ class SignalFingerprint(BaseModel):
     palace: str | None = None        # year_pillar/month_pillar/day_pillar/hour_pillar
     relation: str | None = None      # HAP/CHUNG/HYEONG/PA/HAE
     twelve_stage: str | None = None  # JANGSAENG ... YANG
+    # P1(2026-10-22) 글자 차원 — 십성 그룹이 뭉개는 글자 반복(亥 4건 vs 子 0건)을 구분한다.
+    # 키: sewoon_stem/sewoon_branch/wolwoon_stem/wolwoon_branch(연 지문은 세운 두 칸만).
+    glyphs: dict[str, str] = Field(default_factory=dict)
+    # 운 글자가 겹치는 원국 자리 — 'wolwoon_branch=month_branch' 꼴(복음·동일 글자 재현).
+    natal_echo: list[str] = Field(default_factory=list)
 
 
 class LifeEventAttrs(BaseModel):

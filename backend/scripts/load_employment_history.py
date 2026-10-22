@@ -28,6 +28,7 @@ from saju_engines.employment_history import (
     superseded_keys,
 )
 from saju_engines.event_engine_v2 import EventEngineV2
+from saju_engines.glyph_context import GlyphContext
 from saju_engines.life_event_store import LifeEventStore
 from saju_engines.reality_calibration import month_event_fingerprints, pillars_signature
 from saju_engines.subject_store import SubjectStore
@@ -87,7 +88,9 @@ def main(argv: list[str] | None = None) -> int:
             update={"reference_date": reference_date_for_label(label)},
         ))
         cands = engine.score(chart, levels={GanjiLevel.MONTH})
-        return month_event_fingerprints(cands, label).get(event_key)
+        fp = month_event_fingerprints(cands, label).get(event_key) or SignalFingerprint()
+        # P1 글자 차원 — 후보가 없는 키(resignation 등)도 세운·월운 글자는 채운다.
+        return GlyphContext.from_result(chart).with_glyphs(fp, label)
 
     rows = rows_from_history(entries, args.subject, record.owner_id, sig, resolver)
     print(f"subject={args.subject} owner={record.owner_id} rows={len(rows)}")
