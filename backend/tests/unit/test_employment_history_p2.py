@@ -110,3 +110,69 @@ def test_entries_from_rows_roundtrip_day_and_month_precision() -> None:
     ]
     assert back[1].channel == "direct" and back[1].group == "g1" and back[1].org == "A"
     assert back[2].exit_reason == "involuntary" and back[2].nature == "regular"
+
+
+# ── 2026-10-22 실답 교정: 라벨 상한 예외·두 칸 지시 분리·반복 가중 상한 ──────────
+def test_reducer_keeps_personal_repeat_label_beyond_signal_cap() -> None:
+    from saju_engines.context_reducer import _to_llm_candidate
+    from saju_shared_types.events import EventCandidate, EventType, Signal
+
+    sigs = [Signal(type="reason", name=f"신호{i}", effect=f"신호{i}", weight=0.0) for i in range(6)]
+    label = ("개인 이력 반복(같은 亥월 글자에서 같은 사건 4/11건 — 기대 비율 1/12, "
+             "특정 사례·회사 지목 아님)")
+    sigs.append(Signal(type="reason", name="x", weight=0.0, effect=label))
+    c = EventCandidate(event_key="job_gain", event_type=EventType.PROGRESS, period="2026-11",
+                       score=50, confidence="medium", polarity="conditional", signals=sigs)
+    out = _to_llm_candidate(c, ganji={}, dw_by_year={})
+    assert len(out.signals_ko) == 5 and out.signals_ko[-1].startswith("개인 이력 반복(")
+
+
+def test_entry_window_directive_needed_outside_horizon_path() -> None:
+    from saju_engines.horizon import HorizonPolicy
+
+    job = _intent(event_key="job_gain")
+    # 시점 명시 질문(지평 None) → 별도 주입 필요.
+    needed = chat_service._entry_window_directive_needed
+    assert needed(job, None, is_retro=False, is_structural=False)
+    # 지평 지시에 이미 포함 → 중복 금지.
+    pol = HorizonPolicy(kind="transactional_when", months_detail=12, years_span=3,
+                        natal_fit=False, label="x", entry_window=True)
+    assert not needed(job, pol, is_retro=False, is_structural=False)
+    # 회고·구조·비진입 사건은 붙이지 않는다.
+    assert not needed(job, None, is_retro=True, is_structural=False)
+    assert not needed(job, None, is_retro=False, is_structural=True)
+    assert not needed(
+        _intent(event_key="relocation"), None, is_retro=False, is_structural=False,
+    )
+
+
+def test_personal_repeat_directive_trigger() -> None:
+    class _C:
+        def __init__(self, s): self.signals_ko = s
+    assert chat_service._personal_repeat_present([_C(["공망 지연", "개인 이력 반복(같은 亥월…)"])])
+    assert not chat_service._personal_repeat_present([_C(["공망 지연"])])
+
+
+def test_repeat_cap_limits_personal_match_without_changing_order() -> None:
+    from saju_engines.personal_calibration import apply_personal_match
+    from saju_shared_types.life_event import (
+        LifeEventOutcome,
+        LifeEventRow,
+        LifeEventSource,
+        SignalFingerprint,
+    )
+
+    def row(period: str) -> LifeEventRow:
+        return LifeEventRow(
+            event_row_id=f"s:eh:{period}:job_gain", subject_id="s", pillar_year="庚申",
+            pillar_month="丁亥", pillar_day="己亥", event_key="job_gain", period=period,
+            signal_fingerprint=SignalFingerprint(ten_god_groups=["wealth"]),
+            outcome=LifeEventOutcome.CONFIRMED, source=LifeEventSource.EMPLOYMENT_HISTORY,
+        )
+    sig = [row(f"20{10 + i}-05") for i in range(11)]  # 11개 기간 → 반복 항 2.0
+    c = EventCandidateV2(event_key="job_gain", period="2026-11", score=40,
+                         confidence_level=ConfidenceLevel.EVENT_CANDIDATE)
+    free = apply_personal_match([c], sig)[0]
+    capped = apply_personal_match([c], sig, repeat_cap=0.6)[0]
+    assert free.personal_match >= 200 and capped.personal_match <= 100
+    assert capped.personal_match < free.personal_match

@@ -6,6 +6,7 @@ job_gain 후보 Top-3 안에 드는 비율을 센다. 세 모드를 같은 절�
 - engine: 개인 시그니처 없음(엔진만)
 - base:   시그니처 + 글자 가중 0(현재 운영값 — 근거 코드만)
 - glyph:  시그니처 + 사전 glyph_weight(플래그 ON 상태와 동일)
+- glyph_cap: glyph + 반복 가중 상한(--repeat-cap, 기본 0.6) — personal_match 포화 완화 후보
 판정은 하지 않는다 — 수치만 내고 ON/OFF 는 데굴님이 정한다(점수 규칙은 실사례 적중률로
 ON/OFF). 우연 기준선 = 3/12 = 25%.
 
@@ -38,7 +39,7 @@ from saju_shared_types.life_event import LifeEventOutcome, LifeEventRow, LifeEve
 _BACKEND = Path(__file__).resolve().parent.parent
 _ENV_PATHS = [_BACKEND.parent / ".env", _BACKEND / ".env"]
 _TOP_N = 3
-_MODES = ("engine", "base", "glyph")
+_MODES = ("engine", "base", "glyph", "glyph_cap")
 
 
 def _load_env() -> None:
@@ -72,7 +73,7 @@ def _rank_of(ranked: list, period: str) -> tuple[int | None, list[str]]:
 
 
 def measure(
-    birth, signature: list[LifeEventRow], engine: EventEngineV2,
+    birth, signature: list[LifeEventRow], engine: EventEngineV2, repeat_cap: float = 0.6,
 ) -> list[HeldOut]:
     """정규·파견 입사 행 leave-one-out — 모드별 순위·Top-3."""
     entries = [
@@ -99,6 +100,7 @@ def measure(
                 ranked = LifeFitRanker().rank(
                     cands, signature=rest, glyph_context=ctx,
                     glyph_weight=0.0 if mode == "base" else glyph_w,
+                    repeat_cap=repeat_cap if mode == "glyph_cap" else None,
                 )
             ranks[mode], tops[mode] = _rank_of(ranked, held.period)
         out.append(HeldOut(
@@ -131,11 +133,13 @@ def render_md(rows: list[HeldOut], summary: dict[str, dict[str, float | int]]) -
         lines.append(f"| {mode} | {s['n']} | {s['top3_hits']} | {s['top3_rate']} | "
                      f"{s['mean_rank']} | {s['unranked']} |")
     lines += [
-        "", "| 입사월 | 회사 | engine | base | glyph | glyph Top-3 |", "|---|---|---|---|---|---|",
+        "", "| 입사월 | 회사 | engine | base | glyph | glyph_cap | glyph_cap Top-3 |",
+        "|---|---|---|---|---|---|---|",
     ]
     for r in rows:
         lines.append(f"| {r.period} | {r.label} | {r.rank['engine']} | {r.rank['base']} | "
-                     f"{r.rank['glyph']} | {', '.join(r.top3['glyph'])} |")
+                     f"{r.rank['glyph']} | {r.rank['glyph_cap']} | "
+                     f"{', '.join(r.top3['glyph_cap'])} |")
     lines.append("")
     lines.append("우연 기준선 Top-3 = 25%. 판정은 데굴님(점수 규칙은 실사례 적중률로 ON/OFF).")
     return "\n".join(lines)
@@ -147,6 +151,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--subject", required=True)
     ap.add_argument("--json", type=Path, default=None)
     ap.add_argument("--md", type=Path, default=None)
+    ap.add_argument("--repeat-cap", type=float, default=0.6)
     args = ap.parse_args(argv)
     _load_env()
     record = SubjectStore().get(args.subject)
@@ -155,7 +160,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     signature = LifeEventStore().subject_signature(record.owner_id, args.subject)
     engine = EventEngineV2(_BACKEND / "dictionaries")
-    rows = measure(record.birth, signature, engine)
+    rows = measure(record.birth, signature, engine, repeat_cap=args.repeat_cap)
     summary = summarize(rows)
     md = render_md(rows, summary)
     print(md)

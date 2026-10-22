@@ -154,6 +154,7 @@ def apply_personal_match(
     signature: list[LifeEventRow],
     ctx: GlyphContext | None = None,
     glyph_weight: float | None = None,
+    repeat_cap: float | None = None,
 ) -> list[EventCandidateV2]:
     """후보별 personal_match를 개인 시그니처로 산출하고, 그 강도를 점수·확신도에 상한 내 반영한다.
 
@@ -169,6 +170,9 @@ def apply_personal_match(
     if not signature:
         return candidates
     w = default_glyph_weight() if glyph_weight is None else glyph_weight
+    # 반복 가중 상한(None=사전값, 사전도 null 이면 무상한 — 기존 동작). 이력 적재로 기간 수가
+    # 커지면 반복 항이 personal_match 를 포화시켜 달 간 차이를 지운다(2026-10-22 실답).
+    cap = _GLYPH_CFG.get("repeat_cap") if repeat_cap is None else repeat_cap
     occurred: dict[str, list[LifeEventRow]] = {}
     failed: dict[str, list[LifeEventRow]] = {}
     for r in signature:
@@ -184,6 +188,8 @@ def apply_personal_match(
             (fingerprint_similarity(cfp, r.signal_fingerprint, w) for r in oc), default=0.0,
         )
         repeat = 0.2 * max(0, len({r.period for r in oc}) - 1)  # 반복 확정 테마 가중
+        if cap is not None:
+            repeat = min(repeat, float(cap))
         fail = max(
             (fingerprint_similarity(cfp, r.signal_fingerprint, w) for r in fl), default=0.0
         ) * 0.5

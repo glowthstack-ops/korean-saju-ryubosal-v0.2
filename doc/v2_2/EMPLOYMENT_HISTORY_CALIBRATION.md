@@ -97,6 +97,12 @@ DB: `migrations/020_life_event_attrs.sql` — `attrs JSONB NOT NULL DEFAULT '{}'
 - **입력 UI·API**: `GET/POST /api/v2/reality-calibration/{subject_id}/employment-history`(`EmploymentHistoryView`/`EmploymentHistorySubmission`→`EmploymentHistorySubmitResult`, 전체 치환, 캘리브레이션 같은 달 회상 행 치환, 요약에 회사명 없음). 적재 스크립트와 API 는 `make_month_fingerprint_resolver`를 공유한다. 프론트 `components/onboarding/EmploymentHistoryForm.tsx`(날짜·종류·성격·통로/사유·묶기·표시용 이름) + `app/reality-calibration` 탭(연도별 사건 | 직장 이력). 프리필은 `entries_from_rows`(행 id stamp 로 일/월 정밀도 복원).
 - 리포트(F-15·J 섹션)에는 아직 배선하지 않았다 — 채팅 실답 감수 후.
 
+### 4-1. 실답 감수 교정 (2026-10-22, thread web-mvjgmlnd-63fer6 "언제 취업할 수 있을까" / "이번 11월에 취업될 가능성은")
+감수 결과: 진입 통로 블록은 두 턴 모두 노출·반영(비겁→동료·친구·업계 지인, 재성→거래처). 두 칸 지시는 1턴(transactional_when)에만 붙었고 2턴(시점 명시)은 지평 경로를 타지 않아 없었다. `PERSONAL_GLYPH_REPEAT:亥:4/11`은 후보에 붙었으나 **후보별 동반 신호 4개 상한(삽입 순)에 잘려 프롬프트에 닿지 않았다**. 또 입사 11건 적재로 반복 가중 0.2×(기간−1)=2.0 이 모든 달의 job_gain personal_match 를 246~288로 포화시켜 확신도 +1티어가 어느 달에나 붙었다.
+- 교정 ①(프롬프트 전용): `context_reducer` 동반 신호 상한에서 `개인 이력 반복(` 라벨 1개 예외 보장 + `_PERSONAL_REPEAT_DIRECTIVE`(라벨이 실린 후보가 있을 때 수치 한 문장, 회사명 없음, 경향≠확정).
+- 교정 ②(프롬프트 전용): `ENTRY_WINDOW_DIRECTIVE`를 지평 경로와 분리해 `_entry_window_directive_needed`(진입 사건·미래·비구조·지평 지시 미포함)이면 시점 명시 질문에도 붙이고, 첫 문단에 '성사 달 ○월·움직이는 달 ○월'을 이름 붙여 쓰고 특정 달 질문이면 그 달이 어느 칸인지부터 밝히라는 형식 문장을 추가.
+- 교정 ③(점수 규칙, **값 미확정**): 반복 가중 상한 `repeat_cap`(사전 `personal_glyph_weights.json`, 기본 null=무상한) + `apply_personal_match(repeat_cap=)`·`LifeFitRanker.rank(repeat_cap=)`. 측정(`var/eh_loo_20261022b.md`, --repeat-cap 0.6): Top-3 적중 glyph 5/11 = glyph_cap 5/11(평균 순위 4.64→4.73). 반복 항은 같은 키의 모든 달에 같은 값이라 **달 순서(LOO)에는 영향이 없고**, 사건 키 간 순서와 확신도 티어 포화(톤)에만 작용한다. 85사례는 시그니처가 없어 불변. 값 결정은 데굴님.
+
 ## 5. 결정 기록
 
 1. 퇴사 키 `resignation` — 승인(원장 전용 키로 구현, §2-2).

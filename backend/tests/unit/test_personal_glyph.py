@@ -90,12 +90,20 @@ def test_glyph_similarity_positions_and_echo_bonus() -> None:
     assert glyph_similarity(both, both) == 1.0  # 보너스는 상한 1.0 클램프
 
 
-def test_fingerprint_similarity_unchanged_at_zero_weight_and_prefers_glyph_match() -> None:
+def test_fingerprint_similarity_unchanged_at_zero_weight_and_prefers_glyph_match(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from saju_engines import period_v2_config as cfg
+
     a, same, other = _fp("亥"), _fp("亥"), _fp("子")
     base = fingerprint_similarity(a, other)
     assert fingerprint_similarity(a, other, 0.0) == base == 0.4  # 기존 식(Jaccard 1.0×0.4)
     assert fingerprint_similarity(a, same, 0.35) > fingerprint_similarity(a, other, 0.35)
-    assert default_glyph_weight() == 0.0  # 플래그 기본 OFF
+    # 플래그 OFF 면 0, ON 이면 사전값(.env.beta 와 무관하게 코드 기준으로 검증).
+    monkeypatch.setattr(cfg, "PERSONAL_GLYPH_SCORE_ENABLED", False)
+    assert default_glyph_weight() == 0.0
+    monkeypatch.setattr(cfg, "PERSONAL_GLYPH_SCORE_ENABLED", True)
+    assert default_glyph_weight() == 0.35
 
 
 # ── lift·근거 코드·플래그 OFF 점수 불변 ──────────────────────────────────────

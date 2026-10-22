@@ -12526,3 +12526,10 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 테스트: `test_employment_history_p2.py` 5건(entry_window on/off·구조 결정형 제외, 수치 라벨, 통로 블록 키 필터·가족 없음·관계 질문 제외, 프리필 왕복), `test_personal_glyph.py` 접미 반영. 프론트 `tsc` 0 · production build 0(`var/frontend_build_20261022.log`).
 - 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 62c1251 동일, 지문 동일, `var/suite_20261022_eh_p2.log`) / 프론트 `tsc` 0 · build 0.
 - 운영: 백엔드 8888 재기동(플래그 `personal_glyph_score_enabled=true` health 노출), `/employment-history` 라우트 등록 확인. 남음: 채팅 실답 감수(두 칸·통로·수치 라벨), 리포트 배선.
+
+## 2026-10-22 — 직장 이력 캘리브레이션 P2 실답 감수 교정 3건 (데굴님 "진행해줘")
+
+- 감수(thread web-mvjgmlnd-63fer6): 통로 블록 반영 확인 / 두 칸 지시 2턴 미부착(시점 명시) / `PERSONAL_GLYPH_REPEAT:亥:4/11` 동반 신호 4개 상한에 잘림 / 반복 가중 무상한으로 job_gain pm 246~288 포화.
+- 교정: `context_reducer` 개인 이력 반복 라벨 상한 예외(`PERSONAL_REPEAT_LABEL_PREFIX`) + `_PERSONAL_REPEAT_DIRECTIVE` / `ENTRY_WINDOW_DIRECTIVE` 지평 분리 주입(`_entry_window_directive_needed`)·형식 문장 강화 / `repeat_cap` 설정값(기본 null)·ranker 전달·LOO `glyph_cap` 모드. 측정: 적중 5/11 동일(달 순서 무영향), 톤 포화만 완화 → 값(0.6) 적용 여부는 데굴님 결정.
+- 테스트: `test_employment_history_p2.py` +4(상한 예외·분리 주입 조건·지시 트리거·상한 효과), `test_personal_glyph.py` 플래그 검증을 env 무관하게(monkeypatch).
+- 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head d61f914 동일, 지문 동일, `var/suite_20261022_eh_p2c.log`). 백엔드 재기동은 아래 커밋 뒤.

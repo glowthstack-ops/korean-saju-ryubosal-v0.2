@@ -1460,6 +1460,8 @@ def build_birth_summary(result: ManseV2Result) -> BirthChartSummary:
 
 
 _MAX_SIGNALS_KO = 4  # 후보별 동반 신호 표기 상한
+#: 개인 이력 반복 라벨 접두(llm_event_serializer 의 PERSONAL_GLYPH_REPEAT 수치 라벨) — 상한 예외.
+PERSONAL_REPEAT_LABEL_PREFIX = "개인 이력 반복("
 
 # 검토월 고정 문구(P0-2) — 판정은 LlmEventCandidate.review_month(구조 필드), 노출은 이 문구.
 # 2026-08-21 개정: '중복 충'은 어떤 코드도 생산하지 않는 죽은 표현이라 제거하고,
@@ -1504,6 +1506,13 @@ def _to_llm_candidate(
         if label and label not in signals_ko:
             signals_ko.append(label)
         if len(signals_ko) >= _MAX_SIGNALS_KO:
+            break
+    # 개인 이력 반복 라벨은 상한 밖에서도 1개 보장 — 근거 코드 끝에 붙어 4개 상한에 잘려
+    # 서술에서 누락되던 실답(2026-10-22, EMPLOYMENT_HISTORY_CALIBRATION.md §4-1).
+    for sig in c.signals:
+        label = _INTERNAL_NOTE_RE.sub("", sig.effect or sig.name).strip()
+        if label.startswith(PERSONAL_REPEAT_LABEL_PREFIX) and label not in signals_ko:
+            signals_ko.append(label)
             break
     note = ""
     stage_note = ""

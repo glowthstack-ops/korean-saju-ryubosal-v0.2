@@ -32,6 +32,7 @@ class LifeFitRanker:
         cohort: CohortStats | None = None,
         glyph_context: GlyphContext | None = None,
         glyph_weight: float | None = None,
+        repeat_cap: float | None = None,
     ) -> list[EventCandidateV2]:
         """시드 → personal_match(개인) → 코호트 합산 → life_fit 적용 후 LEI 정렬축으로 재정렬한다.
 
@@ -43,7 +44,7 @@ class LifeFitRanker:
         if signature:
             periods = sorted({c.period for c in out})
             out = seed_missing_events(out, signature, periods)
-            out = apply_personal_match(out, signature, glyph_context, glyph_weight)
+            out = apply_personal_match(out, signature, glyph_context, glyph_weight, repeat_cap)
         if cohort is not None:
             out = apply_cohort_match(out, cohort)
         out = apply_life_fit(out, reality_context)

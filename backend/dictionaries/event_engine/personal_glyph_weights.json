@@ -10,6 +10,8 @@
   },
   "natal_echo_bonus": 0.1,
   "glyph_weight": 0.35,
+  "repeat_cap": null,
+  "repeat_cap_note": "반복 확정 테마 가중(0.2×(기간 수−1))의 상한. null=상한 없음(기존 동작). 입사 11건 적재 후 모든 달 pm 246~288 포화가 확인돼(2026-10-22) 측정 뒤 값을 정한다 — measure_employment_history_loo.py --repeat-cap.",
   "lift": {
     "min_rows": 5,
     "min_hits": 2,

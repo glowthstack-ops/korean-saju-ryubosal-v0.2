@@ -48,6 +48,7 @@ from saju_engines.companion_alias import AliasEntry, merge_attached_partner
 from saju_engines.companion_similarity import augment_relation_type, augment_subject_mode
 from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
 from saju_engines.context_reducer import (
+    PERSONAL_REPEAT_LABEL_PREFIX,
     build_birth_summary,
     build_llm_input,
     build_monthly_overview,
@@ -74,7 +75,12 @@ from saju_engines.effective_subjects import AttachedCompanion, build_effective_s
 from saju_engines.event_engine_config import build_event_engine_v2
 from saju_engines.event_lexicon import event_narration_directive
 from saju_engines.gongmang_claim_audit import audit_gongmang_claims
-from saju_engines.horizon import horizon_directive, month_add, resolve_horizon
+from saju_engines.horizon import (
+    ENTRY_WINDOW_DIRECTIVE,
+    horizon_directive,
+    month_add,
+    resolve_horizon,
+)
 from saju_engines.ilju_mention_audit import audit_ilju_mention
 from saju_engines.intent_event_filter import IntentEventFilter
 from saju_engines.job_separation import is_job_separation
@@ -4397,6 +4403,31 @@ def _entry_channel_context(
     ]
 
 
+_PERSONAL_REPEAT_DIRECTIVE = (
+    "[개인 이력 반복] 동반 신호에 '개인 이력 반복'이 있는 달은 그 수치(예: 같은 글자 달에 같은 "
+    "사건 4/11건)를 한 문장으로 언급하라. 회사명·고용주·사례 이름은 쓰지 말고, 반복은 경향이지 "
+    "확정이 아니라고 덧붙여라."
+)
+
+
+def _personal_repeat_present(candidates: list) -> bool:
+    """페이로드 후보의 동반 신호에 개인 이력 반복 라벨이 있는가."""
+    return any(
+        s.startswith(PERSONAL_REPEAT_LABEL_PREFIX)
+        for c in candidates for s in (getattr(c, "signals_ko", None) or [])
+    )
+
+
+def _entry_window_directive_needed(
+    intent: IntentJson, horizon, *, is_retro: bool, is_structural: bool,
+) -> bool:
+    """두 칸 지시를 지평 경로와 별도로 붙여야 하는가 — 진입 사건·미래·비구조이면서 지평 지시에
+    이미 포함되지 않았을 때(시점 명시 질문 '이번 11월에 취업' 포함, 2026-10-22 실답)."""
+    if intent.event_key not in _ENTRY_CHANNEL_KEYS or is_retro or is_structural:
+        return False
+    return not (horizon is not None and getattr(horizon, "entry_window", False))
+
+
 #: 질문 기간 운 도화 블록의 범위 상한 — 날짜 14일·월 12개·연 3개(무관한 기간까지 일괄 확대 금지).
 _LUCK_DOHWA_MAX_DAYS = 14
 _LUCK_DOHWA_MAX_MONTHS = 12
@@ -6340,6 +6371,14 @@ def chat(
         if _entry_lines:
             trailing.extend(_entry_lines)
             trailing.append(_ENTRY_CHANNEL_DIRECTIVE)
+    # 두 칸 지시(성사 달·움직이는 달) — 지평 경로를 타지 않은 진입 질문(시점 명시 등)에도 붙인다.
+    if _entry_window_directive_needed(
+        intent, horizon, is_retro=bool(is_retro), is_structural=bool(is_structural),
+    ):
+        trailing.append(ENTRY_WINDOW_DIRECTIVE)
+    # 개인 이력 반복 수치 서술(회사명 없음) — 동반 신호에 라벨이 실린 후보가 있을 때만.
+    if _personal_repeat_present(list(payload.event_candidates)):
+        trailing.append(_PERSONAL_REPEAT_DIRECTIVE)
     # 총운 다변화 P2(2026-07-14) — 조망 서술 계약: 후보 존재 영역만, 집중은 집중으로
     # 명시, 미선정 영역은 '신호 없음' 단정 금지·생략.
     if _overview_mode:
