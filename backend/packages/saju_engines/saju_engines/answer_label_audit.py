@@ -57,7 +57,15 @@ def rewrite_raw_period_labels(text: str) -> tuple[str, list[tuple[str, str]]]:
     return _RAW_PERIOD_RE.sub(_sub, text), changes
 
 
+_DONE_STEM_RE = re.compile(r"성사")
+_MOVE_STEM_RE = re.compile(r"움직이|움직여|움직임")
+
+
 def entry_window_labels_present(text: str) -> tuple[bool, bool]:
-    """첫 문단에 ('성사 달' 있음, '움직이는 달' 있음) — 두 칸 지시 준수 관측(로그 전용)."""
+    """첫 문단에 (성사 칸 어간, 움직이는 칸 어간)이 있는가 — 두 칸 지시 준수 관측(로그 전용).
+
+    실답(2026-10-22 web-mvjjpmvz)은 "성사 기운이 뚜렷한 달 … 미리 움직이며"로 의미는 지켰으나
+    '성사 달·움직이는 달' 정확 표기는 없었다 — 관측은 어간 기준, 정확 표기는 지시문이 계속 요구한다.
+    """
     first = _FIRST_PARA_SPLIT.split(text.strip(), maxsplit=1)[0] if text else ""
-    return ("성사 달" in first, "움직이는 달" in first)
+    return (bool(_DONE_STEM_RE.search(first)), bool(_MOVE_STEM_RE.search(first)))

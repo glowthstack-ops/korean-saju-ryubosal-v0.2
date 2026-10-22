@@ -12540,3 +12540,9 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 교정: 수치 지시 강화 + `entry_window_audit` 로그 / `answer_label_audit.py`(순위·기간 라벨 원문 결정론 교정, `internal_label_rewritten`) / `ilju_mention_audit.strips_referent`(시기·총운·택일은 참조 문장까지 제거, 분야 개요는 예외 유지) — 기존 테스트 2건 개정.
 - 테스트: `test_answer_label_audit.py` 4건(순위 조사별·4위 이상 제외, 라벨 vs 날짜·범위, 첫 문단 관측, 일주 참조 제거/유지), `test_gongmang_date_answer_audits.py` 2건 개정 +1.
 - 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 6cb8aef 동일, 지문 동일, `var/suite_20261022_eh_p2e.log`). 백엔드 8888 재기동.
+
+## 2026-10-22 — 직장 이력 P2 3차 감수 + 반복 가중 상한 보류 (데굴님 기준: 적중률 긍정일 때만 적용)
+
+- 측정(사건 종류 간, 확정 월 17건 LOO): base/glyph Top-1 11/17·Top-3 14/17, cap 0.6·0.4 Top-1 6/17·Top-3 14/17 → 상한 **미적용**(repeat_cap=null). 오탐(사건 없는 달) 측정은 다음 과제(SSOT §3-3).
+- 3차 감수(web-mvjjpmvz): 숫자·통로·누수 제거·일주 제거 모두 확인, 두 칸 이름표만 miss(의미는 충족). 교정: 관측 어간 기준 완화, 반복 이력 달 '성사 후보' 병기 지시.
+- 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 660d4fb 동일, 지문 동일, `var/suite_20261022_eh_p2f.log`). 백엔드 8888 재기동.

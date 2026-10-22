@@ -40,6 +40,9 @@ def test_raw_period_labels_rewritten_but_dates_and_ranges_kept() -> None:
 def test_entry_window_labels_present_first_paragraph_only() -> None:
     present = entry_window_labels_present
     assert present("성사 달은 2월, 움직이는 달은 1월이에요.\n\n본문") == (True, True)
+    # 어간 기준 — "성사 기운이 뚜렷한 달 … 미리 움직이며"도 의미상 두 칸으로 센다.
+    semantic = "성사 기운이 뚜렷한 달은 2월이며, 11월부터 미리 움직이며 조건을 확인하세요.\n\n본문"
+    assert present(semantic) == (True, True)
     assert present("2월이 유력해요.\n\n움직이는 달은 1월, 성사 달은 2월.") == (False, False)
     assert entry_window_labels_present("") == (False, False)
 
