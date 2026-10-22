@@ -129,8 +129,8 @@ def test_glyph_lift_requires_min_rows_and_filters_nature(ctx: GlyphContext) -> N
     ranked = apply_personal_match([_cand("2026-11"), _cand("2026-12")], sig, ctx, 0.0)
     nov = next(c for c in ranked if c.period == "2026-11")
     dec = next(c for c in ranked if c.period == "2026-12")
-    assert PERSONAL_GLYPH_REPEAT in nov.reason_codes
-    assert PERSONAL_GLYPH_REPEAT not in dec.reason_codes  # 子월 0건
+    assert any(c.startswith(PERSONAL_GLYPH_REPEAT + ":亥:4/6") for c in nov.reason_codes)
+    assert not any(c.startswith(PERSONAL_GLYPH_REPEAT) for c in dec.reason_codes)  # 子월 0건
     # 글자 가중 0 → 점수·personal_match 는 글자 없이 계산한 값과 같다(플래그 OFF 불변).
     plain = apply_personal_match([_cand("2026-11"), _cand("2026-12")], sig)
     assert [(c.score, c.personal_match) for c in ranked] == [

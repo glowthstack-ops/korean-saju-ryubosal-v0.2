@@ -18,22 +18,19 @@ import argparse
 import json
 import os
 import sys
-from datetime import date
 from pathlib import Path
 
 from saju_api.services.manse_service import calculate
 from saju_engines.employment_history import (
-    reference_date_for_label,
+    make_month_fingerprint_resolver,
     rows_from_history,
     superseded_keys,
 )
 from saju_engines.event_engine_v2 import EventEngineV2
-from saju_engines.glyph_context import GlyphContext
 from saju_engines.life_event_store import LifeEventStore
-from saju_engines.reality_calibration import month_event_fingerprints, pillars_signature
+from saju_engines.reality_calibration import pillars_signature
 from saju_engines.subject_store import SubjectStore
-from saju_shared_types.ganji_calendar import GanjiLevel
-from saju_shared_types.life_event import EmploymentHistoryEntry, SignalFingerprint
+from saju_shared_types.life_event import EmploymentHistoryEntry
 
 _BACKEND = Path(__file__).resolve().parent.parent
 _ENV_PATHS = [_BACKEND.parent / ".env", _BACKEND / ".env"]
@@ -82,16 +79,8 @@ def main(argv: list[str] | None = None) -> int:
     base_chart = calculate(record.birth)
     sig = pillars_signature(base_chart)
 
-    def resolver(d: date, label: str, event_key: str) -> SignalFingerprint | None:
-        del d  # 월운 목록은 라벨 연도 기준으로 뽑는다(1월 라벨은 전년 목록)
-        chart = calculate(record.birth.model_copy(
-            update={"reference_date": reference_date_for_label(label)},
-        ))
-        cands = engine.score(chart, levels={GanjiLevel.MONTH})
-        fp = month_event_fingerprints(cands, label).get(event_key) or SignalFingerprint()
-        # P1 글자 차원 — 후보가 없는 키(resignation 등)도 세운·월운 글자는 채운다.
-        return GlyphContext.from_result(chart).with_glyphs(fp, label)
-
+    # API(POST employment-history)와 같은 resolver — 절기월·월운 지문·글자 규칙 단일화.
+    resolver = make_month_fingerprint_resolver(record.birth, engine, calculate)
     rows = rows_from_history(entries, args.subject, record.owner_id, sig, resolver)
     print(f"subject={args.subject} owner={record.owner_id} rows={len(rows)}")
     print("period   | key           | nature     | channel  | label")

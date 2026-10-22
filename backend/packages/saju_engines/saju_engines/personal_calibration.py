@@ -196,7 +196,10 @@ def apply_personal_match(
             and lift[1] >= int(lift_cfg["min_hits"])
             and lift[0] >= float(lift_cfg["min_lift"])
         ):
-            glyph_codes.append(PERSONAL_GLYPH_REPEAT)
+            # 접미 '글자:일치/표본' — 서술은 수치만(회사·사례 지목 없음, 2026-10-22 데굴님 결정).
+            glyph_codes.append(
+                f"{PERSONAL_GLYPH_REPEAT}:{cfp.glyphs['wolwoon_branch']}:{lift[1]}/{lift[2]}"
+            )
         if pm == 0.0:
             if glyph_codes:
                 out.append(c.model_copy(update={"reason_codes": [*c.reason_codes, *glyph_codes]}))

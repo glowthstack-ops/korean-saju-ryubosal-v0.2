@@ -89,12 +89,13 @@ DB: `migrations/020_life_event_attrs.sql` — `attrs JSONB NOT NULL DEFAULT '{}'
 - 십성 그룹 지문만으로는(base) 엔진 대비 개선이 없고, 글자 차원이 +2건이다. 다만 표본 11건이라 **ON 판정은 데굴님 결정**이며, 켜더라도 개인 시그니처가 있는 subject 에만 작용한다(85사례 fixture 는 시그니처가 없어 불변).
 - 가중을 켜면 나빠지는 사례도 있다(2006-05 키스템프: engine 1위 → glyph 8위, 巳월 표본 1건). 가중·lift 기준 조정은 이 스크립트로 같은 11건을 재측정한 뒤 한다.
 
-## 4. P2 — 노출 (PR 3)
+## 4. P2 — 노출 (PR 3, 구현 완료 2026-10-22; 회사명 인용은 데굴님 결정으로 배제)
 
-- 취업 시기 답(채팅·리포트 커리어 섹션): "움직이는 달(접수·제안) + 성사 달(입사)" 두 칸. 창 기본 1~2개월, 사용자가 리드타임을 말했을 때만 좁힌다. 행동 제안은 접수 달에 붙인다.
-- 연결 사례: 후보 달마다 같은 월운의 과거 입사 `label`을 한 줄 인용("2021년 11월 입사 때와 같은 월운"). 사용자 제공 사실이라 점괘화 금지와 충돌 없음. 단정 금지 어휘는 기존 감사 그대로.
-- 통로 제안: 운 십성→관계 유형 매핑(`ten_god_relations.json`)으로 "사람 통로 우선 / 공고 통로 우선" 한 줄.
-- 입력 UI: `StepRealityCalibration` 옆에 선택 탭 "직장 이력" — 행 단위(회사명·입사월일·퇴사월일·성격·통로·같은 직장 묶기). 날짜는 일 단위 선택, 모르면 월만.
+- **진입 시기 두 칸**: `HorizonPolicy.entry_window`(`resolve_horizon` — 사건 키가 job_gain·career_change 이고 지평이 구조 결정형·택일이 아닐 때) → `horizon_directive`가 `ENTRY_WINDOW_DIRECTIVE`를 붙인다: 성사 달(후보 달) + 한두 달 앞 움직이는 달(제안·접수·면접), 사용자가 말한 리드타임 우선, 행동 제안은 움직이는 달에, 성사 달 결과 단정 금지, **과거 사례의 회사명·고용주 언급 금지**.
+- **글자 반복 서술(수치만)**: 근거 코드 `PERSONAL_GLYPH_REPEAT:亥:4/11` → `reason_codes_ko` 라벨 "개인 이력 반복(같은 亥월 글자에서 같은 사건 4/11건 — 기대 비율 1/12, 특정 사례·회사 지목 아님)". `PERSONAL_MATCH`·`PERSONAL_SEED` 라벨도 등록. 회사명(`attrs.label`)은 LLM 입력에 직렬화되지 않는다(후보만 직렬화).
+- **진입 통로**: `chat_service._entry_channel_context` — 입사·이직 질문(관계 대상 질문이 아닐 때)의 진입 후보 상위 달 2개의 운 십성을 `ten_god_relations` 근거표(가족 칸 없음)로 옮긴 블록 + `_ENTRY_CHANNEL_DIRECTIVE`(근거표 범주 그대로, 통로 단정·특정인·특정 회사 금지, 근거표 밖 범주 추가 금지). 관성=조직/비겁·재성=지인 같은 **개인 이력 규칙은 넣지 않았다**(규격 밖 명리 규칙 — 근거표 범주만).
+- **입력 UI·API**: `GET/POST /api/v2/reality-calibration/{subject_id}/employment-history`(`EmploymentHistoryView`/`EmploymentHistorySubmission`→`EmploymentHistorySubmitResult`, 전체 치환, 캘리브레이션 같은 달 회상 행 치환, 요약에 회사명 없음). 적재 스크립트와 API 는 `make_month_fingerprint_resolver`를 공유한다. 프론트 `components/onboarding/EmploymentHistoryForm.tsx`(날짜·종류·성격·통로/사유·묶기·표시용 이름) + `app/reality-calibration` 탭(연도별 사건 | 직장 이력). 프리필은 `entries_from_rows`(행 id stamp 로 일/월 정밀도 복원).
+- 리포트(F-15·J 섹션)에는 아직 배선하지 않았다 — 채팅 실답 감수 후.
 
 ## 5. 결정 기록
 

@@ -19,8 +19,9 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
+from saju_shared_types.events import EventKey
 from saju_shared_types.intent import IntentJson, QueryType, TimeScope
 
 from .job_separation import is_job_separation
@@ -51,6 +52,21 @@ class HorizonPolicy:
     years_span: int
     natal_fit: bool
     label: str  # 디렉티브·로그용 지평 설명
+    # 진입 사건(입사·이직) — 답을 '움직이는 달(제안·접수·면접) + 성사 달(입사)' 두 칸으로 낸다
+    # (EMPLOYMENT_HISTORY_CALIBRATION.md §4, 2026-10-22). 구조 결정형·택일에는 붙이지 않는다.
+    entry_window: bool = False
+
+
+#: 진입 사건 키 — 두 칸 지시가 붙는 사건.
+_ENTRY_EVENT_KEYS: frozenset[EventKey] = frozenset({EventKey.JOB_GAIN, EventKey.CAREER_CHANGE})
+#: 진입 사건 두 칸 지시(리드타임 기본 1~2개월 — 사용자가 말한 값이 있으면 그 값).
+ENTRY_WINDOW_DIRECTIVE = (
+    "[진입 시기 두 칸] 입사·이직처럼 '들어가는' 사건은 성사 달(입사·계약)과 그보다 한두 달 앞의 "
+    "움직이는 달(제안·접수·면접)을 나눠 말하라. 사건 후보가 있는 달을 성사 달로 두고 움직이는 달은 "
+    "그 한두 달 앞으로 잡되, 사용자가 자기 리드타임(예: 보통 한 달)을 말했으면 그 값을 쓰라. "
+    "행동 제안(지원·주변에 알리기)은 움직이는 달에 붙이고 성사 달에는 결과를 단정하지 말 것. "
+    "과거 사례의 회사명·고용주는 언급하지 말 것."
+)
 
 
 def resolve_horizon(question: str, intent: IntentJson) -> HorizonPolicy | None:
@@ -58,7 +74,20 @@ def resolve_horizon(question: str, intent: IntentJson) -> HorizonPolicy | None:
 
     호출 측(chat)은 vague_future(시점 미지정·미래·비구조 질문)에서만 호출한다 —
     명시 시점·과거 회고·CHART_ANALYSIS·택일은 기존 경로가 담당.
+    진입 사건(job_gain·career_change)이면 구조 결정형·택일을 뺀 모든 지평에 `entry_window`를 켠다.
     """
+    policy = _resolve_horizon_kind(question, intent)
+    if (
+        policy is not None
+        and policy.kind not in ("structural", "date_window")
+        and intent.event_key in _ENTRY_EVENT_KEYS
+    ):
+        return replace(policy, entry_window=True)
+    return policy
+
+
+def _resolve_horizon_kind(question: str, intent: IntentJson) -> HorizonPolicy | None:
+    """지평 종류 판정(entry_window 제외)."""
     # 택일(날 고르기) 질문은 탐색 창(오늘부터 약 한 달 — 이번 달·다음 달) 지평이다(2026-10-19 데굴님
     # 승인). 실답: 시점 없는 '이력서 넣기 좋은 날'이 분야 기본 12개월 지평을 타 유력 달 종합·기반
     # 최고
@@ -166,6 +195,8 @@ def horizon_directive(policy: HorizonPolicy) -> str:
             f"향후 {policy.months_detail}개월의 월 단위 흐름에 집중하라 — "
             "연 단위 장기 나열은 하지 말 것."
         )
+    if policy.entry_window:
+        parts.append(ENTRY_WINDOW_DIRECTIVE)
     parts.append(
         "더 먼 시기의 흐름은 답변 끝에 '더 긴 흐름이 궁금하면 이어서 물어봐 달라'는 "
         "한 줄 안내만 허용한다(그 한 줄에 구체 연도·간지·길흉을 담지 말 것)."

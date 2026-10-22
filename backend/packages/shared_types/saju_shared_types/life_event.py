@@ -116,6 +116,30 @@ class EmploymentHistoryEntry(BaseModel):
     note: str | None = None
 
 
+class EmploymentHistorySubmission(BaseModel):
+    """직장 이력 제출(전체 치환 — 사용자가 목록을 편집하므로 기존 employment_history 행을 대체)."""
+
+    subject_id: str
+    owner_id: str = "default"
+    entries: list[EmploymentHistoryEntry] = Field(default_factory=list)
+
+
+class EmploymentHistoryView(BaseModel):
+    """저장된 직장 이력(프리필용) — 원장 행에서 복원한 입력 줄."""
+
+    subject_id: str
+    entries: list[EmploymentHistoryEntry] = Field(default_factory=list)
+
+
+class EmploymentHistorySubmitResult(BaseModel):
+    """직장 이력 적재 결과 — 사용자용 요약(회사명 없음)."""
+
+    stored: int
+    entries: int
+    superseded: int = 0
+    summary: list[str] = Field(default_factory=list)
+
+
 # ── 현실 신호 캘리브레이션 질문 (주요 ~10개 연도 · 연도별 이벤트 선택) ──
 
 

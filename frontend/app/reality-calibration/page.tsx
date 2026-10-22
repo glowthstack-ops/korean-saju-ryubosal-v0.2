@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { EmploymentHistoryForm } from "@/components/onboarding/EmploymentHistoryForm";
 import { StepRealityCalibration } from "@/components/onboarding/StepRealityCalibration";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { listSubjects } from "@/lib/subjects";
@@ -16,6 +17,8 @@ export default function RealityCalibrationPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [summary, setSummary] = useState<string[]>([]);
+  // 탭: 연도별 사건(캘리브레이션) | 직장 이력(자격득실 수준 입퇴사 — 정본)
+  const [tab, setTab] = useState<"events" | "employment">("events");
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -56,6 +59,30 @@ export default function RealityCalibrationPage() {
           ))}
         </select>
       )}
+      <div className="flex gap-1 text-sm" role="tablist" aria-label="입력 종류">
+        {(
+          [
+            ["events", "연도별 사건"],
+            ["employment", "직장 이력"],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => {
+              setTab(key);
+              setDone(false);
+            }}
+            className={`rounded px-3 py-1.5 ${
+              tab === key ? "bg-zinc-900 text-white" : "border border-zinc-300 text-zinc-700"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       {done ? (
         <div className="space-y-3 text-sm">
           <p className="text-green-700">저장됐습니다. 풀이에 반영됩니다.</p>
@@ -80,6 +107,15 @@ export default function RealityCalibrationPage() {
             </Link>
           </div>
         </div>
+      ) : activeId && tab === "employment" ? (
+        <EmploymentHistoryForm
+          key={`eh-${activeId}`}
+          subjectId={activeId}
+          onDone={(r) => {
+            setSummary(r?.summary ?? []);
+            setDone(true);
+          }}
+        />
       ) : activeId ? (
         <StepRealityCalibration
           key={activeId}

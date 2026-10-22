@@ -12518,3 +12518,11 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 테스트: `test_personal_glyph.py` 9건(컨텍스트·1월 라벨·유사도·가중 0 불변·lift 표본/성격 필터·가중 ON 우대·원장 전용 키 무해).
 - 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head b92a303 동일, 지문 동일, `var/suite_20261022_eh_p1.log`).
 - 남음: 플래그 ON 결정(데굴님), P2(시기 답 2칸·연결 사례·통로 제안·입력 UI).
+
+## 2026-10-22 — 직장 이력 캘리브레이션 P2 (두 칸 시기·글자 반복 서술·진입 통로·입력 UI) + 글자 가중 플래그 ON — 데굴님 결정
+
+- 결정: ①`SAJU_PERSONAL_GLYPH_SCORE_ENABLED=true`(.env.beta) ②P2 착수, **회사명 인용 배제**.
+- 구현: `horizon.HorizonPolicy.entry_window` + `ENTRY_WINDOW_DIRECTIVE`(성사 달·움직이는 달 두 칸, 리드타임 사용자 값 우선, 회사명 언급 금지) / `PERSONAL_GLYPH_REPEAT:글자:일치/표본` 접미 + `reason_codes_ko` 수치 라벨(회사 없음), `PERSONAL_MATCH`·`PERSONAL_SEED` 라벨 / `chat_service._entry_channel_context` + `_ENTRY_CHANNEL_DIRECTIVE`(근거표 범주만, 가족 칸 없음) / API `GET·POST …/employment-history`(전체 치환·회상 행 치환·회사명 없는 요약), `employment_history.make_month_fingerprint_resolver`(스크립트·API 공유)·`entries_from_rows` / 프론트 `EmploymentHistoryForm.tsx` + 캘리브레이션 페이지 탭, `lib/types`·`lib/subjects` 추가.
+- 테스트: `test_employment_history_p2.py` 5건(entry_window on/off·구조 결정형 제외, 수치 라벨, 통로 블록 키 필터·가족 없음·관계 질문 제외, 프리필 왕복), `test_personal_glyph.py` 접미 반영. 프론트 `tsc` 0 · production build 0(`var/frontend_build_20261022.log`).
+- 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 62c1251 동일, 지문 동일, `var/suite_20261022_eh_p2.log`) / 프론트 `tsc` 0 · build 0.
+- 운영: 백엔드 8888 재기동(플래그 `personal_glyph_score_enabled=true` health 노출), `/employment-history` 라우트 등록 확인. 남음: 채팅 실답 감수(두 칸·통로·수치 라벨), 리포트 배선.

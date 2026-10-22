@@ -4339,6 +4339,64 @@ def _agent_relation_context(
     ]
 
 
+#: 진입 사건 키 — 통로 블록 대상(EMPLOYMENT_HISTORY_CALIBRATION.md §4, 2026-10-22).
+_ENTRY_CHANNEL_KEYS = frozenset({EventKey.JOB_GAIN, EventKey.CAREER_CHANGE})
+_ENTRY_CHANNEL_DIRECTIVE = (
+    "[진입 통로] 위 근거표의 관계 범주를 그대로 옮겨 '어떤 관계 쪽에서 제안·소개·공고가 올 수 "
+    "있는가'를 "
+    "후보 달마다 한 줄로만 쓰라. 통로를 단정하거나 특정인·특정 회사를 지목하지 말고, 근거표에 없는 "
+    "관계 범주를 더하지 말 것."
+)
+
+
+def _entry_channel_context(
+    birth: BirthInput,
+    result: ManseV2Result,
+    intent: IntentJson,
+    question: str,
+    candidates: list,
+    *,
+    thread_id: str | None = None,
+    turn_no: int | None = None,
+) -> list[str]:
+    """진입 사건(입사·이직) 질문 — 후보 상위 달(최대 2)의 운 십성을 관계 범주로 옮긴 '통로' 블록.
+
+    관계 대상 질문(`_agent_relation_context`)과 같은 근거표(ten_god_relations)를 쓰되 가족 칸은
+    붙이지 않는다. 사건 후보가 없으면 블록도 없다(규칙 11).
+    """
+    if intent.event_key not in _ENTRY_CHANNEL_KEYS or detect_agent_question(question):
+        return []
+    periods: list[str] = []
+    for c in sorted(candidates, key=lambda c: -int(getattr(c, "score", 0))):
+        if str(getattr(c, "event_key", "")) not in {k.value for k in _ENTRY_CHANNEL_KEYS}:
+            continue
+        label = str(getattr(c, "period", ""))
+        if label and label not in periods:
+            periods.append(label)
+        if len(periods) >= 2:
+            break
+    pillars = [pl for pl in (_luck_pillar_for_label(birth, lb) for lb in periods) if pl]
+    if not pillars:
+        return []
+    from saju_engines.event_scoring import favorability_map
+
+    gender = str(result.input_summary.get("gender", ""))
+    lines, keys = agent_relation_lines(
+        pillars, favorability_map(result), gender, include_family=False,
+    )
+    if not lines:
+        return []
+    _logger.info(
+        "entry_channel_exposed thread=%s turn=%s periods=%s keys=%s",
+        thread_id, turn_no, periods, keys,
+    )
+    return [
+        "[진입 통로 — 후보 달 운 십성의 관계 범주(엔진 값·근거표). 제안·소개·공고가 올 수 있는 "
+        "관계 범주이지 특정인·특정 회사가 아니다]",
+        *lines,
+    ]
+
+
 #: 질문 기간 운 도화 블록의 범위 상한 — 날짜 14일·월 12개·연 3개(무관한 기간까지 일괄 확대 금지).
 _LUCK_DOHWA_MAX_DAYS = 14
 _LUCK_DOHWA_MAX_MONTHS = 12
@@ -6273,6 +6331,15 @@ def chat(
     if _agent_lines:
         trailing.extend(_agent_lines)
         trailing.append(_AGENT_QUESTION_DIRECTIVE)
+    else:
+        # 진입 통로(2026-10-22) — 입사·이직 질문의 후보 달 운 십성을 관계 범주로(가족 칸 없음).
+        _entry_lines = _entry_channel_context(
+            birth, result, intent, question, list(payload.event_candidates),
+            thread_id=thread_id, turn_no=state.turn_no if state is not None else None,
+        )
+        if _entry_lines:
+            trailing.extend(_entry_lines)
+            trailing.append(_ENTRY_CHANNEL_DIRECTIVE)
     # 총운 다변화 P2(2026-07-14) — 조망 서술 계약: 후보 존재 영역만, 집중은 집중으로
     # 명시, 미선정 영역은 '신호 없음' 단정 금지·생략.
     if _overview_mode:

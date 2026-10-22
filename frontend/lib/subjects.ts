@@ -15,6 +15,9 @@ import type {
   ReportSpec,
   SubjectSummary,
   SubjectUpsert,
+  EmploymentHistoryEntry,
+  EmploymentHistorySubmitResult,
+  EmploymentHistoryView,
 } from "./types";
 
 // ── 선택된 사주(subject 비지정 화면의 오버레이 기준) ───────────
@@ -164,5 +167,22 @@ export function submitRealityCalibration(
   return postJSON<RealityCalibrationSubmitResult>(
     `/api/v2/reality-calibration/${subjectId}/submit`,
     { subject_id: subjectId, answers },
+  );
+}
+
+// ── 직장 이력(자격득실 수준 입퇴사 — 정본 적재, EMPLOYMENT_HISTORY_CALIBRATION.md §4) ──
+export function getEmploymentHistory(subjectId: string): Promise<EmploymentHistoryView> {
+  return getJSON<EmploymentHistoryView>(
+    `/api/v2/reality-calibration/${subjectId}/employment-history`,
+  );
+}
+
+export function submitEmploymentHistory(
+  subjectId: string,
+  entries: EmploymentHistoryEntry[],
+): Promise<EmploymentHistorySubmitResult> {
+  return postJSON<EmploymentHistorySubmitResult>(
+    `/api/v2/reality-calibration/${subjectId}/employment-history`,
+    { subject_id: subjectId, entries },
   );
 }

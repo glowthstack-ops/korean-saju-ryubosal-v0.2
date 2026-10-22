@@ -19,9 +19,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import date, datetime, time
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from saju_manse_core.calendar.solar_terms import get_table
+from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.life_event import (
     DatePrecision,
     EmploymentHistoryEntry,
@@ -128,6 +130,51 @@ def rows_from_history(
             ),
         ))
     return rows
+
+
+def make_month_fingerprint_resolver(
+    birth: Any, engine: Any, calculate_fn: Callable[[Any], Any],
+) -> MonthFingerprintResolver:
+    """라벨 연도 기준 만세력 + 월운 채점으로 (후보 지문 or 빈 지문) + 글자 차원을 채우는 resolver.
+
+    적재 스크립트와 API 가 같은 규칙을 쓴다. `calculate_fn`은 호출자가 넘긴다(순수성 유지).
+    """
+    from .glyph_context import GlyphContext
+    from .reality_calibration import month_event_fingerprints
+
+    def resolver(d: date, label: str, event_key: str) -> SignalFingerprint | None:
+        del d  # 월운 목록은 라벨 연도 기준(1월 라벨은 전년 목록)
+        chart = calculate_fn(
+            birth.model_copy(update={"reference_date": reference_date_for_label(label)}),
+        )
+        cands = engine.score(chart, levels={GanjiLevel.MONTH})
+        fp = month_event_fingerprints(cands, label).get(event_key) or SignalFingerprint()
+        return GlyphContext.from_result(chart).with_glyphs(fp, label)
+
+    return resolver
+
+
+_KIND_BY_EVENT_KEY = {v: k for k, v in EVENT_KEY_BY_KIND.items()}
+
+
+def entries_from_rows(rows: list[LifeEventRow]) -> list[EmploymentHistoryEntry]:
+    """원장의 employment_history 행 → 입력 줄(프리필). 날짜는 행 id 의 stamp(일 또는 YYYY-MM)."""
+    out: list[tuple[str, EmploymentHistoryEntry]] = []
+    for r in rows:
+        if (
+            r.source is not LifeEventSource.EMPLOYMENT_HISTORY
+            or r.event_key not in _KIND_BY_EVENT_KEY
+        ):
+            continue
+        parts = r.event_row_id.split(":")
+        stamp = parts[2] if len(parts) >= 4 and parts[1] == "eh" else r.period
+        a = r.attrs
+        out.append((stamp, EmploymentHistoryEntry(
+            date=stamp, kind=_KIND_BY_EVENT_KEY[r.event_key], org=a.label,
+            nature=a.nature or "regular", channel=a.entry_channel, exit_reason=a.exit_reason,
+            group=a.employment_group,
+        )))
+    return [e for _, e in sorted(out, key=lambda t: t[0])]
 
 
 def superseded_keys(rows: list[LifeEventRow]) -> list[tuple[str, str]]:

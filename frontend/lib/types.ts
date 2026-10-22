@@ -859,3 +859,28 @@ export interface RealityCalibrationYearAnswer {
   overall_rating?: string; // 그 해 전체 체감(ExperienceRating 7상태) — 선택
   domain_ratings?: Record<string, string>; // 영역별 체감(domain → ExperienceRating) — 선택
 }
+
+// ── 직장 이력(EMPLOYMENT_HISTORY_CALIBRATION.md §4) — 자격득실 수준 입퇴사 월일, 전부 선택 ──
+export type EmploymentNature = "regular" | "dispatch" | "intern" | "military" | "conversion";
+export type EmploymentChannel = "direct" | "offer" | "referral" | "conversion";
+export type EmploymentExitReason = "voluntary" | "involuntary" | "contract_end";
+export interface EmploymentHistoryEntry {
+  date: string; // 'YYYY-MM-DD' 또는 'YYYY-MM'(일 미상)
+  kind: "entry" | "exit" | "conversion";
+  org?: string | null; // 표시용 이름(선택) — 풀이 문장에는 쓰이지 않는다
+  nature: EmploymentNature;
+  channel?: EmploymentChannel | null; // 입사 통로(입사 행만)
+  exit_reason?: EmploymentExitReason | null; // 퇴사 사유(퇴사 행만)
+  group?: string | null; // 같은 직장 묶기(파견→전환 등)
+  note?: string | null;
+}
+export interface EmploymentHistoryView {
+  subject_id: string;
+  entries: EmploymentHistoryEntry[];
+}
+export interface EmploymentHistorySubmitResult {
+  stored: number;
+  entries: number;
+  superseded: number;
+  summary: string[];
+}

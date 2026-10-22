@@ -15,7 +15,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from saju_engines.employment_history import reference_date_for_label
+from saju_engines.employment_history import (
+    entries_from_rows,
+    make_month_fingerprint_resolver,
+    reference_date_for_label,
+    rows_from_history,
+    superseded_keys,
+)
 from saju_engines.event_engine_v2 import EventEngineV2
 from saju_engines.life_event_store import LifeEventStore
 from saju_engines.reality_calibration import (
@@ -29,6 +35,9 @@ from saju_engines.reality_calibration import (
 from saju_engines.subject_store import SubjectStore
 from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.life_event import (
+    EmploymentHistorySubmission,
+    EmploymentHistorySubmitResult,
+    EmploymentHistoryView,
     LifeEventSource,
     RealityCalibrationQuestionSet,
     RealityCalibrationSubmission,
@@ -146,3 +155,56 @@ def _month_fingerprints(
             if ek in fps:
                 out[(year, month, ek)] = fps[ek]
     return out
+
+
+# ── 직장 이력(EMPLOYMENT_HISTORY_CALIBRATION.md §4 입력 UI) ────────────────────
+@router.get("/{subject_id}/employment-history", response_model=EmploymentHistoryView)
+def employment_history(
+    subject_id: str, owner_id: OwnerId, subjects: Subjects, life_events: LifeEvents,
+) -> EmploymentHistoryView:
+    """저장된 직장 이력(프리필). 없으면 빈 목록."""
+    record = subjects.get(subject_id)
+    if record is None or record.owner_id != owner_id:
+        raise HTTPException(status_code=404, detail="대상을 찾을 수 없습니다.")
+    rows = life_events.subject_signature(owner_id, subject_id)
+    return EmploymentHistoryView(subject_id=subject_id, entries=entries_from_rows(rows))
+
+
+@router.post("/{subject_id}/employment-history", response_model=EmploymentHistorySubmitResult)
+def submit_employment_history(
+    subject_id: str,
+    submission: EmploymentHistorySubmission,
+    owner_id: OwnerId,
+    subjects: Subjects,
+    life_events: LifeEvents,
+) -> EmploymentHistorySubmitResult:
+    """직장 이력 전체 치환 적재 — 절기월·월운 지문·글자는 엔진이 계산한다(적재 스크립트와 같은
+    규칙).
+
+    같은 (event_key, period)의 캘리브레이션 회상 행은 정본에 밀려 삭제된다. 요약에 회사명은 없다.
+    """
+    if submission.subject_id != subject_id:
+        raise HTTPException(status_code=400, detail="subject_id 불일치")
+    record = subjects.get(subject_id)
+    if record is None or record.owner_id != owner_id:
+        raise HTTPException(status_code=404, detail="대상을 찾을 수 없습니다.")
+    chart = _owned_chart(subjects, subject_id, owner_id)
+    resolver = make_month_fingerprint_resolver(record.birth, _get_engine(), calculate)
+    rows = rows_from_history(
+        submission.entries, subject_id, owner_id, pillars_signature(chart), resolver,
+    )
+    src = str(LifeEventSource.EMPLOYMENT_HISTORY)
+    life_events.delete_subject_rows(owner_id, subject_id, source=src)
+    superseded = life_events.delete_superseded_rows(
+        owner_id, subject_id, superseded_keys(rows), keep_source=src,
+    )
+    stored = life_events.append_rows(rows)
+    n_entry = sum(1 for r in rows if r.event_key == "job_gain")
+    n_exit = sum(1 for r in rows if r.event_key == "resignation")
+    n_conv = len(rows) - n_entry - n_exit
+    summary = [f"입사 {n_entry}건 · 퇴사 {n_exit}건 · 전환 {n_conv}건을 저장했어요."]
+    if superseded:
+        summary.append(f"같은 달의 이전 회상 기록 {superseded}건은 이력 기준으로 대체됐어요.")
+    return EmploymentHistorySubmitResult(
+        stored=stored, entries=len(submission.entries), superseded=superseded, summary=summary,
+    )
