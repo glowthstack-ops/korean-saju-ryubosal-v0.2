@@ -92,6 +92,7 @@ from .event_engine_v2 import EventEngineV2
 from .event_lexicon import derive_process_types, process_type_legend
 from .event_scoring import favorability_map
 from .folk_direction import FOLK_TABOO_INSTRUCTION, folk_taboo_summary, format_folk_taboo_lines
+from .gongmang_state import natal_slot_lines, same_xun_line, transit_state, transit_suffix
 from .hap_lines import luck_hap_mode_lines
 from .layer_evidence_scope import (
     classify_layer_evidence_scope,
@@ -343,8 +344,10 @@ _SINSAL_POSITION_INSTRUCTION = (
     "신살은 원국 위치(궁성)에 따라 시기·대상·발현이 달라진다 — 년·월은 사회·대외"
     "(조상/부모·직장, 초중년), 일·시는 개인·가정(나·배우자/자녀·내면, 중말년)으로 "
     "작용한다. 발췌의 '위치'·'위치별' 표기를 따라 해석하고 신살 이름만으로 뭉뚱그리지 "
-    "말 것. 또한 그 신살 자리가 충·형·공망을 맞으면 길신은 작용이 정지·반감되고 흉성은 "
-    "부작용이 커지거나(공망이면) 무력화되며, 일간 기준 용·희신이면 길작용이 강해지고 "
+    "말 것. 또한 그 신살 자리가 충·형을 맞으면 길신은 작용이 정지·반감되고 흉성은 "
+    "부작용이 커질 수 있으며, 그 자리가 공망이면 길흉을 가리지 않고 신살의 작용이 억제돼 있다가 "
+    "운의 충·합·전실로 살아난다(살아난 뒤의 길흉은 그 신살·십성의 성질로 별도 판정 — 공망이 "
+    "흉성을 무력화한다고 단정하지 말 것). 일간 기준 용·희신이면 길작용이 강해지고 "
     "기·구신이면 길신도 힘이 줄거나 흉신이 카리스마·전문성으로 승화될 수 있다 — 이 보정을 "
     "[원국 관계]·공망·용희기구한 정보와 연결하되 여전히 보조 자료로만 쓴다."
 )
@@ -837,6 +840,19 @@ def _month_seolgi_bounds(result: ManseV2Result) -> dict[str, tuple[str, str]]:
         except (ValueError, TypeError, AttributeError):
             continue
     return out
+
+
+#: 단일 달 창의 후보 '강도 맥락' 줄 — 상대 순위 대신 절대 강도만 따르게 한다(2026-10-23).
+SINGLE_PERIOD_RANK_NOTE = (
+    "  강도 맥락: 질문 창에 달이 하나뿐이라 상대 순위 없음 — 위 절대 강도 표현"
+    "('조짐이 약하게 있습니다' 등)만 그대로 따르고, '가장 유력한 달·가장 강하게 움직이는 달'처럼 "
+    "다른 달과 비교하는 표현을 쓰지 말 것(비교 대상이 입력에 없다)."
+)
+#: 단일 달 창의 종합 블록 머리 — '유력 달·1위' 어휘를 쓰지 않는다(2026-10-23).
+SINGLE_PERIOD_SUMMARY_HEADER = (
+    "[질문 달 종합 — 창에 달이 하나라 순위 없음. 아래 우세 사건·유불리·주의를 그대로 함께 "
+    "밝히되, '가장 유력한 달'·'1위' 같은 비교 표현은 쓰지 말 것(이 달의 절대 강도 표현만 따를 것)]"
+)
 
 
 def tone_for_score(score: int) -> str:
@@ -1438,10 +1454,13 @@ def build_birth_summary(result: ManseV2Result) -> BirthChartSummary:
     ):
         links = ya.flow_circulation.get("sheng_links", 0)
         flow_note = f"유통 양호(상생 고리 {links}/5)"
+    _gm = result.structure_analysis.gongmang if result.structure_analysis is not None else None
+    _gm_facts = list(_gm.extended.facts_ko) if _gm is not None and _gm.extended is not None else []
     return BirthChartSummary(
         day_master=p.day_master,
         pillars=pillars,
         void_branches=list(p.gongmang_branches),
+        gongmang_facts=_gm_facts,
         strength=strength,
         useful_gods=UsefulGods(
             yongsin=roles("용신"),
@@ -2517,7 +2536,12 @@ def serialize_chart_prefix(summary: BirthChartSummary, ci: ChartInterpretation |
            if summary.hour_unknown else "")
         + "]",
         f"일간 {summary.day_master} · 명식 {pillar_txt}"
-        + f" · 공망 {''.join(summary.void_branches) or '없음'} · 강약 {summary.strength}",
+        + f" · 공망 {''.join(summary.void_branches) or '없음'}"
+        + (
+            " · 확장 공망(사실): " + " / ".join(summary.gongmang_facts)
+            if summary.gongmang_facts else ""
+        )
+        + f" · 강약 {summary.strength}",
         # 용희기구한 5역할 전부(항목 8) — 희신/구신/한신 질문에도 답할 수 있게.
         (
             "용신·희신·기신·구신·한신: 미확정(시주 미상 — 12시진 후보에 따라 달라짐. 길흉 판정·"
@@ -2530,6 +2554,8 @@ def serialize_chart_prefix(summary: BirthChartSummary, ci: ChartInterpretation |
     ]
     if summary.geokguk:
         lines.append(f"격국: {summary.geokguk}")  # 항목 9
+    # 공망 상태(2026-10-23 P1) — 원국 공망 자리의 글자·궁위·십성·강도(자왕). 서술 전용, 고정 prefix.
+    lines.extend(natal_slot_lines(summary.pillars, summary.day_master, summary.void_branches))
     if summary.hour_unknown_note:
         lines.append("[시주 미상 — 확정 제외·해석 제한] " + summary.hour_unknown_note)
     # 표면 부족 오행의 지장간 잠복 — '존재'와 '작동'을 구분해 잠재·조건부로만 서술
@@ -2751,6 +2777,12 @@ def serialize_llm_input(payload: LlmInput) -> str:
             if sb.current_period:
                 seg.append(f"현재 {sb.current_period}")
             lines.append(f"· {who}: " + " · ".join(seg))
+            # 동순(同旬) 사실(2026-10-23) — 본인(primary) 일주와의 旬 일치 여부만.
+            _xun = same_xun_line(
+                payload.birth_chart_summary.pillars, cs.pillars, "본인", sb.label or "상대",
+            )
+            if _xun:
+                lines.append("  " + _xun)
         lines.append(
             "※ 두 사람 각각의 명식으로 함께 풀되, 상대의 간지·용신을 본인 것과 섞지 말 것. "
             "궁합 신호는 아래 [궁합 분석](있으면) 보조로만 참조."
@@ -2778,6 +2810,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
     lines += [
         "[간지달력(압축)]",
     ]
+    _bcs = payload.birth_chart_summary  # 공망 자극 접미(P1) 계산용 — 원국 기둥·공망 글자
     _dw_any_status = False
     for d in payload.calendar_context.daewoon:
         period = d.period.replace("~", "-")
@@ -2789,7 +2822,10 @@ def serialize_llm_input(payload: LlmInput) -> str:
             "예정": " [예정]",
         }.get(d.status, "")
         _dw_any_status = _dw_any_status or bool(_dtag)
-        lines.append(f"대운 {d.ganji} ({period}, {ages}{jiao}){_dtag}")
+        _gm_dw = transit_suffix(transit_state(
+            _bcs.pillars, _bcs.day_master, _bcs.void_branches, period, d.ganji, is_daewoon=True,
+        ))
+        lines.append(f"대운 {d.ganji} ({period}, {ages}{jiao}){_dtag}{_gm_dw}")
         # 대운 지지 공망 사실(2026-10-19 데굴님 결정) — 현재 대운의 지지가 원국 공망 글자면 그
         # 사실을
         # 명시한다. 실답: 이 사실 없이 '지연'만 보이자 LLM이 그 달(己亥)의 亥를 공망처럼 썼다.
@@ -2801,7 +2837,9 @@ def serialize_llm_input(payload: LlmInput) -> str:
                 f"({''.join(_void)}) 글자다. 공망을 말할 때는 "
                 "이 사실(대운 지지가 공망 글자)과 원국 "
                 "공망 자리만 근거로 쓰고, 월운·세운 글자를 공망이라 부르지 말 것. 대운 지지가 공망 "
-                "글자라는 사실 외의 길흉·사건 판정은 운별 신호로만 말할 것."
+                "글자라는 사실 외의 길흉·사건 판정은 운별 신호로만 말할 것. 현대 통설은 대운 "
+                "공망의 영향을 보지 않으므로(세운 공망만 일부 인정) 이 사실을 대운의 지연·공허·"
+                "실속 부족 근거로 쓰지 말 것."
             )
     if _dw_any_status:
         lines.append(
@@ -2810,12 +2848,21 @@ def serialize_llm_input(payload: LlmInput) -> str:
             "'시작될' 미래로 쓰지 말 것)."
         )
     for y in payload.calendar_context.selected_years:
-        lines.append(_sewoon_line(y))
+        _gm_y = transit_suffix(transit_state(
+            _bcs.pillars, _bcs.day_master, _bcs.void_branches, str(y.year), y.ganji,
+        ))
+        lines.append(_sewoon_line(y) + _gm_y)
     for m in payload.calendar_context.selected_months:
         _mtag = _cur_tag if cur_month and m.period == cur_month else ""
-        lines.append(f"월운 {m.period} {m.ganji}{_mtag}")
+        _gm_m = transit_suffix(transit_state(
+            _bcs.pillars, _bcs.day_master, _bcs.void_branches, m.period, m.ganji,
+        ))
+        lines.append(f"월운 {m.period} {m.ganji}{_mtag}{_gm_m}")
     for day in payload.calendar_context.selected_days:
-        lines.append(f"일운 {day.date} {day.ganji}")
+        _gm_d = transit_suffix(transit_state(
+            _bcs.pillars, _bcs.day_master, _bcs.void_branches, day.date, day.ganji,
+        ))
+        lines.append(f"일운 {day.date} {day.ganji}{_gm_d}")
 
     def candidate_line(c: LlmEventCandidate) -> str:
         # 점수 숫자·신호 건수는 내부 변수라 노출하지 않는다(항목 5) — 강도는 치환
@@ -2853,7 +2900,11 @@ def serialize_llm_input(payload: LlmInput) -> str:
                 "  합 작용(엔진 판정 — 흉신 묶임은 부담 완화이지 제거가 아님): "
                 + " / ".join(c.hap_notes)
             )
-        if with_notes and c.period_rank:
+        if with_notes and c.period_rank and c.period_rank_population <= 1:
+            # 단일 달 창(2026-10-23 실답 '11월은 어때?') — '1/1위'가 '가장 유력'으로 번역돼 직전
+            # 12개월 답(다른 달이 성사 달)과 충돌했다. 상대 순위는 비교 대상이 있을 때만 뜻이 있다.
+            block.append(SINGLE_PERIOD_RANK_NOTE)
+        elif with_notes and c.period_rank:
             # CDS-P1a — 절대 강도(위 표현)와 상대 중요도를 분리 전달. 포화된 강도
             # 표현이 같아도 이 순위가 기간 내 실제 비중이다(판정 아님 — 서술 참고).
             _tied = " 공동" if c.period_rank_tied else ""
@@ -3077,7 +3128,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
             tr_mark = f" · {row.transition}" if row.transition else ""
             has_transition = has_transition or bool(row.transition)
             rank_mark = ""
-            if row.strength_rank is not None:
+            # 단일 달 창이면 '★기간 내 강도 1위' 표식도 뺀다(비교 대상 없음).
+            if row.strength_rank is not None and len(payload.monthly_overview) > 1:
                 has_rank = True
                 rank_mark = (
                     " · ★기간 내 강도 1위"
@@ -3164,6 +3216,9 @@ def serialize_llm_input(payload: LlmInput) -> str:
             (r for r in payload.monthly_overview if r.strength_rank is not None),
             key=lambda r: r.strength_rank or 9,
         )
+        # 단일 달 창(월별 요약 행 1개) — '유력 달'·'1위'는 비교 대상이 있을 때만 뜻이 있다
+        # (2026-10-23 실답: 한 달 창의 1위가 '가장 유력하게 활성화'로 번역돼 직전 답과 충돌).
+        _single_period = len(payload.monthly_overview) == 1
         if ranked_rows and not _date_pick:
             asked_ko = (
                 event_ko(payload.resolved_intent.event_key)
@@ -3172,15 +3227,18 @@ def serialize_llm_input(payload: LlmInput) -> str:
             )
             # 총운 조망에선 이벤트 후보가 서술 골격 — 유력 달 순위가 조망 지침을
             # 눌러 직업 등 특정 영역 쏠림을 만들던 지시문 충돌 해소(2026-07-14 5차).
-            lines.append(
-                "[유력 달 종합 — 이 순위는 '시기 짚기' 참고 자료다. 총운·조망 답변의 "
-                "서술 골격은 [이벤트 후보] 목록이며 이 달 순위가 서술 비중 기준이 "
-                "아니다. 아래 달을 서술할 때는 우세 사건·유불리·주의를 그대로 함께 "
-                "밝힐 것]"
-                if payload.overview_mode
-                else "[유력 달 종합 — 엔진 확정 골자. 각 달을 서술할 때 아래의 우세 "
-                "사건·유불리·주의를 반드시 그대로 함께 밝힐 것(누락 금지)]"
-            )
+            if _single_period:
+                lines.append(SINGLE_PERIOD_SUMMARY_HEADER)
+            else:
+                lines.append(
+                    "[유력 달 종합 — 이 순위는 '시기 짚기' 참고 자료다. 총운·조망 답변의 "
+                    "서술 골격은 [이벤트 후보] 목록이며 이 달 순위가 서술 비중 기준이 "
+                    "아니다. 아래 달을 서술할 때는 우세 사건·유불리·주의를 그대로 함께 "
+                    "밝힐 것]"
+                    if payload.overview_mode
+                    else "[유력 달 종합 — 엔진 확정 골자. 각 달을 서술할 때 아래의 우세 "
+                    "사건·유불리·주의를 반드시 그대로 함께 밝힐 것(누락 금지)]"
+                )
             for mr in ranked_rows:
                 events = mr.top_event_ko.split(" > ")
                 dominant = events[0] if events else ""
@@ -3210,7 +3268,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
                     bits.append(f"간지 역할 {mr.luck_roles}")
                 if mr.transition:
                     bits.append(mr.transition)
-                line = f"{mr.strength_rank}위 {mr.period} {mr.ganji}: " + " · ".join(bits)
+                _rank_prefix = "" if _single_period else f"{mr.strength_rank}위 "
+                line = f"{_rank_prefix}{mr.period} {mr.ganji}: " + " · ".join(bits)
                 roles_txt = mr.luck_roles or ""
                 if "계약·결실 불리" in roles_txt and "합거 완화" in roles_txt:
                     # P1 — 천간 흉신 주의는 남기되, 흉신 묶임(합거 완화)으로 부담이 완화된 달은

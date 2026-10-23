@@ -68,6 +68,7 @@ from saju_engines.folk_direction import (
     folk_taboo_summary,
     format_folk_taboo_lines,
 )
+from saju_engines.gongmang_state import same_xun_line, transit_state, transit_suffix
 from saju_engines.hap_lines import luck_hap_mode_lines
 from saju_engines.health_vulnerability import analyze_health_vulnerability
 from saju_engines.horizon import ENTRY_WINDOW_DIRECTIVE
@@ -1401,6 +1402,12 @@ class _ReportData:
             lines += relative_sinsal_lines(self.result, partner)
             # 삼합국 관계 역학(P1) — 년지 삼합국 오행 생극 경향(설명 레이어, 점수 미개입).
             lines += trine_dynamics_lines(self.result, partner)
+            # 동순(同旬) 사실(2026-10-23, 채팅 패리티) — 두 일주의 旬 일치 여부만.
+            _ps = getattr(self, "partner_summary", None)
+            if _ps is not None:
+                _xun = same_xun_line(self.summary.pillars, _ps.pillars, "본인", "상대")
+                if _xun:
+                    lines.append(_xun)
         return lines
 
     @property
@@ -2374,6 +2381,40 @@ class _ReportData:
         )
         return counseling_arbiter.counseling_block_lines(sem)
 
+    def _gongmang_transit_lines(self, cands: list[EventCandidate]) -> list[str]:
+        """후보 기간(연 'YYYY'·월 'YYYY-MM')별 공망 자극 줄 — 활성 자극이 있는 기간만.
+
+        간지는 세운은 `luck_years`, 월운은 `luck_months`(절기 기준·결정론)로 구한다. 원국 공망
+        자리가 없으면 빈 목록(연·월 모두 미산출).
+        """
+        if not self.summary.void_branches:
+            return []
+        periods = sorted({c.period for c in cands if len(c.period) in (4, 7)})
+        if not periods:
+            return []
+        years = sorted({int(p[:4]) for p in periods})
+        ganji_of: dict[str, str] = {}
+        try:
+            for ly in luck_years(self._chart_birth, years):
+                ganji_of[ly.label] = ly.ganji
+            for y in years:
+                if any(len(p) == 7 and p.startswith(str(y)) for p in periods):
+                    for lm in luck_months(self._chart_birth, y):
+                        ganji_of[lm.label] = lm.ganji
+        except Exception:  # noqa: BLE001 — 간지 조회 실패가 리포트 블록을 막지 않는다
+            return []
+        out: list[str] = []
+        for p in periods:
+            g = ganji_of.get(p)
+            if not g:
+                continue
+            sfx = transit_suffix(transit_state(
+                self.summary.pillars, self.summary.day_master, self.summary.void_branches, p, g,
+            ))
+            if sfx:
+                out.append(f"{'세운' if len(p) == 4 else '월운'} {p} {g}{sfx}")
+        return out
+
     def luck_block(
         self, candidates: list[EventCandidate] | None = None, *, daewoon_only: bool = False,
         include_event_candidates: bool = True, domain: str | None = None,
@@ -2413,10 +2454,17 @@ class _ReportData:
                         if d.index == _cur_dw
                         else (" [지남]" if d.index < _cur_dw else " [예정]")
                     )
+                # 공망 자극(2026-10-23, 채팅 패리티) — 원국 공망 자리가 이 대운 지지로 활성되는
+                # 경우만.
+                _gm = transit_suffix(transit_state(
+                    self.summary.pillars, self.summary.day_master, self.summary.void_branches,
+                    f"{d.approx_start_date.year}-{d.approx_end_date.year}", d.ganji,
+                    is_daewoon=True,
+                ))
                 lines.append(
                     f"대운 {d.ganji}(천간 {d.stem}={d.stem_ten_god}/지지 {d.branch}="
                     f"{d.branch_ten_god}) {d.approx_start_date.year}-{d.approx_end_date.year}, "
-                    f"{d.start_age}-{d.start_age + 9}세: 발현 {mode_ko}{_dw_tag}"
+                    f"{d.start_age}-{d.start_age + 9}세: 발현 {mode_ko}{_dw_tag}{_gm}"
                 )
             if _cur_dw is not None:
                 lines.append(
@@ -2444,6 +2492,16 @@ class _ReportData:
                 lines += clusters
             else:
                 lines.append("이 도메인의 두드러진 후보 신호는 약함 — 원국 구조 중심으로 서술.")
+            # 공망 자극(2026-10-23, 채팅 간지달력 접미와 패리티) — 후보 기간(연·월)에서 원국 공망
+            # 자리가 활성되는 경우만 한 줄씩. 서술 참고값이며 점수·선별 불변.
+            _gm_lines = self._gongmang_transit_lines(cands)
+            if _gm_lines:
+                lines.append("")
+                lines.append(
+                    "[공망 자극(후보 기간) — 엔진 사실. 상태는 해공 정도이지 길흉이 아니다 — "
+                    "살아난 글자의 십성·용희기구한으로 별도 판정]"
+                )
+                lines += _gm_lines
             # 이동 주체 미상(2026-10-15 데굴님 지시, 채팅과 동일) — 이 섹션 후보에 직장·역할 이동이
             # 있으면 자발·타의 단정 금지 지시를 같이 싣는다.
             if has_mobility_candidate(cands):

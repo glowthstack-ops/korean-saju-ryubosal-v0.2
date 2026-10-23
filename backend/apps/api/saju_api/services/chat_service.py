@@ -35,7 +35,10 @@ from saju_engines import (
 from saju_engines.agent_relations import agent_relation_lines, detect_agent_question
 from saju_engines.ai_tell_audit import audit_ai_tells
 from saju_engines.answer_label_audit import (
+    audit_intensity_claims,
     entry_window_labels_present,
+    extract_entry_slots,
+    format_ym_ko,
     relative_year_mentions,
     rewrite_rank_labels,
     rewrite_raw_period_labels,
@@ -1867,6 +1870,23 @@ def finalize_answer_full(
                 "entry_window_audit result=%s done_label=%s move_label=%s thread=%s",
                 "pass" if (_has_done and _has_move) else "miss", _has_done, _has_move, thread_id,
             )
+        # 강도 충실 감사(2026-10-23, 로그 전용) — '조짐이 약하게' 이하 후보 달을
+        # '강하게·가장 유력'으로
+        # 쓴 문장. 교정하지 않고 발생만 센다(2026-10-01 감사 정책과 동일).
+        _weak_periods = sorted({
+            c.period for c in ctx.payload.event_candidates
+            if len(c.period) == 7 and c.score < _ENTRY_WEAK_SCORE_MAX
+        })
+        if _weak_periods:
+            _inflated = audit_intensity_claims(answer, _weak_periods)
+            if _inflated:
+                _logger.warning(
+                    "intensity_audit result=violation hits=%s thread=%s", _inflated, thread_id,
+                )
+            else:
+                _logger.info(
+                    "intensity_audit result=pass weak=%s thread=%s", _weak_periods, thread_id,
+                )
         # 이동 주체 단정 감사(2026-10-15) — 로그 전용, 답 불변.
         answer = _audit_mobility_agency_answer(answer, ctx.payload, ctx.question, thread_id)
         answer = _audit_ten_god_labels_answer(answer, ctx, thread_id)
@@ -2707,15 +2727,21 @@ def update_thread_offer(
 
 
 def _record_answer_commitments(
-    state: ConversationState, answer: str, thread_id: str | None
+    state: ConversationState, answer: str, thread_id: str | None, today: date | None = None
 ) -> None:
     """답변 확정 후: 추천·판정 문장을 시스템 발언 원장에 병합하고 정정·조건 준수를 shadow 감사한다.
 
     감사는 로그만 남긴다(재생성·교체 없음 — 2026-10-01 데굴님 결정, 로그 축적 후 교체 정책 별도
     승인). 원장 병합은 번복 이력(superseded)을 보존한다. 실패해도 답변 영속을 막지 않는다.
+    진입 사건(입사·이직) 답이면 첫 문단의 '성사 달·움직이는 달'을 `state.entry_slots`에 저장한다
+    (2026-10-23 턴 간 승계 — 같은 사건의 시점 후속에 '직전 안내 유지' 지시로 주입).
+
+    Args:
+        today: 연도 없는 'N월'을 풀 기준일(미지정 시 오늘).
     """
     if not answer:
         return
+    _record_entry_slots(state, answer, today or date.today(), thread_id)
     try:
         ctx = state.last_challenge_context or {}
         audit = audit_answer(
@@ -3913,6 +3939,12 @@ def _compat_prompt_block(
     from saju_engines.relationship_trine_dynamics import trine_dynamics_lines
 
     lines += trine_dynamics_lines(result, partner_result, "본인", partner_label)
+    # 동순(同旬) 사실(2026-10-23) — 두 일주의 旬 일치 여부만. 인연 성패 단정 금지는 줄 안에 포함.
+    from saju_engines.gongmang_state import same_xun_line
+
+    _xun = same_xun_line(self_sum.pillars, partner_sum.pillars, "본인", partner_label)
+    if _xun:
+        lines.append(_xun)
     lines.append(
         "신호의 방향(보완/마찰)을 그대로 반영하되 '반드시 헤어진다/잘 된다' 류 단정·상대 탓·"
         "운명론은 금지. 마찰은 관리 가능한 영역으로, 극복할 마음가짐·행동도 덧붙일 것."
@@ -4274,11 +4306,16 @@ def _is_day_range(intent: IntentJson) -> bool:
 
 
 def _is_single_day(intent: IntentJson) -> bool:
-    """특정 하루(start==end, 일 단위)를 물은 질문인가 — 당일 집중 디렉티브 게이트."""
+    """특정 하루(start==end, 일 단위)를 물은 질문인가 — 당일 집중 디렉티브 게이트.
+
+    start가 날짜 라벨(YYYY-MM-DD, 길이 10)일 때만 참이다. 후속 상속으로 월 라벨('2026-11')에
+    day granularity가 얹힌 intent가 들어와도 날짜 파싱(500)으로 가지 않게 한다(2026-10-23).
+    """
     tr = intent.time_range
     return bool(
         tr is not None and tr.start and tr.end
         and tr.start == tr.end and tr.granularity.value == "day"
+        and len(tr.start) == 10
     )
 
 
@@ -4433,6 +4470,103 @@ def _entry_window_directive_needed(
     if intent.event_key not in _ENTRY_CHANNEL_KEYS or is_retro or is_structural:
         return False
     return not (horizon is not None and getattr(horizon, "entry_window", False))
+
+
+#: 두 칸 지시 예외(2026-10-23) — 창 안의 진입 후보가 모두 약하거나 검토월이면 성사 달로 세우지
+#: 않는다.
+_ENTRY_WINDOW_WEAK_NOTE = (
+    "[진입 시기 두 칸 — 예외] 질문 창 안의 '{event}' 후보는 {reason}. 이런 달은 성사 달로 두지 "
+    "말고 '검토·준비 달'로 밝혀라 — 첫 문단에서 이 달이 성사 달이 아니라 검토·준비 단계임을 먼저 "
+    "말하고, 성사 달·움직이는 달은 자료에 없으면 지어내지 말 것('이 창 안에는 성사 달 후보가 "
+    "없다'로 말할 것). "
+    "'가장 유력·강하게 움직이는'처럼 위 절대 강도 표현을 넘어서는 말을 쓰지 말 것."
+)
+#: 약함 판정 경계 — tone_for_score 의 '조짐이 약하게 있습니다' 상한(55 미만).
+_ENTRY_WEAK_SCORE_MAX = 55
+
+
+def _entry_window_weak_note(candidates: list[LlmEventCandidate], intent: IntentJson) -> str | None:
+    """창 안의 진입 사건 월 후보가 전부 약함(55점 미만) 또는 검토월이면 예외 지시문, 아니면 None.
+
+    실답(2026-10-23 '11월은 어때?'): 유일한 후보가 '조짐이 약하게'+검토월인데 두 칸 지시가 그 달을
+    성사 달로 세워 '가장 유력한 성사 달'이 됐다. 강한 비검토 후보가 하나라도 있으면 기본 지시
+    그대로.
+    """
+    from saju_engines.context_reducer import tone_for_score
+
+    month_cands = [
+        c for c in candidates
+        if len(c.period) == 7 and c.event_key in _ENTRY_CHANNEL_KEYS
+    ]
+    if not month_cands:
+        return None
+    if any(c.score >= _ENTRY_WEAK_SCORE_MAX and not c.review_month for c in month_cands):
+        return None
+    reasons: list[str] = []
+    if all(c.score < _ENTRY_WEAK_SCORE_MAX for c in month_cands):
+        labels = sorted({tone_for_score(c.score) for c in month_cands})
+        reasons.append("강도가 '" + "·".join(labels) + "'에 그친다")
+    if any(c.review_month for c in month_cands):
+        reasons.append("공망 충발로 '검토월'(실행월 아님) 표지가 붙었다")
+    event = event_ko(intent.event_key) if intent.event_key is not None else "진입 사건"
+    return _ENTRY_WINDOW_WEAK_NOTE.format(event=event, reason="·".join(reasons))
+
+
+#: 직전 안내 유지 지시(2026-10-23) — 같은 진입 사건의 시점 후속에 직전 두 칸을 주입한다.
+_PRIOR_ENTRY_SLOTS_DIRECTIVE = (
+    "[진입 시기 — 직전 안내 유지] 이 스레드에서 직전에 {slots}로 안내했다. 이번에 물은 "
+    "{asked}은(는) 그 두 달과 같은 달이면 같은 칸으로 그대로 말하고, 다른 달이면 '그 앞 단계"
+    "(준비·검토)'인지 '두 달 사이'인지부터 밝혀라. 직전 안내를 뒤집어 이 달을 새 성사 달로 "
+    "올리지 말 것 — 자료가 직전 안내와 "
+    "다르게 읽히면 '직전에 안내한 성사 달은 그대로이고, 이 달은 …'처럼 둘을 함께 말하라."
+)
+
+
+def _record_entry_slots(
+    state: ConversationState, answer: str, today: date, thread_id: str | None
+) -> None:
+    """진입 사건 답의 첫 문단에서 성사 달·움직이는 달을 뽑아 상태에 저장한다(없으면 기존 유지).
+
+    실패는 로그만(답변 영속·원장 갱신과 무관).
+    """
+    try:
+        li = state.last_intent
+        if li is None or li.event_key not in _ENTRY_CHANNEL_KEYS:
+            return
+        slots = extract_entry_slots(answer, today)
+        if not slots:
+            return
+        state.entry_slots = {
+            **slots, "event_key": li.event_key.value, "turn_no": state.turn_no,
+        }
+        _logger.info("entry_slots_recorded slots=%s thread=%s", state.entry_slots, thread_id)
+    except Exception:  # noqa: BLE001 — 승계 저장 실패는 답변 영속과 무관
+        _logger.exception("entry_slots 저장 실패 thread=%s", thread_id)
+
+
+def _prior_entry_slots_directive(
+    state: ConversationState | None, intent: IntentJson, luck_month: str, *, is_followup: bool,
+) -> str | None:
+    """직전 두 칸 승계 지시문 — 후속·같은 진입 사건·명시 시점·직전 달이 아직 지나지 않았을 때만.
+
+    Args:
+        luck_month: 현재 절기월 라벨(YYYY-MM) — 두 칸이 모두 지난 달이면 주입하지 않는다.
+    """
+    if state is None or not state.entry_slots or not is_followup:
+        return None
+    slots = state.entry_slots
+    if intent.event_key is None or intent.event_key.value != slots.get("event_key"):
+        return None
+    tr = intent.time_range
+    if tr is None or not tr.start or len(tr.start) < 7:
+        return None
+    live = {k: slots[k] for k in ("done", "move") if slots.get(k) and slots[k] >= luck_month}
+    if not live:
+        return None
+    names = {"done": "성사 달", "move": "움직이는 달"}
+    slots_ko = "·".join(f"{names[k]} {format_ym_ko(v)}" for k, v in live.items())
+    asked = format_ym_ko(tr.start[:7]) if len(tr.start) >= 7 else tr.start
+    return _PRIOR_ENTRY_SLOTS_DIRECTIVE.format(slots=slots_ko, asked=asked)
 
 
 #: 질문 기간 운 도화 블록의 범위 상한 — 날짜 14일·월 12개·연 3개(무관한 기간까지 일괄 확대 금지).
@@ -6385,6 +6519,17 @@ def chat(
     ):
         trailing.append(ENTRY_WINDOW_DIRECTIVE)
         _entry_window_on = True
+    if _entry_window_on:
+        # 예외(2026-10-23): 창 안 후보가 전부 약함·검토월이면 성사 달로 세우지 않게 한다.
+        _weak_note = _entry_window_weak_note(list(payload.event_candidates), intent)
+        if _weak_note:
+            trailing.append(_weak_note)
+        # 승계(2026-10-23): 직전 진입 답의 두 칸을 같은 사건의 시점 후속에 유지시킨다.
+        _prior_slots = _prior_entry_slots_directive(
+            state, intent, luck_month, is_followup=is_followup_turn,
+        )
+        if _prior_slots:
+            trailing.append(_prior_slots)
     # 개인 이력 반복 수치 서술(회사명 없음) — 동반 신호에 라벨이 실린 후보가 있을 때만.
     if _personal_repeat_present(list(payload.event_candidates)):
         trailing.append(_PERSONAL_REPEAT_DIRECTIVE)
@@ -7118,7 +7263,7 @@ def chat(
         # (비offer면 '' → 자동 만료). offer-slot 링킹·월별 승격의 근거(2026-07-01).
         state.last_offer = _extract_offer(answer)
         # 시스템 발언 원장 갱신 + 정정·조건 준수 shadow 감사(2026-10-01) — 동기 경로.
-        _record_answer_commitments(state, answer, thread_id)
+        _record_answer_commitments(state, answer, thread_id, today=today)
     _save_thread(store, state)
     return ChatResponse(
         status="answered",

@@ -774,11 +774,19 @@ class RelationPalacePairsFile(_AliasModel):
 
 
 class VoidTenGodItem(_AliasModel):
-    """원국 공망 글자의 본기 십성별 서사 1건 (void_ten_god_text.json, 2026-10-15)."""
+    """원국 공망 글자의 본기 십성별 서사 1건 (void_ten_god_text.json, 2026-10-15).
+
+    2026-10-23 확장: `indirect`(생극 연쇄 가설 — 공망 십성이 제어하던 십성의 상대적 발현),
+    `utilization`(대체 경로·활용 방식), `evidence_status`(강의 주장/비교 가설/사례 검증).
+    전부 서술 전용.
+    """
 
     ten_god: str
     text: str = Field(min_length=15)
     reviewed: bool
+    indirect: str | None = None
+    utilization: str | None = None
+    evidence_status: str | None = None
 
 
 class VoidTenGodTextFile(_AliasModel):
@@ -3281,8 +3289,12 @@ def _lint_void_ten_god_text(file: VoidTenGodTextFile) -> list[str]:
         errors.append(f"{head}: 십성 커버리지 불일치 — {sorted(got ^ want)}")
     for it in file.items:
         for bad in _ASSERTIVE_WORDS:
-            if bad in it.text:
-                errors.append(f"{head}: {it.ten_god} 단정 어휘 '{bad}'")
+            for fld in ("text", "indirect", "utilization"):
+                val = getattr(it, fld) or ""
+                if bad in val:
+                    errors.append(f"{head}: {it.ten_god}.{fld} 단정 어휘 '{bad}'")
+        if it.evidence_status not in (None, "강의 주장", "비교 가설", "사례 검증"):
+            errors.append(f"{head}: {it.ten_god} evidence_status 값 오류 '{it.evidence_status}'")
     return errors
 
 

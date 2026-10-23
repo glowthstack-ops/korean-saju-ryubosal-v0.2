@@ -12558,3 +12558,40 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 결함: 라벨 교정의 '2026-11월'→'11월월' 부작용·'05월' 미정규화 / 상대 연도("내년…내후년") 한 해 밀림.
 - 교정: `rewrite_raw_period_labels` 月 접미 흡수·0M월·월월 방어, `relative_year_mentions` 로그, 두 칸 지시에 숫자 연도 요구. 테스트 +2.
 - 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 2f2b3b9 동일, 지문 동일, `var/suite_20261022_eh_p4.log`). 커밋 후 데굴님 지시로 서버·PC 종료(재기동 없음 — 다음 기동 시 memory 절차대로).
+
+## 2026-10-23 — 월 후속 500 교정: 일 범위 뒤 '11월은 어때?'의 day granularity 상속 (데굴님 실답 신고)
+
+- 결함: '이번 달 말(10/25~31) 취업' 뒤 '11월은 어때?'가 `start='2026-11'`에 직전 `day`를 얹어 특정일 판정이 참 → `date.fromisoformat('2026-11')` ValueError → `/api/v2/chat` 500(백엔드 로그 2건 동일 경로).
+- 교정: `query_parser.parse_message` 시점 후속의 granularity 유지 규칙에 "직전 day + 새 라벨이 날짜 형식(길이 10) 아님 → 미상속" 조건(연→월별 맥락 보존 취지는 유지) / `chat_service._is_single_day`에 `len(start)==10` 방어선. 테스트 +3(`test_conversation_date_fixes.py` 월 후속·연 후속 보존, `test_single_day_focus.py` 월 라벨 반례).
+- 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 1c53e70 동일, 지문 동일, `var/suite_20261023_month_followup.log`). 백엔드 8000 재기동, 프론트 3000·퀵터널 유지.
+
+## 2026-10-23 — 진입 시기 두 칸 턴 간 정합: 한 달 창 '11월은 어때?'가 직전 답을 뒤집는 결함 (데굴님 실답 신고, "넷다 진행하자")
+
+- 결함(web-mvkqiip3): 12개월 답 '성사 달 2027년 2월·움직이는 달 2026년 12월' 뒤 '11월은 어때?' 한 달 창 답이 11월을 "가장 유력하게 활성화된 성사 달"로 서술. 엔진 입력은 11월 후보 '조짐이 약하게'+검토월(공망 충발)·'1/1위'·유력 달 1위였다.
+- 원인: ①단일 달 창의 상대 순위('1/1위'·★1위)가 '가장 유력'으로 번역 ②두 칸 지시가 약한 검토월 후보도 성사 달로 세움 ③직전 두 칸이 후속에 전달되지 않음(원장은 추천 어간·이의 턴 전용) ④강도 과장 감사 없음.
+- 교정(결정론, 점수 불변): A `context_reducer` 단일 달 창(월별 요약 1행)이면 '강도 맥락' 줄을 `SINGLE_PERIOD_RANK_NOTE`로, 종합 블록을 `[질문 달 종합]`(순위 어휘 없음)으로, ★1위 표식 제거 / B `_entry_window_weak_note` — 창 안 진입 월 후보가 전부 55점 미만·검토월이면 '성사 달로 두지 말고 검토·준비 달' 예외 지시 / C `ConversationState.entry_slots` + `extract_entry_slots`(두 어순·연도 추론) + `_record_entry_slots`(답 확정 후 저장) + `_prior_entry_slots_directive`(같은 사건·명시 시점·후속·미경과 달만 주입) / D `audit_intensity_claims` — 약한 후보 달을 '강하게·가장 유력'으로 쓴 문장 로그 전용(`intensity_audit`).
+- 검증: dry-run 재현(직전 답 주입 시뮬) — 11월 입력에 예외·직전 안내 유지·상대 순위 없음 모두 실림, 12개월 질문은 기존 순위 줄 유지. 테스트 `test_entry_window_consistency.py` 10건 + 기존 `test_period_rank_line_in_prompt` 질문을 다중 달로 교체.
+- 게이트: `./scripts/lint.sh` exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 1c53e70 동일, 지문 동일, `var/suite_20261023_entry_window.log`). 백엔드 8000 재기동(pid 35481).
+
+## 2026-10-23 — 공망 체계 재검토 v2: P0 정합·P1 2축/강도/자극·P2 확장 공망·P3 사전·P4 측정 (데굴님 "넷 다 권고대로", 현대 통설: 대운 공망 무시·세운 공망 일부 인정)
+
+- 배경: 외부 강의 통합 자료("공망 종합 해석 체계 v1.0") 대조. 일치=공망 중립·길흉 별도 판정·합 해공(SSOT §1). 공백=영향 범위 L2~L4·강도(자왕)·활용·확장 공망. 결함=전실과 '공망 운' 동일 조건 모순, 일지 공망 죽은 코드, 성별 조건 서사 무조건 노출, 신살 지시의 길흉 전도 어휘. 고전 원문 확인: 《삼명통회》 論空亡 "合則不能空"·"無沖無合無刑 謂眞空亡"(형 포함).
+- 결정(SSOT §7-2): 충발=현행 유지·측정 / 전실 감산=측정 후(대운은 끔) / 진공=삼명통회 정의→FULL_VOID / 사대공망 일주·지장간 미포함 / 월지 공망 패격 유지 / 태월 보류 / 길흉 전도 점수 미반영.
+- 구현: P0 `structure_analysis`(일지 분기 제거)·`luck_cycles`(대운 void=False, 라벨 전실/전실·충)·`context_reducer` 신살 지시·대운 공망 사실 줄·`remedy.json`·`void_ten_god_text.json` 중립화·프론트 범례 / P1 `saju_shared_types/gongmang.py`+`saju_engines/gongmang_state.py`(자극 8종·VOID_STATE×ACTIVATION·강도) → prefix `[공망 상태]`·간지달력 행 접미 / P2 `gongmang_extended.py`(旬·사대·절로·호환) → `GongmangAnalysis.extended`·`BirthChartSummary.gongmang_facts`·헤더 / P3 사전 v1.1.0 `indirect`·`utilization`·`evidence_status` + 린트 + 발췌 렌더 / P4 플래그 `SAJU_GONGMANG_CLASH_DELAY_DISABLED`·`SAJU_TRANSIT_VOID_DISCOUNT_DISABLED`.
+- P4 측정(`casebook_replay` 3회 → `casebook_report --tag gm_base|gm_clash_off|gm_void_off`, `var/casebook_replay/metrics_gm_*.json`): 충발 지연 OFF 전 지표 불변(event_hit 23/44·pair 33/68), 전실 ×0.60 OFF 세운 극성 14→13·pair 33→32 악화 → **둘 다 현행 ON 유지**.
+- 테스트: `test_gongmang_system_v2.py` 14건 신규, `test_luck.py` 대운 공망 무시·세운 전실 반영, `test_text_layers_20261015.py` 꼬리 문구 반영. 사전 검증 `validate_dictionaries.py` 통과(119 파일).
+- 토큰 예산: 1차 스위트에서 e2e '결혼은 언제쯤'(10년 창)이 20,124로 단건 상한 20k 초과 → 범례 축약·간지달력 접미는 활성(ACTIVATED)만·채팅 발췌에서 `utilization` 제외·출처 표기 축약으로 19,948(상한 −52). 10년 창 질문은 원래 상한 근처라 공망 서술층은 이 예산 안에서만 늘릴 수 있다.
+- 게이트: `./scripts/lint.sh` exit 0 · production mypy gate clean · maintained scripts mypy gate clean / frontend `tsc` exit 0 · production build exit 0 / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 1c53e70 동일, 지문 동일, `var/suite_20261023_gongmang_v2b.log`; 1차 `_v2.log`는 e2e 토큰 초과 1건으로 TESTS_FAILED). 백엔드 8000 재기동.
+
+## 2026-10-23 — e2e 단건 입력 기준선 25,000 · 동반자 동순(同旬) 사실 줄 · 오늘의 운세 문구 2건 교정 (데굴님 지시)
+
+- 토큰: 실제 가드 `chat_single`은 이미 28,000(2026-09-21)이고 20,000은 `test_e2e_q1_q9`의 묵은 단언이었다. 데굴님 "5,000 더"에 따라 e2e 회귀 예산을 25,000으로 올리고(가드와 간격 3,000), docs/09 §8에 기록. 가드 값 불변.
+- 동순: `gongmang_state.same_xun_line`(두 일주 旬 비교, 사실 한 줄 + 단정 금지) → `_compat_prompt_block`([궁합 분석])·`context_reducer` [함께 보기] 동반자 줄 뒤. dry-run 확인: "[동순 사실] 본인 일주 甲午旬 · 상대 일주 甲申旬 → 동순 아님". 테스트 1건 추가(`test_gongmang_system_v2.py`).
+- 오늘의 운세: `daily_phrase_templates.json` `love_misread.fragments` "농담이 뜻밖에 다르게 전해질 수 있어요." → "농담이 생각한 내용과 다르게 전해질 수 있어요.", `romance_caution` "막 시작된 마음은 서두르지 않아도 돼요." → "서두르지 않아도 돼요."(데굴님 제시문 그대로). `compiled/daily_fortune_dict.v1.14.json` in-place 재빌드(§22-8 선례, 버전 범프 없음 — 이미 생성·캐시된 보드는 그대로, 다음 선생성분부터 반영). 일운 사전·보드 테스트 통과.
+- 게이트: `./scripts/lint.sh` exit 0 · production mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 1c53e70 동일, 지문 동일, `var/suite_20261023_xun_tokens.log`). 백엔드 8000 재기동.
+
+## 2026-10-23 — 공망 체계 v2 리포트 패리티 + 커밋 (데굴님 "채팅·테마 사주 모두 적용되는 거겠지?")
+
+- 확인: 리포트는 `build_birth_summary`·`serialize_chart_prefix`·`build_chart_interpretation`·엔진(luck_cycles·structure_analysis)을 채팅과 공유해 P0·P2·P3·원국 [공망 상태] 줄은 이미 양쪽 적용. 채팅 전용 함수(`serialize_llm_input` 간지달력 접미, `_compat_prompt_block` 동순)에만 있던 두 장치를 리포트에 추가.
+- `report_service.luck_block`: [대운표] 행에 `transit_suffix`(대운은 빈 자리 전실 미기록), 후보 기간 `[공망 자극(후보 기간)]` 블록(`_gongmang_transit_lines` — 연 `luck_years`·월 `luck_months`로 간지 조회, 활성 자극만). `compatibility_block`: `[동순 사실]` 줄. 스모크(1980-11-20 丁酉일주·시지 巳 공망): 대운 5행·월운 5행 접미 확인. 테스트 `test_gongmang_system_v2.py` 리포트 패리티 1건 추가.
+- 게이트: `./scripts/lint.sh` exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 1c53e70 동일, 지문 동일, `var/suite_20261023_report_parity.log`). 백엔드 8000 재기동 후 커밋·푸시.

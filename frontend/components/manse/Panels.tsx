@@ -1448,7 +1448,7 @@ export function LuckPanel({
           </div>
           <div>
             <dt className="inline font-semibold text-violet-500">지지 동태(보라)</dt>
-            <dd className="inline"> — 공망=실속·지연(작동력↓), 충=사건화·변동(트리거↑), 공망충발=비었던 기운이 충 자극으로 사건화(불안정)</dd>
+            <dd className="inline"> — 전실(세운·월운·일운 지지가 공망 글자)=실속·지연(작동력↓, 대운은 미적용), 충=사건화·변동(트리거↑), 전실·충=비었던 글자가 충 자극까지 받아 사건화(불안정)</dd>
           </div>
         </dl>
       </Collapsible>

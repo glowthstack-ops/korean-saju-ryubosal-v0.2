@@ -40,6 +40,9 @@ class BirthChartSummary(BaseModel):
     day_master: str
     pillars: dict[str, str]  # {'year': '庚申', ...} — 시주 미상이면 hour 생략
     void_branches: list[str] = Field(default_factory=list)
+    # 확장 공망 사실(2026-10-23) — '일주 甲子旬'·'절로공망(시간 壬)'·'호환공망 연↔일' 등.
+    # 산출 사실만.
+    gongmang_facts: list[str] = Field(default_factory=list)
     strength: str = ""  # '중화신강'
     useful_gods: UsefulGods = Field(default_factory=UsefulGods)
     geokguk: str = ""  # '정재격 · 중성 · 반성반패'(항목 9 — 격국 정보)

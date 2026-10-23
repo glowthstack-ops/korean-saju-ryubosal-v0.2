@@ -97,6 +97,12 @@ def _branch_effect(branch: Branch, useful: set[str], unfavorable: set[str]) -> L
 # 운 흉신 글자가 원국과의 합거로 묶이면 그 글자의 흉 점수를 절반으로 낮추고 등급에 '합거 완화'를
 # 표기한다(제거 아님 — 방향은 유지). 플래그는 saju_engines.period_v2_config와 같은 환경변수를
 # 읽는다(이 패키지는 saju_engines를 import 할 수 없어 여기서 따로 읽는다). 기본 OFF = 기존 byte.
+# 전실(세운·월운·일운 지지가 공망 글자) 지지 점수 ×0.60 감산 비활성 — 사례집 적중률 측정 전용
+# (2026-10-23 P4). 기본 false = 기존 동작 그대로.
+TRANSIT_VOID_DISCOUNT_DISABLED: bool = (
+    os.environ.get("SAJU_TRANSIT_VOID_DISCOUNT_DISABLED", "false").strip().lower()
+    in ("1", "true", "yes")
+)
 HAP_MITIGATION_ENABLED: bool = (
     os.environ.get("SAJU_HAP_MITIGATION_ENABLED", "false").strip().lower() in ("1", "true", "yes")
 )
@@ -212,6 +218,8 @@ def _branch_dynamics(
     """공망/충이 지지 용신·기신의 발현을 바꾼다(실속·사건성). branch_eff를 제자리 갱신.
 
     방향성(용신/기신)은 유지하고, 공망은 작동력·실속을, 충은 사건화·변동성을 조정한다.
+    여기서 void 는 '운 지지 자체가 공망 글자'(전실)다 — 호출측이 대운이면 False 를 넘긴다
+    (대운 공망 무시, 2026-10-23).
     같은 충/공망을 _relation_modifier에서 다시 깎지 않는다(이중 감산 방지).
     """
     base = branch_eff.score
@@ -244,10 +252,13 @@ def _branch_dynamics(
     label = ""
     if btype in ("용신", "기신"):
         kind = "용신운" if btype == "용신" else "기신운"
+        # 운 지지가 공망 글자 = 전실(塡實, 공망 글자 유입). 이벤트 엔진의 '충발'(운 지지가 원국
+        # 공망지를 충)과 용어가 겹치지 않게 '전실·충'으로 부른다(2026-10-23). 감산 계수(×0.60·
+        # ×0.65)는 사례집 적중률 측정(P4) 전까지 유지.
         if void and has_clash:
-            label = f"공망충발 {kind}"
+            label = f"전실·충 {kind}"
         elif void:
-            label = f"공망 {kind}"
+            label = f"전실 {kind}"
         elif has_clash:
             label = "충발 용신운" if btype == "용신" else "충동 기신운"
 
@@ -516,7 +527,7 @@ def _luck_pillar(
     elements = {str(STEM_ELEMENT[stem]), str(BRANCH_ELEMENT[branch])}
     gong = _gongmang_activation(branch, pillars)
     transformed = _transformed_elements(branch, pillars)
-    void = str(branch) in set(pillars.gongmang_branches)
+    void = str(branch) in set(pillars.gongmang_branches) and not TRANSIT_VOID_DISCOUNT_DISABLED
     mitigation = (
         resolve_hap_mitigation(
             pillars, _fav_map_from_sets(useful, unfavorable),
@@ -602,7 +613,10 @@ def compute_luck_cycles(
         raw = sorted({str(STEM_ELEMENT[stem]), str(BRANCH_ELEMENT[branch])})
         transformed = _transformed_elements(branch, pillars)
         gong = _gongmang_activation(branch, pillars)
-        void = str(branch) in set(pillars.gongmang_branches)
+        # 대운 지지가 공망 글자인 것(대운 공망)은 영향을 보지 않는다 — 현대 통설(대운 공망 무시·
+        # 세운 공망 일부 인정, 2026-10-23 데굴님). 전실 신호(gong)와 '대운 지지 공망' 사실 명시는
+        # 그대로 두고 지지 점수 감산·is_void 라벨만 끈다. 세운·월운·일운은 _luck_pillar 그대로.
+        void = False
         eff = _luck_effect(
             stem, branch, useful_elements, unfavorable_elements, "daewoon",
             rels, transformed, void,

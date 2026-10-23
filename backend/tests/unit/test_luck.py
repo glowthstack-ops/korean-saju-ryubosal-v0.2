@@ -131,22 +131,29 @@ def test_daewoon_carries_sewoon() -> None:
 
 
 def test_luck_branch_void_clash_dynamics() -> None:
-    # 공망 辰巳 → 공망/충이 용신·기신의 발현(실속·사건성)을 바꾼다.
+    # 공망 辰巳 → 전실(운 지지=공망 글자)/충이 용신·기신의 발현(실속·사건성)을 바꾼다.
+    # 대운 공망은 영향을 보지 않는다(현대 통설, 2026-10-23) — 대운 壬辰·癸巳는 is_void False.
     r = calculate(BirthInput(gender="male", **_BASE))
     lc = r.luck_cycles
     assert lc is not None
     by = {d.ganji: d for d in lc.daewoon_table}
-    # 壬辰: 辰 공망 + 지지 용신(土) → 공망 용신운, 작동력 약화·신뢰도↓.
     rz = by["壬辰"].branch_effect
-    assert rz is not None and rz.is_void and not rz.has_clash
-    assert rz.branch_label.startswith("공망 용신운")
-    assert rz.base_score is not None
-    assert abs(rz.score) < abs(rz.base_score) and rz.reliability < 1.0
-    # 癸巳: 巳 공망 + 巳亥충 → 공망충발, 사건성·변동성↑·신뢰도 최저.
+    assert rz is not None and not rz.is_void and not rz.has_clash
+    assert "전실" not in rz.branch_label and "공망" not in rz.branch_label
+    assert rz.base_score is not None and rz.score == rz.base_score and rz.reliability == 1.0
     gs = by["癸巳"].branch_effect
-    assert gs is not None and gs.is_void and gs.has_clash
-    assert "공망충발" in gs.branch_label
-    assert gs.event_trigger >= 1.5 and gs.volatility >= 1.5 and gs.reliability <= 0.5
+    assert gs is not None and not gs.is_void and gs.has_clash
+    assert "충" in gs.branch_label and "전실" not in gs.branch_label
+    # 세운은 전실을 본다 — 辰년: 전실 용신운(작동력 약화·신뢰도↓), 巳년: 전실·충(巳亥충).
+    sew = {p.ganji: p for d in lc.daewoon_table for p in d.sewoon}
+    jin = next(p.branch_effect for g, p in sew.items() if g[1] == "辰")
+    assert jin is not None and jin.is_void and jin.branch_label.startswith("전실 용신운")
+    assert jin.base_score is not None
+    assert abs(jin.score) < abs(jin.base_score) and jin.reliability < 1.0
+    sa = next(p.branch_effect for g, p in sew.items() if g[1] == "巳")
+    assert sa is not None and sa.is_void and sa.has_clash
+    assert "전실·충" in sa.branch_label
+    assert sa.event_trigger >= 1.5 and sa.volatility >= 1.5 and sa.reliability <= 0.5
     # 庚寅: 충만(지지 기신) → 충동 기신운(이중 감산 없이 동태만).
     gy = by["庚寅"].branch_effect
     assert gy is not None and gy.has_clash and not gy.is_void

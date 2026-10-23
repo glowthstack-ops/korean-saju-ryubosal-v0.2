@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import re
+from datetime import date
 
 _RANK_ADV = {"1": "가장 강하게", "2": "두 번째로", "3": "세 번째로"}
 _RANK_ADJ = {"1": "가장 강한", "2": "두 번째로 강한", "3": "세 번째로 강한"}
@@ -90,3 +91,84 @@ def entry_window_labels_present(text: str) -> tuple[bool, bool]:
     """
     first = _FIRST_PARA_SPLIT.split(text.strip(), maxsplit=1)[0] if text else ""
     return (bool(_DONE_STEM_RE.search(first)), bool(_MOVE_STEM_RE.search(first)))
+
+
+# ── 진입 시기 두 칸 — 직전 답의 '성사 달·움직이는 달' 추출(턴 간 승계, 2026-10-23) ──────────
+# 실답(web-mvkqiip3): 12개월 답이 '성사 달 2027년 2월·움직이는 달 2026년 12월'로 안내한 뒤
+# '11월은 어때?' 한 달 창 답이 11월을 '가장 유력한 성사 달'로 뒤집었다. 직전 안내를 상태에 저장해
+# 같은 사건의 시점 후속에 주입하기 위한 추출기. 첫 문단만 본다(두 칸 지시가 첫 문단을 요구).
+_YM = r"(?:(\d{4})\s*년\s*)?(\d{1,2})\s*월"
+# 라벨 → 달: '성사 달은 2027년 2월' / '성사 달 2월'.
+_DONE_THEN_MONTH_RE = re.compile(r"성사\s*달[은는이가]?\s*(?:인|로|:)?\s*" + _YM)
+_MOVE_THEN_MONTH_RE = re.compile(r"움직이는\s*달[은는이가]?\s*(?:인|로|:)?\s*" + _YM)
+# 달 → 라벨: '2027년 2월이 … 성사 달' / '2026년 12월부터 … 움직이는'. 같은 문장 안 40자 이내.
+_MONTH_THEN_DONE_RE = re.compile(_YM + r"[^.。!?\n]{0,40}?성사\s*달")
+_MONTH_THEN_MOVE_RE = re.compile(_YM + r"[^.。!?\n]{0,40}?움직이(?:는|며|기)")
+
+
+def _resolve_ym(year: str | None, month: str, today: date) -> str | None:
+    """(연도 또는 None, 달) → 'YYYY-MM'. 연도가 없으면 오늘 기준 다가오는 그 달(지났으면 내년)."""
+    m = int(month)
+    if not 1 <= m <= 12:
+        return None
+    if year:
+        return f"{int(year):04d}-{m:02d}"
+    y = today.year if m >= today.month else today.year + 1
+    return f"{y:04d}-{m:02d}"
+
+
+def extract_entry_slots(text: str, today: date) -> dict[str, str]:
+    """첫 문단에서 성사 달·움직이는 달을 뽑는다 — {'done': 'YYYY-MM', 'move': 'YYYY-MM'}.
+
+    없는 칸은 생략한다.
+
+    라벨→달·달→라벨 두 어순을 모두 받는다. 연도 없는 'N월'은 오늘 기준 다가오는 달로 푼다.
+    순수 함수. 아무 칸도 못 찾으면 빈 dict.
+    """
+    first = _FIRST_PARA_SPLIT.split(text.strip(), maxsplit=1)[0] if text else ""
+    out: dict[str, str] = {}
+    for key, pats in (
+        ("done", (_DONE_THEN_MONTH_RE, _MONTH_THEN_DONE_RE)),
+        ("move", (_MOVE_THEN_MONTH_RE, _MONTH_THEN_MOVE_RE)),
+    ):
+        for pat in pats:
+            m = pat.search(first)
+            if m:
+                ym = _resolve_ym(m.group(1), m.group(2), today)
+                if ym:
+                    out[key] = ym
+                    break
+    return out
+
+
+def format_ym_ko(ym: str) -> str:
+    """'2027-02' → '2027년 2월'."""
+    return f"{int(ym[:4])}년 {int(ym[5:7])}월"
+
+
+# ── 강도 충실 감사(로그 전용, 2026-10-23) ────────────────────────────────────────────────────
+# 후보 강도가 '조짐이 약하게 있습니다' 이하인 달을 답이 '강하게·가장 유력'으로 썼는가. 교정하지 않고
+# 발생만 센다(2026-10-01 감사 정책과 동일 — 재호출·교체 없음).
+_INFLATION_RE = re.compile(
+    r"가장\s*유력|가장\s*강|강하게|매우\s*강|강한\s*(?:기운|신호|흐름|운|달)|뚜렷하게\s*강|확실"
+)
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?。])\s+|\n+")
+
+
+def audit_intensity_claims(text: str, weak_periods: list[str]) -> list[tuple[str, str]]:
+    """약한 후보 달을 과장한 문장 — [(period, 문장 앞 80자)]. 비어 있으면 통과.
+
+    Args:
+        text: 답변 본문.
+        weak_periods: 강도가 약한 후보의 'YYYY-MM' 목록.
+    """
+    hits: list[tuple[str, str]] = []
+    if not text or not weak_periods:
+        return hits
+    for ym in weak_periods:
+        y, m = int(ym[:4]), int(ym[5:7])
+        month_re = re.compile(rf"(?:{y}\s*년\s*)?(?<!\d){m}\s*월(?!\s*간)")
+        for sent in _SENTENCE_SPLIT_RE.split(text):
+            if month_re.search(sent) and _INFLATION_RE.search(sent):
+                hits.append((ym, sent.strip()[:80]))
+    return hits

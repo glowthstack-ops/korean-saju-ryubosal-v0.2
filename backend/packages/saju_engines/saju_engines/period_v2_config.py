@@ -148,6 +148,13 @@ TRANSIT_CLASH_SUPPORT_ENABLED: bool = _env_flag("SAJU_TRANSIT_CLASH_SUPPORT_ENAB
 # 운). 점수 규칙이라 기본 OFF — 85사례 재생 적중률·실사례로 규칙별 ON 을 정한다(문구층은 플래그와
 # 무관하게 항상 노출).
 ROLE_EVENT_SEED_ENABLED: bool = _env_flag("SAJU_ROLE_EVENT_SEED_ENABLED")
+# 공망 점수 규칙 측정용 비활성 플래그(2026-10-23 P4) — 기본 false = 기존 동작 그대로. 사례집 적중률
+# 비교(ON/OFF)에만 쓰고, 운영 OFF 전환은 측정 결과로 데굴님이 결정한다.
+#   GONGMANG_CLASH_DELAY_DISABLED: 이벤트 게이트의 공망 충발 감점(−10)·지연(DELAY)을 끈다.
+#   TRANSIT_VOID_DISCOUNT_DISABLED: 세운·월운·일운 지지가 공망 글자(전실)일 때의 지지 점수
+#   ×0.60 감산을 끈다.
+GONGMANG_CLASH_DELAY_DISABLED: bool = _env_flag("SAJU_GONGMANG_CLASH_DELAY_DISABLED")
+TRANSIT_VOID_DISCOUNT_DISABLED: bool = _env_flag("SAJU_TRANSIT_VOID_DISCOUNT_DISABLED")
 
 # ── 버전 태그(계측·회귀 비교용) ─────────────────────────────────────────────
 FORTUNE_LOGIC_VERSION = "period_hierarchy_v2"

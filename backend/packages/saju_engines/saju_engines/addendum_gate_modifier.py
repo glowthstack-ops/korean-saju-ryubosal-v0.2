@@ -19,6 +19,8 @@ from saju_shared_types.event_engine import (
     TenGod,
 )
 
+from . import period_v2_config
+
 _DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries"
 #: 공망 충발 감점 기본값 — void_repetition_modifier.json score_effect.void_unresolved.
 _VOID_UNRESOLVED_DEFAULT = -10
@@ -141,7 +143,10 @@ class AddendumGateModifier:
             # 확정 의미론(2026-08-21): 지연·감점은 **충발에만**. 전실·합은 공망의
             # 억제가 풀리는 신호라 방향이 반대다 — 서술용 reason만 남긴다.
             # ('해소=공허·지연'으로 뒤집혀 서술되던 결함의 원인 수정 — 申·巳 육합 사례)
-            if "clash" in ctx.void_kinds or (ctx.void_active and not ctx.void_kinds):
+            if (
+                "clash" in ctx.void_kinds or (ctx.void_active and not ctx.void_kinds)
+            ) and not period_v2_config.GONGMANG_CLASH_DELAY_DISABLED:
+                # 측정용 비활성 플래그(2026-10-23 P4)가 켜지면 감점·지연 없이 신호만 남긴다.
                 score += self._void_delta  # 사전 score_effect.void_unresolved(기본 −10)
                 timing = EventTiming.DELAY  # 공망 충발 — 방향은 유지하고 발현만 지연
                 reasons.append("VOID_delay")

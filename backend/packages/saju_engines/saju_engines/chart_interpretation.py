@@ -763,7 +763,19 @@ def _relation_palace_pair_text() -> dict[tuple[str, str], dict]:
 
 
 def _void_ten_god_text() -> dict[str, str]:
-    return {it["ten_god"]: it["text"] for it in _load("void_ten_god_text.json")["items"]}
+    """십성 → 공망 서사(본문 + 생극 연쇄 가설, 2026-10-23 P3). 출처 등급을 꼬리에 붙인다.
+
+    `utilization`(대체 경로)은 채팅 발췌에 싣지 않는다 — 단건 입력 상한 20k 안에서 10년 창 질문이
+    넘치지 않게(e2e 결혼 시기 질문 19,983) 조언층은 remedy·리포트가 담당한다.
+    """
+    out: dict[str, str] = {}
+    for it in _load("void_ten_god_text.json")["items"]:
+        parts = [it["text"]]
+        if it.get("indirect"):
+            parts.append(it["indirect"])
+        tag = it.get("evidence_status")
+        out[it["ten_god"]] = " ".join(parts) + (f"(출처: {tag}·단정 금지)" if tag else "")
+    return out
 
 
 def _relation_palace_pairs(result: ManseV2Result) -> list[tuple[str, str, str]]:
