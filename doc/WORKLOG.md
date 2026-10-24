@@ -12479,3 +12479,156 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 테스트: `test_ai_tell_audit.py` 29건(사전·지시문·교정 3종 양성/반례·보호 불변식·임계·E-2·tail·배선 3곳), daily guard 개정 표식 갱신. 사전 검증 118파일 통과.
 - 게이트: 아래 줄에 기록.
   lint `All checks passed`(`var/lint_20261019c.log`), `production mypy gate clean`(`var/typecheck_20261019b.log`), `maintained scripts mypy gate clean`(`var/typecheck_scripts_20261019.log`), 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=1d66424, 지문 동일, exit 0, `var/suite_20261019.log`). 사전 검증 118파일 통과.
+
+## 2026-10-19 — 실답 맥락 결함 5건 교정: '이력서 넣기 좋은 날' → '이번달이나 다음달 중에 괜찮은 날은 없어?' (데굴님 점검·승인)
+
+- 재현(파서·ConversationEngine 직접 호출, today=10/19): ①Q1이 `domain_analysis`·사건 없음·시점 없음 → 달·연 단위 10년 창 답 ②Q2 시점이 `2026-10`만(‘이번 달’ 분기 선반환으로 ‘다음 달’ 소실) ③'괜찮은 날'이 날짜어가 아니라 월 총운 ④후속은 연속성으로 career 도메인은 승계했으나 택일·사건은 Q1이 아니어서 없음 ⑤시기 답에 일주 소개('정원사 같은 구조')가 두 답 모두 — 지시문(`_ILJU_SUMMARY_INSTRUCTION`)만으로 못 막음.
+- 교정: `EVENT_WORDS[JOB_GAIN]` += 이력서·지원서·입사 지원 / Q4 택일 날짜어(괜찮은·되는·무난한 날, 좋은 날짜, 넣기 좋은)·행위어(이력서·지원서·원서·입사·접수·제출·취업·구직) 확장 / `time_parser` '이번 달 + 다음 달' 병기 → 당월~다음 달 범위 / 택일 목적 별칭 `_DATE_PURPOSE_ALIAS`(JOB_GAIN·CAREER_CHANGE → contract_document 프로필 + `domain_override="career"`, `DateSelectionEngine.select` 인자 추가) / `ilju_mention_audit.py` + `finalize_answer_full`에 일주 소개 문장 결정론 제거(총운·시기·택일·분야 개요[직업·재물·건강·이사·일반], 운 관계 문장은 보존, 로그 `ilju_mention_stripped`).
+- ④는 기존 `process_turn` 연속성(약한 후속의 query_type·event 승계)으로 충족 — B2 조건 확장은 불필요해 회귀 테스트만 고정. 재현 결과: Q1 `date_recommendation·job_gain`, Q2 `date_recommendation·job_gain·2026-10~2026-11·follow_up`.
+- **결정 대기(데굴님)**: 취업 서류 제출 전용 택일 프로필 신설 여부 — 현재는 계약·문서 프로필(실행일 0.5·충 회피)을 빌리고 연·월 신호만 직업 도메인으로 본다(가정, `_DATE_PURPOSE_ALIAS` 주석).
+- 테스트: `test_resume_date_followup_context.py` 13건(각 교정 양성+반례), `test_answer_postprocess_paths` 픽스처 갱신(일주 문장 제거 확인 추가). 게이트: 아래 줄에 기록.
+  lint `All checks passed`(`var/lint_20261019e.log`), `production mypy gate clean`(`var/typecheck_20261019c.log`), `maintained scripts mypy gate clean`(`var/typecheck_scripts_20261019b.log`), 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=8fafa9f, 지문 동일, exit 0, `var/suite_20261019b.log`).
+
+## 2026-10-19 — 실답 web-mvf73q3h 교정 9건: 공망 오지목·택일 지평·회피 구간·정정 처리 (데굴님 점검·결정·승인)
+
+- 점검(스레드 로그·명식 재계산·1턴 dry-run 대조): ①11월 己亥의 亥를 공망으로 지목(입력엔 '지연·보류'뿐, 실제 공망 사실은 시지 巳·현재 대운 壬辰의 辰) ②엔진 추천일 10/20을 "19~24일 피하라"로 묶음 ③택일 질문이 분야 기본 12개월 지평 + 유력 달 종합·기반 최고 달 '누락 금지'로 2027년 달부터 서술 ④일주 문장 제거 후 "이러한 성향은" 지시 대상 소실(어제 감사의 회귀) ⑤택일 표 라벨 '계약·문서'로 답이 도장·계약 조건으로 흐름(어제 별칭의 회귀) ⑥커리어 폴백이 '지원·제안 전제 금지' 가드까지 제거 → "이미 들어온 제안" ⑦"~와 상관없는 글자인데 ~거야?"가 이의가 아닌 명식 세부 질문으로 분류 ⑧11월을 "합격·취업 제안"으로 과장(턴 간 모순) ⑨마무리 질문 뒤 문장.
+- 데굴님 결정: 현재 대운 지지가 공망 글자인 사실을 명확히 서술하고, 월운 글자를 공망처럼 쓰지 않는다(GONGMANG_HAP_SEMANTICS.md §6).
+- 교정: `horizon.resolve_horizon` 택일=`date_window`(2개월·추천일 먼저·회피일 나열 지시) / reducer 택일 시 기반 최고 달·유력 달 종합 미주입, 대운 지지 공망 사실 줄 / 월 커버리지 감사 택일 제외 / 택일 별칭 라벨 '취업·이직 서류 제출' / `gongmang_claim_audit` / `date_answer_audit`(회피 구간 재작성·마무리 질문 뒤 꼬리 제거) / 일주 감사 지시어 보존(`ilju_mention_kept_referenced`) / `challenge_detect.FACT_REBUTTAL_RE` / 커리어 폴백 `[전제 금지]` 가드 유지.
+- 재현: 1턴 프롬프트 30,139→23,199자, 기반 최고·유력 달 종합 0건, 월 표 10~11월, 라벨 '취업 서류 제출', 대운 공망 줄 있음 / 2턴 `feedback_correction`·challenge.
+- ⑧(턴 간 모순)은 ②정정 경로(challenge→정정 답 계약)와 ①입력 사실 보강으로 대응 — 별도 감사 없음.
+- 테스트: `test_gongmang_date_answer_audits.py` 22건(교정마다 반례). 게이트: 아래 줄에 기록.
+  1차 스위트 `TESTS_FAILED`(`var/suite_20261019c.log`) — 마무리 꼬리 제거가 질문 뒤 줄의 '※ 관계 신호는 시험(beta) 관측치예요' 고지까지 지움(통합 `test_offer_save_failure_does_not_break_the_answer`). 같은 문단에 붙은 문장만 지우고 '※' 줄 제외로 좁힘 + 반례 테스트. 재실행: lint `All checks passed`(`var/lint_20261019k.log`), `production mypy gate clean`(`var/typecheck_20261019e.log`), `maintained scripts mypy gate clean`(`var/typecheck_scripts_20261019d.log`), 전체 스위트 `VALID_SUITE_PASS`(start_head=end_head=88a0e9c, 지문 동일, exit 0, `var/suite_20261019d.log`).
+
+## 2026-10-22 — 직장 이력 캘리브레이션 P0 (원장 확장·정본 적재) — 데굴님 승인
+
+- 배경: 데굴님 본인 입퇴사 이력 분석(`career_timing_20261022.pdf`, 정본)을 풀이·엔진에 연결하기 위한 1단계. SSOT `doc/v2_2/EMPLOYMENT_HISTORY_CALIBRATION.md`(결함 F1~F6·P0~P2·결정 4건).
+- 결정(데굴님): ①퇴사 키 `resignation` 추가 ②군복무·인턴은 `nature` 태그 ③미상 일자는 월 정밀도 ④P1 글자 가중 초기값은 reviewed:false 제안 후 측정으로 확정.
+- 구현: `LifeEventAttrs`(event_date·date_precision·nature·entry_channel·exit_reason·employment_group·label·luck_month_label) + `LifeEventRow.attrs` / `LifeEventSource.EMPLOYMENT_HISTORY` / `LEDGER_ONLY_EVENT_KEYS={"resignation"}`(EventKeyV2 21종 불변 — 21키 전수 사전이 명리 내용을 요구하므로 저장 전용 키는 taxonomy 밖에 둔다) / `EmploymentHistoryEntry` 입력 모델 / 마이그레이션 020(attrs JSONB·source CHECK) / `LifeEventStore.append_rows·subject_signature` attrs 왕복, `delete_subject_rows(source=)`, `delete_superseded_rows` / `saju_engines/employment_history.py`(절기월 라벨=정오 KST·직전 節 KST 'YYYY-MM', `reference_date_for_label`, `rows_from_history`) / `scripts/load_employment_history.py`(dry-run 기본, allowlist 등재) / `seed_missing_events` 원장 전용 키 가드.
+- 교정: F3(캘리브레이션 재제출이 전체 행 삭제 → 소스 범위 삭제), F6(1월 라벨 丑월이 전년 monthly_luck에만 있어 월운 지문이 비던 결함 — loader·`_month_fingerprints` 공통 교정).
+- 데이터: 데굴님 subject에 27행 적재(employment_history), 치환 1·수동 정리 3(2009-03 정체 불명 job_gain, 2001-08·2003-10 career_change→군복무 태그 행, 2006-06 job_gain 회상 중복). 라이브 DB에 020 수동 적용.
+- 테스트: `test_employment_history.py` 11건(절기 경계 3·기존 period 호환 3·1월 라벨·키/attrs/id·시드 가드·attrs 왕복), `test_lei_db_golden.py` +1(DB).
+- 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, start_head=end_head 0db1bd8, 지문 동일, `var/suite_20261022_eh_p0.log`).
+- 남음: P1(지문에 글자·원국 재현·전월 차원 + 기저율 lift, 데굴님 입사 11건 leave-one-out 측정 후 플래그), P2(시기 답 2칸·연결 사례·통로 제안·입력 UI). 커밋은 데굴님 지시 후.
+
+## 2026-10-22 — 직장 이력 캘리브레이션 P1 (글자 지문·lift·leave-one-out 측정) — 데굴님 승인
+
+- 구현: `SignalFingerprint.glyphs/natal_echo` · `saju_engines/glyph_context.py`(원국·세운·월운 글자, 1월 라벨 전년 세운, 원국 재현) · `personal_calibration`(`candidate_fingerprint(c, ctx)`, `glyph_similarity`, `fingerprint_similarity(glyph_weight)`, `glyph_lift`, 근거 코드 `PERSONAL_GLYPH_REPEAT`, 취업 통계 성격 필터) · 사전 `event_engine/personal_glyph_weights.json`(reviewed:false) · 플래그 `SAJU_PERSONAL_GLYPH_SCORE_ENABLED`(기본 OFF, active_versions 노출) · `LifeFitRanker.rank(glyph_context, glyph_weight)` · `score_legacy_personalized` 컨텍스트 전달 · 적재 스크립트 글자 채움(27행 재적재) · 측정 `scripts/measure_employment_history_loo.py`(allowlist).
+- 설계 결정: 전월 글자는 지문에 넣지 않는다 — 절기월 순환으로 당월 간지가 전월 간지를 결정해 정보 0·중복 가산(SSOT §3-1).
+- 실측(11건 LOO Top-3): engine 3/11 · base 3/11 · glyph 5/11(평균 순위 5.45→4.64). 플래그 ON 은 데굴님 결정 대기(기본 OFF, 점수 불변 테스트 고정).
+- 테스트: `test_personal_glyph.py` 9건(컨텍스트·1월 라벨·유사도·가중 0 불변·lift 표본/성격 필터·가중 ON 우대·원장 전용 키 무해).
+- 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head b92a303 동일, 지문 동일, `var/suite_20261022_eh_p1.log`).
+- 남음: 플래그 ON 결정(데굴님), P2(시기 답 2칸·연결 사례·통로 제안·입력 UI).
+
+## 2026-10-22 — 직장 이력 캘리브레이션 P2 (두 칸 시기·글자 반복 서술·진입 통로·입력 UI) + 글자 가중 플래그 ON — 데굴님 결정
+
+- 결정: ①`SAJU_PERSONAL_GLYPH_SCORE_ENABLED=true`(.env.beta) ②P2 착수, **회사명 인용 배제**.
+- 구현: `horizon.HorizonPolicy.entry_window` + `ENTRY_WINDOW_DIRECTIVE`(성사 달·움직이는 달 두 칸, 리드타임 사용자 값 우선, 회사명 언급 금지) / `PERSONAL_GLYPH_REPEAT:글자:일치/표본` 접미 + `reason_codes_ko` 수치 라벨(회사 없음), `PERSONAL_MATCH`·`PERSONAL_SEED` 라벨 / `chat_service._entry_channel_context` + `_ENTRY_CHANNEL_DIRECTIVE`(근거표 범주만, 가족 칸 없음) / API `GET·POST …/employment-history`(전체 치환·회상 행 치환·회사명 없는 요약), `employment_history.make_month_fingerprint_resolver`(스크립트·API 공유)·`entries_from_rows` / 프론트 `EmploymentHistoryForm.tsx` + 캘리브레이션 페이지 탭, `lib/types`·`lib/subjects` 추가.
+- 테스트: `test_employment_history_p2.py` 5건(entry_window on/off·구조 결정형 제외, 수치 라벨, 통로 블록 키 필터·가족 없음·관계 질문 제외, 프리필 왕복), `test_personal_glyph.py` 접미 반영. 프론트 `tsc` 0 · production build 0(`var/frontend_build_20261022.log`).
+- 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 62c1251 동일, 지문 동일, `var/suite_20261022_eh_p2.log`) / 프론트 `tsc` 0 · build 0.
+- 운영: 백엔드 8888 재기동(플래그 `personal_glyph_score_enabled=true` health 노출), `/employment-history` 라우트 등록 확인. 남음: 채팅 실답 감수(두 칸·통로·수치 라벨), 리포트 배선.
+
+## 2026-10-22 — 직장 이력 캘리브레이션 P2 실답 감수 교정 3건 (데굴님 "진행해줘")
+
+- 감수(thread web-mvjgmlnd-63fer6): 통로 블록 반영 확인 / 두 칸 지시 2턴 미부착(시점 명시) / `PERSONAL_GLYPH_REPEAT:亥:4/11` 동반 신호 4개 상한에 잘림 / 반복 가중 무상한으로 job_gain pm 246~288 포화.
+- 교정: `context_reducer` 개인 이력 반복 라벨 상한 예외(`PERSONAL_REPEAT_LABEL_PREFIX`) + `_PERSONAL_REPEAT_DIRECTIVE` / `ENTRY_WINDOW_DIRECTIVE` 지평 분리 주입(`_entry_window_directive_needed`)·형식 문장 강화 / `repeat_cap` 설정값(기본 null)·ranker 전달·LOO `glyph_cap` 모드. 측정: 적중 5/11 동일(달 순서 무영향), 톤 포화만 완화 → 값(0.6) 적용 여부는 데굴님 결정.
+- 테스트: `test_employment_history_p2.py` +4(상한 예외·분리 주입 조건·지시 트리거·상한 효과), `test_personal_glyph.py` 플래그 검증을 env 무관하게(monkeypatch).
+- 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head d61f914 동일, 지문 동일, `var/suite_20261022_eh_p2c.log`). 백엔드 재기동은 아래 커밋 뒤.
+
+## 2026-10-22 — 직장 이력 P2 2차 감수 교정 3건 (데굴님 "진행하자")
+
+- 감수(thread web-mvjij2wx): 수치 라벨 2턴 도달("11건 중 4건")·통로 반영 확인 / 1턴 숫자 생략 / 두 칸 이름표 없음 / 누수 "1위로 나타나지만"·"2026-12 庚子월" / 일주 두 문장 참조 예외 통과.
+- 교정: 수치 지시 강화 + `entry_window_audit` 로그 / `answer_label_audit.py`(순위·기간 라벨 원문 결정론 교정, `internal_label_rewritten`) / `ilju_mention_audit.strips_referent`(시기·총운·택일은 참조 문장까지 제거, 분야 개요는 예외 유지) — 기존 테스트 2건 개정.
+- 테스트: `test_answer_label_audit.py` 4건(순위 조사별·4위 이상 제외, 라벨 vs 날짜·범위, 첫 문단 관측, 일주 참조 제거/유지), `test_gongmang_date_answer_audits.py` 2건 개정 +1.
+- 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 6cb8aef 동일, 지문 동일, `var/suite_20261022_eh_p2e.log`). 백엔드 8888 재기동.
+
+## 2026-10-22 — 직장 이력 P2 3차 감수 + 반복 가중 상한 보류 (데굴님 기준: 적중률 긍정일 때만 적용)
+
+- 측정(사건 종류 간, 확정 월 17건 LOO): base/glyph Top-1 11/17·Top-3 14/17, cap 0.6·0.4 Top-1 6/17·Top-3 14/17 → 상한 **미적용**(repeat_cap=null). 오탐(사건 없는 달) 측정은 다음 과제(SSOT §3-3).
+- 3차 감수(web-mvjjpmvz): 숫자·통로·누수 제거·일주 제거 모두 확인, 두 칸 이름표만 miss(의미는 충족). 교정: 관측 어간 기준 완화, 반복 이력 달 '성사 후보' 병기 지시.
+- 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 660d4fb 동일, 지문 동일, `var/suite_20261022_eh_p2f.log`). 백엔드 8888 재기동.
+
+## 2026-10-22 — 반복 가중 상한 0.6 적용(오탐 측정) + 리포트 배선 J-06·J-07 (데굴님 "진행해줘")
+
+- 오탐 측정 추가(`measure_employment_history_loo.py` `measure_false_positive`): not_happened job_gain 4년 48달 중 job_gain Top-1 — engine 6 / base·glyph 33 / cap0.6 13. Top-3 회수 불변(14/17)이라 정밀도 기준으로 상한 적용(`repeat_cap=0.6`), 테스트 기본값 반영.
+- 리포트: `entry_channel.py` 공용화(채팅 위임), `PERSONAL_REPEAT_DIRECTIVE`·`has_personal_repeat_signal` 공용, J-06·J-07에 진입 통로·두 칸·수치 지시, 후처리 순위·라벨 교정. 테스트 `test_entry_channel.py` 2건.
+- 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head cacc922 동일, 지문 동일, `var/suite_20261022_eh_p3.log`). 백엔드 8888 재기동.
+
+## 2026-10-22 — 직장 이력 P2 4차 감수 교정 (데굴님 검수 대화)
+
+- 결함: 라벨 교정의 '2026-11월'→'11월월' 부작용·'05월' 미정규화 / 상대 연도("내년…내후년") 한 해 밀림.
+- 교정: `rewrite_raw_period_labels` 月 접미 흡수·0M월·월월 방어, `relative_year_mentions` 로그, 두 칸 지시에 숫자 연도 요구. 테스트 +2.
+- 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 2f2b3b9 동일, 지문 동일, `var/suite_20261022_eh_p4.log`). 커밋 후 데굴님 지시로 서버·PC 종료(재기동 없음 — 다음 기동 시 memory 절차대로).
+
+## 2026-10-23 — 월 후속 500 교정: 일 범위 뒤 '11월은 어때?'의 day granularity 상속 (데굴님 실답 신고)
+
+- 결함: '이번 달 말(10/25~31) 취업' 뒤 '11월은 어때?'가 `start='2026-11'`에 직전 `day`를 얹어 특정일 판정이 참 → `date.fromisoformat('2026-11')` ValueError → `/api/v2/chat` 500(백엔드 로그 2건 동일 경로).
+- 교정: `query_parser.parse_message` 시점 후속의 granularity 유지 규칙에 "직전 day + 새 라벨이 날짜 형식(길이 10) 아님 → 미상속" 조건(연→월별 맥락 보존 취지는 유지) / `chat_service._is_single_day`에 `len(start)==10` 방어선. 테스트 +3(`test_conversation_date_fixes.py` 월 후속·연 후속 보존, `test_single_day_focus.py` 월 라벨 반례).
+- 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 1c53e70 동일, 지문 동일, `var/suite_20261023_month_followup.log`). 백엔드 8000 재기동, 프론트 3000·퀵터널 유지.
+
+## 2026-10-23 — 진입 시기 두 칸 턴 간 정합: 한 달 창 '11월은 어때?'가 직전 답을 뒤집는 결함 (데굴님 실답 신고, "넷다 진행하자")
+
+- 결함(web-mvkqiip3): 12개월 답 '성사 달 2027년 2월·움직이는 달 2026년 12월' 뒤 '11월은 어때?' 한 달 창 답이 11월을 "가장 유력하게 활성화된 성사 달"로 서술. 엔진 입력은 11월 후보 '조짐이 약하게'+검토월(공망 충발)·'1/1위'·유력 달 1위였다.
+- 원인: ①단일 달 창의 상대 순위('1/1위'·★1위)가 '가장 유력'으로 번역 ②두 칸 지시가 약한 검토월 후보도 성사 달로 세움 ③직전 두 칸이 후속에 전달되지 않음(원장은 추천 어간·이의 턴 전용) ④강도 과장 감사 없음.
+- 교정(결정론, 점수 불변): A `context_reducer` 단일 달 창(월별 요약 1행)이면 '강도 맥락' 줄을 `SINGLE_PERIOD_RANK_NOTE`로, 종합 블록을 `[질문 달 종합]`(순위 어휘 없음)으로, ★1위 표식 제거 / B `_entry_window_weak_note` — 창 안 진입 월 후보가 전부 55점 미만·검토월이면 '성사 달로 두지 말고 검토·준비 달' 예외 지시 / C `ConversationState.entry_slots` + `extract_entry_slots`(두 어순·연도 추론) + `_record_entry_slots`(답 확정 후 저장) + `_prior_entry_slots_directive`(같은 사건·명시 시점·후속·미경과 달만 주입) / D `audit_intensity_claims` — 약한 후보 달을 '강하게·가장 유력'으로 쓴 문장 로그 전용(`intensity_audit`).
+- 검증: dry-run 재현(직전 답 주입 시뮬) — 11월 입력에 예외·직전 안내 유지·상대 순위 없음 모두 실림, 12개월 질문은 기존 순위 줄 유지. 테스트 `test_entry_window_consistency.py` 10건 + 기존 `test_period_rank_line_in_prompt` 질문을 다중 달로 교체.
+- 게이트: `./scripts/lint.sh` exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 1c53e70 동일, 지문 동일, `var/suite_20261023_entry_window.log`). 백엔드 8000 재기동(pid 35481).
+
+## 2026-10-23 — 공망 체계 재검토 v2: P0 정합·P1 2축/강도/자극·P2 확장 공망·P3 사전·P4 측정 (데굴님 "넷 다 권고대로", 현대 통설: 대운 공망 무시·세운 공망 일부 인정)
+
+- 배경: 외부 강의 통합 자료("공망 종합 해석 체계 v1.0") 대조. 일치=공망 중립·길흉 별도 판정·합 해공(SSOT §1). 공백=영향 범위 L2~L4·강도(자왕)·활용·확장 공망. 결함=전실과 '공망 운' 동일 조건 모순, 일지 공망 죽은 코드, 성별 조건 서사 무조건 노출, 신살 지시의 길흉 전도 어휘. 고전 원문 확인: 《삼명통회》 論空亡 "合則不能空"·"無沖無合無刑 謂眞空亡"(형 포함).
+- 결정(SSOT §7-2): 충발=현행 유지·측정 / 전실 감산=측정 후(대운은 끔) / 진공=삼명통회 정의→FULL_VOID / 사대공망 일주·지장간 미포함 / 월지 공망 패격 유지 / 태월 보류 / 길흉 전도 점수 미반영.
+- 구현: P0 `structure_analysis`(일지 분기 제거)·`luck_cycles`(대운 void=False, 라벨 전실/전실·충)·`context_reducer` 신살 지시·대운 공망 사실 줄·`remedy.json`·`void_ten_god_text.json` 중립화·프론트 범례 / P1 `saju_shared_types/gongmang.py`+`saju_engines/gongmang_state.py`(자극 8종·VOID_STATE×ACTIVATION·강도) → prefix `[공망 상태]`·간지달력 행 접미 / P2 `gongmang_extended.py`(旬·사대·절로·호환) → `GongmangAnalysis.extended`·`BirthChartSummary.gongmang_facts`·헤더 / P3 사전 v1.1.0 `indirect`·`utilization`·`evidence_status` + 린트 + 발췌 렌더 / P4 플래그 `SAJU_GONGMANG_CLASH_DELAY_DISABLED`·`SAJU_TRANSIT_VOID_DISCOUNT_DISABLED`.
+- P4 측정(`casebook_replay` 3회 → `casebook_report --tag gm_base|gm_clash_off|gm_void_off`, `var/casebook_replay/metrics_gm_*.json`): 충발 지연 OFF 전 지표 불변(event_hit 23/44·pair 33/68), 전실 ×0.60 OFF 세운 극성 14→13·pair 33→32 악화 → **둘 다 현행 ON 유지**.
+- 테스트: `test_gongmang_system_v2.py` 14건 신규, `test_luck.py` 대운 공망 무시·세운 전실 반영, `test_text_layers_20261015.py` 꼬리 문구 반영. 사전 검증 `validate_dictionaries.py` 통과(119 파일).
+- 토큰 예산: 1차 스위트에서 e2e '결혼은 언제쯤'(10년 창)이 20,124로 단건 상한 20k 초과 → 범례 축약·간지달력 접미는 활성(ACTIVATED)만·채팅 발췌에서 `utilization` 제외·출처 표기 축약으로 19,948(상한 −52). 10년 창 질문은 원래 상한 근처라 공망 서술층은 이 예산 안에서만 늘릴 수 있다.
+- 게이트: `./scripts/lint.sh` exit 0 · production mypy gate clean · maintained scripts mypy gate clean / frontend `tsc` exit 0 · production build exit 0 / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 1c53e70 동일, 지문 동일, `var/suite_20261023_gongmang_v2b.log`; 1차 `_v2.log`는 e2e 토큰 초과 1건으로 TESTS_FAILED). 백엔드 8000 재기동.
+
+## 2026-10-23 — e2e 단건 입력 기준선 25,000 · 동반자 동순(同旬) 사실 줄 · 오늘의 운세 문구 2건 교정 (데굴님 지시)
+
+- 토큰: 실제 가드 `chat_single`은 이미 28,000(2026-09-21)이고 20,000은 `test_e2e_q1_q9`의 묵은 단언이었다. 데굴님 "5,000 더"에 따라 e2e 회귀 예산을 25,000으로 올리고(가드와 간격 3,000), docs/09 §8에 기록. 가드 값 불변.
+- 동순: `gongmang_state.same_xun_line`(두 일주 旬 비교, 사실 한 줄 + 단정 금지) → `_compat_prompt_block`([궁합 분석])·`context_reducer` [함께 보기] 동반자 줄 뒤. dry-run 확인: "[동순 사실] 본인 일주 甲午旬 · 상대 일주 甲申旬 → 동순 아님". 테스트 1건 추가(`test_gongmang_system_v2.py`).
+- 오늘의 운세: `daily_phrase_templates.json` `love_misread.fragments` "농담이 뜻밖에 다르게 전해질 수 있어요." → "농담이 생각한 내용과 다르게 전해질 수 있어요.", `romance_caution` "막 시작된 마음은 서두르지 않아도 돼요." → "서두르지 않아도 돼요."(데굴님 제시문 그대로). `compiled/daily_fortune_dict.v1.14.json` in-place 재빌드(§22-8 선례, 버전 범프 없음 — 이미 생성·캐시된 보드는 그대로, 다음 선생성분부터 반영). 일운 사전·보드 테스트 통과.
+- 게이트: `./scripts/lint.sh` exit 0 · production mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 1c53e70 동일, 지문 동일, `var/suite_20261023_xun_tokens.log`). 백엔드 8000 재기동.
+
+## 2026-10-23 — 공망 체계 v2 리포트 패리티 + 커밋 (데굴님 "채팅·테마 사주 모두 적용되는 거겠지?")
+
+- 확인: 리포트는 `build_birth_summary`·`serialize_chart_prefix`·`build_chart_interpretation`·엔진(luck_cycles·structure_analysis)을 채팅과 공유해 P0·P2·P3·원국 [공망 상태] 줄은 이미 양쪽 적용. 채팅 전용 함수(`serialize_llm_input` 간지달력 접미, `_compat_prompt_block` 동순)에만 있던 두 장치를 리포트에 추가.
+- `report_service.luck_block`: [대운표] 행에 `transit_suffix`(대운은 빈 자리 전실 미기록), 후보 기간 `[공망 자극(후보 기간)]` 블록(`_gongmang_transit_lines` — 연 `luck_years`·월 `luck_months`로 간지 조회, 활성 자극만). `compatibility_block`: `[동순 사실]` 줄. 스모크(1980-11-20 丁酉일주·시지 巳 공망): 대운 5행·월운 5행 접미 확인. 테스트 `test_gongmang_system_v2.py` 리포트 패리티 1건 추가.
+- 게이트: `./scripts/lint.sh` exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 1c53e70 동일, 지문 동일, `var/suite_20261023_report_parity.log`). 백엔드 8000 재기동 후 커밋·푸시.
+
+## 2026-10-24 — 개인 사례 혼입 점검(보안 S1~S8) 교정 + 사건 수집 소스 ②③·미완료 유도·갱신 설문 (데굴님 "꼼꼼히 점검" → "권고대로 진행" → "제안 수정 진행")
+
+- 점검: 권한(IDOR)·프로세스 상태/캐시·LLM 경로·DB 키 설계 4축 감사. 안전 확인=LLM 캐시(명시 컨텍스트 캐시 없음)·사례집 85건·스타일 레이어·일주 운세·로그 싱크·동반자/궁합/리포트 잡/직장 이력(owner 필터)·엔진 LRU 52개(사전 로더). 코호트(`cohort_event_counts`)는 비실명 집계라 기능상 문제 없음(데굴님 확인) — 현재 9명이라 게이트 미달.
+- S1 인증 비밀키: `.env`에 `SAJU_V2_AUTH_SECRET` 추가(기존 세션 무효화), `deps.py` 기본값이면 production 기동 거부·그 외 경고, `.env.example` 등재.
+- S2·S3 `POST /chat`: `_assert_chat_access` — thread_id 타 소유자(비로그인 포함) 404, subject_id 타 소유자·비로그인 404. `ConversationStore.owner_of` + `chat_service` 상태 복원 시 소유 검사(`ThreadAccessDenied`→404), `_save_thread(owner_id)`로 `conversation_threads.owner_id` 실제 기록(레거시 'default'는 다음 저장 때 승격).
+- S4 스레드↔명식 바인딩: migration 021 `chat_threads.subject_id`, `start_turn/record_turn(subject_id=)`(최초 1회 COALESCE), 다른 명식으로 이어가기 409, 목록에 `subject_id` 노출 → 프론트 `resumeThread`가 묶인 명식으로 선택을 먼저 전환(`pendingResumeRef`).
+- S5 싱글턴 스코어러: `set_risk_shadow_contexts` 인스턴스 속성 → thread-local(`_risk_ctx_tls`), `chat_service` 주입~해제 try/finally.
+- S6 리포트 위험 섹션: `or data.scorer.risk_shadow` 폴백 제거(상대 채점분 혼입).
+- S7 명식 삭제: `purge_subject_data` — `user_profiles`·`subject_yongsin`(`ProfileStore.delete_subject`)·`subject_life_events`+`subject_reality_calibration`(`LifeEventStore.purge_subject`)·`career_shadow_state`(`delete_subject`). 기존 고아 88/88건은 `scripts/purge_orphan_subject_rows.py --dry-run` 확인 후 데굴님 승인 시 `--apply`.
+- S8 만세력 캐시: `_build_period_fortune` 3곳 `_writable_chart()`(result·luck_cycles 얕은 사본)로 제자리 수정 제거.
+- 수집: `life_event_followup.py`(후보 선별·경과 판정·지문 해석·행 변환·상태), `chat_history_store`(`get_messages` id·`thread_info`·`message_thread`·`merge_message_meta`·`followup_messages`), 채팅 라우터 `POST /messages/{id}/feedback`·`GET /followups`·`POST /followups/{id}`, 캘리브레이션 라우터 `GET /{id}/status`·`questions?mode=refresh`·`submit(mode)`, `build_reality_calibration(years=)`, `LifeEventStore.delete_subject_rows_for_years`·`reality_payload_updated_at`. 프론트: 평가 버튼·후속 카드·유도 배너(채팅), `/reality-calibration?mode=refresh`. 설계 문서 LIFE_EVENT_INFERENCE §4.1 구현 상태 표.
+- 테스트: `test_life_event_followup.py` 9건, `test_chat_access_and_followup_api.py` 5건(S2·S3·S4·S7·②③, 전용 DB).
+- 게이트: `./scripts/lint.sh` exit 0 · production mypy gate clean · maintained scripts mypy gate clean / frontend `tsc` exit 0 · production build exit 0(`var/frontend_build_20261024.log`) / `./scripts/run_suite.sh` `VALID_SUITE_PASS`(test_exit_code 0, head 1ae2ec2 동일, 지문 동일, `var/suite_20261024_sec_collect_b.log`, DSN 지정으로 DB 통합 테스트 포함). 1차(`_sec_collect.log`)는 TESTS_FAILED 8건 — 테스트 대역 저장소에 `owner_of` 없음(getattr 관용으로 교정)·subjects 라우터의 커리어 모듈 직접 import(drift 게이트 → `chat_service.purge_career_shadow` 경유). 백엔드 8000 재기동(비밀키 반영 → 기존 세션 무효화). 미커밋.
+- 라이브 확인: 기본 비밀키로 위조한 토큰 `/auth/me`·`/subjects` 401, 비로그인 `POST /chat` 타인 subject_id 404.
+- 고아 행 삭제(데굴님 "재검토 후 삭제"): 재검토=user_profiles·subject_yongsin 고아 88건 전부 32hex 명식 id·계정 id 일치 0·모든 읽기 경로가 명식 id 조회(report_service owner_id 조회는 형식 불일치로 도달 불가)·계정 페르소나는 account_settings 별도, career_shadow_state 5건은 스모크 잔재(s1/smoke1·blk-*, 참조 스레드 없음) → `purge_orphan_subject_rows.py --apply` 실행, 사후 고아 0건·라이브 행 불변.
+
+## 2026-10-24 — 진입 시기 두 칸 엔진 배정: 턴 간 성사 달 모순 교정 (데굴님 "계속 말이 달라지는 오류가 있어" → "그래 진행해줘")
+- 실답 thread web-mvm8zqyr: 1턴 "다른 사주에서는 내년 4월에 취업할 수 있을거래"(domain_analysis, 2027-04 한 달 창) → "성사 가능성 매우 높다", 2턴 "최대한 빠르게 취업하려면 언제 가능할가"(timing_search, 15개월 창) → 성사 달 2027-02, 2027-04 언급 없음. dry-run 재생으로 두 턴 LLM 입력을 비교: 엔진 후보는 두 턴에서 일치(2026-12·2027-02·03 = job_gain '구직·채용 국면'(pressure, 결과 불리), 2027-04·05 = '취업 성사 가능성'(opportunity, 결과 유리)). 모순은 서술 지시 층 — `ENTRY_WINDOW_DIRECTIVE`가 방향을 구분하지 않아 '최대한 빨리'에서 가장 이른 국면 달이 성사 달로 올라갔고, 1턴 답에 두 칸 표지가 없어 승계 슬롯이 비었으며 승계 지시는 명시 시점 후속에만 붙어 '언제' 열린 후속에 비켜 갔다.
+- 교정(지시문·승계 전용, 점수·선별 불변): 공용 `saju_engines/entry_slots.py`(`assign_entry_slots`·`entry_slot_directive`·`is_earliest_question`) — 성사 달 후보(`result_direction==positive`·지연 아님·검토월 아님) / 움직이는(국면) 달 후보 분리 → `[진입 시기 두 칸 — 엔진 배정]` 지시(국면 달을 성사 달로 세우지 말 것, '가장 빠른' 질문은 가장 이른 성사 후보, 성사 후보 각각 1회 언급, 성사 후보 없으면 '없음' 명시). 채팅 `_entry_slot_block`(빌드 시) + 리포트 J-06/J-07(`domain_candidates("career")`). `ENTRY_WINDOW_DIRECTIVE` 문안 개정.
+- 승계: `ChatPostprocessContext.entry_slots_engine` → 동기·비동기(`update_thread_offer(engine_slots=)`)·비로그인 경로 → `_record_entry_slots(engine_slots=)`(done=엔진 우선, move=답 파싱 우선, `source` 기록, 어긋남 `entry_slots_mismatch` 로그). `_prior_entry_slots_directive`: 같은 사건 키면 링크 판정(NEW) 무관 주입 + '언제' 열린 후속 문안(`_PRIOR_ENTRY_SLOTS_OPEN_DIRECTIVE`), 연 단위 명시는 제외.
+- 관측: `audit_entry_candidate_coverage`/`month_mentioned` — 성사 후보가 답에서 빠지면 `entry_candidate_coverage result=violation`(로그 전용).
+- 재생 확인(DB store 2턴 dry-run): 1턴 `성사 달 후보: 2027-04(甲辰)`·슬롯 `{done: 2027-04, source: engine}` 저장 → 2턴 `성사 달 후보 2027-04·2027-05 / 움직이는 달 2026-12·2027-02·2027-03 … 가장 이른 2027-04` + `[진입 시기 — 직전 안내 유지] 성사 달 2027년 4월 … '언제' 질문`.
+- 테스트: `tests/unit/test_entry_slots_assignment.py` 16건(실답 Top-5 구성 반례·지연/검토월/손실 제외·성사 후보 없음·'빠른' 표지·엔진 우선 저장·'언제' 승계·커버리지 감사·실답 명식 dry-run 회귀, 픽스처 `tests/unit/fixtures/entry_slots_birth_19801122.json`), `test_entry_window_consistency.py` 승계 조건 2건 개정(+`source`).
+- 문서: `doc/v2_2/EMPLOYMENT_HISTORY_CALIBRATION.md` §4-6(미결: 1턴 월별 요약 '우세 사건 계약·문서' vs 이벤트 후보 '취업 성사 매우 강' 긴장, arbiter '결정 행동 허용 시기'의 국면 달 포함은 상담 결론 의미론 결정 사항).
+- 게이트: `./scripts/gates.sh --quick` — ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean. 전체 스위트는 아래 줄.
+- 라이브: 백엔드 8000 재기동(pid 13288, health 200) — 프론트 3000·터널은 그대로.
+- 전체 스위트: `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(test_exit_code 0, head 5054ef3 동일, 지문 ba9d81c6 동일, `var/suite_20261024_entry_slots.log`).
+- 후속(데굴님 "남은 결정 사항도 권유 형태로 처리하자"): A. 유력 달 종합 '동반 신호로만' 격하는 질문 사건이 그 달 후보로 70점 이상이면 '함께 서술' 문구로(`context_reducer.asked_event_score_in_period`·`ASKED_EVENT_STRONG_MIN`). B. 결정 행동 허용 시기는 진입 사건이면 성사 달 후보만, 국면 달은 `준비·검토 시기(결정 권고 금지)` 줄(`_decision_periods`·`counseling_block_lines(review_periods=)`), 월 커버리지 감사도 같은 목록. 테스트 `test_entry_slots_assignment.py` +2건·실답 회귀 단언 확장(총 18건). EMPLOYMENT_HISTORY_CALIBRATION.md §4-6 갱신. 게이트·스위트 결과는 아래 줄.
+- 후속 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean / `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(test_exit_code 0, head 5054ef3 동일, 지문 becaf3a2 동일, `var/suite_20261024_entry_slots_c.log`). 중간 1회 `TESTS_FAILED`는 실답 회귀 테스트가 스위트 기본 환경(.env.beta 미로드 → 상담 결론 블록 없음)을 가정하지 않은 것 — 플래그 무관 `_decision_periods` 판정으로 개정. 백엔드 8000 재기동(pid 21793).
+
+## 2026-10-24 — 성사 달 판단 기준 재정의: 두 칸 배정 모드(trigger/direction) + 정밀도 측정으로 trigger·95 채택 (데굴님 "내부 근거 모호하면 검색 보강, 현대 명리 비중" → "진행하자" → "적중률=된다고 한 달 중 성사된 달의 비율")
+- 진단: 성사 달이 사건 트리거 강도가 아니라 그 달 글자의 용희기구 방향으로 정해지고 있었다(§4-6 오전 규칙). 데굴님 입사 13건 대조에서 방향 규칙은 기저율의 절반(25% vs 49%), 트리거 점수는 기저율 이상(75% vs 53%), 지연 표지 亥월 4건은 전부 실제 입사. 현대 통설(관성·인성 유입=자리, 용기신=결과의 질)·리포 원칙(길흉=용기신, 사건=십성)과도 어긋났다.
+- 구현: `saju_engines/entry_slots.py` 두 모드 + 조건 등급(순조/완화/조건 불리)·지연 주석, 모드별 지시문, 채팅 병행 로그 `entry_slot_modes`, `_decision_periods` 성사 (가능) 달만 허용(55 미만 후보도 검토 시기), arbiter 문구 모드 중립, `ENTRY_WINDOW_DIRECTIVE` 일반화. 측정 스크립트 `scripts/measure_entry_slot_modes.py`(유지 allowlist 등재) — 4명·456달·17건: direction 1.8%(×0.48) / trigger70 3.6% / trigger85 4.1%(×1.10) / trigger90 4.0% / **trigger95 6.4%(×1.72, 재현율 41%)** / top-k·+pos 전부 기저율 미만 → 기본 trigger·95(`SAJU_ENTRY_SLOT_MODE`·`SAJU_ENTRY_DONE_MIN_SCORE` 로 재지정). 기록 `var/entry_slot_modes_20261024.{md,json}`, 문서 §4-7.
+- 테스트: `test_entry_slots_assignment.py` 전면 개정(17건) — 두 모드 분할·하한·env 재지정·조건 등급·실답 dry-run(기본 모드: 1턴 '성사 가능 달 없음·움직이는 달 2027-04', 2턴 '2027-02 조건 불리' + direction 모드 분할 병기). 영향 테스트 47건 통과.
+
+- 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean(측정 스크립트 포함 15파일) / `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(test_exit_code 0, head 5054ef3 동일, 지문 12cf4bb6 동일, `var/suite_20261024_entry_slots_d.log`). 백엔드 8000 재기동(pid 44123).

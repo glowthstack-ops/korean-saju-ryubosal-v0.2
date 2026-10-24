@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from .gongmang import ExtendedGongmang
+
 
 class StructuralInteraction(BaseModel):
     relation_type: str  # 합/충/형/파/해/삼합/반합/방합/병존/간여지동 …
@@ -45,6 +47,9 @@ class GongmangAnalysis(BaseModel):
     year_affected_positions: list[str] = Field(default_factory=list)
     primary_basis: str = "day"  # 일공망 중심
     activation_note: str = ""
+    # 확장 공망 사실(2026-10-23) — 旬 머리·사대·절로·호환. 산출만, 해석 규칙 없음.
+    # default라 과거 payload 안전.
+    extended: ExtendedGongmang | None = None
 
 
 class StructureAnalysis(BaseModel):

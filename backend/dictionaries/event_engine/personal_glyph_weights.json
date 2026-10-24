@@ -1,0 +1,21 @@
+{
+  "version": "0.1.0",
+  "reviewed": false,
+  "note": "직장 이력 캘리브레이션 P1(EMPLOYMENT_HISTORY_CALIBRATION.md §3-2). 개인 시그니처 글자 지문의 유사도 가중과 기저율 lift 기준. glyph_weight 는 플래그 SAJU_PERSONAL_GLYPH_SCORE_ENABLED 가 켜졌을 때만 점수에 쓰인다(기본 OFF — 근거 코드·서술 전용). 초기값은 데굴님 승인(2026-10-22 결정 ④)하에 reviewed:false 로 두고 leave-one-out 측정으로 확정한다.",
+  "position_weights": {
+    "wolwoon_branch": 0.4,
+    "wolwoon_stem": 0.2,
+    "sewoon_branch": 0.2,
+    "sewoon_stem": 0.2
+  },
+  "natal_echo_bonus": 0.1,
+  "glyph_weight": 0.35,
+  "repeat_cap": 0.6,
+  "repeat_cap_note": "반복 확정 테마 가중(0.2×(기간 수−1))의 상한. null=상한 없음(이전 동작). 2026-10-22 데굴님 기준(적중률 긍정일 때만)으로 0.6 적용: 사건 없던 해 48달 중 job_gain Top-1 오탐 33→13, 확정 월 Top-3 14/17 불변(Top-1 11→6). 재측정은 measure_employment_history_loo.py --repeat-cap.",
+  "lift": {
+    "min_rows": 5,
+    "min_hits": 2,
+    "min_lift": 2.0,
+    "expected_share": { "branch": 0.0833333, "stem": 0.1 }
+  }
+}

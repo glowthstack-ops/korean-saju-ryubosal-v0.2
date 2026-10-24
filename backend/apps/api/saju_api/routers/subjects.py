@@ -224,3 +224,27 @@ def delete_subject(subject_id: str, owner_id: OwnerId, store: Subjects) -> None:
     if _target is not None:
         with contextlib.suppress(Exception):
             _target.invalidate_subject(subject_id)
+    purge_subject_data(owner_id, subject_id)
+
+
+def purge_subject_data(owner_id: str, subject_id: str) -> dict[str, int]:
+    """명식의 종속 개인 데이터를 지운다(보안 점검 S7, 2026-10-24).
+
+    subjects 삭제는 FK 가 없어 user_profiles·subject_yongsin·subject_life_events·
+    subject_reality_calibration·career_shadow_state 행이 고아로 남았다(2026-10-24 실측 각 88건).
+    각 저장소 실패는 다른 저장소 정리를 막지 않는다(삭제 응답은 그대로 204).
+    """
+    counts: dict[str, int] = {}
+    with contextlib.suppress(Exception):
+        ProfileStore().delete_subject(subject_id)
+        counts["profile"] = 1
+    with contextlib.suppress(Exception):
+        from saju_engines.life_event_store import LifeEventStore
+
+        counts["life_events"] = LifeEventStore().purge_subject(owner_id, subject_id)
+    with contextlib.suppress(Exception):
+        # 커리어 모듈 inbound import 는 chat_service·report_service 에만 허용(drift 게이트).
+        from ..services.chat_service import purge_career_shadow
+
+        counts["career_shadow"] = purge_career_shadow(subject_id)
+    return counts

@@ -147,6 +147,16 @@ class ProfileStore:
                 (field, user_id),
             )
 
+    def delete_subject(self, user_id: str) -> None:
+        """명식 삭제 시 프로필·확정 용신 행을 함께 지운다(보안 점검 S7, 2026-10-24).
+
+        두 테이블은 subject_id 만 키라 명식이 사라져도 행이 남아(고아) POST /chat 경로로
+        읽힐 수 있었다. user_id == subject_id.
+        """
+        with self._connect() as conn:
+            conn.execute("DELETE FROM user_profiles WHERE user_id = %s", (user_id,))
+            conn.execute("DELETE FROM subject_yongsin WHERE subject_id = %s", (user_id,))
+
     @staticmethod
     def _json(value: dict | None) -> str | None:
         return json.dumps(value, ensure_ascii=False) if value is not None else None

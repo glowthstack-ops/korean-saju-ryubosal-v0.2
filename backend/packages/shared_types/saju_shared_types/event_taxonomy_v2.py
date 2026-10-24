@@ -278,7 +278,11 @@ PROHIBITIONS: list[tuple[str, str, list[str]]] = [
 # ── 질의 키워드 (실로그 — 진급·평가·오디션·대회·고시·자격증 포함) ──
 EVENT_WORDS: dict[EventKeyV2, list[str]] = {
     EventKeyV2.CAREER_CHANGE: ["이직", "퇴사"],
-    EventKeyV2.JOB_GAIN: ["취업", "취직", "입사", "채용", "재취업", "구직", "복직", "일자리"],
+    EventKeyV2.JOB_GAIN: [
+        "취업", "취직", "입사", "채용", "재취업", "구직", "복직", "일자리",
+        # 서류 지원 행위(2026-10-19 실답: "이력서 넣기 좋은 날"이 사건 없음으로 분야 개요에 떨어짐).
+        "이력서", "지원서", "입사 지원",
+    ],
     EventKeyV2.PROMOTION: ["승진", "진급", "평가", "고과", "인사"],
     EventKeyV2.BUSINESS_START: ["창업", "개업", "사업 시작"],
     EventKeyV2.BUSINESS_EXPANSION: ["사업 확장", "분점", "확장"],

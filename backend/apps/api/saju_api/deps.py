@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import logging
 import os
 from collections.abc import Callable
 
@@ -27,7 +28,18 @@ from saju_engines.report_job_store import ReportJobStore
 from saju_engines.subject_store import SubjectStore
 from saju_engines.usage_store import PricingStore, UsageStore
 
-_SECRET = os.getenv("SAJU_V2_AUTH_SECRET", "dev-insecure-secret-change-me").encode("utf-8")
+_DEFAULT_SECRET = "dev-insecure-secret-change-me"
+_SECRET = os.getenv("SAJU_V2_AUTH_SECRET", _DEFAULT_SECRET).encode("utf-8")
+# 보안 점검 S1(2026-10-24): 토큰이 base64(owner_id).HMAC 구조라 비밀키가 소스 기본값이면
+# login_id 만 알면 누구나 그 계정 토큰을 만들 수 있다. production 은 기동 거부, 그 외는 경고.
+if _SECRET == _DEFAULT_SECRET.encode("utf-8"):
+    if os.getenv("ENV", "development").strip().lower() == "production":
+        raise RuntimeError(
+            "SAJU_V2_AUTH_SECRET 미설정 — production 에서는 기본 비밀키로 기동할 수 없다"
+        )
+    logging.getLogger("saju_api.auth").warning(
+        "SAJU_V2_AUTH_SECRET 미설정 — 기본 비밀키 사용 중(토큰 위조 가능). .env 에 설정할 것"
+    )
 
 
 def _store[StoreT](factory: Callable[[], StoreT]) -> StoreT:

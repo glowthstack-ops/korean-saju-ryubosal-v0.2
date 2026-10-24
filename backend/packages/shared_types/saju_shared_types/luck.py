@@ -26,7 +26,8 @@ class LuckPolarity(BaseModel):
     base_score: float | None = None  # 공망/충 반영 전 방향 점수
     is_void: bool = False
     has_clash: bool = False
-    branch_label: str = ""  # 공망 용신운 / 충발 용신운 / 공망 기신운 / 충동 기신운
+    # 전실 용신운 / 전실·충 용신운 / 충발 용신운 / 충동 기신운(대운은 전실 미표기)
+    branch_label: str = ""
     event_trigger: float = 0.0  # 사건화 가능성(충↑)
     volatility: float = 0.0  # 변동성(충·공망↑)
     reliability: float = 1.0  # 실현 신뢰도(공망↓)

@@ -38,6 +38,8 @@ MAINTAINED=(
     scripts/build_sinsal_direction_snapshot.py
     # v2 funnel 상설 감사 — 카탈로그·가중 수정 전후를 같은 모집단으로 재측정(§22-4·§22-5)
     scripts/audit_daily_v2_funnel.py
+    # 진입 두 칸 배정 모드 정밀도 — 입사 이력이 쌓일 때마다 임계값 재측정(EMPLOYMENT §4-7)
+    scripts/measure_entry_slot_modes.py
     # 이벤트 채점 층별 ablation 상설 감사 — 채점 규칙 변경 전후 같은 코퍼스 재측정(EVENT_SCORING_3LAYER_PROPOSAL P0)
     scripts/audit_event_layer_ablation.py
     # 재현 기준선 — 설계 변경 전후를 같은 모집단으로 재측정한다
@@ -49,6 +51,10 @@ MAINTAINED=(
     scripts/shadow_daewoon_hwa_post_selection.py
     # 임계값 판정 기준선 — ROLE_CLOSE_MARGIN 을 조정할 때마다 같은 모집단으로 재측정한다
     scripts/audits/measure_role_margin_census.py
+    # 직장 이력 정본 적재 — 이력이 갱신될 때마다 재실행(EMPLOYMENT_HISTORY_CALIBRATION.md §2-3)
+    scripts/load_employment_history.py
+    # 직장 이력 leave-one-out 적중 측정 — 글자 가중 ON/OFF 판정 기준선(§3-3), 이력·가중 변경마다 재실행
+    scripts/measure_employment_history_loo.py
 )
 
 missing=()

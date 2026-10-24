@@ -5,9 +5,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { EmploymentHistoryForm } from "@/components/onboarding/EmploymentHistoryForm";
 import { StepRealityCalibration } from "@/components/onboarding/StepRealityCalibration";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { listSubjects } from "@/lib/subjects";
+import { type CalibrationMode, listSubjects } from "@/lib/subjects";
 import type { SubjectSummary } from "@/lib/types";
 
 export default function RealityCalibrationPage() {
@@ -16,14 +17,20 @@ export default function RealityCalibrationPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [summary, setSummary] = useState<string[]>([]);
+  // 탭: 연도별 사건(캘리브레이션) | 직장 이력(자격득실 수준 입퇴사 — 정본)
+  const [tab, setTab] = useState<"events" | "employment">("events");
+  // 연 1회 갱신 설문(2026-10-24): ?mode=refresh 면 마지막 입력 이후 해만 묻는다.
+  const [mode, setMode] = useState<CalibrationMode>("full");
 
   useEffect(() => {
     if (!isLoggedIn) return;
     listSubjects()
       .then((s) => {
         setSubjects(s);
-        const param = new URLSearchParams(window.location.search).get("subject");
+        const qs = new URLSearchParams(window.location.search);
+        const param = qs.get("subject");
         setActiveId(param || s[0]?.subject_id || null);
+        if (qs.get("mode") === "refresh") setMode("refresh");
       })
       .catch(() => {});
   }, [isLoggedIn]);
@@ -35,7 +42,18 @@ export default function RealityCalibrationPage() {
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 p-6">
-      <h1 className="text-lg font-semibold">현실 신호 캘리브레이션</h1>
+      <h1 className="text-lg font-semibold">
+        현실 신호 캘리브레이션{mode === "refresh" ? " — 최근 해 추가" : ""}
+      </h1>
+      {mode === "refresh" && (
+        <button
+          type="button"
+          onClick={() => setMode("full")}
+          className="text-xs text-zinc-500 underline"
+        >
+          전체 연도 보기·수정
+        </button>
+      )}
       <p className="text-sm text-zinc-600">
         과거에 실제로 있었던 일을 알려주시면 그 사주에 맞춰 풀이 정확도가 올라갑니다. 전부 선택 사항입니다.
       </p>
@@ -56,6 +74,30 @@ export default function RealityCalibrationPage() {
           ))}
         </select>
       )}
+      <div className="flex gap-1 text-sm" role="tablist" aria-label="입력 종류">
+        {(
+          [
+            ["events", "연도별 사건"],
+            ["employment", "직장 이력"],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => {
+              setTab(key);
+              setDone(false);
+            }}
+            className={`rounded px-3 py-1.5 ${
+              tab === key ? "bg-zinc-900 text-white" : "border border-zinc-300 text-zinc-700"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       {done ? (
         <div className="space-y-3 text-sm">
           <p className="text-green-700">저장됐습니다. 풀이에 반영됩니다.</p>
@@ -80,10 +122,20 @@ export default function RealityCalibrationPage() {
             </Link>
           </div>
         </div>
+      ) : activeId && tab === "employment" ? (
+        <EmploymentHistoryForm
+          key={`eh-${activeId}`}
+          subjectId={activeId}
+          onDone={(r) => {
+            setSummary(r?.summary ?? []);
+            setDone(true);
+          }}
+        />
       ) : activeId ? (
         <StepRealityCalibration
-          key={activeId}
+          key={`${activeId}-${mode}`}
           subjectId={activeId}
+          mode={mode}
           onDone={(r) => {
             setSummary(r?.summary ?? []);
             setDone(true);

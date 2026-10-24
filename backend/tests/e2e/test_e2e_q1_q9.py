@@ -105,8 +105,11 @@ def test_full_pipeline(question: str, expected_type: str, route: str) -> None:
         assert res.prompt_preview is not None
         for section in ("[원국·명식 구조", "[이벤트 후보", "[지시]"):
             assert section in res.prompt_preview, f"{question}: {section} 누락"
-        # 대화형 단건 입력 상한 = 20,000 (docs/09 8장, 2026-06-30 상향 · llm_guard CALL_LIMITS).
-        assert res.input_tokens is not None and res.input_tokens <= 20_000
+        # 대화형 단건 입력 **회귀 예산** = 25,000 (2026-10-23 데굴님: 20,000에서 5,000 상향).
+        # 실제 코드 가드(llm_guard CALL_LIMITS chat_single)는 28,000(2026-09-21) — 이 단언은
+        # 가드보다
+        # 3,000 아래의 e2e 기준선이며, 공망 서술층 추가 뒤 19,948까지 붙었던 여유를 되살린다.
+        assert res.input_tokens is not None and res.input_tokens <= 25_000
 
 
 def test_all_nine_types_covered() -> None:

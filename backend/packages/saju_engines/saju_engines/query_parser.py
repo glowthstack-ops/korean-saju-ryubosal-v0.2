@@ -987,9 +987,18 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
     # Q4 — 택일.
     if re.search(r"손없는\s*날", text):
         return QueryType.DATE_RECOMMENDATION
-    date_words = re.search(r"좋은\s*날|어떤\s*날|날짜|길일|좋을지|적당한\s*달|좋은.*시간대", text)
+    # 날짜어에 '괜찮은/되는/무난한 날'·'좋은 날짜'·'넣기 좋은' 추가, 행위어에 서류 지원(이력서·
+    # 지원서·원서·입사·접수·제출·취업·구직) 추가(2026-10-19 실답: '이력서 넣기 좋은 날'·'괜찮은
+    # 날은 없어?'가 택일이 아닌 분야 개요·월 총운으로 떨어져 일운 표 없이 달 단위로 답함).
+    date_words = re.search(
+        r"좋은\s*날|괜찮은\s*날|되는\s*날|무난한\s*날|어떤\s*날|날짜|길일|좋을지|적당한\s*달"
+        r"|좋은.*시간대|넣기\s*좋은",
+        text,
+    )
     if date_words and re.search(
-        r"이사|계약|결혼|수술|개업|로또|매매|사무실|사업장|점포|상가|오피스", text
+        r"이사|계약|결혼|수술|개업|로또|매매|사무실|사업장|점포|상가|오피스"
+        r"|이력서|지원서|원서|입사|접수|제출|취업|구직",
+        text,
     ):
         return QueryType.DATE_RECOMMENDATION
     # 특정 시점에 계약/이사 등을 '해도 될지' 평가하는 질문도 택일로 본다
@@ -1284,9 +1293,16 @@ def parse_message(
         # 시점만 바뀐 후속('그럼 28년은?') — 직전 intent를 상속하고 시점만 교체.
         # 후속이 단위를 따로 명시하지 않았으면 직전 granularity를 유지한다(월별 맥락 보존,
         # 2026-06-14): '앞으로 5년 이사운 월별로' 뒤 '그럼 28년은?'은 28년을 월단위로 본다.
+        # 단, 일 단위는 날짜 라벨(YYYY-MM-DD)에만 성립한다 — 월·연 라벨('2026-11') 위에
+        # 얹으면 특정일 판정(start==end·day)이 참이 되어 날짜 파싱이 깨진다(2026-10-23
+        # 실답 500: '10/25~31 취업' 뒤 '11월은 어때?'). 그 경우 파서가 준 단위를 쓴다.
         if (
             prev_intent.time_range is not None
             and not re.search(r"[년연월주일]\s*단위|월별|일별|연도별|날짜별|매월", text)
+            and not (
+                prev_intent.time_range.granularity is Granularity.DAY
+                and len(time_range.start or "") != 10
+            )
         ):
             time_range = time_range.model_copy(
                 update={"granularity": prev_intent.time_range.granularity}

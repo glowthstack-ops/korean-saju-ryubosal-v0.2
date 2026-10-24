@@ -180,3 +180,7 @@ class ConversationState(BaseModel):
     # 'matched': [원장 인용…], 'excluded': [배제 조건 인용…]}. 답변 확정 후(동기·비동기 경로 공통)
     # commitment_audit 가 읽어 shadow 로그를 남긴다. 다음 턴 프롬프트 구성에서 덮어쓴다.
     last_challenge_context: dict = Field(default_factory=dict)
+    # 진입 시기 두 칸 승계(2026-10-23) — 직전 진입 사건 답의 첫 문단에서 뽑은
+    # {'done': 'YYYY-MM', 'move': 'YYYY-MM', 'event_key': str, 'turn_no': int}. 같은 사건의 시점
+    # 후속('11월은 어때?')에 '직전 안내 유지' 지시로 주입한다. default라 과거 payload 안전.
+    entry_slots: dict = Field(default_factory=dict)

@@ -46,13 +46,17 @@ def test_finalize_full_without_context_equals_text_only() -> None:
 
 def test_finalize_full_with_real_context_runs_all_audits() -> None:
     res = _prep()
+    # 일주 소개 문장은 시기·분야 개요 답에서 결정론으로 제거된다(2026-10-19) — 역접 재작성 확인은
+    # 일주를 언급하지 않는 문장으로 한다.
     text = (
-        "데굴님, 10월의 금전운은 유리한 흐름입니다. 데굴님의 己亥(기해) 일주는 겉으로는 다정하고 "
-        "부드럽지만 내면에는 실속을 갖춘 구조입니다."
+        "데굴님, 10월의 금전운은 유리한 흐름입니다. 데굴님은 겉으로는 다정하고 "
+        "부드럽지만 내면에는 실속을 갖춘 분입니다. 데굴님의 己亥(기해) 일주는 정원사 같은 "
+        "구조입니다."
     )
     out = chat_service.finalize_answer_full(text, res.postprocess, res.thread_id)
     assert "부드럽고, 내면에는" in out  # 텍스트 후처리까지 도달
     assert "10월의 금전운은 유리한 흐름" in out  # 감사가 본문을 깨지 않음
+    assert "정원사" not in out and "일주" not in out  # 일주 소개 문장 제거(2026-10-19)
 
 
 def test_router_paths_call_full_postprocess() -> None:

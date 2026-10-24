@@ -208,6 +208,14 @@ class PostgresCareerShadowStateRepository:
         with self._connect() as conn:
             conn.execute(_MIGRATION_016.read_text(encoding="utf-8"))
 
+    def delete_subject(self, subject_id: str) -> int:
+        """명식 삭제 시 그 명식의 커리어 shadow 원장을 지운다(S7). 삭제 행 수 반환."""
+        with self._connect() as conn:
+            cur = conn.execute(
+                "DELETE FROM career_shadow_state WHERE subject_id = %s", (subject_id,)
+            )
+            return cur.rowcount or 0
+
     def load(self, thread_id: str, subject_id: str) -> LoadedShadowState:
         """journal 을 읽어 replay 한다. digest 불일치면 소비하지 않는다."""
         from .career_transition_reducer import replay

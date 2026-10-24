@@ -84,8 +84,9 @@ def test_period_rank_line_in_prompt() -> None:
         calendar_type="solar", birth_date="1984-08-19", birth_time="10:15",
         birth_place_name="서울", gender="male",
     )
+    # 상대 순위는 비교 대상(달 2개 이상)이 있을 때만 — 단일 달 창은 test_entry_window_consistency.
     p = chat_service.chat(
-        birth, "2026년 12월 이직 운 어때?", date(2026, 8, 21), True
+        birth, "2026년 10월부터 2027년 3월까지 이직 운 어때?", date(2026, 8, 21), True
     ).prompt_preview or ""
     assert "강도 맥락: 기간 내 상대 " in p
     assert "절대 강도 표현과 별개" in p

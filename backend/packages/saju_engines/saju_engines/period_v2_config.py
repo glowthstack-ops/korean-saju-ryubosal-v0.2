@@ -119,6 +119,13 @@ PEER_GISIN_MOBILITY_ENABLED: bool = (
     os.environ.get("SAJU_PEER_GISIN_MOBILITY_ENABLED", "true").strip().lower()
     in ("1", "true", "yes")
 )
+# 개인 글자 지문의 점수 반영(직장 이력 캘리브레이션 P1, 2026-10-22). 기본 OFF — 글자 차원은
+# 근거 코드·서술에만 쓰고, 점수 가중은 leave-one-out 적중 측정이 기준선을 넘을 때만 켠다
+# (EMPLOYMENT_HISTORY_CALIBRATION.md §3-3). 'true'로만 켠다.
+PERSONAL_GLYPH_SCORE_ENABLED: bool = (
+    os.environ.get("SAJU_PERSONAL_GLYPH_SCORE_ENABLED", "false").strip().lower()
+    in ("1", "true", "yes")
+)
 # 이중 충 표지(2026-10-15, 교재 2장·기타절) — favorability 만, 기본 ON(점수 불변이라 적중 영향
 # 없음).
 DOUBLE_CLASH_FLAG_ENABLED: bool = (
@@ -141,6 +148,13 @@ TRANSIT_CLASH_SUPPORT_ENABLED: bool = _env_flag("SAJU_TRANSIT_CLASH_SUPPORT_ENAB
 # 운). 점수 규칙이라 기본 OFF — 85사례 재생 적중률·실사례로 규칙별 ON 을 정한다(문구층은 플래그와
 # 무관하게 항상 노출).
 ROLE_EVENT_SEED_ENABLED: bool = _env_flag("SAJU_ROLE_EVENT_SEED_ENABLED")
+# 공망 점수 규칙 측정용 비활성 플래그(2026-10-23 P4) — 기본 false = 기존 동작 그대로. 사례집 적중률
+# 비교(ON/OFF)에만 쓰고, 운영 OFF 전환은 측정 결과로 데굴님이 결정한다.
+#   GONGMANG_CLASH_DELAY_DISABLED: 이벤트 게이트의 공망 충발 감점(−10)·지연(DELAY)을 끈다.
+#   TRANSIT_VOID_DISCOUNT_DISABLED: 세운·월운·일운 지지가 공망 글자(전실)일 때의 지지 점수
+#   ×0.60 감산을 끈다.
+GONGMANG_CLASH_DELAY_DISABLED: bool = _env_flag("SAJU_GONGMANG_CLASH_DELAY_DISABLED")
+TRANSIT_VOID_DISCOUNT_DISABLED: bool = _env_flag("SAJU_TRANSIT_VOID_DISCOUNT_DISABLED")
 
 # ── 버전 태그(계측·회귀 비교용) ─────────────────────────────────────────────
 FORTUNE_LOGIC_VERSION = "period_hierarchy_v2"
@@ -217,6 +231,7 @@ def active_versions() -> dict[str, str | bool]:
         "health_window_channel_enabled": HEALTH_WINDOW_CHANNEL_ENABLED,
         "peer_yongsin_mobility_enabled": PEER_YONGSIN_MOBILITY_ENABLED,
         "peer_gisin_mobility_enabled": PEER_GISIN_MOBILITY_ENABLED,
+        "personal_glyph_score_enabled": PERSONAL_GLYPH_SCORE_ENABLED,
         "yearly_ten_god_signals_enabled": YEARLY_TEN_GOD_SIGNALS_ENABLED,
         "double_clash_flag_enabled": DOUBLE_CLASH_FLAG_ENABLED,
         "yong_tiered_multiplier_mode": YONG_TIERED_MULTIPLIER_MODE,

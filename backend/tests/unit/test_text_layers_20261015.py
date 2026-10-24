@@ -60,7 +60,9 @@ def test_void_ten_god_excerpt_for_void_hour_branch() -> None:
     assert len(ex) == 1 and ex[0].key.startswith("공망 巳(시주 ")
     d = json.loads((_DICT / "interpretations/void_ten_god_text.json").read_text("utf-8"))
     tg = result.pillars.hour.branch_main_ten_god
-    assert ex[0].text == next(it["text"] for it in d["items"] if it["ten_god"] == tg)
+    base = next(it["text"] for it in d["items"] if it["ten_god"] == tg)
+    # 2026-10-23 P3: 본문 뒤에 생극 연쇄 가설·활용 경로·출처 등급 꼬리가 붙는다(점수 비개입).
+    assert ex[0].text.startswith(base) and "(출처:" in ex[0].text
 
 
 def test_void_excerpt_absent_when_no_void_pillar() -> None:

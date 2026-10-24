@@ -32,14 +32,19 @@ class ConversationStore:
             conn.execute(_MIGRATION.read_text(encoding="utf-8"))
 
     def save(self, state: ConversationState, owner_id: str = "default") -> None:
-        """스레드 상태 저장/갱신."""
+        """스레드 상태 저장/갱신.
+
+        owner_id 는 최초 1회 묶이고(레거시 'default' 행은 다음 저장 때 승격) 이후 유지된다.
+        """
         with self._connect() as conn:
             conn.execute(
                 """
                 INSERT INTO conversation_threads (thread_id, owner_id, state)
                 VALUES (%s, %s, %s::jsonb)
                 ON CONFLICT (thread_id) DO UPDATE
-                SET state = EXCLUDED.state, updated_at = now()
+                SET state = EXCLUDED.state, updated_at = now(),
+                    owner_id = CASE WHEN conversation_threads.owner_id = 'default'
+                                    THEN EXCLUDED.owner_id ELSE conversation_threads.owner_id END
                 """,
                 (state.thread_id, owner_id, state.model_dump_json()),
             )
@@ -52,6 +57,14 @@ class ConversationStore:
                 (thread_id,),
             ).fetchone()
         return ConversationState.model_validate(row[0]) if row else None
+
+    def owner_of(self, thread_id: str) -> str | None:
+        """스레드 상태 행의 소유자(없으면 None). 'default' 는 레거시·비로그인 행."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT owner_id FROM conversation_threads WHERE thread_id=%s", (thread_id,)
+            ).fetchone()
+        return row[0] if row else None
 
     def delete(self, thread_id: str) -> None:
         """스레드 삭제."""

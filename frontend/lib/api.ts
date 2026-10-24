@@ -1,5 +1,7 @@
 import { authHeaders } from "./auth";
 import type {
+  FollowupOutcome,
+  FollowupPrompt,
   CalendarMonth,
   CalibrationResult,
   ChatApiResponse,
@@ -270,6 +272,35 @@ export async function getChatPartner(threadId: string): Promise<ChatPartner | nu
 
 export function deleteChatThread(threadId: string): Promise<void> {
   return deleteJSON(`/api/v2/chat/threads/${threadId}`);
+}
+
+// ── 수집 소스 ②③(2026-10-24): 답변 평가(메타만) + 지연 outcome 후속 확인 ──
+export function postChatFeedback(
+  messageId: number, rating: "up" | "down", note?: string,
+): Promise<void> {
+  return postJSON<void>(`/api/v2/chat/messages/${messageId}/feedback`, {
+    rating, note: note?.trim() || null,
+  });
+}
+
+// 기간이 지난 답변 후보에 대한 후속 확인 질문(없으면 message_id=null). 실패는 '없음'으로 본다.
+export async function getChatFollowup(subjectId: string): Promise<FollowupPrompt | null> {
+  try {
+    const r = await getJSON<FollowupPrompt>(
+      `/api/v2/chat/followups?subject_id=${encodeURIComponent(subjectId)}`,
+    );
+    return r.message_id ? r : null;
+  } catch {
+    return null;
+  }
+}
+
+export function submitChatFollowup(
+  messageId: number,
+  subjectId: string,
+  answers: Array<{ event_key: string; period: string; outcome: FollowupOutcome }>,
+): Promise<{ stored: number; confirmed: number; not_happened: number }> {
+  return postJSON(`/api/v2/chat/followups/${messageId}`, { subject_id: subjectId, answers });
 }
 
 // 미열람 완료 답변이 있는 스레드 수(전역 뱃지) — 이탈 후 백그라운드 완료 알림용.

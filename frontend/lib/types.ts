@@ -775,6 +775,7 @@ export interface CalendarMonth {
 export interface ChatThreadSummary {
   thread_id: string;
   subject_label: string | null;
+  subject_id?: string | null; // 바인딩 명식 — 이어보기 시 선택 명식을 이 값으로 복원(보안 점검 S4)
   title: string | null;
   updated_at: string | null;
   message_count: number;
@@ -791,6 +792,7 @@ export interface LlmServiceStatus {
 
 // 저장된 대화 메시지(열람·이어가기)
 export interface ChatMessageDTO {
+  id?: number; // 서버 메시지 id — 평가·후속 확인(delayed outcome) 키
   role: "user" | "assistant";
   text: string;
   meta?: Record<string, unknown> | null;
@@ -816,6 +818,31 @@ export interface ChatApiResponse {
     reason: string;
     note: string;
   } | null;
+}
+
+// ── 채팅 평가·후속 확인(LIFE_EVENT_INFERENCE §4.1 ②③, 2026-10-24) ──
+export interface FollowupCandidate {
+  event_key: string;
+  event_ko: string;
+  period: string; // 'YYYY' | 'YYYY-MM'(절기월)
+  score?: number;
+}
+export interface FollowupPrompt {
+  message_id: number | null;
+  thread_id: string | null;
+  asked_at: string | null;
+  title: string | null;
+  question: string;
+  candidates: FollowupCandidate[];
+}
+export type FollowupOutcome = "confirmed" | "not_happened" | "unknown";
+export interface CalibrationStatus {
+  has_events: boolean;
+  confirmed: number;
+  not_happened: number;
+  last_submitted_at: string | null;
+  stale: boolean;
+  suggested_mode: "initial" | "refresh" | null;
 }
 
 // ── 현실 신호 캘리브레이션 (Life Event Inference §5) ─────────────
@@ -858,4 +885,29 @@ export interface RealityCalibrationYearAnswer {
   none_of_them: boolean;
   overall_rating?: string; // 그 해 전체 체감(ExperienceRating 7상태) — 선택
   domain_ratings?: Record<string, string>; // 영역별 체감(domain → ExperienceRating) — 선택
+}
+
+// ── 직장 이력(EMPLOYMENT_HISTORY_CALIBRATION.md §4) — 자격득실 수준 입퇴사 월일, 전부 선택 ──
+export type EmploymentNature = "regular" | "dispatch" | "intern" | "military" | "conversion";
+export type EmploymentChannel = "direct" | "offer" | "referral" | "conversion";
+export type EmploymentExitReason = "voluntary" | "involuntary" | "contract_end";
+export interface EmploymentHistoryEntry {
+  date: string; // 'YYYY-MM-DD' 또는 'YYYY-MM'(일 미상)
+  kind: "entry" | "exit" | "conversion";
+  org?: string | null; // 표시용 이름(선택) — 풀이 문장에는 쓰이지 않는다
+  nature: EmploymentNature;
+  channel?: EmploymentChannel | null; // 입사 통로(입사 행만)
+  exit_reason?: EmploymentExitReason | null; // 퇴사 사유(퇴사 행만)
+  group?: string | null; // 같은 직장 묶기(파견→전환 등)
+  note?: string | null;
+}
+export interface EmploymentHistoryView {
+  subject_id: string;
+  entries: EmploymentHistoryEntry[];
+}
+export interface EmploymentHistorySubmitResult {
+  stored: number;
+  entries: number;
+  superseded: number;
+  summary: string[];
 }

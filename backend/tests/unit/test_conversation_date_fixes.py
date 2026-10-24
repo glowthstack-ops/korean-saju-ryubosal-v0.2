@@ -18,7 +18,7 @@ from saju_engines.precompute import CompositeBuilder
 from saju_engines.query_parser import parse_message
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.conversation import ConversationState
-from saju_shared_types.intent import Domain, QueryType
+from saju_shared_types.intent import Domain, Granularity, QueryType
 from saju_shared_types.precompute import CompositeLevel
 
 _DICTS = Path(__file__).resolve().parents[2] / "dictionaries"
@@ -185,6 +185,44 @@ def test_new_explicit_time_resets_inheritance_baseline() -> None:
     tr3 = p3.intents[0].time_range
     assert tr3 is not None and tr3.start is not None
     assert tr3.start.startswith("2028")
+
+
+def test_month_followup_after_day_range_does_not_inherit_day_granularity() -> None:
+    """일 범위 질문 뒤 월 후속('11월은 어때?')은 월 단위다 — day 상속 금지(2026-10-23 실답 500).
+
+    직전 granularity 유지 규칙(연→월별 맥락 보존)이 day를 월 라벨('2026-11') 위에 얹으면
+    특정일 판정이 참이 되어 날짜 파싱이 깨진다. 월 라벨에는 파서가 준 단위를 쓴다.
+    """
+    eng = ConversationEngine()
+    state = ConversationState(thread_id="t1")
+    p1, state, _, _ = eng.process_turn(
+        state, "10월 25일부터 31일까지 취업 될까?", date(2026, 10, 23), birth_year=1990,
+        current_month_label="2026-10",
+    )
+    tr1 = p1.intents[0].time_range
+    assert tr1 is not None and tr1.granularity is Granularity.DAY
+    p2, _s, _, _ = eng.process_turn(
+        state, "11월은 어때?", date(2026, 10, 23), birth_year=1990,
+        current_month_label="2026-10",
+    )
+    tr2 = p2.intents[0].time_range
+    assert tr2 is not None and tr2.start == "2026-11" and tr2.end == "2026-11"
+    assert tr2.granularity is Granularity.MONTH
+
+
+def test_year_followup_after_month_range_keeps_month_granularity() -> None:
+    """기존 취지 보존: 월 단위 질문 뒤 연 후속('그럼 2028년은?')은 월별 맥락을 유지한다."""
+    eng = ConversationEngine()
+    state = ConversationState(thread_id="t1")
+    _, state, _, _ = eng.process_turn(
+        state, "앞으로 5년 이사운 월별로 봐줘", date(2026, 6, 23), birth_year=1990,
+    )
+    p2, _s, _, _ = eng.process_turn(
+        state, "그럼 2028년은?", date(2026, 6, 23), birth_year=1990,
+    )
+    tr2 = p2.intents[0].time_range
+    assert tr2 is not None and tr2.start is not None and tr2.start.startswith("2028")
+    assert tr2.granularity is Granularity.MONTH
 
 
 def test_followup_explicit_time_and_fresh_reading_skip_inheritance() -> None:
