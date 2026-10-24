@@ -95,6 +95,47 @@ class LifeEventStore:
                 )
         return len(rows)
 
+    def delete_subject_rows_for_years(
+        self, owner_id: str, subject_id: str, source: str, years: list[int],
+    ) -> int:
+        """특정 연도들의 그 소스 행만 지운다(갱신 설문 — 답한 해만 치환, 나머지 해 보존)."""
+        if not years:
+            return 0
+        with self._connect() as conn:
+            cur = conn.execute(
+                "DELETE FROM subject_life_events WHERE owner_id=%s AND subject_id=%s "
+                "AND source=%s AND left(period, 4) = ANY(%s)",
+                (owner_id, subject_id, source, [str(y) for y in years]),
+            )
+            return cur.rowcount or 0
+
+    def reality_payload_updated_at(self, owner_id: str, subject_id: str):
+        """캘리브레이션 설문 마지막 제출 시각(없으면 None) — 연 1회 갱신 권유 기준."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT updated_at FROM subject_reality_calibration "
+                "WHERE owner_id=%s AND subject_id=%s",
+                (owner_id, subject_id),
+            ).fetchone()
+        return row[0] if row else None
+
+    def purge_subject(self, owner_id: str, subject_id: str) -> int:
+        """명식 삭제 시 사건 행 + 캘리브레이션 원본 blob 을 지운다(S7). 삭제 사건 행 수 반환.
+
+        코호트 집계는 `outcome='confirmed'` 행을 subject 단위로 세므로, 삭제된 명식의 행이
+        남으면 그 사주의 코호트에 영원히 포함된다(보유·동의 문제).
+        """
+        with self._connect() as conn:
+            cur = conn.execute(
+                "DELETE FROM subject_life_events WHERE owner_id=%s AND subject_id=%s",
+                (owner_id, subject_id),
+            )
+            conn.execute(
+                "DELETE FROM subject_reality_calibration WHERE owner_id=%s AND subject_id=%s",
+                (owner_id, subject_id),
+            )
+            return cur.rowcount or 0
+
     def delete_subject_rows(
         self, owner_id: str, subject_id: str, source: str | None = None,
     ) -> int:

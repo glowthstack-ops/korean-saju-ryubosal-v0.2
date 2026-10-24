@@ -223,8 +223,13 @@ class RealityCalibrationSubmitResult(BaseModel):
 
 
 class RealityCalibrationSubmission(BaseModel):
-    """현실 신호 캘리브레이션 제출 — 연도별 선택."""
+    """현실 신호 캘리브레이션 제출 — 연도별 선택.
+
+    mode='refresh' 는 연 1회 갱신 설문(2026-10-24): 답한 해의 행만 치환하고 다른 해는 보존한다.
+    'full'(기본)은 기존처럼 캘리브레이션 소스 행 전체를 치환한다.
+    """
 
     subject_id: str
     owner_id: str = "default"
     answers: list[RealityCalibrationYearAnswer] = Field(default_factory=list)
+    mode: Literal["full", "refresh"] = "full"

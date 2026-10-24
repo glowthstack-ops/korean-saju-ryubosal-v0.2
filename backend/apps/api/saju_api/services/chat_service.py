@@ -95,6 +95,7 @@ from saju_engines.horizon import (
 from saju_engines.ilju_mention_audit import audit_ilju_mention
 from saju_engines.intent_event_filter import IntentEventFilter
 from saju_engines.job_separation import is_job_separation
+from saju_engines.life_event_followup import followup_candidates
 from saju_engines.lifetime_scan import (
     CHAT_TABLE_MAX_YEARS,
     PER_DECADE_CAP,
@@ -278,6 +279,18 @@ _DICTS = _BACKEND / "dictionaries"
 _COMPILED_GRAPH = _BACKEND / "compiled" / "event_graph_v1.1.0.json"
 
 _logger = logging.getLogger(__name__)
+
+
+def _writable_chart(chart: ManseV2Result) -> ManseV2Result:
+    """캐시 공유 만세력 결과의 쓰기 가능 사본(보안 점검 S8, 2026-10-24).
+
+    `calculate()` 는 출생 입력만 키로 같은 객체를 모든 요청에 돌려주므로(읽기 전용 계약) 운 창을
+    바꿔 끼울 때는 결과와 `luck_cycles` 를 얕게 복사해 그 사본에만 쓴다. 리스트는 교체만 하고
+    원본 리스트를 변형하지 않는다.
+    """
+    if chart.luck_cycles is None:
+        return chart.model_copy()
+    return chart.model_copy(update={"luck_cycles": chart.luck_cycles.model_copy()})
 
 
 def _current_luck_month(today: date, timezone: str = "Asia/Seoul") -> str:
@@ -849,6 +862,10 @@ _RETRO_TENSE_DIRECTIVE = (
 )
 
 
+class ThreadAccessDenied(PermissionError):
+    """다른 소유자의 대화 스레드 접근(보안 점검 S2) — 라우터가 404 로 변환한다."""
+
+
 class ChatPostprocessContext(BaseModel):
     """답변 후처리에 필요한 생성 시점 맥락(2026-10-01) — 비동기·비로그인 경로가 동기 경로와 같은
     감사(커리어 출력 감사·관계 주장 패치·월 커버리지 보정)를 거치도록 prep(dry-run) 응답에 실어
@@ -870,6 +887,9 @@ class ChatPostprocessContext(BaseModel):
     # 진입 시기 두 칸 지시가 붙은 턴 — 첫 문단 '성사 달·움직이는 달' 준수 관측(로그 전용,
     # 2026-10-22).
     entry_window: bool = False
+    # 후속 확인(delayed outcome) 후보 — 답변이 제시한 미래·당월 사건 상위 3건(지문 포함).
+    # 라우터가 답변 메시지 메타에 남기고, 기간이 지나면 실제 발생 여부를 묻는다(2026-10-24).
+    followup: list[dict] = Field(default_factory=list)
 
 
 class ChatResponse(BaseModel):
@@ -1091,7 +1111,7 @@ def _build_period_fortune(
             target = date.fromisoformat(start)
         except ValueError:
             return None
-        chart = calculate(birth.model_copy(update={"reference_date": target}))
+        chart = _writable_chart(calculate(birth.model_copy(update={"reference_date": target})))
         days = luck_days(birth, target.year, target.month)
         if chart.luck_cycles is not None:
             chart.luck_cycles.daily_luck = days
@@ -1105,7 +1125,7 @@ def _build_period_fortune(
     elif fortune_type == "monthly":
         year, mon = int(start[:4]), int(start[5:7])
         anchor = date(year, mon, 15)
-        chart = calculate(birth.model_copy(update={"reference_date": anchor}))
+        chart = _writable_chart(calculate(birth.model_copy(update={"reference_date": anchor})))
         # 절기 월 범위(절입~다음 절입 전일) — 양력 월이 아니라 절기 경계로 일운을 잡는다.
         tz = chart.time_correction.timezone if chart.time_correction else "Asia/Seoul"
         sm_start, sm_end = _solar_month_range(start, tz)
@@ -1126,7 +1146,7 @@ def _build_period_fortune(
     else:  # yearly
         year = int(start[:4])
         anchor = date(year, 7, 1)
-        chart = calculate(birth.model_copy(update={"reference_date": anchor}))
+        chart = _writable_chart(calculate(birth.model_copy(update={"reference_date": anchor})))
         if chart.luck_cycles is not None:
             chart.luck_cycles.monthly_luck = luck_months(birth, year)
             pillar = next((p for p in chart.luck_cycles.yearly_luck if p.label == start), None)
@@ -5031,6 +5051,13 @@ def chat(
     if thread_id is not None:
         store = store or ConversationStore()
         store.migrate()
+        # 보안 점검 S2(2026-10-24): 스레드 상태는 thread_id 만으로 복원되던 경로 — 소유자가
+        # 다른 스레드(또는 비로그인이 로그인 스레드)를 지정하면 거부한다. 'default' 는 레거시·
+        # 비로그인 행(다음 저장 때 소유자로 승격).
+        _owner_fn = getattr(store, "owner_of", None)  # 테스트 대역 저장소는 소유 조회가 없다
+        _th_owner = _owner_fn(thread_id) if _owner_fn is not None else None
+        if _th_owner not in (None, "default", owner_id or "default"):
+            raise ThreadAccessDenied(thread_id)
         state = store.load(thread_id) or ConversationState(thread_id=thread_id)
         prior_intent = state.last_intent  # process_turn이 갱신하기 전 직전 intent 보존.
         # P3(2단계 커밋) — 시점 슬롯의 직전 정상 상태 스냅샷. 답변 생성 후 정합성 검사에
@@ -5174,7 +5201,7 @@ def chat(
     # 정책 라우트(FEEDBACK_CORRECTION canned)보다 먼저 본다 — 간지 대조는 이력 맥락이 필요 없다.
     pillar_answer = _pillar_claim_answer(question, birth, today)
     if pillar_answer is not None:
-        _save_thread(store, state)
+        _save_thread(store, state, owner_id)
         return ChatResponse(
             status="policy",
             answer=pillar_answer,
@@ -5186,7 +5213,7 @@ def chat(
     # 비분석 라우트(T3.8) — 엔진/LLM 미호출.
     plan = build_execution_plan(intent)
     if plan.policy_route is not None:
-        _save_thread(store, state)
+        _save_thread(store, state, owner_id)
         return ChatResponse(
             status="policy",
             answer=_POLICY_ANSWERS.get(plan.policy_route, _POLICY_ANSWERS["fixed_policy"]),
@@ -5234,7 +5261,7 @@ def chat(
     # policy 라우트와 동일 취급이라 질문권 차감 대상이 아니다.
     capability = build_capability_answer(question)
     if capability is not None:
-        _save_thread(store, state)
+        _save_thread(store, state, owner_id)
         return ChatResponse(
             status="policy",
             answer=capability,
@@ -5248,7 +5275,7 @@ def chat(
     # 빠지지 않게 엔진 프로파일로 직접 답한다(LLM 미호출, 2026-06-26 데굴님 지적).
     region_fact = _region_element_fact(question)
     if region_fact is not None:
-        _save_thread(store, state)
+        _save_thread(store, state, owner_id)
         return ChatResponse(
             status="answered",
             answer=region_fact,
@@ -5270,7 +5297,7 @@ def chat(
             if assessment.status == "need_subject"
             else f"질문 범위가 넓어요. 이렇게 좁혀볼까요? — {suggestion_text}"
         )
-        _save_thread(store, state)
+        _save_thread(store, state, owner_id)
         suggestion = None
         if assessment.status == "too_broad":
             suggestion = {
@@ -5321,7 +5348,7 @@ def chat(
         else:
             _needed = [_primary]
         if any(_companion_birth(c) is None for c in _needed):
-            _save_thread(store, state)
+            _save_thread(store, state, owner_id)
             return ChatResponse(
                 status="need_subject",
                 answer=(
@@ -5375,22 +5402,27 @@ def chat(
         question=question, state=state, turn=(state.turn_no if state is not None else 0),
         profile_relationship_status=relationship_status,
     )
+    # 관계 컨텍스트는 thread-local(S5)이며 예외가 나도 이 스레드에 남지 않도록 finally 로 해제.
     if _rel_ctxs:
         _get_scorer().set_risk_shadow_contexts(relationship_contexts=_rel_ctxs)
-    all_scored = _get_scorer().score_legacy_personalized(
-        result,
-        levels=_SCORE_LEVELS,
-        fav_override=_fav_override,
-        signature=_sig,
-        cohort=_cohort,
-        occupation_status=occupation_status,
-        relationship_status=relationship_status,
-        occupation_category=occupation_category,
-    )
-    # 요청 로컬 위험 스냅샷(감수 62차 P0③) — 본 요청 1차 대상의 주 채점
-    # 직후 즉시 확보(불변 tuple). 싱글턴 scorer.risk_shadow는 이후의 보조
-    # 채점·동시 요청으로 덮일 수 있어 EXPOSE 경로에서 읽지 않는다.
-    _subject_risk_shadow = _get_scorer().take_risk_shadow()
+    try:
+        all_scored = _get_scorer().score_legacy_personalized(
+            result,
+            levels=_SCORE_LEVELS,
+            fav_override=_fav_override,
+            signature=_sig,
+            cohort=_cohort,
+            occupation_status=occupation_status,
+            relationship_status=relationship_status,
+            occupation_category=occupation_category,
+        )
+        # 요청 로컬 위험 스냅샷(감수 62차 P0③) — 본 요청 1차 대상의 주 채점
+        # 직후 즉시 확보(불변 tuple). 싱글턴 scorer.risk_shadow는 이후의 보조
+        # 채점·동시 요청으로 덮일 수 있어 EXPOSE 경로에서 읽지 않는다.
+        _subject_risk_shadow = _get_scorer().take_risk_shadow()
+    finally:
+        if _rel_ctxs:
+            _get_scorer().set_risk_shadow_contexts()
     # P1-6 §12 — 관계 벡터 shadow: 주 채점 직후 불변 projection 확보(이후 보조
     # 채점 year_scored로 tls가 덮이기 전) → Top-N 이전 Draft 생성 + 전체 aggregate
     # 즉시 누적 + 상세 후보만 bounded 보존. 관측 전용(후보·점수·LLM 델타 0) —
@@ -5413,10 +5445,8 @@ def chat(
     except Exception:  # noqa: BLE001 — 관계 벡터 shadow 실패는 본 응답 비차단
         _logger.exception("relationship_vector_sidecar build 실패 — 본 응답 비차단")
         _rel_vec_sidecar = None
-    # P0-B4 — 요청 로컬성: 관계 컨텍스트 즉시 해제(싱글턴 잔류·타 요청 오염 방지) +
-    # REL 후보 수 계측(텔레메트리 emit은 노출 필터 이후 단일 지점에서).
-    if _rel_ctxs:
-        _get_scorer().set_risk_shadow_contexts()
+    # P0-B4 — REL 후보 수 계측(텔레메트리 emit은 노출 필터 이후 단일 지점에서). 컨텍스트
+    # 해제는 위 finally 로 옮겼다(S5).
     _rel_shadow_tel.risk_candidate_count = sum(
         1 for _c in _subject_risk_shadow
         if str(getattr(_c, "risk_id", "")).startswith("REL_"))
@@ -6266,6 +6296,11 @@ def chat(
         candidates = _get_intent_filter().filter(
             candidates, str(intent.domain), _event_filter_context,
         )
+    # 후속 확인 후보(LIFE_EVENT_INFERENCE §4.1 ③) — 최종 후보 목록에서 아직 지나지 않은 기간만.
+    _followup_meta = [
+        c.model_dump(mode="json")
+        for c in followup_candidates(candidates, current_luck_month=luck_month, today=today)
+    ]
     payload = build_llm_input(
         question,
         intent,
@@ -7154,7 +7189,7 @@ def chat(
         state = ConversationEngine.register_system_results(state, summaries)
 
     if dry_run or not llm_client.is_available():
-        _save_thread(store, state)
+        _save_thread(store, state, owner_id)
         return ChatResponse(
             status="dry_run",
             intents=parsed.intents,
@@ -7170,7 +7205,7 @@ def chat(
             postprocess=ChatPostprocessContext(
                 payload=payload, career_prep=_career_prep, prompt_text=prompt_text,
                 call_type=call_type, system=system, owner_id=owner_id, question=question,
-                entry_window=_entry_window_on,
+                entry_window=_entry_window_on, followup=_followup_meta,
             ),
         )
 
@@ -7204,7 +7239,7 @@ def chat(
                     state = ConversationEngine.register_system_results(
                         state, _summ[:3])
         else:
-            _save_thread(store, state)
+            _save_thread(store, state, owner_id)
             return ChatResponse(
                 status="error",
                 answer="답변 생성에 문제가 있었어요. 잠시 후 다시"
@@ -7264,7 +7299,7 @@ def chat(
         state.last_offer = _extract_offer(answer)
         # 시스템 발언 원장 갱신 + 정정·조건 준수 shadow 감사(2026-10-01) — 동기 경로.
         _record_answer_commitments(state, answer, thread_id, today=today)
-    _save_thread(store, state)
+    _save_thread(store, state, owner_id)
     return ChatResponse(
         status="answered",
         answer=answer,
@@ -7278,10 +7313,24 @@ def chat(
     )
 
 
-def _save_thread(store: ConversationStore | None, state: ConversationState | None) -> None:
-    """멀티턴 경로에서만 스레드 상태를 저장한다."""
+def purge_career_shadow(subject_id: str) -> int:
+    """명식 삭제 시 커리어 shadow 원장 정리(보안 점검 S7, 2026-10-24).
+
+    커리어 모듈의 production inbound import 는 이 파일과 report_service 에만 허용되므로
+    (test_career_shadow_drift) subjects 라우터는 이 함수를 경유한다.
+    """
+    from saju_engines.career_shadow_repository import PostgresCareerShadowStateRepository
+
+    return PostgresCareerShadowStateRepository().delete_subject(subject_id)
+
+
+def _save_thread(
+    store: ConversationStore | None, state: ConversationState | None,
+    owner_id: str | None = None,
+) -> None:
+    """멀티턴 경로에서만 스레드 상태를 저장한다(소유자 기록 — 비로그인은 'default')."""
     if store is not None and state is not None:
-        store.save(state)
+        store.save(state, owner_id or "default")
 
 
 # ── P4-1 커리어 전이 chat beta 훅 ──────────────────────────────────────────

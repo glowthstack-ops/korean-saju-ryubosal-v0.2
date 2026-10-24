@@ -349,12 +349,10 @@ class EventEngineV2:
         # shadow 컨텍스트(감수 19차 — QA·시나리오 밀도 전용): set_risk_shadow_contexts로
         # 주입하면 shadow 후보 생성에 현실 컨텍스트(선발·관계·이동)가 반영된다.
         # LLM 입력·긍정 파이프라인과 무관하며 off 모드에선 사용되지 않는다.
-        self._risk_shadow_selection: SelectionContext | None = None
-        self._risk_shadow_relationships: list[RelationshipContext] | None = None
-        self._risk_shadow_mobility: list[MobilityContext] | None = None
-        self._risk_shadow_health: list[HealthContext] | None = None
-        self._risk_shadow_legal: list[LegalProcessContext] | None = None
-        self._risk_shadow_selections: list[SelectionContext] | None = None
+        # 보안 점검 S5(2026-10-24): 싱글턴 인스턴스 속성이던 컨텍스트를 thread-local 로 —
+        # 동기 엔드포인트가 스레드풀에서 병렬 실행되면 다른 요청의 관계·이동 컨텍스트로
+        # 채점되던 경합의 교정. set→score→clear 는 같은 워커 스레드에서 직선으로 일어난다.
+        self._risk_ctx_tls = _threading.local()
         self._dictionaries_dir = dictionaries_dir  # 보조 증폭 사전(P2) 지연 로드 경로
         try:
             self._risk: RiskEngine | None = RiskEngine(dictionaries_dir)
@@ -971,12 +969,18 @@ class EventEngineV2:
         프로필·질문 컨텍스트가 확인된 시나리오의 위험 밀도를 실측하기 위한 통로다.
         긍정 파이프라인·LLM 입력에는 어떤 영향도 없다(risk_shadow 사이드채널 한정).
         """
-        self._risk_shadow_selection = selection_context
-        self._risk_shadow_selections = selection_contexts
-        self._risk_shadow_relationships = relationship_contexts
-        self._risk_shadow_mobility = mobility_contexts
-        self._risk_shadow_health = health_contexts
-        self._risk_shadow_legal = legal_contexts
+        self._risk_ctx_tls.ctx = {
+            "selection_context": selection_context,
+            "selection_contexts": selection_contexts,
+            "relationship_contexts": relationship_contexts,
+            "mobility_contexts": mobility_contexts,
+            "health_contexts": health_contexts,
+            "legal_contexts": legal_contexts,
+        }
+
+    def _risk_shadow_ctx(self) -> dict:
+        """이 스레드에 주입된 현실 컨텍스트(없으면 전부 None)."""
+        return getattr(self._risk_ctx_tls, "ctx", None) or {}
 
     @staticmethod
     def _yeokma_reference_sets(result: ManseV2Result) -> dict[str, set[str]]:
@@ -1048,14 +1052,15 @@ class EventEngineV2:
         _sink = getattr(self._risk_tls, "sink", None)
         if _sink is None:  # score() 밖 직접 호출(테스트 등) — 레거시 경로
             _sink = self.risk_shadow
+        _ctx = self._risk_shadow_ctx()
         generated = self._risk.generate(
             facts,
-            selection_context=self._risk_shadow_selection,
-            selection_contexts=self._risk_shadow_selections,
-            relationship_contexts=self._risk_shadow_relationships,
-            mobility_contexts=self._risk_shadow_mobility,
-            health_contexts=self._risk_shadow_health,
-            legal_contexts=self._risk_shadow_legal,
+            selection_context=_ctx.get("selection_context"),
+            selection_contexts=_ctx.get("selection_contexts"),
+            relationship_contexts=_ctx.get("relationship_contexts"),
+            mobility_contexts=_ctx.get("mobility_contexts"),
+            health_contexts=_ctx.get("health_contexts"),
+            legal_contexts=_ctx.get("legal_contexts"),
         )
         if period_v2_config.RISK_AUX_AMPLIFIER_ENABLED and generated:
             # family 단위 보조 증폭 층(P2) — 위험 사전 항목 불변. 흉 극성 동반 신살·구조·합

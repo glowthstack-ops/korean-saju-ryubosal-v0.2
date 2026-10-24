@@ -4306,8 +4306,10 @@ def _try_risk_exposed_section(
         section_cfg = _RISK_EXPOSED_SECTIONS.get(
             section_id, _RISK_EXPOSED_SECTIONS["C-06"])
         payload = _reb.build_risk_payload(
-            list(getattr(data, "risk_shadow", ())
-                 or data.scorer.risk_shadow),
+            # 요청 로컬 snapshot 만 쓴다(보안 점검 S6, 2026-10-24): 본인 후보가 0건일 때
+            # `scorer.risk_shadow` 로 폴백하면 직전 채점분(궁합 상대)의 위험 후보가 본인
+            # 섹션에 들어갔다. 폴백 없음 = 후보 없음.
+            list(getattr(data, "risk_shadow", ()) or ()),
             question_type=section_cfg["question_type"],
             target_domains=tuple(section_cfg["target_domains"]),
             allowed_periods=frozenset(str(y) for y in years))

@@ -7,8 +7,8 @@
 from __future__ import annotations
 
 import contextlib
-from datetime import date
-from typing import Annotated
+from datetime import UTC, date, datetime
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -16,16 +16,28 @@ from pydantic import BaseModel, Field
 from saju_engines.chat_history_store import ChatHistoryStore
 from saju_engines.companion_alias import AliasEntry, build_companion_alias_index
 from saju_engines.conversation_store import ConversationStore
+from saju_engines.life_event_followup import (
+    FollowupAnswer,
+    FollowupCandidate,
+    elapsed_candidates,
+    followup_question,
+    resolve_fingerprints,
+    rows_from_followup,
+)
+from saju_engines.life_event_store import LifeEventStore
 from saju_engines.llm_guard import TokenBudgetExceeded
 from saju_engines.profile_engine import profile_event_signals
+from saju_engines.reality_calibration import pillars_signature
 from saju_engines.subject_store import SubjectStore
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.intent import InlineBirth
+from saju_shared_types.life_event import LifeEventOutcome
 from saju_shared_types.profile import PersonaConfig
 
 from ..deps import (
     get_chat_history_store,
     get_chat_history_store_optional,
+    get_life_event_store,
     get_subject_store,
     get_subject_store_optional,
     optional_owner,
@@ -33,6 +45,7 @@ from ..deps import (
 )
 from ..services import chat_service, llm_service_state
 from ..services.llm_client import LLMServiceSuspended
+from ..services.manse_service import calculate
 from ..services.partner_resolve import inline_to_birth
 
 router = APIRouter(prefix="/api/v2/chat", tags=["chat"])
@@ -57,7 +70,8 @@ class ChatRequest(BaseModel):
     thread_id: str | None = None  # 지정 시 멀티턴(스레드 상태 복원·갱신)
     persona: PersonaConfig | None = None  # 문체 전용(docs/11 — 점수·판정 불변)
     subject_label: str | None = None  # 대화 기준 사주 별명(저장 표시용)
-    subject_id: str | None = None  # 저장된 사주 id — 개인화(현실 신호 시그니처·코호트, 소유자 검증)
+    # 저장된 사주 id — 개인화(현실 신호 시그니처·코호트). 소유자 검증은 _assert_chat_access.
+    subject_id: str | None = None
     # 궁합(pairwise) — 상대 첨부. 등록 동반자(id) 또는 즉석 입력 중 하나.
     partner_subject_id: str | None = None
     partner_inline: InlineBirth | None = None
@@ -69,6 +83,7 @@ class ChatThreadSummary(BaseModel):
 
     thread_id: str
     subject_label: str | None = None
+    subject_id: str | None = None  # 바인딩 명식(021) — 이어보기 시 프론트가 선택 명식을 복원
     title: str | None = None
     updated_at: str | None = None
     message_count: int
@@ -77,8 +92,9 @@ class ChatThreadSummary(BaseModel):
 
 
 class ChatMessage(BaseModel):
-    """저장된 메시지 1건."""
+    """저장된 메시지 1건. `id`는 평가·후속 확인(delayed outcome)의 키."""
 
+    id: int | None = None
     role: str
     text: str
     meta: dict | None = None
@@ -91,6 +107,44 @@ class UnseenCount(BaseModel):
     """미열람 완료 답변이 있는 스레드 수(전역 뱃지용)."""
 
     count: int
+
+
+def _assert_chat_access(
+    req: ChatRequest, owner_id: str | None,
+    history: ChatHistoryStore | None, subjects: SubjectStore | None,
+) -> None:
+    """POST /chat 의 thread_id·subject_id 소유 검증(보안 점검 S2·S3·S4, 2026-10-24).
+
+    - subject_id: 비로그인이거나 다른 소유자의 명식이면 404(프로필·확정 용신·캘리브레이션
+      힌트가 타인 풀이에 적용되던 경로 차단).
+    - thread_id: 다른 소유자의 스레드(비로그인→로그인 스레드 포함)면 404(상대 대화 상태·직전
+      답이 프롬프트에 주입되고 내 턴이 상대 스레드에 기록되던 경로 차단).
+    - 스레드가 다른 명식에 묶여 있으면 409(같은 계정에서 명식을 바꾼 뒤 이어보기 — 다른
+      명식의 사용자 제공 사실이 주입되던 경로 차단). 미바인딩(레거시) 스레드는 이 턴에 묶인다.
+    """
+    if req.subject_id:
+        if not owner_id or subjects is None:
+            raise HTTPException(status_code=404, detail="대상을 찾을 수 없습니다.")
+        rec = subjects.get(req.subject_id)
+        if rec is None or rec.owner_id != owner_id:
+            raise HTTPException(status_code=404, detail="대상을 찾을 수 없습니다.")
+    if req.thread_id and history is not None:
+        try:
+            info = history.thread_info(req.thread_id)
+        except Exception:  # noqa: BLE001 — 조회 실패는 서비스 계층의 상태 소유 검사에 맡긴다
+            info = None
+        if info is not None:
+            if info["owner_id"] != owner_id:
+                raise HTTPException(status_code=404, detail="대화를 찾을 수 없습니다.")
+            bound = info.get("subject_id")
+            if bound and req.subject_id and bound != req.subject_id:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "이 대화는 다른 사주로 시작됐어요. "
+                        "그 사주를 선택하거나 새 대화로 이어가 주세요."
+                    ),
+                )
 
 
 def _resolve_chat_partner(
@@ -134,6 +188,17 @@ def _user_meta(req: ChatRequest) -> dict | None:
     if ref is None:
         return None
     return {"partner": ref, "companions": [ref.get("label", "상대")]}
+
+
+def _followup_meta(prep: chat_service.ChatResponse, req: ChatRequest) -> dict:
+    """답변 메시지 메타에 남길 후속 확인 후보(LIFE_EVENT_INFERENCE §4.1 ③).
+
+    저장된 명식(subject_id)이 있어야 나중에 사건 행을 붙일 수 있다. 후보가 없으면 빈 dict.
+    """
+    ctx = prep.postprocess
+    if not req.subject_id or ctx is None or not ctx.followup:
+        return {}
+    return {"subject_id": req.subject_id, "followup": ctx.followup}
 
 
 def _last_assistant_answer(history: ChatHistoryStore | None, thread_id: str) -> str | None:
@@ -220,6 +285,7 @@ def chat(
     복구하고 미열람 완료 답변은 뱃지로 알린다. 정책·범위 응답(즉시) 및 비로그인은 동기 처리.
     상대(궁합)가 첨부되면 두 명식 궁합 신호를 입력에 더해 pairwise로 답한다.
     """
+    _assert_chat_access(req, owner_id, history, subjects)
     partner_birth = _resolve_chat_partner(req, subjects, owner_id)
 
     # 등록 동반자 별칭 인덱스 — 발화 속 별명/관계어를 companion subject_id로 해소(P0).
@@ -245,6 +311,12 @@ def chat(
     prior_answer = _last_assistant_answer(history, req.thread_id) if req.thread_id else None
 
     def _classify(dry: bool) -> chat_service.ChatResponse:
+        try:
+            return _run_chat(dry)
+        except chat_service.ThreadAccessDenied as exc:
+            raise HTTPException(status_code=404, detail="대화를 찾을 수 없습니다.") from exc
+
+    def _run_chat(dry: bool) -> chat_service.ChatResponse:
         return chat_service.chat(
             req.birth, req.question, req.today, dry,
             thread_id=req.thread_id, persona=req.persona,
@@ -285,8 +357,9 @@ def chat(
     if owner_id and req.thread_id and is_llm_path and llm_ready and history is not None:
         message_id = history.start_turn(
             owner_id, req.thread_id, req.subject_label, req.question,
-            meta={"candidate_count": prep.candidate_count},
+            meta={"candidate_count": prep.candidate_count, **_followup_meta(prep, req)},
             user_meta=_user_meta(req),
+            subject_id=req.subject_id,
         )
         background.add_task(
             _run_chat_answer, history, message_id, owner_id, req.thread_id,
@@ -339,6 +412,7 @@ def _finish_immediate(
                 owner_id, req.thread_id, req.subject_label, req.question, prep.answer,
                 meta={"status": prep.status, "candidate_count": prep.candidate_count},
                 user_meta=_user_meta(req),
+                subject_id=req.subject_id,
             )
         except Exception:  # noqa: BLE001 — 저장 실패가 응답을 막지 않도록
             pass
@@ -402,3 +476,140 @@ def delete_thread(thread_id: str, owner_id: OwnerId, history: History) -> None:
         ConversationStore().delete(thread_id)
     except Exception:  # noqa: BLE001 — 상태 삭제 실패는 무시(전문은 이미 삭제)
         pass
+
+
+# ── 수집 소스 ②③(LIFE_EVENT_INFERENCE §4.1, 2026-10-24) — 채팅 평가 + 지연 outcome 회수 ──
+
+LifeEvents = Annotated[LifeEventStore, Depends(get_life_event_store)]
+
+
+class MessageFeedback(BaseModel):
+    """답변 평가(👍/👎) + 선택 한 줄 메모 — 메시지 메타에만 기록(사건 행 없음)."""
+
+    rating: Literal["up", "down"]
+    note: str | None = Field(default=None, max_length=300)
+
+
+class FollowupPrompt(BaseModel):
+    """기간이 지난 답변 후보에 대한 후속 확인 질문(없으면 message_id=None)."""
+
+    message_id: int | None = None
+    thread_id: str | None = None
+    asked_at: str | None = None
+    title: str | None = None
+    question: str = ""
+    candidates: list[FollowupCandidate] = Field(default_factory=list)
+
+
+class FollowupSubmission(BaseModel):
+    """후속 확인 답 — 후보별 있었음/없었음/모름."""
+
+    subject_id: str
+    answers: list[FollowupAnswer] = Field(default_factory=list)
+
+
+class FollowupSubmitResult(BaseModel):
+    """적재 결과."""
+
+    stored: int
+    confirmed: int
+    not_happened: int
+
+
+def _calibration_engine():
+    """지문 산출용 V2 엔진 — 캘리브레이션 라우터와 같은 인스턴스(싱글턴, 채점 전용)."""
+    from .reality_calibration import _get_engine
+
+    return _get_engine()
+
+
+def _owned_message_thread(history: ChatHistoryStore, message_id: int, owner_id: str) -> str:
+    """메시지 → 스레드 id(소유자 일치 강제, 아니면 404)."""
+    thread_id = history.message_thread(message_id)
+    if thread_id is None or history.owner_of(thread_id) != owner_id:
+        raise HTTPException(status_code=404, detail="메시지를 찾을 수 없습니다.")
+    return thread_id
+
+
+@router.post("/messages/{message_id}/feedback", status_code=204)
+def message_feedback(
+    message_id: int, body: MessageFeedback, owner_id: OwnerId, history: History,
+) -> None:
+    """답변 평가 저장(소스 ②). 점수에는 쓰지 않고 후속 확인 우선순위·감수 자료로만 쓴다."""
+    _owned_message_thread(history, message_id, owner_id)
+    history.merge_message_meta(message_id, {
+        "feedback": {
+            "rating": body.rating,
+            "note": (body.note or "").strip() or None,
+            "at": datetime.now(UTC).isoformat(timespec="seconds"),
+        },
+    })
+
+
+@router.get("/followups", response_model=FollowupPrompt)
+def next_followup(
+    subject_id: str, owner_id: OwnerId, history: History, subjects: Subjects,
+) -> FollowupPrompt:
+    """이 명식의 답변 중 기간이 지난 후보가 있는 가장 최근 답변 1건의 후속 확인 질문(소스 ③).
+
+    👍 평가가 있는 답변을 먼저 묻고, 그다음 최근 순. 후보 기간 판정은 절기 월운 라벨 기준.
+    """
+    rec = subjects.get(subject_id)
+    if rec is None or rec.owner_id != owner_id:
+        raise HTTPException(status_code=404, detail="대상을 찾을 수 없습니다.")
+    today = date.today()
+    luck_month = chat_service._current_luck_month(today)
+    rows = history.followup_messages(owner_id, subject_id)
+    rows.sort(key=lambda r: 0 if (r["meta"].get("feedback") or {}).get("rating") == "up" else 1)
+    for r in rows:
+        cands = elapsed_candidates(
+            list(r["meta"].get("followup") or []), current_luck_month=luck_month, today=today,
+        )
+        if cands:
+            return FollowupPrompt(
+                message_id=r["id"], thread_id=r["thread_id"], asked_at=r["created_at"],
+                title=r["title"], question=followup_question(cands), candidates=cands,
+            )
+    return FollowupPrompt()
+
+
+@router.post("/followups/{message_id}", response_model=FollowupSubmitResult)
+def submit_followup(
+    message_id: int, body: FollowupSubmission, owner_id: OwnerId, history: History,
+    subjects: Subjects, life_events: LifeEvents,
+) -> FollowupSubmitResult:
+    """후속 확인 답을 `delayed_outcome` 행으로 적재하고 메시지를 응답 완료로 표시한다."""
+    rec = subjects.get(body.subject_id)
+    if rec is None or rec.owner_id != owner_id:
+        raise HTTPException(status_code=404, detail="대상을 찾을 수 없습니다.")
+    thread_id = _owned_message_thread(history, message_id, owner_id)
+    msg = next((m for m in history.get_messages(thread_id) if m.get("id") == message_id), None)
+    meta = (msg or {}).get("meta") or {}
+    if meta.get("subject_id") != body.subject_id:
+        raise HTTPException(status_code=409, detail="이 답변은 다른 사주의 것이에요.")
+    today = date.today()
+    luck_month = chat_service._current_luck_month(today)
+    cands = elapsed_candidates(
+        list(meta.get("followup") or []), current_luck_month=luck_month, today=today,
+    )
+    chart = calculate(rec.birth.model_copy(update={"reference_date": today}))
+    # 채팅 후보는 legacy 라 지문이 비어 있다 — 캘리브레이션 제출과 같은 규칙으로 여기서 산출.
+    cands = resolve_fingerprints(
+        cands, birth=rec.birth, engine=_calibration_engine(), calculate=calculate,
+    )
+    rows = rows_from_followup(
+        subject_id=body.subject_id, owner_id=owner_id, pillars_sig=pillars_signature(chart),
+        answers=body.answers, candidates=cands,
+    )
+    stored = life_events.append_rows(rows)
+    history.merge_message_meta(message_id, {
+        "followup_answered": {
+            "at": datetime.now(UTC).isoformat(timespec="seconds"),
+            "answers": [a.model_dump(mode="json") for a in body.answers],
+        },
+    })
+    return FollowupSubmitResult(
+        stored=stored,
+        confirmed=sum(1 for r in rows if r.outcome is LifeEventOutcome.CONFIRMED),
+        not_happened=sum(1 for r in rows if r.outcome is LifeEventOutcome.NOT_HAPPENED),
+    )

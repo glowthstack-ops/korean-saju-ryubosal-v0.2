@@ -3,6 +3,7 @@
 
 import { deleteJSON, getJSON, postJSON, putJSON } from "./api";
 import type {
+  CalibrationStatus,
   CalibrationResult,
   PersonaConfig,
   ProfileResponse,
@@ -152,22 +153,35 @@ export function listReportJobs(): Promise<ReportJobSummary[]> {
 }
 
 // ── 현실 신호 캘리브레이션(개인 현실 사건 수집 — LEI) ──────────
+export type CalibrationMode = "full" | "refresh";
+
 export function getRealityCalibration(
   subjectId: string,
+  mode: CalibrationMode = "full",
 ): Promise<RealityCalibrationQuestionSet> {
   return getJSON<RealityCalibrationQuestionSet>(
-    `/api/v2/reality-calibration/${subjectId}/questions`,
+    `/api/v2/reality-calibration/${subjectId}/questions?mode=${mode}`,
   );
 }
 
 export function submitRealityCalibration(
   subjectId: string,
   answers: RealityCalibrationYearAnswer[],
+  mode: CalibrationMode = "full",
 ): Promise<RealityCalibrationSubmitResult> {
   return postJSON<RealityCalibrationSubmitResult>(
     `/api/v2/reality-calibration/${subjectId}/submit`,
-    { subject_id: subjectId, answers },
+    { subject_id: subjectId, answers, mode },
   );
+}
+
+// 사건 수집 상태(미완료 유도·연 1회 갱신 권유 근거). 실패하면 null — 배너를 띄우지 않는다.
+export async function getCalibrationStatus(subjectId: string): Promise<CalibrationStatus | null> {
+  try {
+    return await getJSON<CalibrationStatus>(`/api/v2/reality-calibration/${subjectId}/status`);
+  } catch {
+    return null;
+  }
 }
 
 // ── 직장 이력(자격득실 수준 입퇴사 — 정본 적재, EMPLOYMENT_HISTORY_CALIBRATION.md §4) ──
