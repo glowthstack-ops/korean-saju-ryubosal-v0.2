@@ -344,14 +344,19 @@ def build_counseling(
 
 
 def counseling_block_lines(
-    sem: CounselingSemantics, allowed_periods: tuple[str, ...] = ()
+    sem: CounselingSemantics,
+    allowed_periods: tuple[str, ...] = (),
+    review_periods: tuple[str, ...] = (),
 ) -> list[str]:
     """프롬프트 블록 직렬화 — 엔진 확정값만, LLM 재판정 금지 계약 동반.
 
     Args:
         sem: 상담 결론 의미론(엔진 파생).
         allowed_periods: 결정 행동(수락·계약·실행) 권고를 붙여도 되는 시기 = 이벤트 후보
-            기간 라벨. 비어 있으면 줄을 내지 않는다(기존 byte 유지).
+            기간 라벨(진입 사건은 성사 달 후보만, 2026-10-24). 비어 있으면 줄을 내지 않는다
+            (기존 byte 유지) — 단 `review_periods` 가 있으면 '허용 시기 없음' 줄을 낸다.
+        review_periods: 진입 사건의 국면·압박 후보 달 — 준비·검토까지만 서술하고 결정 권고를
+            붙이지 않는다(2026-10-24, 성사 달 후보와 분리).
     """
     if sem.summary_stance == "UNAVAILABLE" and not sem.stages:
         return []  # 판단 재료 전무 — 블록 자체를 내지 않는다(빈 슬롯 침묵)
@@ -399,6 +404,17 @@ def counseling_block_lines(
             "결정 행동(수락·계약·실행) 허용 시기: " + ", ".join(allowed_periods)
             + " — 이 목록에 없는 시기는 준비·검토까지만 서술하고 수락·계약·실행 권고를 "
             "붙이지 말 것"
+        )
+    elif review_periods:
+        lines.append(
+            "결정 행동(수락·계약·실행) 허용 시기: 없음 — 창 안 후보가 전부 성사 기준에 못 미쳐 "
+            "모든 달을 준비·검토까지만 서술하고 수락·계약·실행 권고를 붙이지 말 것"
+        )
+    if review_periods:
+        lines.append(
+            "준비·검토 시기(결정 권고 금지): " + ", ".join(review_periods)
+            + " — 사건 신호는 있으나 성사 기준에 못 미치는 달. 제안·접수·면접이 오가는 과정으로 "
+            "서술하고 수락·계약 권고는 붙이지 말 것"
         )
     lines.append(
         "[상담 서술 계약] 답변에 ①무엇이 움직이는지 ②단계별로 어디가 힘들고 어디가 "

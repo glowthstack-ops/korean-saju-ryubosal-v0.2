@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Iterable
 from datetime import date as date_cls
 from datetime import timedelta
 from typing import TYPE_CHECKING
@@ -853,6 +854,33 @@ SINGLE_PERIOD_SUMMARY_HEADER = (
     "[질문 달 종합 — 창에 달이 하나라 순위 없음. 아래 우세 사건·유불리·주의를 그대로 함께 "
     "밝히되, '가장 유력한 달'·'1위' 같은 비교 표현은 쓰지 말 것(이 달의 절대 강도 표현만 따를 것)]"
 )
+
+
+#: 질문 사건을 '동반 신호로만' 격하하지 않는 점수 하한 — tone_for_score '가능성이 높습니다'(70).
+ASKED_EVENT_STRONG_MIN = 70
+
+
+def asked_event_score_in_period(
+    candidates: Iterable[object], period: str, event_key: object | None,
+) -> int | None:
+    """그 기간에 선별된 질문 사건 후보의 최고 점수(없으면 None).
+
+    유력 달 종합의 '동반 신호로만' 격하 판정 입력(2026-10-24). 후보의 event_key 는 enum 또는
+    문자열 어느 쪽이든 value 로 비교한다.
+    """
+    if event_key is None:
+        return None
+    asked = getattr(event_key, "value", None) or str(event_key)
+    best: int | None = None
+    for c in candidates:
+        if str(getattr(c, "period", "")) != period:
+            continue
+        key = getattr(c, "event_key", "")
+        if (getattr(key, "value", None) or str(key)) != asked:
+            continue
+        score = int(getattr(c, "score", 0))
+        best = score if best is None or score > best else best
+    return best
 
 
 def tone_for_score(score: int) -> str:
@@ -3251,11 +3279,24 @@ def serialize_llm_input(payload: LlmInput) -> str:
                     bits.append(f"운 품질 {mr.luck_grade}")
                 # 질문 사건과 그 달 우세 사건이 다르면 명시 — 사건명 단정 오류 방지
                 # (regression_2025_08: 甲申월은 이사 우세, 이직은 동반 2순위).
+                # 단 질문 사건 자체가 그 달의 강한 후보(가능성이 높습니다 이상)로 선별돼 있으면
+                # 격하하지 않는다 — 이벤트 후보 블록('취업 성사 매우 강')과 이 줄('동반 신호로만')이
+                # 서로 충돌하던 실답(2026-10-24 web-mvm8zqyr 1턴) 교정. 둘을 함께 서술하게 한다.
                 if asked_ko and dominant and dominant != asked_ko:
-                    bits.append(
-                        f"※ 이 달의 주된 신호는 '{dominant}' — "
-                        f"질문하신 '{asked_ko}'은(는) 동반 신호로만 서술할 것"
+                    _asked_score = asked_event_score_in_period(
+                        payload.event_candidates, mr.period, payload.resolved_intent.event_key,
                     )
+                    if _asked_score is not None and _asked_score >= ASKED_EVENT_STRONG_MIN:
+                        bits.append(
+                            f"※ 이 달의 최상위 신호는 '{dominant}'이고 질문하신 '{asked_ko}'도 "
+                            f"강한 후보({tone_for_score(_asked_score)})로 함께 있다 — 둘을 함께 "
+                            f"서술하고 '{asked_ko}'을(를) 동반 신호로 격하하지 말 것"
+                        )
+                    else:
+                        bits.append(
+                            f"※ 이 달의 주된 신호는 '{dominant}' — "
+                            f"질문하신 '{asked_ko}'은(는) 동반 신호로만 서술할 것"
+                        )
                 if mr.branch_ko:
                     # 골자는 '누락 금지'라 형제 판별 지시를 여기에 직접 — 표 하단 범례만으론
                     # 우세 사건명에 고정돼 형제(이사 등)가 무시되는 실로그 결함(regression_2025_08).

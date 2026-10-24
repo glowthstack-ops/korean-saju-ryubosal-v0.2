@@ -243,7 +243,10 @@ def _run_chat_answer(
         # 답변 끝 제안(offer)을 스레드 상태에 반영 — 다음 턴 offer-slot 링킹의 근거.
         # 동기 경로 전용이던 갱신이 비동기 경로에서 누락돼 후속이 too_broad로 끊기던
         # 결함 교정(2026-07-21).
-        chat_service.update_thread_offer(thread_id, answer)
+        chat_service.update_thread_offer(
+            thread_id, answer,
+            engine_slots=(postprocess.entry_slots_engine if postprocess is not None else None),
+        )
     except TokenBudgetExceeded as exc:
         # 입력 상한 초과(2026-09-11 실로그 #650~654: 일반 오류문으로 3회 연속 종료) —
         # 오류가 아니라 범위 좁히기 안내로 마감한다. 한도 상수는 바꾸지 않는다(절대원칙 9).
@@ -395,7 +398,12 @@ def chat(
         # 되물음 답변이 링킹된다(2026-08-04: 배경 경로와 동일 계약).
         # 대화 상태 자체는 prep 단계에서 이미 영속화되어 있다(history 만 없다).
         if req.thread_id:
-            chat_service.update_thread_offer(req.thread_id, answer)
+            chat_service.update_thread_offer(
+                req.thread_id, answer,
+                engine_slots=(
+                    prep.postprocess.entry_slots_engine if prep.postprocess is not None else None
+                ),
+            )
 
     # 정책/범위/need_subject(즉시 응답) — 로그인+스레드+DB면 동기 영속화.
     return _finish_immediate(prep, req, owner_id, history)

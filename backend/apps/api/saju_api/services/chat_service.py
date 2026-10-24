@@ -35,6 +35,7 @@ from saju_engines import (
 from saju_engines.agent_relations import agent_relation_lines, detect_agent_question
 from saju_engines.ai_tell_audit import audit_ai_tells
 from saju_engines.answer_label_audit import (
+    audit_entry_candidate_coverage,
     audit_intensity_claims,
     entry_window_labels_present,
     extract_entry_slots,
@@ -83,6 +84,12 @@ from saju_engines.date_answer_audit import rewrite_avoid_ranges, strip_after_clo
 from saju_engines.date_selection import DateSelectionEngine
 from saju_engines.effective_subjects import AttachedCompanion, build_effective_subjects
 from saju_engines.entry_channel import ENTRY_CHANNEL_DIRECTIVE, entry_channel_lines
+from saju_engines.entry_slots import (
+    assign_entry_slots,
+    entry_slot_directive,
+    is_earliest_question,
+    resolve_mode,
+)
 from saju_engines.event_engine_config import build_event_engine_v2
 from saju_engines.event_lexicon import event_narration_directive
 from saju_engines.gongmang_claim_audit import audit_gongmang_claims
@@ -887,6 +894,9 @@ class ChatPostprocessContext(BaseModel):
     # 진입 시기 두 칸 지시가 붙은 턴 — 첫 문단 '성사 달·움직이는 달' 준수 관측(로그 전용,
     # 2026-10-22).
     entry_window: bool = False
+    # 두 칸 엔진 배정(2026-10-24) — {'done': 'YYYY-MM', 'move': 'YYYY-MM'}. 승계 저장의 1차 원천
+    # (LLM 답 파싱은 보조)이자 성사 달 후보 커버리지 감사의 기준. 배정 없으면 빈 dict.
+    entry_slots_engine: dict = Field(default_factory=dict)
     # 후속 확인(delayed outcome) 후보 — 답변이 제시한 미래·당월 사건 상위 3건(지문 포함).
     # 라우터가 답변 메시지 메타에 남기고, 기간이 지나면 실제 발생 여부를 묻는다(2026-10-24).
     followup: list[dict] = Field(default_factory=list)
@@ -1907,6 +1917,17 @@ def finalize_answer_full(
                 _logger.info(
                     "intensity_audit result=pass weak=%s thread=%s", _weak_periods, thread_id,
                 )
+        # 성사 달 후보 커버리지 감사(2026-10-24, 로그 전용) — 엔진 배정 성사 달이 답에서 빠졌는가.
+        # 실답(web-mvm8zqyr): 2027-04 성사 후보가 2턴 답에서 통째로 빠져 직전 턴과 모순.
+        if ctx.entry_window:
+            _assign = assign_entry_slots(list(ctx.payload.event_candidates))
+            if _assign is not None and _assign.done_periods:
+                _omitted = audit_entry_candidate_coverage(answer, _assign.done_periods)
+                _logger.log(
+                    logging.WARNING if _omitted else logging.INFO,
+                    "entry_candidate_coverage result=%s done=%s omitted=%s thread=%s",
+                    "violation" if _omitted else "pass", _assign.done_periods, _omitted, thread_id,
+                )
         # 이동 주체 단정 감사(2026-10-15) — 로그 전용, 답 불변.
         answer = _audit_mobility_agency_answer(answer, ctx.payload, ctx.question, thread_id)
         answer = _audit_ten_god_labels_answer(answer, ctx, thread_id)
@@ -2722,7 +2743,10 @@ def _offer_is_question(offer: str) -> bool:
 
 
 def update_thread_offer(
-    thread_id: str, answer: str, store: ConversationStore | None = None
+    thread_id: str,
+    answer: str,
+    store: ConversationStore | None = None,
+    engine_slots: dict | None = None,
 ) -> None:
     """백그라운드 생성 완료 후 스레드 last_offer 갱신 — 비동기 경로 offer-slot 링킹 소생.
 
@@ -2732,6 +2756,10 @@ def update_thread_offer(
     '12개월 내에는 없어?'가 NEW→too_broad). 동기 경로와 동일 계약: 비offer·실패 답변이면
     ''(자동 만료). 사용자가 답변 생성 중 새 턴을 보내는 드문 경합에선 늦게 끝난 쪽이
     남지만, 폴링 UI 특성상 실사용 영향은 무시 가능. 로드/저장 실패는 무해(링킹만 비활성).
+
+    Args:
+        engine_slots: 이번 턴 두 칸 엔진 배정(prep 의 postprocess.entry_slots_engine) — 승계
+            저장 1차 원천(2026-10-24).
     """
     try:
         store = store or ConversationStore()
@@ -2740,14 +2768,18 @@ def update_thread_offer(
             return
         state.last_offer = _extract_offer(answer)
         # 시스템 발언 원장 갱신 + shadow 감사 — 비동기 경로도 동기 경로와 같은 계약(2026-10-01).
-        _record_answer_commitments(state, answer, thread_id)
+        _record_answer_commitments(state, answer, thread_id, engine_slots=engine_slots)
         store.save(state)
     except Exception:  # noqa: BLE001 — offer 갱신 실패가 답변 영속을 막으면 안 된다
         _logger.exception("last_offer 갱신 실패 — offer-slot 링킹만 비활성 thread=%s", thread_id)
 
 
 def _record_answer_commitments(
-    state: ConversationState, answer: str, thread_id: str | None, today: date | None = None
+    state: ConversationState,
+    answer: str,
+    thread_id: str | None,
+    today: date | None = None,
+    engine_slots: dict | None = None,
 ) -> None:
     """답변 확정 후: 추천·판정 문장을 시스템 발언 원장에 병합하고 정정·조건 준수를 shadow 감사한다.
 
@@ -2758,10 +2790,11 @@ def _record_answer_commitments(
 
     Args:
         today: 연도 없는 'N월'을 풀 기준일(미지정 시 오늘).
+        engine_slots: 두 칸 엔진 배정(있으면 답 파싱보다 우선, 2026-10-24).
     """
     if not answer:
         return
-    _record_entry_slots(state, answer, today or date.today(), thread_id)
+    _record_entry_slots(state, answer, today or date.today(), thread_id, engine_slots=engine_slots)
     try:
         ctx = state.last_challenge_context or {}
         audit = audit_answer(
@@ -4532,6 +4565,34 @@ def _entry_window_weak_note(candidates: list[LlmEventCandidate], intent: IntentJ
     return _ENTRY_WINDOW_WEAK_NOTE.format(event=event, reason="·".join(reasons))
 
 
+def _entry_slot_block(
+    candidates: list[LlmEventCandidate], intent: IntentJson, question: str,
+) -> tuple[str | None, dict[str, str]]:
+    """두 칸 엔진 배정 — (지시문, 승계 저장용 {'done','move'}). 월 진입 후보가 없으면 (None, {}).
+
+    배정은 `saju_engines.entry_slots.assign_entry_slots`(채팅·리포트 공용)이 한다. '최대한 빨리'
+    질문이면 가장 이른 성사 달 후보를 성사 달로 못박는다.
+    """
+    assignment = assign_entry_slots(candidates)
+    if assignment is None:
+        return None, {}
+    # 두 모드 병행 관측(§4-7) — 운영 모드와 다른 모드의 성사 달 후보를 로그로 남겨 전환 전후 비교.
+    other_mode = "direction" if assignment.mode == "trigger" else "trigger"
+    other = assign_entry_slots(candidates, mode=other_mode)
+    _logger.info(
+        "entry_slot_modes mode=%s done=%s move=%s other_mode=%s other_done=%s",
+        assignment.mode, assignment.done_periods, assignment.move_periods,
+        other_mode, other.done_periods if other is not None else [],
+    )
+    ganji = {c.period: c.ganji for c in candidates if len(c.period) == 7 and c.ganji}
+    event = event_ko(intent.event_key) if intent.event_key is not None else "진입 사건"
+    directive = entry_slot_directive(
+        assignment, event_ko=event, ganji_by_period=ganji,
+        earliest_asked=is_earliest_question(question),
+    )
+    return directive, assignment.to_state_slots()
+
+
 #: 직전 안내 유지 지시(2026-10-23) — 같은 진입 사건의 시점 후속에 직전 두 칸을 주입한다.
 _PRIOR_ENTRY_SLOTS_DIRECTIVE = (
     "[진입 시기 — 직전 안내 유지] 이 스레드에서 직전에 {slots}로 안내했다. 이번에 물은 "
@@ -4540,24 +4601,55 @@ _PRIOR_ENTRY_SLOTS_DIRECTIVE = (
     "올리지 말 것 — 자료가 직전 안내와 "
     "다르게 읽히면 '직전에 안내한 성사 달은 그대로이고, 이 달은 …'처럼 둘을 함께 말하라."
 )
+#: 직전 안내 유지 — 시점을 열어 둔 '언제' 후속(2026-10-24, 실답 web-mvm8zqyr: 1턴 '내년 4월 취업' →
+#: 2턴 '최대한 빨리 언제'가 성사 달을 2027-04에서 2027-02(국면 달)로 뒤집음).
+_PRIOR_ENTRY_SLOTS_OPEN_DIRECTIVE = (
+    "[진입 시기 — 직전 안내 유지] 이 스레드에서 직전에 {slots}로 안내했다. 이번 질문은 시점을 "
+    "열어 둔 '언제' 질문이다 — 직전 성사 달을 뒤집어 다른 달을 새 성사 달로 올리지 말 것. 그보다 "
+    "이른 달은 '그 앞 단계(움직이는 달·준비)'로 두고, 자료가 직전 안내와 다르게 읽히면 '직전에 "
+    "안내한 성사 달은 그대로이고, 이 달은 …'처럼 둘을 함께 말하라."
+)
 
 
 def _record_entry_slots(
-    state: ConversationState, answer: str, today: date, thread_id: str | None
+    state: ConversationState,
+    answer: str,
+    today: date,
+    thread_id: str | None,
+    engine_slots: dict | None = None,
 ) -> None:
-    """진입 사건 답의 첫 문단에서 성사 달·움직이는 달을 뽑아 상태에 저장한다(없으면 기존 유지).
+    """진입 사건 답의 성사 달·움직이는 달을 상태에 저장한다(없으면 기존 유지).
 
-    실패는 로그만(답변 영속·원장 갱신과 무관).
+    1차 원천은 엔진 배정(`engine_slots`, 2026-10-24) — 실답(web-mvm8zqyr)에서 1턴 답이 두 칸 표지를
+    쓰지 않아 파싱이 비고, 승계가 끊겨 2턴이 성사 달을 뒤집었다. 엔진 배정의 'done'은 항상 우선하고,
+    'move'는 답 파싱값이 있으면 그것(사용자 리드타임 반영)·없으면 엔진값. 둘이 어긋나면 로그로
+    남긴다. 실패는 로그만(답변 영속·원장 갱신과 무관).
     """
     try:
         li = state.last_intent
         if li is None or li.event_key not in _ENTRY_CHANNEL_KEYS:
             return
-        slots = extract_entry_slots(answer, today)
-        if not slots:
+        parsed = extract_entry_slots(answer, today)
+        engine = {k: v for k, v in (engine_slots or {}).items() if k in ("done", "move") and v}
+        if not parsed and not engine:
             return
+        slots: dict[str, str] = {}
+        if engine.get("done"):
+            slots["done"] = engine["done"]
+        elif parsed.get("done"):
+            slots["done"] = parsed["done"]
+        if parsed.get("move"):
+            slots["move"] = parsed["move"]
+        elif engine.get("move"):
+            slots["move"] = engine["move"]
+        if engine.get("done") and parsed.get("done") and engine["done"] != parsed["done"]:
+            _logger.warning(
+                "entry_slots_mismatch engine_done=%s answer_done=%s thread=%s",
+                engine["done"], parsed["done"], thread_id,
+            )
         state.entry_slots = {
             **slots, "event_key": li.event_key.value, "turn_no": state.turn_no,
+            "source": "engine" if engine.get("done") else "answer",
         }
         _logger.info("entry_slots_recorded slots=%s thread=%s", state.entry_slots, thread_id)
     except Exception:  # noqa: BLE001 — 승계 저장 실패는 답변 영속과 무관
@@ -4567,26 +4659,34 @@ def _record_entry_slots(
 def _prior_entry_slots_directive(
     state: ConversationState | None, intent: IntentJson, luck_month: str, *, is_followup: bool,
 ) -> str | None:
-    """직전 두 칸 승계 지시문 — 후속·같은 진입 사건·명시 시점·직전 달이 아직 지나지 않았을 때만.
+    """직전 두 칸 승계 지시문 — 같은 진입 사건·직전 달이 아직 지나지 않았을 때.
+
+    명시 시점 후속('11월은 어때?')과 시점을 열어 둔 '언제' 후속 둘 다 받는다(2026-10-24). 후속 링크
+    판정(`is_followup`)은 같은 사건 키가 아니면 보지 않는다 — 같은 스레드에서 같은 진입 사건을 다시
+    묻는 것 자체가 연속이며, 링크 규칙이 NEW 로 끊은 턴(실답 2턴 '최대한 빨리 취업하려면 언제')에서
+    승계가 비켜 가던 결함의 교정. 다른 사건 키·장기(연 단위) 질문은 주입하지 않는다.
 
     Args:
         luck_month: 현재 절기월 라벨(YYYY-MM) — 두 칸이 모두 지난 달이면 주입하지 않는다.
+        is_followup: 링크 판정(관측용 — 같은 사건 키면 가산 조건으로 쓰지 않는다).
     """
-    if state is None or not state.entry_slots or not is_followup:
+    del is_followup  # 같은 사건 키가 연속성의 근거(위 docstring)
+    if state is None or not state.entry_slots:
         return None
     slots = state.entry_slots
     if intent.event_key is None or intent.event_key.value != slots.get("event_key"):
-        return None
-    tr = intent.time_range
-    if tr is None or not tr.start or len(tr.start) < 7:
         return None
     live = {k: slots[k] for k in ("done", "move") if slots.get(k) and slots[k] >= luck_month}
     if not live:
         return None
     names = {"done": "성사 달", "move": "움직이는 달"}
     slots_ko = "·".join(f"{names[k]} {format_ym_ko(v)}" for k, v in live.items())
-    asked = format_ym_ko(tr.start[:7]) if len(tr.start) >= 7 else tr.start
-    return _PRIOR_ENTRY_SLOTS_DIRECTIVE.format(slots=slots_ko, asked=asked)
+    tr = intent.time_range
+    if tr is not None and tr.start and len(tr.start) >= 7:
+        return _PRIOR_ENTRY_SLOTS_DIRECTIVE.format(slots=slots_ko, asked=format_ym_ko(tr.start[:7]))
+    if tr is None or not tr.start:
+        return _PRIOR_ENTRY_SLOTS_OPEN_DIRECTIVE.format(slots=slots_ko)
+    return None  # 연 단위 명시('2027년')는 월 두 칸 승계 대상이 아니다
 
 
 #: 질문 기간 운 도화 블록의 범위 상한 — 날짜 14일·월 12개·연 3개(무관한 기간까지 일괄 확대 금지).
@@ -6554,11 +6654,22 @@ def chat(
     ):
         trailing.append(ENTRY_WINDOW_DIRECTIVE)
         _entry_window_on = True
+    _entry_slots_engine: dict = {}
     if _entry_window_on:
-        # 예외(2026-10-23): 창 안 후보가 전부 약함·검토월이면 성사 달로 세우지 않게 한다.
-        _weak_note = _entry_window_weak_note(list(payload.event_candidates), intent)
-        if _weak_note:
-            trailing.append(_weak_note)
+        # 예외(2026-10-23): 창 안 후보가 전부 약함·검토월이면 성사 달로 세우지 않게 한다 — direction
+        # 모드 전용. trigger 모드(§4-7)는 점수 하한·조건 등급이 배정 지시문에 들어 있어 중복 지시다.
+        if resolve_mode() == "direction":
+            _weak_note = _entry_window_weak_note(list(payload.event_candidates), intent)
+            if _weak_note:
+                trailing.append(_weak_note)
+        # 엔진 배정(2026-10-24): 성사 달 후보(결과 방향 긍정)와 움직이는(국면) 달 후보를 나눠
+        # 내린다 — 같은 사건 키의 국면 후보(압박·부담)가 '최대한 빨리' 질문에서 성사 달로 올라가던
+        # 결함 차단.
+        _slot_dir, _entry_slots_engine = _entry_slot_block(
+            list(payload.event_candidates), intent, question,
+        )
+        if _slot_dir:
+            trailing.append(_slot_dir)
         # 승계(2026-10-23): 직전 진입 답의 두 칸을 같은 사건의 시점 후속에 유지시킨다.
         _prior_slots = _prior_entry_slots_directive(
             state, intent, luck_month, is_followup=is_followup_turn,
@@ -6968,8 +7079,9 @@ def chat(
             health=intent.domain is Domain.HEALTH,
             minor=_minor_lifestage_directive_text(birth, intent, today) is not None,
         )
+        _allowed, _review = _decision_periods(payload)
         _sem_lines = counseling_arbiter.counseling_block_lines(
-            _sem, allowed_periods=_candidate_periods(payload)
+            _sem, allowed_periods=_allowed, review_periods=_review,
         )
         if _sem_lines:
             trailing.append("\n".join(_sem_lines))
@@ -7206,6 +7318,7 @@ def chat(
                 payload=payload, career_prep=_career_prep, prompt_text=prompt_text,
                 call_type=call_type, system=system, owner_id=owner_id, question=question,
                 entry_window=_entry_window_on, followup=_followup_meta,
+                entry_slots_engine=_entry_slots_engine,
             ),
         )
 
@@ -7270,7 +7383,7 @@ def chat(
             ChatPostprocessContext(
                 payload=payload, career_prep=_career_prep, prompt_text=prompt_text,
                 call_type=call_type, system=system, owner_id=owner_id, question=question,
-                entry_window=_entry_window_on,
+                entry_window=_entry_window_on, entry_slots_engine=_entry_slots_engine,
             ),
             thread_id,
         )
@@ -7298,7 +7411,9 @@ def chat(
         # (비offer면 '' → 자동 만료). offer-slot 링킹·월별 승격의 근거(2026-07-01).
         state.last_offer = _extract_offer(answer)
         # 시스템 발언 원장 갱신 + 정정·조건 준수 shadow 감사(2026-10-01) — 동기 경로.
-        _record_answer_commitments(state, answer, thread_id, today=today)
+        _record_answer_commitments(
+            state, answer, thread_id, today=today, engine_slots=_entry_slots_engine,
+        )
     _save_thread(store, state, owner_id)
     return ChatResponse(
         status="answered",
@@ -7597,8 +7712,29 @@ def _audit_career_transition_answer(
 
 
 def _candidate_periods(payload: LlmInput) -> tuple[str, ...]:
-    """이번 턴 이벤트 후보의 기간 라벨(순서 보존 dedup) — 결정 행동 허용 시기의 SSOT."""
+    """이번 턴 이벤트 후보의 기간 라벨(순서 보존 dedup)."""
     return tuple(dict.fromkeys(c.period for c in payload.event_candidates))
+
+
+def _decision_periods(payload: LlmInput) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """(결정 행동 허용 시기, 준비·검토 시기) — 결정 행동 허용 시기의 SSOT(arbiter 줄·커버리지 감사).
+
+    기본은 이벤트 후보 기간 전부. 진입 사건(입사·이직) 질문이면 월 후보를 두 칸 엔진 배정으로
+    나눠 성사 (가능) 달만 허용하고, 그 밖의 월 후보(움직이는 달·성사 기준 미달·약한 후보)는 모두
+    검토 시기로 돌린다(2026-10-24 — 실답에서 국면 달 2027-02 에 '수락 여부 결정' 권고가 붙었다).
+    연 단위 후보는 그대로 허용에 남긴다.
+    """
+    periods = _candidate_periods(payload)
+    ri = getattr(payload, "resolved_intent", None)
+    if ri is None or ri.event_key not in _ENTRY_CHANNEL_KEYS:
+        return periods, ()
+    assignment = assign_entry_slots(list(payload.event_candidates))
+    if assignment is None:
+        return periods, ()
+    done = set(assignment.done_periods)
+    allowed = tuple(p for p in periods if len(p) != 7 or p in done)
+    review = tuple(p for p in periods if len(p) == 7 and p not in done)
+    return allowed, review
 
 
 def _audit_month_coverage_answer(answer: str, payload: LlmInput, thread_id: str | None) -> str:
@@ -7630,7 +7766,7 @@ def _audit_month_coverage_answer(answer: str, payload: LlmInput, thread_id: str 
         if c.process_types:
             types_by_period.setdefault(c.period, set()).update(c.process_types)
     audit = audit_month_coverage(
-        answer, payload.monthly_overview, _candidate_periods(payload),
+        answer, payload.monthly_overview, _decision_periods(payload)[0],
         process_types_by_period=types_by_period or None,
     )
     if audit.passed:

@@ -56,6 +56,7 @@ from saju_engines.direction_suggestion import (
     select_direction_suggestions,
 )
 from saju_engines.entry_channel import ENTRY_CHANNEL_DIRECTIVE, entry_channel_lines
+from saju_engines.entry_slots import assign_entry_slots, entry_slot_directive
 from saju_engines.event_engine_config import (
     DaewoonHwaMode,
     active_event_engine_flags,
@@ -3831,6 +3832,11 @@ def build_section_context(
         # 채팅과 같은 공용 모듈·지시문(회사명 없음). 후보가 없으면 블록 없음(규칙 11).
         if sid in _ENTRY_WINDOW_SECTIONS:
             lines += ["", *data.entry_channel_block(), ENTRY_WINDOW_DIRECTIVE]
+            # 두 칸 엔진 배정(2026-10-24, 채팅과 동일 모듈) — 국면 후보 달을 성사 달로 세우지 않게
+            # 한다.
+            _slot_assignment = assign_entry_slots(data.domain_candidates("career"))
+            if _slot_assignment is not None:
+                lines.append(entry_slot_directive(_slot_assignment, event_ko="취업·이직"))
             if has_personal_repeat_signal(data.domain_candidates("career")):
                 lines.append(PERSONAL_REPEAT_DIRECTIVE)
             lines.append("")

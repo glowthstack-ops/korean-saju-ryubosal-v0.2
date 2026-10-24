@@ -116,6 +116,7 @@ def test_record_entry_slots_only_for_entry_events() -> None:
     _record_entry_slots(st, "성사 달 2027년 2월·움직이는 달 2026년 12월입니다.", _TODAY, "t")
     assert st.entry_slots == {
         "done": "2027-02", "move": "2026-12", "event_key": "job_gain", "turn_no": 4,
+        "source": "answer",  # 엔진 배정 없이 답 파싱만으로 저장된 경우(2026-10-24)
     }
     other = ConversationState(
         thread_id="t2", turn_no=1, last_intent=_intent(None, event=EventKey.RELOCATION),
@@ -132,14 +133,17 @@ def test_prior_slots_directive_conditions() -> None:
     d = _prior_entry_slots_directive(st, _intent("2026-11"), "2026-10", is_followup=True)
     assert d is not None
     assert "성사 달 2027년 2월" in d and "움직이는 달 2026년 12월" in d and "2026년 11월" in d
-    # 후속 아님 / 다른 사건 / 시점 미명시 / 두 달이 모두 지남 → 미주입.
+    # 2026-10-24 개정: 링크 판정이 NEW 여도 같은 진입 사건이면 주입(실답 '최대한 빨리 언제'가 NEW 로
+    # 끊겨 승계가 비켜 간 결함) / 시점 미명시('언제')는 열린 질문 문안으로 주입.
     assert _prior_entry_slots_directive(
         st, _intent("2026-11"), "2026-10", is_followup=False,
-    ) is None
+    ) is not None
+    d_open = _prior_entry_slots_directive(st, _intent(None), "2026-10", is_followup=True)
+    assert d_open is not None and "'언제' 질문" in d_open
+    # 다른 사건 / 두 달이 모두 지남 → 미주입.
     assert _prior_entry_slots_directive(
         st, _intent("2026-11", event=EventKey.RELOCATION), "2026-10", is_followup=True,
     ) is None
-    assert _prior_entry_slots_directive(st, _intent(None), "2026-10", is_followup=True) is None
     assert _prior_entry_slots_directive(st, _intent("2027-05"), "2027-03", is_followup=True) is None
 
 

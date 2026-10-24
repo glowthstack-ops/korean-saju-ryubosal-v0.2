@@ -172,3 +172,24 @@ def audit_intensity_claims(text: str, weak_periods: list[str]) -> list[tuple[str
             if month_re.search(sent) and _INFLATION_RE.search(sent):
                 hits.append((ym, sent.strip()[:80]))
     return hits
+
+
+# ── 성사 달 후보 커버리지 감사(로그 전용, 2026-10-24) ─────────────────────────────────────
+# 엔진이 성사 달 후보로 배정한 달이 답에 한 번도 언급되지 않았는가. 실답(web-mvm8zqyr): 2027-04
+# 성사 후보가 2턴 답에서 통째로 빠져 직전 턴과 모순. 교정하지 않고 발생만 센다.
+
+
+def month_mentioned(text: str, ym: str) -> bool:
+    """'YYYY-MM' 달이 본문에 언급됐는가.
+
+    '2027년 4월'·'4월'(연도 생략) 모두 인정하고 '12월' 안의 '2월'은 제외한다.
+    """
+    if not text or len(ym) < 7:
+        return False
+    y, m = int(ym[:4]), int(ym[5:7])
+    return re.search(rf"(?:{y}\s*년\s*)?(?<!\d){m}\s*월(?!\s*간)", text) is not None
+
+
+def audit_entry_candidate_coverage(text: str, done_periods: list[str]) -> list[str]:
+    """답에 언급되지 않은 성사 달 후보 — 비어 있으면 통과."""
+    return [ym for ym in done_periods if not month_mentioned(text, ym)]
