@@ -2338,21 +2338,37 @@ class _ReportData:
         lc = self.result.luck_cycles
         if lc is None:
             return []
+        # 2026-10-25(데굴님 승인, 합 체계 대조 P0-1): 종전에는 후보 기간 전체의 세운·월운·대운
+        # 글자를
+        # **집합**으로 합쳐 한 번에 판정해 ①서로 다른 기간의 운 글자끼리 쌍(운–운 합) ②같은 글자
+        # 중복 소실 ③운–운 쌍에도 "원국 글자 합거" 라벨이 붙었다. 기간별(그 기간 운 간지 + 그
+        # 기간이 속한 대운)로 따로 판정하고 기간·층위 라벨을 붙인다. 점수·후보 불변(서술 입력).
         by_label = {p.label: p.ganji for p in [*lc.yearly_luck, *lc.monthly_luck]}
-        cand_years = {int(c.period[:4]) for c in candidates if c.period[:4].isdigit()}
-        stems: set[str] = set()
-        branches: set[str] = set()
-        for c in candidates:
-            ganji = by_label.get(c.period) or by_label.get(c.period[:4])
-            if ganji and len(ganji) >= 2:
-                stems.add(ganji[0])
-                branches.add(ganji[1])
-        for d in lc.daewoon_table:  # 후보 연도를 커버하는 대운 간지
-            if any(d.approx_start_date.year <= y <= d.approx_end_date.year for y in cand_years):
-                if len(d.ganji) >= 2:
-                    stems.add(d.ganji[0])
-                    branches.add(d.ganji[1])
-        return luck_hap_mode_lines(self.result, sorted(stems), sorted(branches))
+
+        def _daewoon_for(year: int) -> str | None:
+            for d in lc.daewoon_table:
+                if d.approx_start_date.year <= year <= d.approx_end_date.year and len(d.ganji) >= 2:
+                    return d.ganji
+            return None
+
+        lines: list[str] = []
+        seen_periods: set[str] = set()
+        for c in sorted(candidates, key=lambda x: x.period):
+            period = c.period
+            if period in seen_periods:
+                continue
+            seen_periods.add(period)
+            ganji = by_label.get(period) or by_label.get(period[:4])
+            if not ganji or len(ganji) < 2 or not period[:4].isdigit():
+                continue
+            dw = _daewoon_for(int(period[:4]))
+            layer = f"[{period} {ganji}" + (f" · 대운 {dw}" if dw else "") + "]"
+            stack = [ganji] + ([dw] if dw and dw != ganji else [])
+            for ln in luck_hap_mode_lines(
+                self.result, [g[0] for g in stack], [g[1] for g in stack],
+            ):
+                lines.append(f"{layer} {ln}")
+        return list(dict.fromkeys(lines))
 
     def pattern_change_lines(self, candidates: list[EventCandidate]) -> list[str]:
         """후보 기간(연·월)의 운 적용 구조 상태 줄(F8-P1) — composite.pattern_states 읽기만(원칙 9).

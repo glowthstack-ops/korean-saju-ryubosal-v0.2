@@ -137,22 +137,29 @@ def test_binding_relations_are_not_clustered_as_strengthening(hierarchy):
     assert "rel_午未合" not in fire.member_ids
 
 
-def test_engine_conflict_is_preserved_but_excluded(hierarchy):
-    """탐지기는 성립, 의미 판정기는 미성립인 관계는 보존하되 사용하지 않는다.
+def test_gonghap_is_resolved_as_weak_partial(hierarchy):
+    """亥未(왕지 卯 없음)는 공합(가합)으로 의미가 확정된다 — ENGINE_CONFLICT 격리 해제(2026-10-25).
 
-    亥未는 InteractionDetector가 rel_卯未亥三合으로 감지하지만 resolve_branch_hap은
-    '반합은 왕지 포함만'이라 미성립으로 본다. 의미 미상으로 흘려보내면 LLM이 자체
-    지식으로 '亥未는 木 반합'이라 채운다.
+    종전: 탐지기는 rel_卯未亥三合 성립, resolve_branch_hap 은 버림 → 엔진 불일치로 격리.
+    이제 resolve_branch_hap 이 kind='gonghap'(tier none·strength 0.3)으로 판정해 의미가 붙는다.
+    확정 문장은 '부분 가세(미약)'이고 반합·삼합 성립·합화·묶임 서술은 금지한다.
     """
-    h, _ = hierarchy
-    conflict = next(i for i in h.interactions if i.interaction_id == "rel_卯未亥三合")
-    assert conflict.semantic_resolution_status is SemanticResolutionStatus.ENGINE_CONFLICT
-    assert conflict.formation_confirmed is False  # 성립 자체가 미확정
-    assert conflict.narrative_eligible is False
-    assert conflict.cluster_eligible is False
-    assert conflict.score_eligible is False
-    assert conflict.canonical_claim == ""
-    assert conflict.exclusion_reason  # 감사·telemetry용 사유 보존
+    from saju_shared_types.relation_semantics import FormationState
+
+    h, sems = hierarchy
+    inter = next(i for i in h.interactions if i.interaction_id == "rel_卯未亥三合")
+    assert inter.semantic_resolution_status is SemanticResolutionStatus.RESOLVED
+    assert inter.formation_state is FormationState.PARTIAL
+    sem = next(s for s in sems if s.kind == "gonghap" and set(s.members) == {"亥", "未"})
+    assert "부분 가세(미약)" in sem.canonical_claim or any(
+        "부분 가세(미약)" in a for a in sem.allowed_interpretations
+    )
+    assert any("반합·삼합이 성립했다고" in f for f in sem.forbidden_interpretations)
+    # 격리 없음 — 불일치 관계가 남아 있지 않다.
+    assert not any(
+        i.semantic_resolution_status is SemanticResolutionStatus.ENGINE_CONFLICT
+        for i in h.interactions
+    )
 
 
 def test_clash_is_narratable_but_not_scored(hierarchy):
@@ -354,8 +361,8 @@ def test_structural_and_conflict_are_not_scored(hierarchy):
     expected = {
         # 충 — 성립 확정, 길흉 규칙만 미정. 서술과 변동성에는 남는다.
         "rel_丙壬沖": (ScoreExclusionReason.STRUCTURAL_ONLY, True, "structural_tension"),
-        # 엔진 불일치 — 성립 자체가 미확정. 변동성도 반영 금지.
-        "rel_卯未亥三合": (ScoreExclusionReason.ENGINE_CONFLICT, False, None),
+        # 공합(가합, 2026-10-25) — 성립·의미 확정이나 미약. 점수·변동성 제외, 서술만.
+        "rel_卯未亥三合": (ScoreExclusionReason.WEAK_PARTIAL, False, "neutral_activation"),
     }
     for rid, (reason, volatility, axis) in expected.items():
         inter = next(i for i in h.interactions if i.interaction_id == rid)

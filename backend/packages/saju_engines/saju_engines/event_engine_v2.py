@@ -10,6 +10,8 @@ reviewed:false 사전 초안 기반이므로 점수 절대값보다 상대 순�
 
 from __future__ import annotations
 
+import json
+import logging
 import math
 import threading as _threading
 from collections.abc import Collection, Mapping
@@ -17,6 +19,7 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from types import MappingProxyType
+from typing import Any
 
 from saju_manse_analysis.relations.hap_mitigation import resolve_hap_mitigation
 from saju_manse_analysis.relations.hap_modes import resolve_stem_hap
@@ -26,9 +29,11 @@ from saju_manse_analysis.yongsin.operational_role_config import is_unfavorable_r
 
 from saju_shared_types.constants import (
     BRANCH_ELEMENT,
+    SIX_COMBINATIONS,
     STEM_CLASHES,
     STEM_ELEMENT,
     main_hidden_stem,
+    season_state,
     ten_god,
 )
 from saju_shared_types.enums import Branch, Stem
@@ -252,6 +257,7 @@ class EventEngineV2:
         enable_transit_clash_support: bool = False,
         enable_role_event_seed: bool = False,
         role_event_seed_rule_ids: Collection[str] | None = None,
+        tamhap_mangchung_mode: str = "shadow",
     ) -> None:
         """재설계 6계층 + 만세 신호 추출에 필요한 사전을 로드한다.
 
@@ -282,6 +288,9 @@ class EventEngineV2:
             enable_peer_gisin_mobility: 비겁 기신 × 비겁 운 유입 → career_change 시드(용신 시드의
                 대칭, 2026-10-15 데굴님 확정, 기본 ON). 사전 `peer_gisin_mobility_rules` 절.
                 OFF면 불변.
+            tamhap_mangchung_mode: 탐합망충(2026-10-25 P0-4) 'off'|'shadow'|'apply'. shadow 는
+                적용 후보를 로그·`take_tamhap_shadow()` 로만 남기고 점수 불변, apply 는 사전
+                `relationAlso: six_combination` 감점을 이동형 후보 점수에 곱한다(측정 전용).
             enable_yearly_ten_god_signals: 세운 육신별 사건 신호 5계열(외부 교재 6장 대조,
                 2026-10-15, 기본 ON — 85사례 재생으로 적중 확인 후 유지). 사전
                 `yearly_ten_god_signal_rules`. OFF면 불변.
@@ -319,6 +328,11 @@ class EventEngineV2:
             frozenset(role_event_seed_rule_ids) if role_event_seed_rule_ids is not None else None
         )
         # 세운 육신별 사건 신호(2026-10-15, 교재 6장 대조) — 사전 절 부재·OFF면 불변.
+        self._tamhap_mode = tamhap_mangchung_mode
+        self._tamhap_rules = (
+            load_tamhap_rules(dictionaries_dir) if tamhap_mangchung_mode != "off" else {}
+        )
+        self._tamhap_shadow: list[dict[str, Any]] = []
         self._yearly_rules = (
             load_yearly_signal_rules(dictionaries_dir) if enable_yearly_ten_god_signals else ()
         )
@@ -469,6 +483,87 @@ class EventEngineV2:
         위해 동작 계약을 바꾸는 일이 되기 때문이다.
         """
         return tuple(getattr(self._risk_tls, "last", ()) or ())
+
+    def take_tamhap_shadow(self) -> list[dict[str, Any]]:
+        """탐합망충 shadow 기록을 비우며 반환(측정 스크립트용)."""
+        out, self._tamhap_shadow = self._tamhap_shadow, []
+        return out
+
+    def _apply_tamhap_mangchung(
+        self,
+        cands: list[EventCandidateV2],
+        target: LuckPillar,
+        result: ManseV2Result,
+        fav_map: dict[str, str],
+        hits: list[RelationHit],
+        stack: list[tuple[LuckLayer, LuckPillar]],
+        label: str,
+    ) -> list[EventCandidateV2]:
+        """탐합망충(貪合忘沖) — 운 충의 구성 지지가 같은 기간 육합으로 묶이면 이동 발동 약화.
+
+        통설(2026-10-25 조사): 합이 충을 자동 해소하는 것이 아니라 월령·뿌리·거리·완성도를 비교한다.
+        그래서 육합 판정(`resolve_branch_hap`)이 tier none 이 아닌(confirmed/conditional) 경우에만
+        '묶임'으로 본다. 대상은 사전 `relationAlso: six_combination` 규칙의 사건(career_change·
+        relocation)이며 감점은 사전 값(-0.2/-0.25)을 점수에 곱한다. shadow 모드는 기록만.
+        """
+        if result.pillars is None or not target.branch:
+            return cands
+        clash_hits = [h for h in hits if h.type is RelationType.BRANCH_CLASH]
+        if not clash_hits:
+            return cands
+        # 충 구성 지지(운 지지·맞은 원국 지지)가 원국·운 스택의 다른 지지와 육합 짝인가.
+        # 합 자체의 월령 조건(化神 왕·상·휴 — 사·수(囚)면 합이 충을 붙잡을 힘이 없다)만 본다:
+        # `resolve_branch_hap` 의 등급은 '구성 지지가 충을 받음'을 방해로 쳐서(P0-5) 여기서는
+        # 항상 none 이 되므로 쓰지 않는다 — 탐합망충은 바로 그 충·합 경쟁을 묻는 판정이다.
+        pil = result.pillars
+        natal_branches = [
+            x.branch for x in (pil.year, pil.month, pil.day, pil.hour) if x is not None
+        ]
+        pool = list(dict.fromkeys(
+            [*natal_branches, *(p.branch for _, p in stack if p.branch)]
+        ))
+        month_branch = Branch(pil.month.branch)
+        bound: list[str] = []
+        for h in clash_hits:
+            struck = [ref.branch for ref in h.natal_refs if ref.side == "natal" and ref.branch]
+            for member in dict.fromkeys([target.branch, *struck]):
+                for other in pool:
+                    if other == member:
+                        continue
+                    elem = SIX_COMBINATIONS.get(frozenset({Branch(member), Branch(other)}))
+                    if elem is None:
+                        continue
+                    season = season_state(elem, month_branch)
+                    if season in ("qiu", "si"):
+                        continue  # 합이 월령을 잃어 충을 붙잡지 못함
+                    bound.append(f"{member}{other}合({elem.value}·{season})")
+        if not bound:
+            return cands
+        bound = list(dict.fromkeys(bound))
+        affected = [c for c in cands if str(c.event_key) in self._tamhap_rules]
+        self._tamhap_shadow.append({
+            "period": label, "luck_branch": target.branch, "bound_by": bound,
+            "events": [str(c.event_key) for c in affected], "mode": self._tamhap_mode,
+        })
+        _logger.info(
+            "tamhap_mangchung mode=%s period=%s luck=%s bound_by=%s events=%s",
+            self._tamhap_mode, label, target.branch, bound, [str(c.event_key) for c in affected],
+        )
+        if self._tamhap_mode != "apply" or not affected:
+            return cands
+        code = f"合_탐합망충_{target.branch}:{'·'.join(bound)}"
+        out: list[EventCandidateV2] = []
+        for c in cands:
+            delta = self._tamhap_rules.get(str(c.event_key))
+            if delta is None or code in c.reason_codes:
+                out.append(c)
+                continue
+            out.append(c.model_copy(update={  # provenance-audit: not-risk (EventCandidateV2)
+                "score": max(0, round(c.score * (1.0 + delta))),
+                "reason_codes": [*c.reason_codes, code],
+                "contributions": {**c.contributions, "tamhap_mangchung": delta},
+            }))
+        return out
 
     def take_relationship_shadow(self) -> tuple[RelationshipShadowProjection, ...]:
         """직전 score() 호출(같은 스레드)의 관계 탐지 불변 projection(P1-6 §12).
@@ -847,6 +942,12 @@ class EventEngineV2:
             # 이중 충(2026-10-15, 교재 2장·기타절 '원국 충이 있는데 운이 또 충하면 큰 화·충 둘은
             # 불가') — favorability 만 소폭 감점, 점수·순위·사건 종류 불변.
             cands = _apply_double_clash_flag(cands, target, result, hits)
+        if self._tamhap_rules:
+            # 탐합망충(2026-10-25 P0-4) — shadow 는 기록만, apply 는 이동형 후보 점수 감산
+            # (측정 전용).
+            cands = self._apply_tamhap_mangchung(
+                cands, target, result, fav_map, hits, stack, label,
+            )
         # 시험·합격·취업 결과 길흉 — 십성 구조 합·불 패턴으로 favorability만 보정(점수 불변,
         # 자료 9-3·9-4). 극성 NEUTRAL이어도 적용되도록 yongi 블록 밖에서 호출한다.
         cands = self._exam.apply(cands, present_gods)
@@ -1641,6 +1742,35 @@ def _apply_structure_background(
             **({"contributions": {**c.contributions, "fav_adj": round(prev + delta, 4)}}
                if delta else {}),
         }))
+    return out
+
+
+_logger = logging.getLogger(__name__)
+_TIER_KO_SHORT = {"confirmed": "확정", "conditional": "조건부", "none": "불성"}
+
+
+def load_tamhap_rules(dictionaries_dir: Path) -> dict[str, float]:
+    """events/*.json 의 탐합망충 규칙(signal.relation=branch_clash + relationAlso=six_combination)
+    → {사건 키: 감점 비율}. 종전에는 검증만 되고 소비자가 없던 사전 항목(2026-10-25 P0-4)."""
+    out: dict[str, float] = {}
+    events_dir = Path(dictionaries_dir) / "events"
+    if not events_dir.is_dir():
+        return out
+    for path in sorted(events_dir.glob("*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        for item in data.get("signals") or data.get("items") or []:
+            sig = item.get("signal") or {}
+            if sig.get("relation") != "branch_clash":
+                continue
+            if sig.get("relationAlso") != "six_combination":
+                continue
+            for cand in item.get("eventCandidates") or []:
+                ev, sc = cand.get("event"), cand.get("score")
+                if isinstance(ev, str) and isinstance(sc, int | float) and sc < 0:
+                    out[ev] = float(sc)
     return out
 
 

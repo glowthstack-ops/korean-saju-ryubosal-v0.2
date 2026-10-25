@@ -360,6 +360,8 @@ renderer contract 버전 상승 → 1,800장 전수 재렌더 → render fingerp
    `render_result_fingerprint` 를 테스트에 고정한다. 문장이 바뀌면 즉시 실패한다.
    실패했을 때 고정값을 갱신하는 것이 아니라, 새 pool version 으로 올린다.
 
+> **공합(왕지 없는 2자) 반합 제외 — 다음 pool version 안건(2026-10-25)**: 정본 `hap_modes` 가 생지+고지 2자(申辰·寅戌·巳丑·亥未)를 공합(가합)으로 분리했지만, 일주 운세는 `daily_ilju_fortune.HALF_HARMONY_REQUIRES_ROYAL=False`(종전 동작)로 둔다 — 같은 pool version 에서 판정 입력을 바꾸면 골든 지문이 깨진다(실측). 실험 측정 `scripts/measure_daily_gonghap.py`(c10.v2 공개 창 30일×60일주): 바뀐 카드 204/1,800(11.3%), 확률 변화 425건 평균 |Δ| 3.74p·최대 13p, top5 축 이동 38(29/30일). 다음 pool version 을 올릴 때 True 로 통일할지 데굴님 결정(`var/daily_gonghap_experiment_20261025.md`).
+
 ### 21-6. 배포 smoke
 
 `scripts/smoke_daily_beta.py` — 공개 경계(2026-07-30 00:00 KST) 전후를 나눈다. 한 벌로

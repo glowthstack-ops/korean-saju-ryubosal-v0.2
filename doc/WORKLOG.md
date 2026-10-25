@@ -12651,3 +12651,34 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 문서: `GONGMANG_HAP_SEMANTICS.md` §6 정정 머리말. 테스트: `test_gongmang_date_answer_audits.py` — 프롬프트 부재(반전)·실답 문장 제거·변형 2종·반례 3종.
 
 - 게이트: `./scripts/lint.sh` All checks passed(exit 0) · `./scripts/typecheck.sh` production mypy gate clean · `./scripts/typecheck_maintained_scripts.sh` maintained scripts mypy gate clean / `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(test_exit_code 0, head 8bec64a 동일, 지문 5b960812 동일, `var/suite_20261025_gm_daewoon.log`). 백엔드 8000 재기동.
+
+## 2026-10-25 — 관계 확정 문장 참여 글자 층위 라벨 + 층위 라벨 감사 (데굴님 실답 "대운의 壬와 세운의 丁이 합" → "진행해줘")
+
+- 배경: 실답('올해 운세', 1980-11-22 명식)에서 丁壬合 주체를 "세운의 丁"으로 오표기(실제 원국 월간 丁 × 대운 壬). `[관계 확정 문장]`에 층위 라벨이 없고, 계층 블록은 연 총운에서 대운 composite 를 만들지 않아 대운×원국 관계가 빠진다(원인 확인 — 점수 범위와 얽혀 별도 승인 대상).
+- 구현: `saju_engines/layer_labels.py`(라벨 SSOT — 원국 자리 간·지, 운 스택 층위) / `canonical_claim_lines(stack_ganji=)` 문장 앞 `丁壬合 [원국 월간 丁 + 대운 壬]:` + 헤더 규칙 / `PeriodFortune.stack_ganji`(`_period_stack_ganji`) / `saju_engines/layer_label_audit.py` + `chat_service._audit_layer_labels_answer`(관계 감사 뒤, 하나면 교정·여럿이면 층위어 삭제·없으면 보류, 병기 보존, 로그 `layer_label_fixed`).
+- 문서: docs/06 부록. 테스트: `test_layer_label_audit.py` 9건.
+
+- 게이트: `./scripts/lint.sh` All checks passed(exit 0) · `./scripts/typecheck.sh` production mypy gate clean · `./scripts/typecheck_maintained_scripts.sh` maintained scripts mypy gate clean / `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(test_exit_code 0, head 05017b9 동일, 지문 a045fa1f 동일, `var/suite_20261025_layer_label.log`). 백엔드 8000 재기동.
+
+## 2026-10-25 — 합(合) 체계 대조 P0 교정 6건 + P1-3 합거 노트 + 탐합망충 shadow (데굴님 "P0 진행하되 기존 사례 비교에 어긋나지 않는지 반드시 확인, P0-4·P1-3 권고대로, 육합 건은 寅亥·巳申 기준 참고")
+
+- 배경: 붙여 넣은 「합 종류 총정리」를 코드 전수 탐색(정본 `hap_modes` + 보조 `structure_analysis` + 탐지기·계층·사전·테스트 20파일) + 웹 통설 8쟁점으로 대조(`doc/v2_2/EXTERNAL_TEXT_GAP_HAP_TAXONOMY.md`). 기본 골격은 동등, 판정 오류 6건·공백 6건.
+- 교정(정본 `hap_modes`): ②격위(비인접) 합은 化 상한 conditional(종전 strength 만 깎고 confirmed 가능) ③쟁합 격위 소멸 — 제3 천간이 상대와 격위·간격극이면 쟁합 아님, **일간 예외**(재생에서 CASE-028 방향 오탐 +1 → 복원) ⑤육합 방해 = 제3 글자(원국·운 스택) 충 + 寅巳申 완전형만, 자체 파·巳申 부분형은 `co_relations` 보조 신호(외부 기준 「寅亥·巳申 형파 중첩」 — 자동 감점·중복 감점 금지; 2026-07-27 寅亥合 회귀는 寅申충 경쟁으로 판정 유지) ⑥생지+고지 2자 = `kind='gonghap'`(공합·가합, tier none·strength 0.3·'부분 가세(미약)', ERS 라벨 '공합'·금지 해석, 계층 RESOLVED + `ScoreExclusionReason.WEAK_PARTIAL`·클러스터 제외, HALF 미결 문서 종결; `daily_ilju_fortune` 반합 카운트는 베타 pool `c10.v2` 문장·확률 동결 계약(골든 3일 지문 변경 실측)으로 **현행 유지** — 다음 pool version 에서 결정) / P1-3 원국 bind `notes` "묶이기 쉬운 쪽(통설·참고): X"(뿌리 수 비교, 서술 전용).
+- ①리포트 `luck_hap_lines`: 후보 기간 전체 글자 집합 판정(기간 혼합·운–운 쌍·'원국 글자 합거' 오라벨) → 기간별(운 간지 + 그 대운) 판정 + `[2027 丁未 · 대운 壬辰]` 라벨.
+- ④탐합망충: 사전 `relationAlso: six_combination` 감점이 소비자 없이 사문 → `load_tamhap_rules` + `EventEngineV2._apply_tamhap_mangchung`(운 충 구성 지지가 원국·스택 지지와 육합 짝이고 化神 월령이 사·수가 아니면 후보; `SAJU_TAMHAP_MANGCHUNG_MODE` off|shadow|apply, 기본 shadow=기록만) + `casebook_replay --tamhap-mode`. 1차 구현은 `resolve_branch_hap` 등급을 썼는데 P0-5 가 '구성 지지 충'을 방해로 쳐 항상 none → 후보 0건이라 합 자체의 월령 조건으로 교체.
+- 측정(85사례 180명식, 같은 셸): 변경 전 pair 33/68·적중 23/44·방향 오탐 8 → P0 최종(`hap_after2`) **완전 동일(행 차이 0)**. 탐합망충 apply(`hap_tamhap2`): 적중·pair 불변, 오탐 8→9(CASE-072/R) → **apply 미채택, shadow 유지**(후보 1,541기간·1,868사건). 문서 §2-7.
+- 문서: `HAP_INTERACTION_SPEC.md` A(공합)·B(격위 상한·쟁합 소멸)·C-3(합거 노트)·D-2(육합 방해 정정), `REVIEW_HALF_HAP_WITHOUT_ROYAL.md` 종결, 대조 문서 §2-6·§2-7.
+- 테스트: `test_hap_modes.py`(쟁합 격위 소멸·일간 예외·격위 상한·합거 노트·육합 자체 파/완전형/제3 충·공합) / `test_luck_hierarchy.py`(공합 RESOLVED·WEAK_PARTIAL) / `test_v2_scoring.py`(coverage) / `test_hap_taxonomy_p0.py`(리포트 라벨·탐합망충 로더·모드·shadow/apply 5건) / `test_relation_claim_audit.py` 불변(寅亥合 합반 유지).
+
+- 게이트: `./scripts/lint.sh` All checks passed(exit 0) · `./scripts/typecheck.sh` production mypy gate clean · `./scripts/typecheck_maintained_scripts.sh` maintained scripts mypy gate clean / `./scripts/run_suite.sh` 1·2차는 실행 중 소스·문서 수정으로 SOURCE_CHANGED_DURING_RUN(무효, 1차에서 일주 운세 골든 지문 변경을 발견 → daily 반합 카운트 현행 유지로 복원) → 3차 `VALID_SUITE_PASS`(test_exit_code 0, head 05017b9 동일, 지문 8c45e66b 동일, `var/suite_20261025_hap3.log`). 백엔드 8000 재기동.
+
+## 2026-10-25 — 합 체계 P1·P2 실험 + 일주 운세 공합 측정 (데굴님 "실험 우선이야. 권고대로 진행해")
+
+- 서술 전용 ON: 천합지합 표지(`hap_lines.cheonhap_jihap_lines`, 원국 기둥쌍·운 기둥) / 운이 원국 기존 합에 주는 변화(`natal_hap_change_lines` — 운 천간 제3자 가세=쟁합 결속 약화, 운 지지 충으로 化 등급 하락=합·충 경쟁) / 운 암합 가드(`amhap_luck._openly_combined` — 육합·왕지 반합 쌍은 지장간암합 제외).
+- 실험 플래그 `hap_modes.HAP_EXPERIMENTS` + `casebook_replay --hap-experiment`: `trine_third_clash`(삼합·반합 제3 충 방해) 재생 pair 33/68·적중 23/44·오탐 8 불변·행 차이 0 → 육합 P0-5 와 일관성 위해 **기본 ON** / `stem_tougan`(化神 투간 조건) 지표 불변 → 득실 근거 없음·통설 약함으로 **기본 OFF**.
+- 합래(HAPRAE) 사문 정리: 방출 코드 제거(direction='toward' 미할당으로 도달 불가), 사전 `detector_source: unreachable`.
+- 일주 운세 공합 제외: `HALF_HARMONY_REQUIRES_ROYAL`(기본 False, pool 동결) + `scripts/measure_daily_gonghap.py` — c10.v2 공개 창 1,800장 중 204장(11.3%) 변경, 확률 평균 |Δ| 3.74p·최대 13p, top5 이동 38 → 다음 pool version 결정 안건(docs/17 §21-5 주).
+- 테스트: `test_hap_taxonomy_p1.py` 7건(천합지합·변화 줄 2·암합 가드·합래 미방출·실험 플래그). 문서: SPEC A·B·C-4, 대조 문서 §2-8, docs/17.
+
+- 스냅샷: `structure_patterns.json` HAPRAE `detector_source` 표기 변경에 따라 `scripts/build_structure_patterns_snapshot.py` in-place 재빌드(`compiled/structure_patterns_v1.3.0.json`, 154 패턴·항목 불변) — drift 테스트가 1차 스위트에서 잡음.
+- 게이트: `./scripts/lint.sh` All checks passed(exit 0) · `./scripts/typecheck.sh` production mypy gate clean · `./scripts/typecheck_maintained_scripts.sh` maintained scripts mypy gate clean / `./scripts/run_suite.sh` 1차 TESTS_FAILED(구조 패턴 스냅샷 drift → in-place 재빌드) → 2차 `VALID_SUITE_PASS`(test_exit_code 0, head 05017b9 동일, 지문 5950a4e7 동일, `var/suite_20261025_hap_p1b.log`). 백엔드 8000 재기동.

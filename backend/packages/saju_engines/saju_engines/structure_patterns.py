@@ -457,8 +457,9 @@ def detect_structure_patterns(
             emit("GISIN_HAPGEO", 0.55, scope, (pair, "기·구신 합에 묶임"))  # 기신합거(F6)
         if r.direction == "away":
             emit("HAPGEO", 0.6, scope, (pair,))
-        elif r.direction == "toward":
-            emit("HAPRAE", 0.6, scope, (pair,))
+        # 합래(HAPRAE)는 내지 않는다(2026-10-25 사문 정리) — 엔진이 direction='toward' 를
+        # 할당한 적이 없어 도달 불가였다. 운 글자가 원국 글자를 데려오는 뜻은 bind·away 의
+        # notes("운 글자 합래")로 서술만 남긴다. 사전 항목은 보존(detector_source 에 미도달 표기).
         if r.hap_mode == "bind":
             emit("HAPBAN", 0.55, scope, (pair,))
             # 탐합망극(F6): 묶인 천간이 원국의 다른 천간(합 밖)을 극하는 오행이면 그 극이 약해진다.

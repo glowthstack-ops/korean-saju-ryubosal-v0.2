@@ -83,6 +83,9 @@ _DUP_RETRY = 10  # 중복 감사 시 seed salt 재시도 상한
 _LOVE_LINE_MIN_SUPPORT = 3
 
 # 관계 종류별 감지 강도(성립 조건 세분화) — 사건별 방향·크기는 카탈로그 affinity 가 결정
+#: 반합(半合) 왕지 필수 여부 — 베타 pool 동결 계약으로 현 pool version 에서는 False(종전 동작).
+#: 다음 pool version 에서 True(정본 hap_modes 의 공합 분리와 통일). 2026-10-25 데굴님 "실험 우선".
+HALF_HARMONY_REQUIRES_ROYAL: bool = False
 _REL_STRENGTH = {
     "six_combination": 1.0,
     "half_harmony": 1.0,  # 반합은 카탈로그 affinity 자체가 낮음
@@ -209,7 +212,12 @@ def _branch_relations(
                 third = next(iter(members - pair))
                 if third in helpers:
                     hits["three_harmony_complete"] = _REL_STRENGTH["three_harmony_complete"]
-                else:
+                elif _royal in pair or not HALF_HARMONY_REQUIRES_ROYAL:
+                    # 왕지 없는 2자(申辰·寅戌·巳丑·亥未)는 정본 hap_modes 가 2026-10-25 부터 공합
+                    # (가합)으로 분리했다. 일주별 오늘의 운세는 베타 pool(`beta-daily-pool.c10.v2`)
+                    # 문장·확률 동결 계약 아래라 같은 pool version 에서는 반합으로 그대로 센다
+                    # (`HALF_HARMONY_REQUIRES_ROYAL=False`). 다음 pool version(renderer contract
+                    # 상승·전수 재렌더)에서 True 로 올린다 — 실험 측정은 `measure_daily_gonghap.py`.
                     hits["half_harmony"] = _REL_STRENGTH["half_harmony"]
                 break
 

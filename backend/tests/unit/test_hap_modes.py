@@ -86,15 +86,56 @@ def test_day_master_self_combine_not_remove() -> None:
 
 
 def test_contend_detected() -> None:
-    """두 庚이 한 乙을 다투면 쟁합 — contend 플래그."""
+    """두 庚이 한 乙을 다투면 쟁합 — 단 제3 천간이 隔位면 쟁투 소멸(SPEC §B, 2026-10-25)."""
+    # 시주 庚은 월간 乙과 隔位(day 를 건너뜀) → 年庚-月乙 쌍은 쟁합이 아니다.
     p = _pillars("庚申", "乙酉", "丙寅", "庚寅", dm="丙")
     res = resolve_stem_hap(p, favorability={})
-    # 인접한 年庚-月乙 쌍: 시주 庚이 乙을 또 다투므로 쟁합(contend).
     ym = next(
         r for r in res
         if set(r.pair) == {"乙", "庚"} and set(r.positions) == {"year", "month"}
     )
-    assert ym.contend is True and ym.blocked is False
+    assert ym.contend is False and ym.blocked is False
+    # 일간 자리 庚(월간 乙과 인접)이 다투면 쟁합 — 쌍은 年庚-月乙, 제3자 日庚.
+    p2 = _pillars("庚申", "乙酉", "庚寅", "丙寅", dm="庚")
+    res2 = resolve_stem_hap(p2, favorability={})
+    ym2 = next(
+        r for r in res2
+        if set(r.pair) == {"乙", "庚"} and set(r.positions) == {"year", "month"}
+    )
+    assert ym2.contend is True and ym2.contested_stem == "乙"
+
+
+def test_day_master_competitor_is_not_dissolved_by_geokwi() -> None:
+    """일간이 격위에서 끼어도 쟁합은 유지된다(CASE-028 재생 교정) — 운 丙 vs 연간 辛, 일간 丙."""
+    p = _pillars("辛丑", "丁酉", "丙寅", "甲午", dm="丙")
+    res = resolve_stem_hap(p, favorability={"水": "구신"}, luck_stems=["丙"])
+    luck = next(r for r in res if r.luck_origin and set(r.pair) == {"丙", "辛"})
+    assert luck.contend is True and luck.contested_stem == "辛"
+    assert luck.transform_tier != "confirmed"
+
+
+def test_geokwi_caps_tier_to_conditional() -> None:
+    """隔位(年干↔時干) 합은 월령·통근을 갖춰도 化 확정이 아니다(2026-10-25 교정)."""
+    # 甲(년)·己(시) 합, 辰월 土 왕·통근, 사이 丙·壬은 木·土를 극하지 않음(간격극 아님).
+    p = _pillars("甲辰", "丙辰", "壬午", "己未", dm="壬")
+    hap = next(r for r in resolve_stem_hap(p, favorability={"土": "용신"})
+               if set(r.pair) == {"甲", "己"})
+    assert hap.weakened is True and hap.blocked is False
+    assert hap.transform_tier == "conditional" and hap.hap_mode == "bind"
+
+
+def test_natal_bind_notes_weaker_rooted_side() -> None:
+    """원국 합반 — 뿌리가 약한 쪽을 '묶이기 쉬운 쪽' 노트로만 표기(판정·점수 불변)."""
+    p = _pillars("庚午", "乙午", "丙寅", "丙申", dm="丙")  # 乙庚 bind, 木 뿌리 寅 1 / 金 뿌리 申 1
+    hap = next(r for r in resolve_stem_hap(p, favorability={"金": "기신"})
+               if set(r.pair) == {"庚", "乙"})
+    assert hap.hap_mode == "bind" and hap.direction is None
+    # 午午寅申: 木 뿌리=寅(甲) 1개, 金 뿌리=申(庚) 1개 → 동률이면 노트 없음
+    assert not any("묶이기 쉬운 쪽" in n for n in hap.notes)
+    p2 = _pillars("庚午", "乙卯", "丙寅", "丙辰", dm="丙")  # 木 뿌리 卯·寅·辰(乙) ≥3, 金 0
+    hap2 = next(r for r in resolve_stem_hap(p2, favorability={"金": "기신"})
+                if set(r.pair) == {"庚", "乙"})
+    assert any("묶이기 쉬운 쪽(통설·참고): 庚" in n for n in hap2.notes)
 
 
 def test_intervening_control_blocks() -> None:
@@ -125,13 +166,40 @@ def test_real_example_chart() -> None:
 
 
 def test_branch_six_with_co_relations() -> None:
-    """申·巳 육합(化水) + 동시 파·형(寅巳申·申巳)."""
+    """申·巳 육합(化水) + 동시 파·형 — co_relations 에는 남되 자체 파·부분형은 등급을 막지 않는다.
+
+    원 픽스처(丁亥월)는 월지 亥가 巳를 충해 '제3 글자 충' 방해로 확정 불가(합·충 경쟁) —
+    충이 없는 壬子월 픽스처에서는 자체 파·형만으로는 막히지 않아 확정된다.
+    """
     from saju_manse_analysis.relations.hap_modes import resolve_branch_hap
     p = _pillars("庚申", "丁亥", "丙子", "癸巳", dm="丙")
     res = resolve_branch_hap(p, favorability={"水": "기신"})
     six = next(r for r in res if r.kind == "six" and set(r.members) == {"申", "巳"})
     assert any("파" in c for c in six.co_relations)
     assert any("형" in c for c in six.co_relations)
+    assert six.transform_tier != "confirmed"
+    assert any("합·충 경쟁" in n for n in six.notes)  # 巳亥충
+    p2 = _pillars("庚申", "壬子", "丙子", "癸巳", dm="丙")  # 子월 水 왕, 충 없음
+    six2 = next(r for r in resolve_branch_hap(p2, favorability={"水": "기신"})
+                if r.kind == "six" and set(r.members) == {"申", "巳"})
+    assert six2.transform_tier == "confirmed" and six2.hap_mode == "transform"
+    assert any("보조 신호" in n for n in six2.notes)
+
+
+def test_six_inhae_break_does_not_block_and_full_punishment_does() -> None:
+    """寅亥: 자체 파는 합을 막지 않음 / 巳申: 寅 동석(寅巳申 완전형)이면 방해(2026-10-25)."""
+    from saju_manse_analysis.relations.hap_modes import resolve_branch_hap
+    # 寅亥 육합(化木), 寅월 木 왕 → confirmed(종전: 파 때문에 영구 불확정)
+    p = _pillars("辛亥", "庚寅", "丙子", "戊戌", dm="丙")
+    six = next(r for r in resolve_branch_hap(p, favorability={"木": "희신"})
+               if r.kind == "six" and set(r.members) == {"寅", "亥"})
+    assert six.transform_tier == "confirmed"
+    # 巳申 + 寅 동석 → 寅巳申 완전형이 방해 → 확정 불가
+    p2 = _pillars("庚申", "丁亥", "丙寅", "癸巳", dm="丙")
+    six2 = next(r for r in resolve_branch_hap(p2, favorability={"水": "기신"})
+                if r.kind == "six" and set(r.members) == {"申", "巳"})
+    assert six2.transform_tier != "confirmed"
+    assert any("완전형" in n for n in six2.notes)
 
 
 def test_branch_three_harmony_full() -> None:
@@ -144,15 +212,19 @@ def test_branch_three_harmony_full() -> None:
 
 
 def test_branch_half_requires_royal() -> None:
-    """申辰(왕지 子 없음)만으로는 삼합 반합 미성립(다수설)."""
+    """申辰(왕지 子 없음)은 반합이 아니라 공합(가합) — kind gonghap·tier none·strength 0.3."""
     from saju_manse_analysis.relations.hap_modes import resolve_branch_hap
     p = _pillars("庚申", "丙寅", "壬辰", "丙午", dm="壬")
-    res = resolve_branch_hap(p, favorability={})
+    res = resolve_branch_hap(p, favorability={"水": "용신"})
     assert not any(
         r.kind in ("three_harmony", "half") and "子" not in r.members
         and set(r.members) <= {"申", "辰"}
         for r in res
     )
+    gh = next(r for r in res if r.kind == "gonghap" and set(r.members) == {"申", "辰"})
+    assert gh.transform_tier == "none" and gh.hap_mode == "partial"
+    assert gh.strength == 0.3 and gh.royal_included is False
+    assert any("공합" in n for n in gh.notes)
 
 
 def test_chart_transform_hwagigyeok() -> None:

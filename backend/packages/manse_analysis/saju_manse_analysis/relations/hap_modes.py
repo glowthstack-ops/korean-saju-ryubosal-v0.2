@@ -45,6 +45,15 @@ _ORDER = ("year", "month", "day", "hour")
 _HARM_WHEN_BOUND = {"용신", "희신"}
 _BOON_WHEN_BOUND = {"기신", "구신"}
 
+# 실험 플래그(2026-10-25 데굴님 "실험 우선") — casebook_replay `--hap-experiment` 로 켜서 85사례
+# 적중·방향 오탐을 비교한 뒤에만 기본값을 바꾼다(점수 규칙은 적중률로 ON/OFF).
+#   trine_third_clash: 삼합·반합 化 등급에 '제3 글자가 구성 지지를 충'을 방해로 반영(육합 P0-5 와
+#     통일). 측정(2026-10-25): pair 33/68·적중 23/44·오탐 8 불변·행 차이 0 → 육합과의 일관성을
+#     위해 **기본 ON**.
+#   stem_tougan: 천간합 化 확정에 化神 오행의 천간 투출(합 당사자 외)을 요구(투간 조건). 측정 지표
+#     불변이나 통설 합의가 약한 추가 조건이라 **기본 OFF** 유지(근거 사례 축적 후 재검토).
+HAP_EXPERIMENTS: dict[str, bool] = {"trine_third_clash": True, "stem_tougan": False}
+
 # CALIBRATE: 정량 가중치 보수 기본값(스펙 §0·G — 전문가 감수·캘리브레이션 전 잠정).
 HAP_WEIGHTS: dict[str, float] = {
     "bind_penalty": 0.5,     # 합반 시 묶인 글자의 기여 감산 비율
@@ -125,6 +134,44 @@ def _intervening_control(
     return False
 
 
+def _contend_dissolved(
+    pos_target: str, pos_third: str, target: Stem, third: Stem,
+    natal: list[tuple[str, Stem]],
+) -> bool:
+    """제3 천간의 쟁합 가세가 무효인가 — 격위(비인접)이거나 그 쌍이 간격극으로 차단될 때.
+
+    SPEC §B: "둘 중 하나가 隔位면 쟁투 소멸". 운(luck) 천간은 자리가 없어 소멸 판정을 하지
+    않는다(항상 쟁합 가세로 본다 — 종전 동작 유지). **일간이 끼면 소멸하지 않는다** — 일간은
+    명식의 주체라 자리와 무관하게 자기 합(본신지합) 상대를 두고 다투는 당사자다(85사례 재생
+    2026-10-25: 일간 丙↔연간 辛 격위를 소멸로 보자 丙 세운마다 丙辛合 水(구신) 化 확정이 되어
+    CASE-028 방향 오탐 +1 → 일간 예외로 복원).
+    """
+    if pos_target not in _ORDER or pos_third not in _ORDER:
+        return False
+    if "day" in (pos_target, pos_third):
+        return False
+    if abs(_ORDER.index(pos_target) - _ORDER.index(pos_third)) >= 2:
+        return True
+    return _intervening_control(pos_target, pos_third, target, third, natal)
+
+
+def _root_count(stem: Stem, pillars: FourPillarsResult) -> int:
+    """천간 자기 오행의 지장간 뿌리 개수(본기·중기·여기 불문) — 합거 대상 노트용 비교값."""
+    el = STEM_ELEMENT[stem].value
+    pillar_list = [pillars.year, pillars.month, pillars.day]
+    if pillars.hour is not None:
+        pillar_list.append(pillars.hour)
+    return sum(1 for p in pillar_list for hs in p.hidden_stems if hs.element == el)
+
+
+def _weaker_rooted(sa: Stem, sb: Stem, pillars: FourPillarsResult) -> Stem | None:
+    """두 천간 중 뿌리가 더 약한 쪽(동률이면 None) — 서술 참고값."""
+    ra, rb = _root_count(sa, pillars), _root_count(sb, pillars)
+    if ra == rb:
+        return None
+    return sa if ra < rb else sb
+
+
 def _affected(stem: Stem, day_master: Stem, favorability: dict[str, str],
               effect: str | None = None) -> AffectedGod:
     """묶인 천간 1개 → 십성·오행·역할·길흉."""
@@ -189,15 +236,21 @@ def resolve_stem_hap(
             and abs(_ORDER.index(pa) - _ORDER.index(pb)) >= 2
         )
         # 쟁합·투합: 이 쌍(i,j) 밖의 제3 천간이 sa·sb 중 하나와 또 합하는가(위치 기준).
+        # 2026-10-25(데굴님 승인, SPEC §B "둘 중 하나가 隔位면 쟁투 소멸"): 제3 천간 k 가 다투는
+        # 상대와 격위(비인접)이거나 k 쌍 자체가 간격극으로 차단되면 쟁합으로 치지 않는다 —
+        # 멀리서 끼어들 수 없는 글자까지 쟁합으로 잡아 등급을 떨어뜨리던 과탐지 교정.
         contested: Stem | None = None
-        for k, (_, sk) in enumerate(all_pos):
+        for k, (pk, sk) in enumerate(all_pos):
             if k in (i, j):
                 continue
-            if frozenset({sa, sk}) in STEM_COMBINATIONS:
-                contested = sa
+            for cand, pc in ((sa, pa), (sb, pb)):
+                if frozenset({cand, sk}) not in STEM_COMBINATIONS:
+                    continue
+                if _contend_dissolved(pc, pk, cand, sk, natal):
+                    continue
+                contested = cand
                 break
-            if frozenset({sb, sk}) in STEM_COMBINATIONS:
-                contested = sb
+            if contested is not None:
                 break
         contend = contested is not None
         strength = 1.0
@@ -211,7 +264,12 @@ def resolve_stem_hap(
         # ── C-1 化 3단계 ─────────────────────────────────────────
         season = season_state(target, month_branch)  # wang/xiang/xiu/qiu/si
         rooted = _rooted(target.value, pillars)
-        disturbed = blocked or contend
+        # 2026-10-25(데굴님 승인): 격위(비인접)는 化 확정을 막는다 — 통설(천간합은 인접 성립,
+        # 사이 글자가 끼면 불성립 또는 약화)·SPEC §B 표와 달리 종전에는 strength 만 깎고 등급은
+        # 그대로 두어 年干↔時干 합도 confirmed 가 나왔다. 불성립까지는 학파가 갈려 '약화'로 둔다.
+        disturbed = blocked or contend or weakened
+        if HAP_EXPERIMENTS["stem_tougan"] and not _transform_stem_exposed(target, (i, j), all_pos):
+            disturbed = True  # 化神 투간 없음 — 확정 불가(실험)
         if season in ("wang", "xiang") and rooted and not disturbed:
             tier = "confirmed"
         elif season in ("qiu", "si") or blocked:
@@ -264,6 +322,15 @@ def resolve_stem_hap(
                 # 운 글자가 원국 글자를 합거(보냄) + 운 글자의 십성을 합래(데려옴).
                 direction = "away"
                 notes.append("운(運) 합 — 원국 글자 합거 / 운 글자 합래")
+            else:
+                # 2026-10-25(데굴님 승인, 서술 전용): 원국 합반에서 '밀리기 쉬운 쪽' 노트 —
+                # 통설(無根 천간이 합거 쪽, 뿌리 약한 쪽이 묶임). direction·affected·점수는 불변.
+                weak = _weaker_rooted(sa, sb, pillars)
+                if weak is not None:
+                    notes.append(
+                        f"묶이기 쉬운 쪽(통설·참고): {weak.value} — 뿌리가 약한 글자가 합에 "
+                        "끌려가기 쉽다(판정 아님)"
+                    )
 
         out.append(StemHapResolution(
             pair=(sa.value, sb.value),
@@ -293,7 +360,7 @@ def resolve_stem_hap(
 class BranchHapResolution:
     """지지합 1건의 작용 모드 판정 결과(육합/삼합/방합/반합)."""
 
-    kind: str                      # 'six' | 'three_harmony' | 'half' | 'directional'
+    kind: str                      # 'six' | 'three_harmony' | 'half' | 'gonghap' | 'directional'
     members: tuple[str, ...]       # 지지(한자)
     positions: tuple[str, ...]     # 자리(year/month/day/hour/luck)
     transform_element: str | None  # 化神/局 오행(한자)
@@ -328,6 +395,50 @@ def _co_relations(members: list[Branch]) -> list[str]:
         present = [m for m in uniq if m in trip]
         if len(present) >= 2:
             out.append("형:" + "".join(m.value for m in present))
+    return list(dict.fromkeys(out))
+
+
+def _third_clash_on(members: list[Branch], all_branches: list[Branch]) -> list[str]:
+    """구성 지지를 제3 글자가 충하는 관계 목록('충:寅申') — 삼합·반합 실험(trine_third_clash)."""
+    out: list[str] = []
+    mem = set(members)
+    for m in mem:
+        for other in all_branches:
+            if other in mem:
+                continue
+            if frozenset({m, other}) in BRANCH_CLASHES:
+                out.append(f"충:{m.value}{other.value}")
+    return list(dict.fromkeys(out))
+
+
+def _transform_stem_exposed(
+    target, pair_idx: tuple[int, int], all_pos: list[tuple[str, Stem]],
+) -> bool:
+    """化神 오행이 합 당사자 외의 천간(원국·운)에 투출했는가 — stem_tougan 실험 조건."""
+    return any(
+        STEM_ELEMENT[s] == target
+        for k, (_pos, s) in enumerate(all_pos) if k not in pair_idx
+    )
+
+
+def _six_disturbing(a: Branch, b: Branch, all_branches: list[Branch]) -> list[str]:
+    """육합 두 글자의 化 등급을 실제로 방해하는 관계만.
+
+    ① 제3 글자(원국·운 스택)가 구성원을 충 — '합에 참여한 지지가 충을 받는가'(합·충 경쟁,
+       寅亥合 + 申 → 寅申충). ② 완전 삼형(寅巳申 세 글자 동석). 자체 파·해·두 글자 부분형은
+       제외(보조 신호). 2026-10-25 데굴님 승인(외부 기준 §5 단계 4·5·6).
+    """
+    out: list[str] = []
+    pair = frozenset({a, b})
+    for member in (a, b):
+        for other in all_branches:
+            if other in pair:
+                continue
+            if frozenset({member, other}) in BRANCH_CLASHES:
+                out.append(f"충:{member.value}{other.value}")
+    for trip in PUNISHMENT_TRIPLES:
+        if pair <= trip and all(m in all_branches for m in trip):
+            out.append("형:" + "".join(m.value for m in trip))
     return list(dict.fromkeys(out))
 
 
@@ -376,8 +487,21 @@ def resolve_branch_hap(
         if target is None:
             continue
         co = _co_relations([ba, bb])
+        # 2026-10-25(데굴님 승인·외부 기준 「寅亥합·巳申합에서 형·파 중첩」): 두 글자 **자체의**
+        # 파(寅亥파·巳申파)는 합을 막는 근거가 약해(삼명통회 파살 4쌍·명리약언 파 배제) 등급에서
+        # 뺀다(co_relations 에는 보조 신호로 남긴다). 巳申의 형은 두 글자만으로는 '부분형 후보'라
+        # 등급을 막지 않고, 寅까지 동석해 寅巳申 완전형이 될 때만 방해로 본다. 충은 그대로 방해.
+        # 종전에는 자체 파·형이 disturbed 라 寅亥·巳申 육합이 영구히 확정 불가였다(결함).
+        disturbing = _six_disturbing(ba, bb, [b for _, b in all_pos])
+        notes: list[str] = []
+        if co and not disturbing:
+            notes.append("자체 파·부분형은 보조 신호 — 합 성립을 막지 않음(중복 감점 금지)")
+        if any(c.startswith("형:") and len(c) >= 5 for c in disturbing):
+            notes.append("寅巳申 완전형 동석 — 형이 합의 안정성을 흔듦(합·형 경쟁)")
+        if any(c.startswith("충:") for c in disturbing):
+            notes.append("구성 지지가 충을 받음 — 합·충 경쟁(합이 충을 무조건 해소하지 않음)")
         tier, strength = _branch_tier(
-            target.value, month_branch, disturbed=bool(co), partial=False)
+            target.value, month_branch, disturbed=bool(disturbing), partial=False)
         luck_origin = "luck" in (pa, pb)
         affected: list[AffectedGod] = []
         direction: str | None = None
@@ -394,7 +518,7 @@ def resolve_branch_hap(
             transform_tier=tier,
             hap_mode="transform" if tier == "confirmed" else "bind",
             luck_origin=luck_origin, direction=direction, co_relations=co,
-            affected=affected, strength=round(strength, 4),
+            affected=affected, strength=round(strength, 4), notes=notes,
         ))
 
     # ── 삼합 / 반합 ─────────────────────────────────────────────
@@ -404,9 +528,27 @@ def resolve_branch_hap(
         if len(kinds) < 2:
             continue
         full = len(kinds) == 3
-        if not full and royal not in kinds:
-            continue  # 반합은 왕지 포함만(다수설)
         co = _co_relations([b for _, b in present])
+        if HAP_EXPERIMENTS["trine_third_clash"]:
+            co = co + _third_clash_on(
+                [b for _, b in present], [b for _, b in all_pos],
+            )
+        if not full and royal not in kinds:
+            # 공합(拱合·가합) — 왕지 없는 생지+고지 2자(申辰·寅戌·巳丑·亥未). 반합이 아니라
+            # 그 오행에 '부분 가세(미약)'하는 별도 종류로 기록한다(2026-10-25 데굴님 승인 —
+            # 종전엔 여기서 버려져 탐지기와 엔진 불일치(ENGINE_CONFLICT) 격리 상태였다).
+            # 化 등급 없음(none)·strength 0.3·점수 반영 없음. 완전한 삼합처럼 계산 금지.
+            out.append(BranchHapResolution(
+                kind="gonghap",
+                members=tuple(dict.fromkeys(b.value for _, b in present)),
+                positions=tuple(pos for pos, _ in present),
+                transform_element=element.value, role=_role(element.value),
+                transform_tier="none", hap_mode="partial",
+                luck_origin=any(pos == "luck" for pos, _ in present),
+                co_relations=co, royal_included=False, strength=0.3,
+                notes=["공합(가합) — 왕지 없음, 합으로 미인정 학파 다수 · 부분 가세(미약)"],
+            ))
+            continue
         tier, strength = _branch_tier(
             element.value, month_branch, disturbed=bool(co), partial=not full)
         out.append(BranchHapResolution(

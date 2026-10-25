@@ -142,6 +142,15 @@ YONG_TIER_MODES: tuple[str, ...] = ("off", "a", "b")
 YONG_TIERED_MULTIPLIER_MODE: str = (
     os.environ.get("SAJU_YONG_TIERED_MULTIPLIER_MODE", "off").strip().lower() or "off"
 )
+# 탐합망충(貪合忘沖, 2026-10-25 데굴님 승인 — 합 체계 대조 P0-4): 운 충의 구성 지지가 같은 기간
+# 육합으로 묶여 있으면 이동형 후보(career_change·relocation) 발동을 약화. 사전
+# events/*.json 의 `relationAlso: six_combination` 감점이 소비자 없이 사문이던 것을 되살리되,
+# 통설이 '자동 우선'이 아니라 비교라 **shadow(로그·계량만)** 가 기본이고, `apply` 는 85사례
+# 적중률 비교 후 데굴님 결정으로만 켠다. off=로그도 없음.
+TAMHAP_MANGCHUNG_MODES = ("off", "shadow", "apply")
+TAMHAP_MANGCHUNG_MODE: str = (
+    os.environ.get("SAJU_TAMHAP_MANGCHUNG_MODE", "shadow").strip().lower() or "shadow"
+)
 # 운↔운 충 → 이동형 후보 보조 가산(2026-10-15 승인, 선택 항목). 기본 OFF.
 TRANSIT_CLASH_SUPPORT_ENABLED: bool = _env_flag("SAJU_TRANSIT_CLASH_SUPPORT_ENABLED")
 # 역할별 사건 전환 시드(2026-10-16 데굴님 확정 6규칙 — 상관·편관·편인 용신 운 / 정관·정인·식신 기신
@@ -184,6 +193,11 @@ def validate_flags() -> None:
         raise ConfigurationError(
             "SAJU_YONG_TIERED_MULTIPLIER_MODE 는 off|a|b 중 하나여야 한다: "
             f"{YONG_TIERED_MULTIPLIER_MODE!r}"
+        )
+    if TAMHAP_MANGCHUNG_MODE not in TAMHAP_MANGCHUNG_MODES:
+        raise ConfigurationError(
+            "SAJU_TAMHAP_MANGCHUNG_MODE 는 off|shadow|apply 중 하나여야 한다: "
+            f"{TAMHAP_MANGCHUNG_MODE!r}"
         )
     if PILLAR_POLARITY_V2_ENABLED and not PERIOD_HIERARCHY_ENABLED:
         raise ConfigurationError(
@@ -233,6 +247,7 @@ def active_versions() -> dict[str, str | bool]:
         "peer_gisin_mobility_enabled": PEER_GISIN_MOBILITY_ENABLED,
         "personal_glyph_score_enabled": PERSONAL_GLYPH_SCORE_ENABLED,
         "yearly_ten_god_signals_enabled": YEARLY_TEN_GOD_SIGNALS_ENABLED,
+        "tamhap_mangchung_mode": TAMHAP_MANGCHUNG_MODE,
         "double_clash_flag_enabled": DOUBLE_CLASH_FLAG_ENABLED,
         "yong_tiered_multiplier_mode": YONG_TIERED_MULTIPLIER_MODE,
         "transit_clash_support_enabled": TRANSIT_CLASH_SUPPORT_ENABLED,

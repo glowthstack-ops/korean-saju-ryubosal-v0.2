@@ -873,7 +873,7 @@
         "합충",
         "공망"
       ],
-      "detector_source": "adapter:hap_lines(luck_origin 합 유입)",
+      "detector_source": "unreachable — 2026-10-25 사문 정리: 엔진이 direction='toward' 를 할당하지 않아 탐지되지 않는다(합래 뜻은 운 합 bind 의 notes 로만 서술)",
       "llm_usage": "explanation_tag_only",
       "llm_tag": "합래: 운에서 어떤 글자가 합으로 들어오는 작용 — 새 관계·계약·사람의 유입 방식(길흉은 별도 판정)",
       "classical_note": null,
@@ -5578,6 +5578,6 @@
       "aliases": []
     }
   ],
-  "compiled_at": "2026-10-07T08:16:22.278943+00:00",
+  "compiled_at": "2026-10-25T07:04:45.766876+00:00",
   "snapshot_version": "1.3.0"
 }

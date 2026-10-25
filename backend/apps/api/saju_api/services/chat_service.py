@@ -102,6 +102,7 @@ from saju_engines.horizon import (
 from saju_engines.ilju_mention_audit import audit_ilju_mention
 from saju_engines.intent_event_filter import IntentEventFilter
 from saju_engines.job_separation import is_job_separation
+from saju_engines.layer_label_audit import audit_layer_labels
 from saju_engines.life_event_followup import followup_candidates
 from saju_engines.lifetime_scan import (
     CHAT_TABLE_MAX_YEARS,
@@ -1233,6 +1234,8 @@ def _build_period_fortune(
     relation_semantics = _period_relation_semantics(
         chart, composites, _TARGET_LEVEL[fortune_type], start, pillar
     )
+    # 운 스택 간지(2026-10-25) — 관계 확정 문장의 참여 글자 층위 라벨·생성 후 층위 라벨 감사용.
+    stack_ganji = _period_stack_ganji(composites, _TARGET_LEVEL[fortune_type], start, pillar)
     # P1 계층형 grounding(2026-07-27) — ON이면 관계 렌더를 **이쪽으로 완전히 대체**한다.
     # 기존 build_luck_grounding의 형충회합 줄과 함께 내보내면 같은 관계가 두 표현으로
     # 들어가 LLM이 서로 다른 사실로 읽는다.
@@ -1337,7 +1340,32 @@ def _build_period_fortune(
         ),
         dohwa_text_keys=list(grounding.get("dohwa_text_keys", [])),
         environment_lines=environment_lines,
+        stack_ganji=stack_ganji,
     )
+
+
+def _period_stack_ganji(composites, target_level, target_key, pillar) -> dict[str, str]:
+    """이번 기간 운 스택 {층위 라벨: 간지} — 대상 기간 composite 의 parent_context + 자기 간지.
+
+    `_period_relation_semantics` 와 같은 범위(질문과 무관한 연도 간지 혼입 금지).
+    """
+    from saju_shared_types.precompute import CompositeLevel
+
+    own_label = {
+        CompositeLevel.DAY: "일진", CompositeLevel.MONTH: "월운", CompositeLevel.YEAR: "세운",
+    }.get(target_level, "운")
+    out: dict[str, str] = {}
+    target = next(
+        (c for c in composites if c.level is target_level and c.period_key == target_key), None,
+    )
+    if target is not None:
+        parent = target.parent_context
+        for label, g in (("대운", parent.daewoon), ("세운", parent.year), ("월운", parent.month)):
+            if g and len(g) >= 2:
+                out[label] = g
+    if len(pillar.ganji) >= 2:
+        out[own_label] = pillar.ganji
+    return out
 
 
 def _period_pattern_change_lines(composites, target_level, target_key, fortune_type) -> list[str]:
@@ -1896,6 +1924,8 @@ def finalize_answer_full(
         answer = _audit_relation_answer(
             answer, ctx.payload.period_fortune, thread_id, ctx.payload.extra_period_fortunes,
         )
+        # 층위 라벨 감사(2026-10-25) — '세운의 丁'처럼 글자에 잘못 붙은 층위를 실제 자리로 교정.
+        answer = _audit_layer_labels_answer(answer, ctx.payload, thread_id)
         answer = _audit_month_coverage_answer(answer, ctx.payload, thread_id)
         # 공망 지목 감사·택일 회피 구간 감사(2026-10-19) — 재호출 없는 결정론 교정.
         answer = _audit_gongmang_claims_answer(answer, ctx.payload, thread_id)
@@ -1940,6 +1970,28 @@ def finalize_answer_full(
         answer = _audit_mobility_agency_answer(answer, ctx.payload, ctx.question, thread_id)
         answer = _audit_ten_god_labels_answer(answer, ctx, thread_id)
     return finalize_answer_text(answer, thread_id)
+
+
+def _audit_layer_labels_answer(answer: str, payload: LlmInput, thread_id: str | None) -> str:
+    """층위 라벨 정합 감사(2026-10-25) — 운 스택은 기간 총운 블록, 없으면 현재 대운만."""
+    stack: dict[str, str] = {}
+    for pf in (payload.period_fortune, *payload.extra_period_fortunes):
+        if pf is not None and pf.stack_ganji:
+            stack = dict(pf.stack_ganji)
+            break
+    if not stack:
+        cur = next((d for d in payload.calendar_context.daewoon if d.status == "현재"), None)
+        if cur is not None and len(cur.ganji) >= 2:
+            stack = {"대운": cur.ganji}
+    if not stack:
+        return answer
+    audit = audit_layer_labels(answer, stack, payload.birth_chart_summary.pillars)
+    if audit.fixes:
+        _logger.warning(
+            "layer_label_fixed count=%d fixes=%s thread=%s",
+            len(audit.fixes), audit.fixes, thread_id,
+        )
+    return audit.text
 
 
 def _audit_gongmang_claims_answer(

@@ -3389,7 +3389,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
         # P0(2026-07-27) — 관계 사실을 자유 작문에서 빼고 엔진 확정 문장으로 제공한다.
         # 금지 문구만 나열하면 LLM이 '寅亥合은 원래 木'이라는 자체 지식으로 엔진의
         # 化 불성 판정을 덮는다. 확정 문장을 주는 쪽이 최초 오류율을 더 크게 낮춘다.
-        lines += canonical_claim_lines(pf.relation_semantics)
+        lines += canonical_claim_lines(pf.relation_semantics, stack_ganji=pf.stack_ganji)
         lines += pf.hierarchy_appendix
     if payload.date_selection is not None:
         ds = payload.date_selection

@@ -89,11 +89,15 @@ def test_active_run_restores_zeroed_slots(fixture):
 
 
 def test_policy_exclusions_keep_coverage_complete(fixture):
-    """충·엔진충돌·혼재가 있어도 coverage는 complete다."""
+    """충·공합(정책 제외)·혼재가 있어도 coverage는 complete다.
+
+    2026-10-25: 亥未는 엔진 불일치(ENGINE_CONFLICT)가 아니라 공합(WEAK_PARTIAL, 점수 제외)으로
+    판정된다 — 정책 제외라 coverage 실패가 아니다.
+    """
     _, hier, scope = fixture
     cov = build_v2_scoring(scope, hier, enabled=True).coverage
     assert cov.structural_only_count > 0
-    assert cov.engine_conflict_count > 0  # 亥未
+    assert cov.engine_conflict_count == 0  # 亥未 공합 — 격리 해제
     assert cov.mixed_unallocated_count > 0  # 丁壬 쟁합
     assert cov.unavailable_signal_count == 0
     assert cov.complete is True

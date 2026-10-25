@@ -60,6 +60,7 @@ _KIND_KO = {
     "six": "合",
     "three_harmony": "삼합",
     "half": "반합",
+    "gonghap": "공합",
     "directional": "방합",
     "stem_combination": "合",
 }
@@ -396,6 +397,12 @@ def _fill_interpretations(sem: RelationSemantics) -> None:
         allowed.append(f"{el}({sem.role or '역할 미상'})으로 합화")
         forbidden.append("합이 불성립·무산됐다고 서술")
         forbidden.append(f"{el} 아닌 다른 오행으로 합화했다고 서술")
+    elif sem.formation_state is FormationState.PARTIAL and el and sem.kind == "gonghap":
+        # 공합(가합, 2026-10-25) — 왕지 없는 생지+고지 2자. 반합보다 약한 '부분 가세(미약)'.
+        allowed.append(f"{el}({sem.role or '역할 미상'})에 부분 가세(미약) — 공합(왕지 없음)")
+        forbidden.append("반합·삼합이 성립했다고 서술(왕지 없는 가합)")
+        forbidden.append("서로 묶였다·합거됐다고 서술(묶임 판정 없음)")
+        forbidden.append(f"{_el_with_ro(el)} 합화했다고 서술")
     elif sem.formation_state is FormationState.PARTIAL and el:
         allowed.append(f"{el}({sem.role or '역할 미상'}) 작용의 보조적 강화(국 미완성)")
         forbidden.append("서로 묶였다·합거됐다고 서술(묶임 판정 없음)")

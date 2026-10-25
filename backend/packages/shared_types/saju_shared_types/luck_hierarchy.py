@@ -148,6 +148,9 @@ class HierarchyInteraction(BaseModel):
     interaction_id: str  # 사전 relation_id 'rel_巳午未方合'
     relation_label: str = ""  # P0 정규 라벨(매칭 실패 시 빈 문자열)
     kind: str  # InteractionKind 값
+    # P0 의미의 kind('six'|'three_harmony'|'half'|'gonghap'|'directional'|'stem_combination').
+    # 공합(gonghap, 2026-10-25)은 서술만 하고 점수·클러스터에서 빼는 판정에 쓴다.
+    semantic_kind: str = ""
     participants: list[HierarchyParticipant] = Field(default_factory=list)
     base_intensity: float = 0.0  # 사전 baseScore 그대로(부호·변동성 판정은 P3 소관)
     # ── P0에서 복사(재계산 금지) ─────────────────────────────────────────────
