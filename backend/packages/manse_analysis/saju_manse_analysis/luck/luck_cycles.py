@@ -465,7 +465,34 @@ def _relations_to_chart(stem: Stem, branch: Branch, pillars: FourPillarsResult) 
 
 
 def _transformed_elements(branch: Branch, pillars: FourPillarsResult) -> list[str]:
-    """운 지지가 원국과 육합/삼합/방합으로 만들어내는 변환 오행(target element)."""
+    """운 지지가 원국과 육합/삼합/방합으로 만들어내는 변환 오행(target element).
+
+    T-3(2026-10-25 데굴님 승인, 실험 플래그 `HAP_EXPERIMENTS["luck_transform_requires_tier"]`):
+    ON 이면 '합국 성립 ≠ 합화' 원칙대로 정본 판정기(`resolve_branch_hap`)의 化 등급이 confirmed
+    인 육합·삼합만, 그리고 방합 완성(강화)만 변환 오행으로 넣는다 — 종전에는 반합·공합·조건부
+    합까지 결과 오행을 ±0.1 운 점수에 가산했다. 대운·세운·월운·일운 모두 이 함수를 거친다.
+    """
+    from ..relations import hap_modes as _hm
+
+    strict = _hm.HAP_EXPERIMENTS.get("luck_transform_requires_tier")
+    exclude_weak = _hm.HAP_EXPERIMENTS.get("luck_transform_exclude_weak")
+    if strict or exclude_weak:
+        out_t: set[str] = set()
+        for r in _hm.resolve_branch_hap(pillars, {}, luck_branches=[branch.value]):
+            if not r.luck_origin or not r.transform_element:
+                continue
+            if r.kind == "directional":
+                if r.hap_mode == "strengthen":
+                    out_t.add(r.transform_element)
+                continue
+            if r.kind == "gonghap":
+                continue  # 공합은 두 변형 모두 제외(가상 왕지 세력 부여 금지)
+            if strict:
+                if r.kind in ("six", "three_harmony") and r.transform_tier == "confirmed":
+                    out_t.add(r.transform_element)
+            elif r.transform_tier != "none":  # 중간안 — 등급 none 만 제외(조건부·왕지 반합 유지)
+                out_t.add(r.transform_element)
+        return sorted(out_t)
     natal_branches = [Branch(p.branch) for p in _natal(pillars)]
     natal_set = set(natal_branches)
     out: set[str] = set()

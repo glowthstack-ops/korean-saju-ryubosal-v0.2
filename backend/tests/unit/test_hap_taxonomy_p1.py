@@ -59,7 +59,7 @@ def test_natal_hap_change_contend_added_by_luck_stem() -> None:
     assert isinstance(r, ManseV2Result)
     lines = natal_hap_change_lines(r, luck_stems=["己"])
     assert any("원국 甲己合에 운 천간이 제3자로 가세 — 쟁합" in ln for ln in lines), lines
-    assert natal_hap_change_lines(r, luck_stems=["壬"]) == []  # 무관한 운 천간은 무변화
+    assert natal_hap_change_lines(r, luck_stems=["丁"]) == []  # 무관한 운 천간은 무변화
 
 
 def test_natal_hap_change_six_downgraded_by_luck_clash() -> None:
@@ -109,8 +109,13 @@ def _experiments_off():
 
 
 def test_experiment_flags_default_off_and_effects(_experiments_off) -> None:
-    # 2026-10-25 측정 후: trine_third_clash 기본 ON(85사례 불변·육합과 일관), stem_tougan 기본 OFF.
-    assert hm.HAP_EXPERIMENTS == {"trine_third_clash": True, "stem_tougan": False}
+    # 2026-10-25 측정 후: trine_third_clash 기본 ON(85사례 불변·육합과 일관). 2차 실험 3종은 OFF,
+    # 공합 休 조건부는 기본 ON(데굴님 확정 R3).
+    assert hm.HAP_EXPERIMENTS == {
+        "trine_third_clash": True, "tougan_composite": True,
+        "luck_transform_requires_tier": False, "luck_transform_exclude_weak": False,
+        "gonghap_effective_scoring": False, "gonghap_xiu_conditional": True,
+    }
     # trine_third_clash: 寅午 반합(午 왕지) + 원국 申(寅申충) → ON 이면 等級 하락.
     p = _pillars("庚申", "丙寅", "壬午", "丙子", dm="壬")
     hm.HAP_EXPERIMENTS["trine_third_clash"] = False
@@ -120,14 +125,145 @@ def test_experiment_flags_default_off_and_effects(_experiments_off) -> None:
     assert any(c.startswith("충:") for c in on.co_relations) and not any(
         c.startswith("충:") for c in off.co_relations
     )
-    hm.HAP_EXPERIMENTS["trine_third_clash"] = False
-    # stem_tougan: 甲己合(辰월 土 왕·통근, 투간 戊 없음) → ON 이면 conditional.
-    p2 = _pillars("甲辰", "己辰", "丙午", "丙申", dm="丙")
-    off2 = next(x for x in hm.resolve_stem_hap(p2, {"土": "용신"}) if set(x.pair) == {"甲", "己"})
-    assert off2.transform_tier == "confirmed"
-    hm.HAP_EXPERIMENTS["stem_tougan"] = True
-    on2 = next(x for x in hm.resolve_stem_hap(p2, {"土": "용신"}) if set(x.pair) == {"甲", "己"})
-    assert on2.transform_tier == "conditional"
-    p3 = _pillars("甲辰", "己辰", "戊午", "丙申", dm="戊")  # 일간 戊 = 土 투간 → 확정 유지
-    on3 = next(x for x in hm.resolve_stem_hap(p3, {"土": "용신"}) if set(x.pair) == {"甲", "己"})
-    assert on3.transform_tier == "confirmed"
+
+
+# ── 2차: 化神 투간 분류(근거) + 복합 판단형 실험 ────────────────────────────
+
+
+def test_tougan_classification_levels_and_sources(_experiments_off) -> None:
+    """甲己合(土): 당사자 己는 투간 아님 / 戊 별도 투간=동일오행 / 참여 지지 지장간 글자면 직접."""
+    p = _pillars("甲辰", "己巳", "丙午", "壬申", dm="丙")  # 甲己 외 土 천간 없음
+    hap = next(x for x in hm.resolve_stem_hap(p, {"土": "용신"}) if set(x.pair) == {"甲", "己"})
+    assert hap.tougan.level == "none" and hap.tougan.label() == "투간 없음"
+    p2 = _pillars("甲辰", "己巳", "戊午", "壬申", dm="戊")  # 일간 戊 — 辰 지장간 戊 → 직접 투출
+    hap2 = next(x for x in hm.resolve_stem_hap(p2, {"土": "용신"}) if set(x.pair) == {"甲", "己"})
+    assert hap2.tougan.level == "direct" and hap2.tougan.source == "natal"
+    # 운 천간 투간: 출처 'luck'
+    hap3 = next(x for x in hm.resolve_stem_hap(p, {"土": "용신"}, luck_stems=["戊"])
+                if set(x.pair) == {"甲", "己"} and not x.luck_origin)
+    assert hap3.tougan.source == "luck" and "운 戊" in hap3.tougan.label()
+    # 육합 寅亥(木): 원국 甲 = 寅 지장간 甲 → 직접 투출
+    p4 = _pillars("辛亥", "庚寅", "甲子", "戊戌", dm="甲")
+    six = next(x for x in hm.resolve_branch_hap(p4, {"木": "희신"})
+               if x.kind == "six" and set(x.members) == {"寅", "亥"})
+    assert six.tougan.level == "direct" and six.tougan.on_member_pillar is False
+
+
+def test_tougan_composite_lifts_xiu_season_only_with_tougan(_experiments_off) -> None:
+    """복합 판단형: 월령 休 + 투간 + 통근·무방해 → confirmed. 미투간이면 등급 불변."""
+    # 乙庚合(金): 월지 酉 → 金 왕(확정) 대신 '休'가 되는 월령 = 金이 생하는 水 월(亥·子).
+    p = _pillars("庚子", "乙亥", "丙申", "辛卯", dm="丙")  # 亥월 金 休·申 통근·辛 투간
+    hm.HAP_EXPERIMENTS["tougan_composite"] = False
+    base = next(x for x in hm.resolve_stem_hap(p, {"金": "용신"}) if set(x.pair) == {"乙", "庚"})
+    assert base.transform_tier == "conditional"  # 복합 판단 OFF: 休 → 조건부
+    hm.HAP_EXPERIMENTS["tougan_composite"] = True
+    on = next(x for x in hm.resolve_stem_hap(p, {"金": "용신"}) if set(x.pair) == {"乙", "庚"})
+    assert on.transform_tier == "confirmed" and any("월령 休 보완" in n for n in on.notes)
+    p2 = _pillars("庚子", "乙亥", "丙申", "丁卯", dm="丙")  # 투간 없음 → 休 그대로 조건부
+    off = next(x for x in hm.resolve_stem_hap(p2, {"金": "용신"}) if set(x.pair) == {"乙", "庚"})
+    assert off.transform_tier == "conditional"
+
+
+# ── 2차: 공합 상태 모델(인접=거리 1·旺相·休 조건부·囚死 제외·제3 충 강등) ──────
+
+
+def _gonghap(p, fav=None):
+    return next(x for x in hm.resolve_branch_hap(p, fav or {}) if x.kind == "gonghap")
+
+
+def test_gonghap_states_by_adjacency_season_tougan(_experiments_off) -> None:
+    # 申辰 공합(水): 月지 申·日지 辰 인접, 申월(金生水 → 水 相), 壬 투간(申 지장간 壬 → 직접) → 유효
+    g = _gonghap(_pillars("壬午", "甲申", "丙辰", "乙未", dm="丙"), {"水": "기신"})
+    assert g.gonghap_state in ("effective", "strengthened"), g.notes
+    assert g.transform_tier == "conditional" and g.strength >= 0.5
+    assert "인접(거리 1)" in g.notes[0] and "투간 직접" in g.notes[0]
+    # 원거리(연지 申·일지 辰): 후보만
+    g2 = _gonghap(_pillars("壬申", "甲午", "丙辰", "乙未", dm="丙"), {"水": "기신"})
+    assert g2.gonghap_state == "candidate" and g2.transform_tier == "none" and g2.strength == 0.3
+    # 囚·死 월령(未월 土 당령 → 水 死): 인접·투간 있어도 기본 제외
+    g3 = _gonghap(_pillars("壬午", "乙未", "甲申", "丙辰", dm="甲"), {"水": "기신"})
+    assert g3.gonghap_state == "candidate", g3.notes
+
+
+def test_gonghap_xiu_conditional_requires_tougan_and_support(_experiments_off) -> None:
+    """寅戌 공합(火): 戌월(火 休). 투간 丙 + 독립 지원(별도 통근 巳)이면 유효, 없으면 후보."""
+    # 戌·寅 인접(月·日), 巳 별도 통근, 丙 투간
+    with_support = _pillars("丙巳", "甲戌", "乙寅", "己卯", dm="乙")
+    g = _gonghap(with_support, {"火": "희신"})
+    assert g.gonghap_state in ("effective", "strengthened"), g.notes
+    hm.HAP_EXPERIMENTS["gonghap_xiu_conditional"] = False
+    g_strict = _gonghap(with_support, {"火": "희신"})
+    assert g_strict.gonghap_state == "candidate"  # 旺·相만 허용하면 休는 제외
+    hm.HAP_EXPERIMENTS["gonghap_xiu_conditional"] = True
+    # 별도 통근 없음(子는 水)·생조 천간(木) 없음 — 戊·己·癸 천간, 丙 투간만.
+    no_support = _pillars("丙子", "戊戌", "己寅", "癸卯", dm="己")
+    g2 = _gonghap(no_support, {"火": "희신"})
+    assert g2.gonghap_state == "candidate" and "독립 지원 없음" in g2.notes[0]
+
+
+def test_gonghap_third_clash_demotes_effective_to_weak(_experiments_off) -> None:
+    # 申辰(인접·申월 水 相·壬 투간) + 원국 寅(寅申충) → 유효→약한 공합 강등(삭제 아님)
+    g = _gonghap(_pillars("壬寅", "甲申", "丙辰", "乙未", dm="丙"), {"水": "기신"})
+    assert g.gonghap_state == "weak" and "강등" in g.notes[0], g.notes
+
+
+def test_gonghap_effective_scoring_flag_gates_hierarchy_eligibility(_experiments_off) -> None:
+    from saju_engines.relation_semantics import derive_branch_semantics
+
+    g = _gonghap(_pillars("壬午", "甲申", "丙辰", "乙未", dm="丙"), {"水": "기신"})
+    sem = derive_branch_semantics(g)
+    assert sem.aux_state in ("effective", "strengthened")
+    assert "제한적 결속" in sem.allowed_interpretations[0]
+    assert "투간" in sem.tougan_label
+
+
+# ── 2차: T-3 운 점수층 '합국 성립 ≠ 합화' ───────────────────────────────────
+
+
+def test_luck_transform_requires_tier_filters_unconfirmed(_experiments_off) -> None:
+    from saju_manse_analysis.luck.luck_cycles import _transformed_elements
+
+    from saju_shared_types.enums import Branch
+
+    p = _pillars("庚申", "丁亥", "己亥", "己巳", dm="己")  # 데굴님 원국
+    # 운 寅: 寅亥合(木) — 亥월 木 相이나 寅申충으로 화 불성, 종전에는 木을 무조건 가산.
+    legacy = _transformed_elements(Branch("寅"), p)
+    assert "木" in legacy
+    hm.HAP_EXPERIMENTS["luck_transform_requires_tier"] = True
+    gated = _transformed_elements(Branch("寅"), p)
+    assert "木" not in gated
+    # 운 子: 申子辰? 원국 申·辰 없음(辰 없음) → 申子 반합(왕지) — 반합은 化 대상 아님 → 제외
+    assert _transformed_elements(Branch("子"), p) == []
+
+
+# ── 2차: G-3 운 화신 투간 → 원국 공합 강화 줄 ───────────────────────────────
+
+
+def test_luck_tougan_line_for_natal_gonghap() -> None:
+    p = _pillars("壬申", "甲午", "丙辰", "乙未", dm="丙")  # 申辰 공합(원거리 후보)
+    r = calculate(_DG).model_copy(update={"pillars": p})
+    lines = natal_hap_change_lines(r, luck_stems=["癸"])
+    assert any("申辰 공합에 운 癸 투간" in ln and "삼합 아님" in ln for ln in lines), lines
+    assert not any("공합에 운" in ln for ln in natal_hap_change_lines(r, luck_stems=["丙"]))
+
+
+# ── 일주 운세: 운영 경로는 공합 제외(왕지 필수), 동결 pool 렌더는 종전 유지 ───────
+
+
+def test_daily_half_harmony_requires_royal_live_but_not_for_frozen_pool() -> None:
+    from saju_engines import daily_ilju_fortune as dif
+    from saju_shared_types.enums import Branch
+
+    assert dif.HALF_HARMONY_REQUIRES_ROYAL is True
+    helpers = (Branch("午"), Branch("未"))
+    live = dif._branch_relations(Branch("申"), Branch("辰"), helpers)  # 申辰 — 왕지 子 없음
+    assert "half_harmony" not in live
+    royal = dif._branch_relations(Branch("申"), Branch("子"), helpers)
+    assert "half_harmony" in royal
+    token = dif.half_royal_override.set(False)  # 동결 pool 렌더 문맥
+    try:
+        frozen = dif._branch_relations(Branch("申"), Branch("辰"), helpers)
+        assert "half_harmony" in frozen
+    finally:
+        dif.half_royal_override.reset(token)
+    assert "half_harmony" not in dif._branch_relations(Branch("申"), Branch("辰"), helpers)

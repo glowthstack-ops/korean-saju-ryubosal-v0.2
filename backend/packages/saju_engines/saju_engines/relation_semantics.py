@@ -216,6 +216,8 @@ def derive_branch_semantics(r: BranchHapResolution) -> RelationSemantics:
         transform_tier=r.transform_tier,
         role=r.role,
         luck_origin=r.luck_origin,
+        aux_state=getattr(r, "gonghap_state", "") or "",
+        tougan_label=r.tougan.label() if getattr(r, "tougan", None) else "",
         effects=effects,
     )
     _fill_interpretations(sem)
@@ -398,8 +400,16 @@ def _fill_interpretations(sem: RelationSemantics) -> None:
         forbidden.append("합이 불성립·무산됐다고 서술")
         forbidden.append(f"{el} 아닌 다른 오행으로 합화했다고 서술")
     elif sem.formation_state is FormationState.PARTIAL and el and sem.kind == "gonghap":
-        # 공합(가합, 2026-10-25) — 왕지 없는 생지+고지 2자. 반합보다 약한 '부분 가세(미약)'.
-        allowed.append(f"{el}({sem.role or '역할 미상'})에 부분 가세(미약) — 공합(왕지 없음)")
+        # 공합(가합, 2026-10-25) — 왕지 없는 생지+고지 2자. 상태별 어휘(2차: 유효·강화는
+        # '제한적 오행 결속', 후보·약한 공합은 '부분 가세(미약)').
+        if sem.aux_state in ("effective", "strengthened"):
+            grade = "강화 공합" if sem.aux_state == "strengthened" else "유효 공합"
+            allowed.append(
+                f"{el}({sem.role or '역할 미상'})에 제한적 결속 — {grade}(인접·투간·월령 충족, "
+                "왕지 없음)"
+            )
+        else:
+            allowed.append(f"{el}({sem.role or '역할 미상'})에 부분 가세(미약) — 공합(왕지 없음)")
         forbidden.append("반합·삼합이 성립했다고 서술(왕지 없는 가합)")
         forbidden.append("서로 묶였다·합거됐다고 서술(묶임 판정 없음)")
         forbidden.append(f"{_el_with_ro(el)} 합화했다고 서술")

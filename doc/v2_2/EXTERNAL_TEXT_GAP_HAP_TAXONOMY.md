@@ -146,3 +146,64 @@
 - 탐합망충: [OpenFate 탐합망충](https://wiki.openfate.ai/ko/bazi/stem-branch-relations/combination-neutralizes-clash) / [역학동 충과 합](https://m.cafe.daum.net/2040/MsI/62789?listURI=%2F2040%2FMsI) / KCI 위 논문
 - 암합·명암합: [위키백과](https://ko.wikipedia.org/wiki/%ED%95%A9_(%EC%82%AC%EC%A3%BC%ED%8C%94%EC%9E%90)) / [sajuabc 암합](https://sajuabc.com/%EC%95%94%ED%95%A9/) / [김동완 암합](https://m.cafe.daum.net/sajuloves/Bw7y/33?svc=cafeapi)
 - 합거·합반: [역학동 합거란 게 있을 수 있는가](https://m.cafe.daum.net/2040/MsI/62815?listURI=/2040/MsI) / [합동·합반·합류](https://blog.daum.net/ghleehan/13369126) / [인터넷역학 합거는 잘못된 이해](http://lifesci.net/pod/bbs/board.php?bo_table=B01&wr_id=907)
+
+## 5. 2차 자료 대조 — 「化神 투간 조건과 합화 성립 기준」·「공합의 성립 조건과 실제 작용 기준」 (2026-10-25, 제안 — 승인 전 미착수)
+
+### 5-1. 化神 투간
+
+| 자료 | 우리 시스템 | 판정 |
+|---|---|---|
+| 투간 3분류: 직접 투출(지장간 동일 글자) / 동일 오행 지원 / 미투간 | `HAP_EXPERIMENTS["stem_tougan"]`(OFF): 천간합만, 당사자 외 **동일 오행 천간 유무 boolean**. 육합·삼합·방합·공합에는 투간 개념 없음 | 부분 — 분류·출처(원국/운)·대상 합 범위 모두 부족 |
+| 합 당사자 자체 오행은 투간이 아님(甲己의 己) | `_transform_stem_exposed` 가 쌍 인덱스를 제외 | 동등 |
+| 투간은 강력한 근거이나 충분조건 아님 / 미투간은 합 부정 근거 아님(복합 판단형) | 실험 플래그는 미투간 → confirmed 불가(**엄격형**) | **불일치** — 복합 판단형으로 바꿔야 함 |
+| 운에서 화신 투간 → 그 운에서만 재평가 | 운 천간은 `all_pos` 에 들어가 해당 기간 계산에만 반영, 원국 줄은 운 무관 | 동등(출처 라벨만 없음) |
+| 합화 성립 시에만 오행 기능 재평가, 원래 오행·화신 중복 계산 금지 | `pattern_transit`: TRANSFORMED 일 때만 `transform_to` ✓. **그러나 `luck_cycles._transformed_elements` 는 육합·삼합·방합 결과 오행을 HM 등급과 무관하게 `transformed` 에 넣어 `_relation_modifier` ±0.1 을 운 점수에 가산** | **결함** — '합국 성립 ≠ 합화' 위반(운 점수층) |
+| 午未合 화신 = 학파별(火/土) | 火 → 丙丁 | 동등(다수설) |
+
+### 5-2. 공합
+
+| 자료 | 우리 시스템 | 판정 |
+|---|---|---|
+| 4조합(寅戌·亥未·巳丑·申辰)만 공합, 왕지 존재 시 공합 종료 | `kind='gonghap'` 4조합, 왕지 등장(원국·운) 시 three_harmony/half 로 판정 | 동등 |
+| 5상태: 후보 / 약한 / 유효(인접+화신+세력) / 강화(+득령·통근·생조) / 완전 삼합 전환 | 단일 상태(tier none·strength 0.3·'부분 가세(미약)') | 부분 — 상태 모델 없음 |
+| 인접성(연월·월일·일시)이 유효성 핵심, 원거리는 후보 보존 | 거리 미평가 | 없음 |
+| 화신 투간(원국 어느 천간이든; 참여 지지 위 천간이면 강함) | 없음 | 없음 |
+| 충·형 간섭은 실제 영향 평가(존재만으로 무효화 금지), 가상 왕지에 충 적용 금지 | `co_relations` 기록만, 가상 왕지 미생성 ✓, trine_third_clash ON 이면 공합 분기 전 `co` 에 제3 충 포함(현재 공합 tier 는 어차피 none) | 부분 |
+| 공록·공귀 특수격은 별도 체계 | 없음(혼합 없음) | 해당 없음 |
+| 운의 화신 투간 → 공합 작용 강화 / 운 왕지 등장 → 삼합 전환 후 재판정 | 왕지 전환 ✓ / 화신 강화 없음 | 부분 |
+
+### 5-3. 제안 (실험 우선 원칙 유지)
+
+| # | 항목 | 안 | 측정 |
+|---|---|---|---|
+| T-1 | 투간 분류 공용 함수 | `hap_modes.classify_tougan(target_el, pair_idx, all_pos, branches)` → `TouganInfo(level: direct/same_element/none, source: natal/luck/both, stems, on_member_pillar: bool)`. 직접 투출 = 참여 지지 지장간과 동일 글자가 천간에 노출. 천간합·육합·삼합·반합·방합·공합 모든 `*HapResolution` 에 `tougan` 필드 추가 | 서술 전용 필드 — 측정 불필요 |
+| T-2 | 복합 판단형으로 교체 | `stem_tougan`(엄격 boolean) 폐기 → `tougan_composite` 실험: 투간 direct/same 이면 季節 '휴(xiu)'에서도 통근·무방해 시 confirmed 승격 허용(세력 대체형 보완), 미투간은 등급 불변(부정 근거 아님). strength 가중 direct 1.1 / same 1.0 / none 0.9 | 85사례 재생 비교 후 기본값 결정 |
+| T-3 | 운 점수층 '합국≠합화' 정합 | `luck_cycles._transformed_elements` 를 HM 등급 기준(confirmed 만 `transformed`, 방합 완성은 강화로 별도)으로 교체 — 실험 플래그 `luck_transform_requires_tier` | 85사례 재생(luck_label·sewoon_agree 포함) 비교 후 결정 |
+| G-1 | 공합 상태 모델 | `gonghap_state`: candidate(기본) / weak(원거리 또는 투간·세력 부족) / effective(원국 인접 + 투간 direct·same + 월령 왕·상·휴) / strengthened(effective + 통근·생조). 운 참여 공합은 weak 고정(자리 없음). tier: candidate·weak = none·0.3 / effective = conditional·0.5 / strengthened = conditional·0.6(삼합과 구별 — confirmed 금지). 노트에 상태·근거(인접·투간·월령·간섭) | 서술은 즉시 ON, **점수**(effective 이상을 반합처럼 PARTIALLY_STRENGTHENED 점수 대상으로) 는 플래그 `gonghap_effective_scoring` 실험 → 재생 비교 |
+| G-2 | 공합 간섭 | effective 판정 시 제3 글자 충(참여 지지)을 '실제 간섭'으로 한 단계 강등(effective→weak), 존재만으로 삭제 금지 | G-1 에 포함 |
+| G-3 | 운 화신 투간으로 공합 강화 | `natal_hap_change_lines` 에 "원국 寅戌 공합에 운 丙 투간 — 화신 지원 강화(午 등장 아님)" 줄 / 운 왕지 등장은 기존 '삼합 완성' 줄 유지 | 서술 전용 |
+| D | 일주 운세 | 변경 없음(pool 동결) | — |
+
+- 원칙 재확인: 투간·인접·세력·간섭은 **근거와 판정을 분리 저장**(자료 §6) — `tougan`·`gonghap_state`·`adjacent`·`interference` 필드를 두고 tier 는 그 조합의 결과로만 낸다. LLM 에는 상태와 근거를 함께 준다(자유 추정 금지).
+- 승인 필요: T-2·T-3·G-1 점수층(플래그 + 85사례 재생 후 ON/OFF), G-1 상태 임계(인접 정의: 자리 거리 1 / 월령 '휴' 포함 여부), T-3 가 바꾸는 운 점수(±0.1)의 적용 범위.
+
+### 5-4. 2차 반영 결과 (2026-10-25 데굴님 "진행하자" + 공합 기준 확정: 인접=거리 1 · 旺相 허용 · 休 조건부(투간+독립 지원) · 囚死 제외 · 운 참여는 별도)
+
+| # | 처리 | 측정·근거 |
+|---|---|---|
+| T-1 투간 분류 | ON(근거 필드) | `hap_modes.classify_tougan` → `TouganInfo(level direct/same_element/none, source natal/luck/both, stems, on_member_pillar)`. 천간합·육합·삼합·반합·방합·공합 전부 `tougan` 보유, `RelationSemantics.tougan_label`·운 합 줄 꼬리 '투간 …'. 당사자 천간 제외(甲己의 己) |
+| T-2 복합 판단형 | **기본 ON** | `HAP_EXPERIMENTS["tougan_composite"]`: 월령 休 + 투간 + 통근·무방해 → confirmed, 미투간은 불변. **일간 합(화기격 후보)은 제외** — 化氣格은 化神 당령(旺·相)이 고전 조건이라 休 보완으로 격을 세우지 않는다(`test_hwagi_reevaluation` 유지). 재생 `hap_exp_tougan_composite`: pair 33/68·적중 23/44·오탐 8 불변·행 차이 0. 종전 엄격형 `stem_tougan` 폐기 |
+| T-3 운 점수층 등급 게이트 | **기본 OFF** | `HAP_EXPERIMENTS["luck_transform_requires_tier"]`(`luck_cycles._transformed_elements`, 대운·세운·월운·일운 공통): 재생 `hap_exp_luck_transform_requires_tier` **pair 33→31, 대운 방향 일치 25→23**(세운 14 불변, 적중·오탐 불변). '합국 성립 ≠ 합화' 원칙상 옳지만 사례 지표가 내려가 OFF — 반합·조건부 합의 결과 오행 가산이 대운 방향 일치에 기여하고 있다는 뜻이라 별도 검토 안건 |
+| G-1 공합 상태 모델 | ON(서술)·점수 OFF | `_gonghap_state`: candidate/weak/effective/strengthened, tier none·0.3 / conditional·0.5 / conditional·0.6, confirmed 금지. 독립 지원 = 참여 지지 외 별도 통근 또는 化神 생조 천간(투간 천간 제외). `gonghap_effective_scoring` 재생 지표 불변(사례집 유효 공합 2건) → 점수 편입 OFF |
+| G-1 休 비교 | 休 조건부 채택 | `scripts/measure_gonghap_states.py`(157명식 원국): 旺相만 → 유효 1·강화 1 / 休 조건부 → 유효 2·강화 1·약한 2. 休 때문에 새로 유효 1건 = CASE-057/R 戌寅(戌월·丙 투간 참여 기둥 위·별도 통근 未). `var/gonghap_states_20261025.md` |
+| G-2 간섭 | ON | 제3 글자 충 → 유효를 weak 로 강등(삭제 아님), 근거 노트 |
+| G-3 운 화신 투간 | ON(서술) | `natal_hap_change_lines`: "원국 寅戌 공합에 운 丙 투간 — 화신 지원 강화(왕지 등장 아님)" |
+| D 일주 운세 | 불변 | pool 동결 |
+
+### 5-5. 남은 결정 처리 (2026-10-25 데굴님 "남은 결정 모두 풀이 정확도를 높이는 쪽으로")
+
+| 결정 | 처리 | 근거 |
+|---|---|---|
+| T-3 운 점수층 등급 게이트 | **두 변형 모두 OFF(종전 가산 유지)** | 엄격(확정만): pair 33→31·대운 일치 25→23 / 중간안 `luck_transform_exclude_weak`(등급 none·공합만 제외, 조건부·왕지 반합 유지): pair 33→**30**·대운 일치 25→**22**(세운 14·적중 23·오탐 8 불변). 등급 none(합반) 육합의 결과 오행 ±0.1 가산을 빼면 대운 방향 일치가 가장 크게 떨어진다 — 사례집에서는 '묶인 합도 그 오행 색을 띤다'는 실무 관행 쪽이 맞는다. 원칙('합국 성립 ≠ 합화')은 서술층(확정 문장·등급 표기)에서 지키고 점수층은 적중률을 따른다 |
+| 일주 운세 공합 제외 | **운영 적용** | `HALF_HARMONY_REQUIRES_ROYAL=True`(실시간 v2 모델), 동결 pool(renderer contract c10.v1)만 `half_royal_override=False` 로 종전 렌더(골든 지문 유지). docs/17 §21-5 주 |
+

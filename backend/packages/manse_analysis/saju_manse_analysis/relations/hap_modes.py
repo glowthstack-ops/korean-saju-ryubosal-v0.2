@@ -26,12 +26,14 @@ from saju_shared_types.constants import (
     BRANCH_HARMS,
     CONTROLS,
     DIRECTIONAL_COMBINATIONS,
+    GENERATES,
     PUNISHMENT_MUTUAL,
     PUNISHMENT_TRIPLES,
     SIX_COMBINATIONS,
     STEM_COMBINATIONS,
     STEM_ELEMENT,
     THREE_HARMONY,
+    hidden_stems_for,
     main_hidden_stem,
     season_state,
     ten_god,
@@ -52,7 +54,61 @@ _BOON_WHEN_BOUND = {"기신", "구신"}
 #     위해 **기본 ON**.
 #   stem_tougan: 천간합 化 확정에 化神 오행의 천간 투출(합 당사자 외)을 요구(투간 조건). 측정 지표
 #     불변이나 통설 합의가 약한 추가 조건이라 **기본 OFF** 유지(근거 사례 축적 후 재검토).
-HAP_EXPERIMENTS: dict[str, bool] = {"trine_third_clash": True, "stem_tougan": False}
+#   tougan_composite(2차, 2026-10-25): 복합 판단형 — 투간(직접/동일 오행)이 있으면 월령 '휴(休)'
+#     에서도 통근·무방해 시 confirmed 승격 허용. 미투간은 등급 불변(합 부정 근거 아님). 종전 엄격형
+#     boolean(stem_tougan)은 폐기. 측정: 85사례 지표 불변·행 차이 0 → 자료 권고(복합 판단형)대로
+#     **기본 ON**.
+#   luck_transform_requires_tier(T-3): 운 점수층(luck_cycles, 대운·세운·월운·일운)의 합국 결과 오행
+#     가산을 HM 化 등급 confirmed(육합·삼합) + 방합 완성에만 허용('합국 성립 ≠ 합화'). 측정: pair
+#     33→31·대운 방향 일치 25→23 **하락** → 원칙상 옳아도 사례 지표가 내려가 **기본 OFF**
+#     (데굴님 기준:
+#     점수 규칙은 적중률).
+#   luck_transform_exclude_weak(T-3 변형, 2026-10-25 데굴님 "정확도 쪽으로"): 운 점수층 합국
+#     가산에서
+#     化 등급 none 인 육합·삼합과 공합만 제외하고 조건부 합·왕지 반합·방합 완성은 유지(중간안).
+#   gonghap_effective_scoring(G-1): 유효·강화 공합을 반합처럼 계층 점수 대상에 편입. 측정: 지표 불변
+#     (사례집에 유효 공합 2건뿐) → 근거 부족으로 **기본 OFF**, 서술은 상태 모델로 노출.
+#   gonghap_xiu_conditional: 공합 유효 판정에서 월령 '휴'를 투간+독립 지원 조건부로 인정(기본 ON,
+#     OFF=旺·相만). 비교 측정 scripts/measure_gonghap_states.py.
+HAP_EXPERIMENTS: dict[str, bool] = {
+    "trine_third_clash": True,
+    "tougan_composite": True,
+    "luck_transform_requires_tier": False,
+    "luck_transform_exclude_weak": False,
+    "gonghap_effective_scoring": False,
+    "gonghap_xiu_conditional": True,
+}
+
+
+@dataclass(frozen=True)
+class TouganInfo:
+    """化神 투간 판정(2026-10-25 2차 자료 §2) — 근거만 담고 합화 판정은 하지 않는다.
+
+    level: 'direct'(참여 지지 지장간과 동일 글자가 천간에 노출) | 'same_element'(化神 오행 천간
+    존재) | 'none'. 합 당사자 천간은 제외한다(甲己合의 己는 土 투간이 아니다).
+    source: 'natal' | 'luck' | 'both' | ''. on_member_pillar: 투간 천간이 참여 지지와 같은 기둥 위.
+    """
+
+    level: str
+    source: str
+    stems: tuple[str, ...]
+    on_member_pillar: bool
+
+    @property
+    def present(self) -> bool:
+        return self.level != "none"
+
+    def label(self) -> str:
+        """표기용 — '투간 直接(원국 甲)' / '투간 동일오행(운 乙)' / '투간 없음'."""
+        if not self.present:
+            return "투간 없음"
+        kind = "직접" if self.level == "direct" else "동일오행"
+        src = {"natal": "원국", "luck": "운", "both": "원국·운"}.get(self.source, "")
+        where = "·참여 기둥 위" if self.on_member_pillar else ""
+        return f"투간 {kind}({src} {''.join(self.stems)}{where})"
+
+
+_NO_TOUGAN = TouganInfo(level="none", source="", stems=(), on_member_pillar=False)
 
 # CALIBRATE: 정량 가중치 보수 기본값(스펙 §0·G — 전문가 감수·캘리브레이션 전 잠정).
 HAP_WEIGHTS: dict[str, float] = {
@@ -94,6 +150,7 @@ class StemHapResolution:
     strength: float = 1.0            # 합력(약화 반영, 0~1) — CALIBRATE
     affected: list[AffectedGod] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    tougan: TouganInfo = _NO_TOUGAN  # 化神 투간 근거(2026-10-25) — 판정 아님
 
 
 def _natal_stems(pillars: FourPillarsResult) -> list[tuple[str, Stem]]:
@@ -268,10 +325,18 @@ def resolve_stem_hap(
         # 사이 글자가 끼면 불성립 또는 약화)·SPEC §B 표와 달리 종전에는 strength 만 깎고 등급은
         # 그대로 두어 年干↔時干 합도 confirmed 가 나왔다. 불성립까지는 학파가 갈려 '약화'로 둔다.
         disturbed = blocked or contend or weakened
-        if HAP_EXPERIMENTS["stem_tougan"] and not _transform_stem_exposed(target, (i, j), all_pos):
-            disturbed = True  # 化神 투간 없음 — 확정 불가(실험)
+        tougan = classify_tougan(target, (i, j), all_pos, _natal_branches(pillars))
         if season in ("wang", "xiang") and rooted and not disturbed:
             tier = "confirmed"
+        elif (
+            HAP_EXPERIMENTS["tougan_composite"] and season == "xiu"
+            and rooted and not disturbed and tougan.present
+            and "day" not in (pa, pb)
+        ):
+            # 복합 판단형 — 休 + 투간 + 통근·무방해(2026-10-25). **일간 합(화기격 후보)은 제외**:
+            # 化氣格은 化神 당령(旺·相)이 고전 조건이라 休 보완으로 격을 세우지 않는다(보수).
+            tier = "confirmed"
+            notes.append(f"化 확정(월령 休 보완: {tougan.label()})")
         elif season in ("qiu", "si") or blocked:
             tier = "none"
         else:
@@ -349,8 +414,17 @@ def resolve_stem_hap(
             strength=round(strength, 4),
             affected=affected,
             notes=notes,
+            tougan=tougan,
         ))
     return out
+
+
+def _natal_branches(pillars: FourPillarsResult) -> list[tuple[str, Branch]]:
+    """원국 (자리, 지지) 목록 — 투간 직접 투출 판정용."""
+    items = [("year", pillars.year), ("month", pillars.month), ("day", pillars.day)]
+    if pillars.hour is not None:
+        items.append(("hour", pillars.hour))
+    return [(pos, Branch(p.branch)) for pos, p in items]
 
 
 # ─── 지지합(六合·三合·方合) Phase 3 ──────────────────────────────
@@ -375,6 +449,9 @@ class BranchHapResolution:
     affected: list[AffectedGod] = field(default_factory=list)
     strength: float = 1.0          # 합력(0~1) — CALIBRATE
     notes: list[str] = field(default_factory=list)
+    tougan: TouganInfo = _NO_TOUGAN  # 化神 투간 근거(2026-10-25)
+    # 공합 상태(kind='gonghap' 전용): candidate | weak | effective | strengthened. 근거와 판정 분리.
+    gonghap_state: str = ""
 
 
 def _co_relations(members: list[Branch]) -> list[str]:
@@ -398,6 +475,114 @@ def _co_relations(members: list[Branch]) -> list[str]:
     return list(dict.fromkeys(out))
 
 
+def classify_tougan(
+    target,
+    exclude_idx: tuple[int, ...],
+    all_pos: list[tuple[str, Stem]],
+    member_branches: list[tuple[str, Branch]],
+) -> TouganInfo:
+    """化神 투간 분류(2026-10-25 2차 자료 §2) — 직접 투출 / 동일 오행 지원 / 미투간.
+
+    Args:
+        target: 化神 오행(Element).
+        exclude_idx: 합 당사자 천간의 all_pos 인덱스(투간 후보에서 제외).
+        all_pos: (자리, 천간) 목록 — 원국 + 운('luck').
+        member_branches: 참여 지지 (자리, 지지) — 직접 투출(지장간 동일 글자)·참여 기둥 위 판정.
+    """
+    hidden = {
+        hs for _pos, b in member_branches for hs, _t, _w in hidden_stems_for(b)
+        if STEM_ELEMENT[hs] == target
+    }
+    member_pos = {pos for pos, _ in member_branches}
+    stems: list[str] = []
+    sources: set[str] = set()
+    direct = False
+    on_member = False
+    for k, (pos, s) in enumerate(all_pos):
+        if k in exclude_idx or STEM_ELEMENT[s] != target:
+            continue
+        stems.append(s.value)
+        sources.add("luck" if pos == "luck" else "natal")
+        if s in hidden:
+            direct = True
+        if pos in member_pos:
+            on_member = True
+    if not stems:
+        return _NO_TOUGAN
+    return TouganInfo(
+        level="direct" if direct else "same_element",
+        source="both" if len(sources) == 2 else next(iter(sources)),
+        stems=tuple(dict.fromkeys(stems)), on_member_pillar=on_member,
+    )
+
+
+def _independent_support(
+    target, members: list[Branch], pillars: FourPillarsResult, tougan_stems: tuple[str, ...],
+) -> list[str]:
+    """공합 '독립 지원'(2차 자료 §3) — 참여 지지·월령·투간 자체를 중복 계산하지 않은 추가 근거.
+
+    ① 참여 지지가 아닌 원국 지지의 지장간에 化神 오행 뿌리(별도 통근)
+    ② 化神을 생(生)하는 천간이 원국에 있음(생조 천간, 투간 천간과 별개)
+    """
+    out: list[str] = []
+    mem = set(members)
+    for p in (pillars.year, pillars.month, pillars.day, pillars.hour):
+        if p is None or Branch(p.branch) in mem:
+            continue
+        if any(hs.element == target.value for hs in p.hidden_stems):
+            out.append(f"별도 통근 {p.branch}")
+    for p in (pillars.year, pillars.month, pillars.day, pillars.hour):
+        if p is None:
+            continue
+        s = Stem(p.stem)
+        if GENERATES[STEM_ELEMENT[s]] == target and s.value not in tougan_stems:
+            out.append(f"생조 천간 {p.stem}")
+    return list(dict.fromkeys(out))
+
+
+def _gonghap_state(
+    present: list[tuple[str, Branch]], target, month_branch: Branch,
+    pillars: FourPillarsResult, tougan: TouganInfo, clashes: list[str],
+) -> tuple[str, list[str]]:
+    """공합 상태(2026-10-25 데굴님 확정: 인접=거리 1, 旺·相 허용, 休 조건부, 囚·死 제외).
+
+    Returns:
+        (state, 근거 목록). state ∈ candidate | weak | effective | strengthened.
+        운 참여(원국-운)는 거리가 없어 weak 고정. 제3 글자 충은 유효를 weak 로 한 단계 강등
+        (존재만으로 삭제하지 않음).
+    """
+    why: list[str] = []
+    positions = [pos for pos, _ in present]
+    if "luck" in positions:
+        why.append("운 참여(원국-운 공합) — 거리 판정 없음")
+        return "weak", why
+    idx = sorted(_ORDER.index(p) for p in positions if p in _ORDER)
+    adjacent = len(idx) == 2 and idx[1] - idx[0] == 1
+    dist = idx[1] - idx[0] if len(idx) == 2 else "?"
+    why.append("인접(거리 1)" if adjacent else f"원거리(거리 {dist})")
+    if not adjacent:
+        return "candidate", why
+    season = season_state(target, month_branch)
+    support = _independent_support(target, [b for _, b in present], pillars, tougan.stems)
+    why.append(f"월령 {season}")
+    why.append(tougan.label())
+    why.append("독립 지원 " + ("·".join(support) if support else "없음"))
+    if season in ("wang", "xiang"):
+        season_ok = tougan.present or bool(support)
+    elif season == "xiu" and HAP_EXPERIMENTS["gonghap_xiu_conditional"]:
+        season_ok = tougan.present and bool(support)
+    else:
+        season_ok = False
+    if not season_ok:
+        return "candidate", why
+    if clashes:
+        why.append("제3 글자 충 " + "·".join(clashes) + " — 유효→약한 공합 강등")
+        return "weak", why
+    if tougan.present and support and season in ("wang", "xiang"):
+        return "strengthened", why
+    return "effective", why
+
+
 def _third_clash_on(members: list[Branch], all_branches: list[Branch]) -> list[str]:
     """구성 지지를 제3 글자가 충하는 관계 목록('충:寅申') — 삼합·반합 실험(trine_third_clash)."""
     out: list[str] = []
@@ -409,16 +594,6 @@ def _third_clash_on(members: list[Branch], all_branches: list[Branch]) -> list[s
             if frozenset({m, other}) in BRANCH_CLASHES:
                 out.append(f"충:{m.value}{other.value}")
     return list(dict.fromkeys(out))
-
-
-def _transform_stem_exposed(
-    target, pair_idx: tuple[int, int], all_pos: list[tuple[str, Stem]],
-) -> bool:
-    """化神 오행이 합 당사자 외의 천간(원국·운)에 투출했는가 — stem_tougan 실험 조건."""
-    return any(
-        STEM_ELEMENT[s] == target
-        for k, (_pos, s) in enumerate(all_pos) if k not in pair_idx
-    )
 
 
 def _six_disturbing(a: Branch, b: Branch, all_branches: list[Branch]) -> list[str]:
@@ -459,6 +634,7 @@ def resolve_branch_hap(
     favorability: dict[str, str],
     *,
     luck_branches: list[str] | None = None,
+    luck_stems: list[str] | None = None,
 ) -> list[BranchHapResolution]:
     """지지합(육합/삼합/방합/반합)의 작용 모드를 판정한다(원국 + 선택적 운 지지).
 
@@ -473,6 +649,10 @@ def resolve_branch_hap(
              for pos in _ORDER if getattr(pillars, pos, None) is not None]
     luck = [("luck", Branch(b)) for b in (luck_branches or [])]
     all_pos = natal + luck
+    # 투간 분류용 천간 풀(원국 + 운) — 지지합은 당사자 천간이 없어 제외 인덱스 없음.
+    stem_pool: list[tuple[str, Stem]] = _natal_stems(pillars) + [
+        ("luck", Stem(x)) for x in (luck_stems or [])
+    ]
 
     out: list[BranchHapResolution] = []
 
@@ -512,13 +692,14 @@ def resolve_branch_hap(
             ]
             if luck_origin:
                 direction = "away"  # 운 지지가 원국 지지를 합거(묶음)
+        six_tougan = classify_tougan(target, (), stem_pool, [(pa, ba), (pb, bb)])
         out.append(BranchHapResolution(
             kind="six", members=(ba.value, bb.value), positions=(pa, pb),
             transform_element=target.value, role=_role(target.value),
             transform_tier=tier,
             hap_mode="transform" if tier == "confirmed" else "bind",
             luck_origin=luck_origin, direction=direction, co_relations=co,
-            affected=affected, strength=round(strength, 4), notes=notes,
+            affected=affected, strength=round(strength, 4), notes=notes, tougan=six_tougan,
         ))
 
     # ── 삼합 / 반합 ─────────────────────────────────────────────
@@ -537,16 +718,32 @@ def resolve_branch_hap(
             # 공합(拱合·가합) — 왕지 없는 생지+고지 2자(申辰·寅戌·巳丑·亥未). 반합이 아니라
             # 그 오행에 '부분 가세(미약)'하는 별도 종류로 기록한다(2026-10-25 데굴님 승인 —
             # 종전엔 여기서 버려져 탐지기와 엔진 불일치(ENGINE_CONFLICT) 격리 상태였다).
-            # 化 등급 없음(none)·strength 0.3·점수 반영 없음. 완전한 삼합처럼 계산 금지.
+            # 2차(같은 날): 상태 모델 candidate/weak/effective/strengthened — 인접(거리 1)·투간·
+            # 월령(旺相 허용·休 조건부·囚死 제외)·독립 지원·제3 충 강등. 확정(confirmed) 금지.
+            g_tougan = classify_tougan(element, (), stem_pool, present)
+            g_clash = _third_clash_on([b for _, b in present], [b for _, b in all_pos])
+            state, why = _gonghap_state(present, element, month_branch, pillars, g_tougan, g_clash)
+            g_tier, g_strength = {
+                "candidate": ("none", 0.3), "weak": ("none", 0.3),
+                "effective": ("conditional", 0.5), "strengthened": ("conditional", 0.6),
+            }[state]
+            state_ko = {
+                "candidate": "후보", "weak": "약한 공합", "effective": "유효 공합",
+                "strengthened": "강화 공합",
+            }[state]
             out.append(BranchHapResolution(
                 kind="gonghap",
                 members=tuple(dict.fromkeys(b.value for _, b in present)),
                 positions=tuple(pos for pos, _ in present),
                 transform_element=element.value, role=_role(element.value),
-                transform_tier="none", hap_mode="partial",
+                transform_tier=g_tier, hap_mode="partial",
                 luck_origin=any(pos == "luck" for pos, _ in present),
-                co_relations=co, royal_included=False, strength=0.3,
-                notes=["공합(가합) — 왕지 없음, 합으로 미인정 학파 다수 · 부분 가세(미약)"],
+                co_relations=co, royal_included=False, strength=g_strength,
+                notes=[
+                    f"공합(가합) {state_ko} — 왕지 없음, 완전한 삼합처럼 계산 금지 · "
+                    + " · ".join(why)
+                ],
+                tougan=g_tougan, gonghap_state=state,
             ))
             continue
         tier, strength = _branch_tier(
@@ -561,6 +758,7 @@ def resolve_branch_hap(
             luck_origin=any(pos == "luck" for pos, _ in present),
             co_relations=co, royal_included=royal in kinds,
             strength=round(strength if full else strength * 0.7, 4),
+            tougan=classify_tougan(element, (), stem_pool, present),
         ))
 
     # ── 방합 ────────────────────────────────────────────────────
@@ -582,6 +780,7 @@ def resolve_branch_hap(
             co_relations=co,
             strength=round(1.0 if full else 0.6, 4),
             notes=["방합 — 기존 오행 강화(변화 아님)"],
+            tougan=classify_tougan(element, (), stem_pool, present),
         ))
     return out
 

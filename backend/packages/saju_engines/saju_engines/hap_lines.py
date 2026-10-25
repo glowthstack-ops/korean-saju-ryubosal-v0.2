@@ -16,7 +16,13 @@ from saju_manse_analysis.relations.hap_modes import (
     resolve_stem_hap,
 )
 
-from saju_shared_types.constants import BRANCH_CLASHES, BRANCH_INDEX, STEM_INDEX, ten_god
+from saju_shared_types.constants import (
+    BRANCH_CLASHES,
+    BRANCH_INDEX,
+    STEM_ELEMENT,
+    STEM_INDEX,
+    ten_god,
+)
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.manse_result import ManseV2Result
 
@@ -88,6 +94,8 @@ def _format(r: StemHapResolution, fav: dict[str, str], day_master: str | None = 
             body += " · 합거"
 
     tail = f" · 化 {_TIER_KO.get(r.transform_tier, '')}" if r.transform_element else ""
+    if r.transform_element and r.hap_mode != "blocked":
+        tail += f" · {r.tougan.label()}"  # 化神 투간 근거(2026-10-25, 판정 아님)
     flags = []
     if r.weakened:
         flags.append("隔位 약화")
@@ -113,9 +121,17 @@ def _format_branch(r: BranchHapResolution) -> str:
                 body += " · 합거"
             body += f" · 化 {tier}"
     elif r.kind == "gonghap":
+        state_ko = {
+            "candidate": "후보", "weak": "약한 공합", "effective": "유효 공합",
+            "strengthened": "강화 공합",
+        }.get(r.gonghap_state, "후보")
+        effect = (
+            "제한적 결속" if r.gonghap_state in ("effective", "strengthened") else "부분 가세(미약)"
+        )
+        why = r.notes[0].split(" · ", 1)[1] if r.notes and " · " in r.notes[0] else ""
         body = (
-            f"{mem} 공합(가합·왕지 없음) {r.transform_element}({r.role})에 부분 가세(미약) — "
-            "반합·삼합 아님"
+            f"{mem} 공합(가합·왕지 없음) {state_ko} — {r.transform_element}({r.role})에 {effect}, "
+            f"반합·삼합 아님" + (f" · 근거: {why}" if why else "")
         )
     elif r.kind in ("three_harmony", "half"):
         kname = "삼합" if r.kind == "three_harmony" else "반합"
@@ -127,6 +143,8 @@ def _format_branch(r: BranchHapResolution) -> str:
         body = f"{mem} {comp} {r.transform_element}({r.role}) 강화"
     if r.co_relations:
         body += " · 동시 " + "·".join(r.co_relations)
+    if r.kind in ("six", "three_harmony", "half") and r.transform_element:
+        body += f" · {r.tougan.label()}"  # 化神 투간 근거(판정 아님)
     return f"{prefix}{body}"
 
 
@@ -217,6 +235,21 @@ def natal_hap_change_lines(
                     f"운 영향: 원국 {a}{c}合에 운 천간이 제3자로 가세 — "
                     "쟁합(결속 약화·化 확정 불가)"
                 )
+    if luck_stems:
+        # G-3(2026-10-25): 원국 공합에 운 천간이 化神으로 투간하면 '화신 지원 강화'(왕지 등장 아님).
+        for g in resolve_branch_hap(p, fav):
+            if g.kind != "gonghap" or g.luck_origin or not g.transform_element:
+                continue
+            hits = [
+                ls for ls in luck_stems
+                if STEM_ELEMENT[Stem(ls)].value == g.transform_element
+            ]
+            if hits:
+                mem = "".join(g.members)
+                lines.append(
+                    f"운 영향: 원국 {mem} 공합에 운 {'·'.join(dict.fromkeys(hits))} 투간 — "
+                    f"{g.transform_element} 화신 지원 강화(빠진 왕지가 등장한 것은 아님, 삼합 아님)"
+                )
     if luck_branches:
         base_b = {
             (r.kind, r.members): r for r in resolve_branch_hap(p, fav) if not r.luck_origin
@@ -282,7 +315,7 @@ def luck_hap_mode_lines(
         natal_branches = [
             Branch(x.branch) for x in (p.year, p.month, p.day, p.hour) if x is not None
         ]
-        for r in resolve_branch_hap(p, fav, luck_branches=luck_branches):
+        for r in resolve_branch_hap(p, fav, luck_branches=luck_branches, luck_stems=luck_stems):
             if not r.luck_origin:
                 continue
             line = _format_branch(r)

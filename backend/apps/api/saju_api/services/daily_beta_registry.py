@@ -32,6 +32,7 @@ from saju_engines.daily_beta_pool import (
     render_result_fingerprint,
     validate_pool,
 )
+from saju_engines.daily_ilju_fortune import half_royal_override
 from saju_shared_types.daily_fortune import DailyFortuneBoard
 
 #: 베타 기간 밖 — legacy 로 내려가지 않는다. 테스터는 한 풀만 본다.
@@ -42,6 +43,10 @@ BETA_POOL_EXPIRED = "BETA_POOL_EXPIRED"
 _DIGEST_LENGTH = 64
 
 _log = logging.getLogger("saju_api.daily_beta")
+
+
+#: 반합 규칙을 종전(왕지 불요)으로 렌더해야 하는 동결 pool 의 renderer contract(2026-10-25).
+_LEGACY_HALF_ROYAL_CONTRACT = "daily-beta-render.c10.v1"
 
 
 def _flag(name: str, default: str = "") -> str:
@@ -235,10 +240,18 @@ def render(
         (보드, 감사 메타). 감사 메타는 사용자 화면에 그대로 노출하지 않는다.
     """
     date_gate(registry, target_date)
-    board = render_board(
-        registry.pool_version, target_date, now=now, allow_future=allow_future,
-        compiled_dir=registry.config.compiled_dir,
+    # 동결 pool 계약(2026-10-25): renderer contract c10.v1 로 만든 pool 은 반합 규칙을 종전(왕지
+    # 불요)으로 렌더해 문장·확률 지문을 유지한다. 새 contract 의 pool 부터 운영 규칙(왕지 필수).
+    token = half_royal_override.set(
+        False if registry.config.renderer_contract == _LEGACY_HALF_ROYAL_CONTRACT else None
     )
+    try:
+        board = render_board(
+            registry.pool_version, target_date, now=now, allow_future=allow_future,
+            compiled_dir=registry.config.compiled_dir,
+        )
+    finally:
+        half_royal_override.reset(token)
     meta = registry.metadata
     audit = {
         "source": "BETA_POOL_SNAPSHOT",

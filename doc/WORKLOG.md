@@ -12682,3 +12682,19 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 
 - 스냅샷: `structure_patterns.json` HAPRAE `detector_source` 표기 변경에 따라 `scripts/build_structure_patterns_snapshot.py` in-place 재빌드(`compiled/structure_patterns_v1.3.0.json`, 154 패턴·항목 불변) — drift 테스트가 1차 스위트에서 잡음.
 - 게이트: `./scripts/lint.sh` All checks passed(exit 0) · `./scripts/typecheck.sh` production mypy gate clean · `./scripts/typecheck_maintained_scripts.sh` maintained scripts mypy gate clean / `./scripts/run_suite.sh` 1차 TESTS_FAILED(구조 패턴 스냅샷 drift → in-place 재빌드) → 2차 `VALID_SUITE_PASS`(test_exit_code 0, head 05017b9 동일, 지문 5950a4e7 동일, `var/suite_20261025_hap_p1b.log`). 백엔드 8000 재기동.
+
+## 2026-10-25 — 化神 투간 분류·복합 판단형 + 공합 상태 모델(인접·旺相·休 조건부) + 운 점수층 등급 게이트 실험 (데굴님 "진행하자", 공합 기준 R1~R5 확정, "T-3는 대운까지 포함")
+
+- 투간: `hap_modes.classify_tougan`/`TouganInfo`(직접 투출·동일 오행·미투간, 출처 원국/운, 참여 기둥 위) — 천간합·육합·삼합·반합·방합·공합 전부 `tougan` 필드, `RelationSemantics.tougan_label`, 운 합 줄 꼬리 '투간 …'. 당사자 천간 제외. `tougan_composite`(休 + 투간 + 통근·무방해 → 확정) 재생 지표 불변 → **기본 ON**(일간 합=화기격 후보는 제외 — 化神 당령 조건 유지), 엄격형 `stem_tougan` 폐기.
+- 공합: `_gonghap_state` candidate/weak/effective/strengthened(인접=거리 1, 旺相 허용, 休 조건부 = 투간+독립 지원, 囚死 제외, 운 참여 weak, 제3 충 강등). tier none·0.3/conditional·0.5/0.6, 확정 금지. 의미층 `aux_state`·상태별 어휘('제한적 결속' vs '부분 가세'), 운 합 줄에 상태·근거. `gonghap_effective_scoring` 재생 지표 불변(유효 공합 2건) → 점수 편입 OFF. 休 비교 `scripts/measure_gonghap_states.py`: 157명식 중 休 때문에 새로 유효 1건(CASE-057/R 戌寅). G-3 운 화신 투간 → "공합 화신 지원 강화" 줄.
+- T-3(대운·세운·월운·일운 공통) `luck_transform_requires_tier`: 재생 pair 33→31·대운 방향 일치 25→23 하락 → **OFF**. 원칙('합국 성립 ≠ 합화')상 옳지만 반합·조건부 합의 결과 오행 가산이 대운 방향 일치에 기여 — 별도 검토 안건으로 기록.
+- 테스트: `test_hap_taxonomy_p1.py` 2차 7건 추가(투간 분류·복합 판단·공합 상태 3·T-3·G-3), `test_hap_lines` 꼬리 갱신. 문서: SPEC 실험 플래그·투간·공합 상태 모델, 대조 문서 §5-4.
+
+- 게이트: `./scripts/lint.sh` All checks passed(exit 0) · `./scripts/typecheck.sh` production mypy gate clean · `./scripts/typecheck_maintained_scripts.sh` maintained scripts mypy gate clean / `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(test_exit_code 0, head 029c44e 동일, 지문 b44faed7 동일, `var/suite_20261025_hap_t.log`). 백엔드 8000 재기동.
+
+## 2026-10-25 — 남은 결정 2건: T-3 운 점수층(변형 측정 후 종전 유지) + 일주 운세 공합 제외 운영 적용 (데굴님 "남은 결정 모두 풀이 정확도를 높이는 쪽으로")
+
+- T-3: 중간안 `luck_transform_exclude_weak`(등급 none·공합만 제외) 재생 pair 33→30·대운 방향 일치 25→22(엄격형 31·23보다 더 하락) → 두 변형 모두 OFF, 종전 가산(반합·조건부·합반 육합 결과 오행 ±0.1) 유지. 원칙은 서술층에서, 점수층은 적중률.
+- 일주 운세: `daily_ilju_fortune.HALF_HARMONY_REQUIRES_ROYAL=True` 운영 적용 + `half_royal_override`(ContextVar) — `daily_beta_registry.render` 가 동결 pool(renderer contract `daily-beta-render.c10.v1`)만 False 로 렌더(골든 3일 지문 유지, 베타 pool 은 운영 미사용). Redis 선생성 보드는 TTL 까지 종전. 테스트 `test_daily_half_harmony_requires_royal_live_but_not_for_frozen_pool`.
+
+- 게이트: `./scripts/lint.sh` All checks passed(exit 0) · `./scripts/typecheck.sh` production mypy gate clean · `./scripts/typecheck_maintained_scripts.sh` maintained scripts mypy gate clean / `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(test_exit_code 0, head 029c44e 동일, 지문 37da00a2 동일, `var/suite_20261025_hap_u.log`). 백엔드 8000 재기동(일주 운세 왕지 필수 규칙 운영 반영).
