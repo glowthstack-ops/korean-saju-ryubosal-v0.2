@@ -63,10 +63,16 @@ def test_resume_prompt_has_no_month_obligations_and_job_label(resume_prep) -> No
     assert "2027-02 壬寅" not in p  # 창 밖 달 표 행 없음
 
 
-def test_resume_prompt_states_daewoon_void_fact(resume_prep) -> None:
+def test_resume_prompt_omits_daewoon_void_fact(resume_prep) -> None:
+    """2026-10-25 데굴님 결정(대운 공망 무시) — 대운 지지 공망 사실 줄은 더 이상 내지 않는다.
+
+    2026-10-19 에 넣은 줄이 2026-10-23 원칙 뒤에도 남아 실답에서 '대운 辰 공망 → 결실 지연'으로
+    쓰였다.
+    """
     p = resume_prep.prompt_preview or ""
-    assert "대운 지지 공망(엔진 사실): 현재 대운 壬辰의 지지 辰" in p
-    assert "월운·세운 글자를 공망이라 부르지 말 것" in p
+    assert "대운 지지 공망(엔진 사실)" not in p
+    assert "현재 대운 壬辰의 지지 辰은(는) 원국 공망" not in p
+    assert "대운 壬辰 (" in p  # 대운 줄 자체는 유지
 
 
 # ── ③ 회피 구간 ──────────────────────────────────────────────────────────
@@ -132,6 +138,36 @@ def test_signal_month_gongmang_kept() -> None:
     """반례 — 엔진이 공망 신호를 표기한 달이면 글자 지목 없이 말해도 둔다."""
     s = "2027년 5월에는 공망이 채워지며 문서가 움직입니다."
     assert audit_gongmang_claims(s, _VOID, {"2027-05"}).text == s
+
+
+def test_daewoon_void_effect_sentence_removed() -> None:
+    """대운 공망 무시(2026-10-25) — 실답 문장: 대운 지지 辰 공망 → 결실 지연·인내 서술은 지운다."""
+    answer = (
+        "특히 원국의 시지 巳(사)와 운의 午(오)가 만나 巳午(사오) 방합의 기운을 형성합니다. "
+        "다만 대운 지지 辰(진)이 공망의 영향권에 있어 결실이 맺어지기까지 예상보다 시일이 걸릴 수 "
+        "있으니 인내심을 가지고 절차를 챙기시기 바랍니다. "
+        "재물 면에서도 기회 유입 신호가 뚜렷합니다."
+    )
+    out = audit_gongmang_claims(answer, _VOID, set())
+    assert len(out.removed) == 1 and "공망" not in out.text
+    assert out.text.startswith("특히 원국의 시지") and out.text.endswith("뚜렷합니다.")
+    # 영향 어휘 변형도 같은 규칙
+    for s in (
+        "현재 대운의 辰이 공망이라 성과가 더디게 나타납니다.",
+        "대운 공망 때문에 기대를 낮추고 기다리는 편이 좋습니다.",
+    ):
+        assert audit_gongmang_claims(s, _VOID, set()).removed, s
+
+
+def test_daewoon_void_fact_and_natal_activation_kept() -> None:
+    """반례 — 대운 지지가 공망 글자라는 사실만, 또는 대운이 원국 공망 자리를 살리는 서술은 둔다."""
+    keep = [
+        "현재 대운 壬辰의 지지 辰은 공망 글자입니다.",
+        "대운 午(오)가 원국 공망 자리 巳(사)를 자극해 정인 기운이 살아납니다.",
+        "대운은 공망과 상관없이 흐름을 봅니다.",
+    ]
+    for s in keep:
+        assert audit_gongmang_claims(s, _VOID, set()).text == s, s
 
 
 # ── ⑥ 일주 지시어 보존 ───────────────────────────────────────────────────

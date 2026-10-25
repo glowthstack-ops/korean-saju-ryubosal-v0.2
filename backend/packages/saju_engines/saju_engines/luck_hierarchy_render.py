@@ -15,6 +15,7 @@ from saju_shared_types.luck_hierarchy import (
     HierarchyInteraction,
     LuckHierarchy,
     ParticipantLayer,
+    participant_label,
 )
 from saju_shared_types.relation_semantics import (
     FormationState,
@@ -27,8 +28,8 @@ _MAX_PER_AXIS = 3
 
 
 def _who(inter: HierarchyInteraction) -> str:
-    """참여 글자를 층위와 함께 — '원국 시지 巳 + 세운 午 + 월운 未'."""
-    return " + ".join(f"{LAYER_KO[p.layer]} {p.char}" for p in inter.participants)
+    """참여 글자를 층위와 함께 — '원국 시지 巳 + 세운 午 + 월운 未' / 천간은 '원국 월간 壬'."""
+    return " + ".join(f"{participant_label(p.layer, p.char)} {p.char}" for p in inter.participants)
 
 
 def _name(inter: HierarchyInteraction) -> str:

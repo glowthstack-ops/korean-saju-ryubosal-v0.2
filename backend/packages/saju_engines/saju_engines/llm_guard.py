@@ -60,11 +60,17 @@ CALL_LIMITS: dict[str, CallLimit] = {
     # 선례(docs/09 §8)대로 재료를 잘라내지 않고 상한을 올린다(출력 상한·thinking 정책 불변).
     # 2026-10-08 2차 상향 18,000 → 20,000(데굴님 승인): 총운(report_full_section) 1978년생 명식이
     # 18,247tok 로 다시 초과 실패(job 4540fd5b).
-    "report_focus_section": CallLimit(20_000, 8_000, max_output_chars=4_500),
+    # 2026-10-25 데굴님 승인("필요하다면 토큰 상한을 증량해"): 20,000 → 22,000. F-11·Y-04 에 채팅
+    # 패리티 세운 grounding + 월주 상대 관점 환경 블록(측정 1,456~1,884tok, 보수 추정)이 더해졌다.
+    # 직전 초과
+    # 사례(18,247tok)에 이 블록이 얹히면 20,000 을 넘을 수 있어 선례대로 재료 대신 상한을 올린다
+    # (출력 상한·thinking 불변). 측정 3명식 F-11 13.2~13.8k / Y-04 12.8~14.6k(본문만).
+    "report_focus_section": CallLimit(22_000, 8_000, max_output_chars=4_500),
     # 2026-10-15 데굴님 결정: 애정·관계운 궁합 모드에서 상대 운 표(연도·월)가 함께 붙는 섹션
     # (RP-06·RP-07·RP-06-Y*)만 입력 상한 두 배(40,000). 출력·글자수는 집중 섹션과 동일.
-    "report_focus_section_pair": CallLimit(40_000, 8_000, max_output_chars=4_500),
-    "report_full_section": CallLimit(20_000, 8_000, max_output_chars=4_500),
+    # 2026-10-25: 기준 섹션 22,000 상향에 따라 두 배 불변식 유지(40,000 → 44,000).
+    "report_focus_section_pair": CallLimit(44_000, 8_000, max_output_chars=4_500),
+    "report_full_section": CallLimit(22_000, 8_000, max_output_chars=4_500),
     "consistency_check": CallLimit(8_000, 500),
     # 일주별 오늘의 운세 60건 배치 문장 교정(JSONL, 하루 1회) — 2026-07-23 계획 승인분.
     # 출력 예산: 60건 × 레코드 상한(헤드라인 120자·장소 60자·로또 80자 + JSON 구조) 실측

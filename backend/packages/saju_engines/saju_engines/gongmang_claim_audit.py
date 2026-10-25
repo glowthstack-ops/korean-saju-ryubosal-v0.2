@@ -11,6 +11,12 @@
 - 공망 글자(한자·한글 독음)나 대운·원국 자리(시지·시주 등)를 함께 짚은 문장은 사실 서술로 보고 둔다.
 - 그 외에 ①공망이 아닌 지지 글자를 공망으로 지목했거나 ②문단이 가리키는 달·해에 엔진 공망 신호가
   없으면 위반 — 그 문장을 지운다(문단 구조 보존).
+- **대운 공망 영향 규칙(2026-10-25 데굴님 결정)**: '대운'과 공망 주장이 한 문장에 있고
+  지연·시일·공허·실속·인내 같은 **영향 어휘**가 붙으면 그 문장을 지운다. 현대 통설(2026-10-23)은
+  대운 공망의 영향을 보지 않는데, 실답에서 "대운 지지 辰이 공망의 영향권에 있어 결실까지
+  시일이 걸린다"가 나왔다.
+  대운 지지가 공망 글자라는 **사실만** 말한 문장(영향 어휘 없음)과 원국 공망 자리의 활성
+  (살아남·채워짐) 서술은 대상이 아니다.
 """
 
 from __future__ import annotations
@@ -28,6 +34,12 @@ _NEGATION_RE = re.compile(
     r"|공망(?:과|이랑|하고|와)?\s*(?:는\s*)?(?:상관|관계)\s*없"
 )
 _LEGIT_CONTEXT_RE = re.compile(r"대운|원국|시지|시주|일지|월지|연지|년지|명식|타고난")
+_DAEWOON_RE = re.compile(r"대운")
+#: 대운 공망을 길흉·시기 근거로 쓴 문장의 영향 어휘 — 지연·공허·실속 계열(활성·전실 어휘는 제외).
+_DAEWOON_VOID_EFFECT_RE = re.compile(
+    r"지연|늦어|늦게|늦춰|시일|더디|미뤄|미루|보류|공허|허무|실속|비어\s*있|흐지부지|무산|인내"
+    r"|기다려|기다리|영향권|기대를\s*낮|결실이\s*(?:약|늦|어렵)|헛|빈\s*자리"
+)
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 _MONTH_REF_RES = (
     re.compile(r"((?:19|20)\d{2})\s*년\s*(\d{1,2})\s*월"),
@@ -70,6 +82,11 @@ def _asserts_gongmang(sentence: str) -> bool:
     return bool(_GONGMANG_RE.search(sentence)) and not _NEGATION_RE.search(sentence)
 
 
+def _daewoon_void_effect(sentence: str) -> bool:
+    """대운 공망을 지연·공허·실속 근거로 쓴 문장인가(대운 공망 무시 원칙 위반)."""
+    return bool(_DAEWOON_RE.search(sentence)) and bool(_DAEWOON_VOID_EFFECT_RE.search(sentence))
+
+
 def audit_gongmang_claims(
     answer: str,
     void_branches: Iterable[str],
@@ -98,6 +115,9 @@ def audit_gongmang_claims(
             seen = f"{seen} {sent}"
             if not _asserts_gongmang(sent):
                 kept.append(sent)
+                continue
+            if _daewoon_void_effect(sent):  # 대운 공망 영향 서술 — 사실 문맥이어도 지운다
+                removed.append(sent.strip()[:80])
                 continue
             if _mentions_void(sent, void) or _LEGIT_CONTEXT_RE.search(sent):
                 kept.append(sent)

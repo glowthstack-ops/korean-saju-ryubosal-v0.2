@@ -12632,3 +12632,22 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 테스트: `test_entry_slots_assignment.py` 전면 개정(17건) — 두 모드 분할·하한·env 재지정·조건 등급·실답 dry-run(기본 모드: 1턴 '성사 가능 달 없음·움직이는 달 2027-04', 2턴 '2027-02 조건 불리' + direction 모드 분할 병기). 영향 테스트 47건 통과.
 
 - 게이트: `./scripts/gates.sh --quick` ruff exit 0 · production mypy gate clean · maintained scripts mypy gate clean(측정 스크립트 포함 15파일) / `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(test_exit_code 0, head 5054ef3 동일, 지문 12cf4bb6 동일, `var/suite_20261024_entry_slots_d.log`). 백엔드 8000 재기동(pid 44123).
+
+## 2026-10-25 — 한 해 운세 읽는 요령 보완: 세운 두 방향(월주 상대 기운=환경 / 일간 기준=태도) + 계층 라벨·시대 기운 연도 결함 교정 (데굴님 "내용 확인하고 반영 항목 정리" → "권고대로 진행, 환경 블록은 세운까지만, 리포트 패리티·필요 시 토큰 상한 증량, 내년 총운 연도 재확인 후 수정")
+
+- 배경: 데굴님이 붙여 넣은 별의당 강의(「운명의 병오년」)는 세운을 ①월주↔세운 상대 기운(환경) ②일간 기준 십성·12운성(태도)으로 나눠 읽고 둘을 합쳐 한 해를 서술한다. 전수 대조(`doc/v2_2/EXTERNAL_TEXT_GAP_BYEOLUIDANG_YEARLY_ENV.md`) 결과 ②는 `incoming_ten_god_note`·`incoming_stage_note` 로 이미 강의보다 풍부했으나 ①은 전무(운 기둥 `ten_god(`·`twelve_unseong(` 호출 전부 일간 참조)했다. 조사 중 결함 2건 발견 — 계층 블록이 丙壬沖 천간 참여자를 '원국 월지 壬'으로 표기(`LAYER_KO` 궁위 고정), 채팅 '내년/2027년 총운'에 2026 丙午 시대 기운 부착(`era_energy_lines(result, today.year)`, dry-run 재확인).
+- 구현: `saju_engines/yearly_environment.py`(build: 월간 기준·세운 천간 기준 십성/12운성·지지 두 글자 관계·천간 합충·통근 비교 — 기존 순수 함수 재사용, 신규 명리 규칙 없음 / render: '[월주 상대 관점]' 학파 머리말, 어휘는 사전에서만) + `dictionaries/interpretations/yearly_environment.json`(십성 10 양방향·12운성 12·관계 12키·통근 4·합성 지시, `YearlyEnvironmentFile`+lint) + `PeriodFortune.environment_lines`(채팅 yearly 분기, `세운:` 줄 뒤 렌더) + `_YEARLY_INSTRUCTION` 환경→태도→주제 순서 + 리포트 `_ReportData.yearly_sewoon_block`(F-11 올해·Y-04 그 해 — `build_luck_grounding` 세운 줄·운 요약·환경 블록·형충회합·신살·공망·서술 순서, 채팅 패리티) + `participant_label`(천간 참여자 '원국 월간') + `chat_service._era_year`(단일 연 질문 = 그 해) + 시대 기운 헤더 `[YYYY년 干支年 시대 기운]` + 어휘 보강(겁재 incoming/asYongsin 존재감·영역 개척, 목욕 호기심·의외성, 건록 존재감 확립). 세운 전용(대운·월운 미적용 — 데굴님 결정). 강의 사례 재현 확인: 壬寅 월주 × 丙午 → 편재/정재·胎, 편관/편인·長生, 寅午 반합, 丙壬충, 통근 丙○○·壬××.
+- 토큰: F-11/Y-04 본문 13.2~14.6k(보수 추정, 3명식) + 신규 블록 1,456~1,884tok. 직전 초과 사례(18,247)에 얹히면 20k 초과 가능 → `report_focus_section`·`report_full_section` 20,000→22,000(데굴님 사전 승인, docs/09 §8 3차 상향 기록).
+- 불채택(권고대로): 일간별 올해 키워드(강사 브랜딩), 천간=드러남/지지=내재 고정식(`BEHAVIOR_PATTERN_DIRECTIVE` 금지 유지), 유명인 사례.
+- 문서: docs/05(사전 절·트리), docs/06(부록), docs/10(F-11·Y-04 입력), docs/09 §8, 대조 문서 §2-6.
+- 테스트: `tests/unit/test_yearly_environment.py` 14건(계층 ON 실답 1건은 pytest OFF 기준선에서 skip — 운영 env 로 별도 확인). 영향 테스트 14파일 통과.
+
+- 게이트: `./scripts/lint.sh` All checks passed(exit 0) · `./scripts/typecheck.sh` production mypy gate clean · `./scripts/typecheck_maintained_scripts.sh` maintained scripts mypy gate clean / `./scripts/run_suite.sh` 1차 TESTS_FAILED(궁합 상대 운 섹션 '두 배' 불변식 — pair 40,000→44,000·기준점 테스트 갱신) → 2차 `VALID_SUITE_PASS`(test_exit_code 0, head 8bec64a 동일, 지문 45a90712 동일, `var/suite_20261025_yearly_env_b.log`). 백엔드 8000 재기동.
+
+## 2026-10-25 — 대운 공망 무시 원칙 정합: 대운 지지 공망 사실 줄 제거 + 감사에 대운 공망 영향 규칙 (데굴님 "대운 공망은 풀이에서 무시한다고 원칙을 세웠는데 여전히 중요하게 사용" → "진행하자")
+
+- 배경: 실답 '올해 운세'(1980-11-22 명식, 현재 대운 壬辰·일공망 辰巳)에 "대운 지지 辰이 공망의 영향권에 있어 결실까지 시일이 걸릴 수 있으니 인내" 서술. 원인 ①간지달력 대운 줄 아래 2026-10-19 `대운 지지 공망(엔진 사실)` 줄이 10-23 '대운 공망 무시' 뒤에도 "근거로 쓰지 말 것" 단서만 붙은 채 남아 있었다(사실을 주고 쓰지 말라는 구조) ②생성 후 공망 지목 감사가 '대운'이 들어간 문장을 사실 서술로 통과시켰다. 리포트는 대운 행 전실 접미가 이미 꺼져 있어 해당 없음.
+- 교정: `context_reducer` 대운 지지 공망 사실 줄 제거(원국 공망 자리를 대운이 자극하는 `공망 자극` 접미는 유지 — 대운 공망이 아니라 원국 공망 활성) / `gongmang_claim_audit._daewoon_void_effect` — '대운' + 공망 주장 + 영향 어휘(지연·늦·시일·더디·미뤄·보류·공허·허무·실속·흐지부지·무산·인내·기다림·영향권·기대 낮춤·결실 약/늦·헛·빈 자리) 문장 삭제(재호출 없음). 사실만 말한 문장·원국 공망 활성 서술·부정문은 유지.
+- 문서: `GONGMANG_HAP_SEMANTICS.md` §6 정정 머리말. 테스트: `test_gongmang_date_answer_audits.py` — 프롬프트 부재(반전)·실답 문장 제거·변형 2종·반례 3종.
+
+- 게이트: `./scripts/lint.sh` All checks passed(exit 0) · `./scripts/typecheck.sh` production mypy gate clean · `./scripts/typecheck_maintained_scripts.sh` maintained scripts mypy gate clean / `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(test_exit_code 0, head 8bec64a 동일, 지문 5b960812 동일, `var/suite_20261025_gm_daewoon.log`). 백엔드 8000 재기동.

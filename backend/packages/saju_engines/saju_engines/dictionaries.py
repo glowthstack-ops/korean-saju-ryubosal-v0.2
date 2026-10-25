@@ -501,6 +501,44 @@ class RoleEventTextFile(_AliasModel):
     items: list[RoleEventTextItem] = Field(min_length=6, max_length=6)
 
 
+class YearlyEnvTenGodItem(_AliasModel):
+    """세운 환경 십성 어휘 1건 (yearly_environment.json `tenGodEnv`).
+
+    forward = 월간 기준 세운 글자의 십성(시절이 환경에 들여오는 것),
+    reverse = 세운 천간 기준 월주 글자의 십성(환경이 시절에게 어떤 자리인가).
+    """
+
+    ten_god: str = Field(alias="tenGod")
+    forward: str = Field(min_length=15)
+    reverse: str = Field(min_length=15)
+
+
+class YearlyEnvStageItem(_AliasModel):
+    """세운 환경 12운성 상태 어휘 1건 (yearly_environment.json `stageEnv`)."""
+
+    stage: str
+    hanja: str
+    text: str = Field(min_length=10)
+
+
+class YearlyEnvironmentFile(_AliasModel):
+    """세운 환경 사전 — 월주 상대 관점 번역층(2026-10-25 데굴님 승인, 별의당 강의).
+
+    십성 10 × 양방향 + 12운성 12 + 관계 어휘 + 통근 4상태 + 합성 지시. 서술 전용(inert).
+    """
+
+    version: str
+    note: str | None = None
+    label: str = Field(min_length=2)
+    narration: str = Field(min_length=5)
+    ten_god_env: list[YearlyEnvTenGodItem] = Field(alias="tenGodEnv", min_length=10, max_length=10)
+    stage_env: list[YearlyEnvStageItem] = Field(alias="stageEnv", min_length=12, max_length=12)
+    relation_env: dict[str, str] = Field(alias="relationEnv")
+    rooting_env: dict[str, str] = Field(alias="rootingEnv")
+    synthesis: str = Field(min_length=30)
+    reviewed: bool
+
+
 class TenGodRelationFamily(_AliasModel):
     """가족 관계 항목 — 성별·특정 십성 조건(없으면 모두)."""
 
@@ -2614,6 +2652,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/dohwa_text.json": DohwaTextFile,
     "interpretations/transit_peer_mobility_text.json": PeerMobilityTextFile,
     "interpretations/transit_role_event_text.json": RoleEventTextFile,
+    "interpretations/yearly_environment.json": YearlyEnvironmentFile,
     "interpretations/mobility_flow_text.json": MobilityFlowTextFile,
     "interpretations/pattern_transit_text.json": PatternTransitTextFile,
     "interpretations/ten_god_relations.json": TenGodRelationsFile,
@@ -3121,6 +3160,44 @@ def _lint_role_event_text(file: RoleEventTextFile) -> list[str]:
         for bad in ("반드시", "확실히", "틀림없이", "무조건"):
             if bad in it.text:
                 errors.append(f"{head}: {it.id} 문구에 단정 어휘 '{bad}'")
+    return errors
+
+
+#: yearly_environment.json 관계 어휘 키 — 모듈 `yearly_environment` 가 쓰는 키와 1:1.
+_YEARLY_ENV_RELATION_KEYS = frozenset({
+    "stem_clash", "stem_combination", "branch_clash", "branch_six_combination",
+    "branch_half_harmony", "branch_harmony_partial", "branch_directional_partial",
+    "branch_punishment", "branch_self_punishment", "branch_break", "branch_harm", "none",
+})
+_YEARLY_ENV_ROOTING_KEYS = frozenset({"luck_only", "both", "month_only", "neither"})
+
+
+def _lint_yearly_environment(file: YearlyEnvironmentFile) -> list[str]:
+    """yearly_environment.json — 십성 10·운성 12 정확 커버리지·관계/통근 키 집합·단정 어휘 금지."""
+    head = "interpretations/yearly_environment.json"
+    errors: list[str] = []
+    got_tg = {it.ten_god for it in file.ten_god_env}
+    if got_tg != set(_TEN_GOD_NAMES):
+        errors.append(f"{head}: 십성 커버리지 불일치 — {sorted(got_tg)}")
+    got_st = {it.stage for it in file.stage_env}
+    if got_st != set(TWELVE_STAGES):
+        errors.append(f"{head}: 운성 커버리지 불일치 — {sorted(got_st)}")
+    if set(file.relation_env) != _YEARLY_ENV_RELATION_KEYS:
+        errors.append(f"{head}: relationEnv 키 집합 불일치 — {sorted(file.relation_env)}")
+    if set(file.rooting_env) != _YEARLY_ENV_ROOTING_KEYS:
+        errors.append(f"{head}: rootingEnv 키 집합 불일치 — {sorted(file.rooting_env)}")
+    texts = (
+        [(f"tenGodEnv/{it.ten_god}", it.forward) for it in file.ten_god_env]
+        + [(f"tenGodEnv/{it.ten_god}/reverse", it.reverse) for it in file.ten_god_env]
+        + [(f"stageEnv/{it.stage}", it.text) for it in file.stage_env]
+        + [(f"relationEnv/{k}", v) for k, v in file.relation_env.items()]
+        + [(f"rootingEnv/{k}", v) for k, v in file.rooting_env.items()]
+        + [("synthesis", file.synthesis)]
+    )
+    for where, text in texts:
+        for bad in _ASSERTIVE_WORDS:
+            if bad in text and not (where == "synthesis" and bad == "무조건"):
+                errors.append(f"{head}: {where} 문구에 단정 어휘 '{bad}'")
     return errors
 
 
@@ -3797,6 +3874,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_peer_mobility_text(parsed))
         elif isinstance(parsed, RoleEventTextFile):
             errors.extend(_lint_role_event_text(parsed))
+        elif isinstance(parsed, YearlyEnvironmentFile):
+            errors.extend(_lint_yearly_environment(parsed))
         elif isinstance(parsed, MobilityFlowTextFile):
             errors.extend(_lint_mobility_flow_text(parsed))
         elif isinstance(parsed, PatternTransitTextFile):

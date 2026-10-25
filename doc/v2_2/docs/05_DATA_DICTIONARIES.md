@@ -23,6 +23,7 @@ src/dictionaries/
     ten_gods_text.json      # 십성 10종 — 의미/과다·부재·혼잡/용신·기신 발현 차이/일상 비유
     relations_text.json     # 합충형파해·원진·암합·병존·간여지동·복음·공망 작용 해석 (궁위별/원국 vs 운)
     twelve_stages_text.json # 십이운성 12종 — 에너지 단계 의미/일상 비유
+    yearly_environment.json # 세운 환경(월주 상대 관점) — 십성 10 양방향·12운성 12 상태·관계·통근 어휘, 세운 전용 서술층(2026-10-25)
     sinsal_text.json        # 신살 — 의미/발현 영역/주의점 (공포 조장 금지 톤)
     stems_branches_text.json# 천간 10·지지 12 물상 — 모든 비유의 원천 재료
   favorability_rules.json   # 용신/희신/기신/구신/한신 보정
@@ -293,6 +294,13 @@ compiled/
 - 구현 `career_field._apply_ganji_school`(기준일 `today`로 현재 대운 사용 — 채팅·리포트가 전달) → `CareerFieldFacts.orientation/palace_lines/officer_lines/workplace_lines/business_lines/timing_lines` → `_render_ganji_school`. 업종·사업 시기는 상업형·혼합형에만, 관성 위치는 관성이 있을 때만. 지시문(`_CAREER_FIELD_DIRECTIVE`·`_CAREER_FIELD_REPORT_DIRECTIVE`)에 학파 서술·합산 금지·프로필 우선 규칙 추가. 2단계 프로필 직업이 있으면 그것이 사실(원칙 11).
 - `sinsal_direction.json` `entrance_customer_group`: 출입구 제2기준(간지론) — 연지 삼합의 '앞 그룹'(각 지지 +3: 申子辰→亥卯未·寅午戌→巳酉丑·巳酉丑→申子辰·亥卯未→寅午戌)을 손님으로 보고 그 국 왕지 방위(동/서/북/남)로 출입문. 목적 `sales` 에만 `SinsalDirectionRecommendation.second_basis` 로 붙고 12신살 picks 와 합산하지 않는다(쥐띠: 12신살 지살=서 vs 간지론=동 — 학파별 병기). 조상·단골 쪽문 해석 불채택. 스냅샷 `compiled/sinsal_direction_v1.2.0.json` in-place 재빌드(선택 절 추가, 기존 항목 불변).
 - 테스트 `test_career_ganji_layer.py`(사전 7절·어휘 정책·선택 절 부재·유형 축 5픽스처·월지 가중/충 간섭·대운 축·궁위·관성 위치 3형·업종 상한·사업 시기 2형·정관 규칙·렌더·지시문) / `test_entrance_second_basis.py`(사전·4삼합 표·12신살 불변·sales 전용·렌더 1회). 픽스처 1976-01-05(직장형·천간 통근·관인 인접) / 1976-01-19(직장형·지지만) / 1976-03-22(혼합형) / 1976-01-26(상업형·인성 대운) / 1980-11-22(상업형·월지 충).
+
+### interpretations/yearly_environment.json — 세운 환경 '월주 상대 관점' (2026-10-25 데굴님 승인 — 외부 강의 별의당 「운명의 병오년」)
+
+- 출처·대조: `doc/v2_2/EXTERNAL_TEXT_GAP_BYEOLUIDANG_YEARLY_ENV.md`. 세운을 두 방향으로 읽는다 — ①**환경** = 월주(명주가 살아가는 환경) ↔ 세운의 상대 기운, ②**태도** = 일간 기준 세운 십성·12운성(기존 `[세운:]` 줄). 이 사전은 ①의 어휘만 담는 **학파 서술층**(서술 전용·inert)이며 렌더는 '[월주 상대 관점]' 머리말 + "월주와 세운의 상대 기운으로 보면 ~" 어투를 강제한다(간지론 층과 같은 규약). 길흉·유불리는 일간 기준 용희기구한 판정이 정하고 이 층은 점수·후보·역할에 관여하지 않는다. **세운 전용**(대운·월운 미적용 — 데굴님 결정).
+- 사실 계산(`saju_engines.yearly_environment.build_yearly_environment`, 신규 명리 규칙 없음 — 기존 순수 함수 재사용): 월간 기준 세운 천간·지지(본기) 십성 + 세운 지지 12운성(`twelve_unseong(월간, 세운지지)`) / 세운 천간 기준 월간·월지(본기) 십성 + 월지 12운성 / 세운 지지 ↔ 월지 두 글자 관계(충·육합·반합(왕지 포함)·삼합 부분·방합 부분·형·자형·파·해 — 원국 다른 자리까지 끄는 삼합 완성·삼형은 기존 grounding 담당) / 세운 천간 ↔ 월간 천간합·천간충 / 통근 비교(세운 천간·월간이 {월지, 세운 지지} 지장간(본기·중기·여기)에 동오행 뿌리). 강의 사례 재현: 壬寅 월주 × 丙午 → 壬에게 丙 편재·午 정재·胎 / 丙에게 壬 편관·寅 편인·長生 / 寅午 반합 / 丙壬충 / 丙 寅○午○·壬 寅×午×.
+- 사전 절: `label`·`narration` / `tenGodEnv[10]`(forward=시절이 환경에 들여오는 것, reverse=환경이 시절에게 어떤 자리인가) / `stageEnv[12]`(hanja 포함 상태 어휘 — 목욕=호기심·의외성, 건록=존재감 확립, 사=집중·몰입) / `relationEnv`(12키: stem_clash=긴장·관문(소멸 아님)…none) / `rootingEnv`(4상태 luck_only·both·month_only·neither) / `synthesis`(환경 한 문장 → 태도 한 문장 → 한 해 주제 합성 지시 + "비겁 운 = 무조건 극재 아님"). `YearlyEnvironmentFile` + `_lint_yearly_environment`(십성 10·운성 12 정확 커버리지, 관계/통근 키 집합, 단정 어휘). reviewed:false.
+- 배선: 채팅 '해당 연 총운'(`PeriodFortune.environment_lines`, `[세운:]`·운 요약 줄 뒤) + 리포트 F-11·Y-04(`_ReportData.yearly_sewoon_block` — 채팅 패리티로 `build_luck_grounding` 세운 줄·형충회합·신살·공망까지 함께 신설). `_YEARLY_INSTRUCTION` 에 환경→태도→주제 순서 지시. 같은 날 어휘 보강: 겁재 `incoming`/`asYongsin`(존재감 확립·영역 개척 결), 목욕 `incoming`(호기심·의외성), 건록 `incoming`(존재감 확립). 회귀 `tests/unit/test_yearly_environment.py`.
 
 ### events/*.json (신호→이벤트 매핑 예)
 

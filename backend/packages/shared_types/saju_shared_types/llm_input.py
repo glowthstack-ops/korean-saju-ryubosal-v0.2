@@ -397,6 +397,10 @@ class PeriodFortune(BaseModel):
     hierarchy_lines: list[str] = Field(default_factory=list)
     hierarchy_appendix: list[str] = Field(default_factory=list)
     luck_hierarchy: LuckHierarchy | None = None
+    # 월주 상대 관점(2026-10-25 데굴님 승인, 별의당 강의 번역층) — 세운 전용. 월주↔세운 상대 기운
+    # (월간 기준·세운 천간 기준 십성/12운성·지지/천간 관계·통근 비교)으로 '시절이 만드는 환경'을,
+    # [세운:] 줄의 일간 기준 십성·운성으로 '태도'를 세워 합치라는 서술 전용 블록(점수·판정 inert).
+    environment_lines: list[str] = Field(default_factory=list)
     # 운 도화 × 십성군 문구가 실렸으면 그 키(2026-10-13) — 노출 로그(실답 검수 경로)용.
     dohwa_text_keys: list[str] = Field(default_factory=list)
 

@@ -19,6 +19,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
+from .enums import Stem
 from .relation_semantics import (
     BindingState,
     EffectKind,
@@ -73,6 +74,31 @@ LAYER_KO: dict[ParticipantLayer, str] = {
     ParticipantLayer.MONTHLY: "월운",
     ParticipantLayer.DAILY: "일진",
 }
+
+
+#: 천간 글자 집합 — 원국 참여자 라벨에서 간·지를 가르는 기준(표시 전용).
+_STEM_CHARS: frozenset[str] = frozenset(s.value for s in Stem)
+
+
+def participant_label(layer: ParticipantLayer, char: str) -> str:
+    """참여 글자 1개의 층위 라벨 — 원국 자리는 간·지를 구분한다.
+
+    `LAYER_KO`는 궁위만 보고 '원국 월지'로 고정돼 있어 천간 참여자(丙壬沖의 월간 壬)까지
+    '월지'로 표기됐다(2026-10-25 발견). LLM이 壬을 지지로 오인해 '월지 임수' 같은 오기를
+    내는 입력 계약 결함이라, 천간이면 '원국 월간 壬', 지지면 '원국 월지 寅'으로 낸다.
+    운 층위(대운·세운·월운·일진)는 간지 2자를 함께 쓰므로 그대로 둔다.
+
+    Args:
+        layer: 참여 글자의 층위.
+        char: 참여 글자(한자 1자).
+
+    Returns:
+        '원국 월간' / '원국 월지' / '세운' 같은 표시 라벨.
+    """
+    base = LAYER_KO[layer]
+    if layer.is_natal and char in _STEM_CHARS:
+        return base[:-1] + "간"
+    return base
 
 
 def normalize_participant_layer(source: str) -> ParticipantLayer | None:

@@ -27,7 +27,7 @@ from saju_engines.ai_tell_audit import audit_ai_tells
 from saju_engines.answer_label_audit import rewrite_rank_labels, rewrite_raw_period_labels
 from saju_engines.candidate_semantics import candidate_semantics
 from saju_engines.career_field import build_career_field_facts, render_career_field_lines
-from saju_engines.chart_interpretation import build_chart_interpretation
+from saju_engines.chart_interpretation import build_chart_interpretation, build_luck_grounding
 from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
 from saju_engines.context_reducer import (
     _DOMAIN_EVENT_KEYS,
@@ -192,6 +192,10 @@ from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
 from saju_engines.topic_builder import build_topic_context
 from saju_engines.wealth_capacity import analyze_wealth_capacity
 from saju_engines.wealth_status_lean import analyze_wealth_status_lean
+from saju_engines.yearly_environment import (
+    build_yearly_environment,
+    render_yearly_environment,
+)
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.constants import BRANCH_KO, STEM_KO
@@ -2205,6 +2209,42 @@ class _ReportData:
             lines.append(f"구성원 이동운이 엇갈리는 달: {', '.join(conflicts)}")
         return lines
 
+    def yearly_sewoon_block(self, year: int) -> list[str]:
+        """[해당 연 세운 grounding] — 채팅 '해당 연 총운'과 같은 세운 줄 + 월주 상대 관점 환경 블록.
+
+        2026-10-25 리포트 패리티(데굴님 승인): F-11·Y-04 는 `luck_block`(대운표·후보 클러스터)만
+        있어 그 해 세운 자체의 십성·십이운성·형충회합·신살·공망 줄이 없었다(채팅
+        `build_luck_grounding` 미호출). 같은 함수로 세운 1줄 grounding 을 내고, 월주 상대 관점
+        (세운 전용) 환경 블록을 붙인다.
+        계층 블록(composite 기반)은 리포트에 넣지 않는다 — 관계는 기존 relation 줄이 담당.
+        해당 연 세운이 없으면 빈 목록(graceful).
+        """
+        lc = self.result.luck_cycles
+        if lc is None:
+            return []
+        pillar = next((p for p in lc.yearly_luck if p.label == str(year)), None)
+        if pillar is None:
+            return []
+        g = build_luck_grounding(self.result, pillar)
+        lines = [
+            f"[해당 연 세운 grounding — {year} {pillar.ganji} · 엔진 확정값(채팅 패리티)]",
+            f"세운: {g['pillar_line']}",
+        ]
+        if pillar.luck_label or pillar.luck_summary:
+            lines.append(f"운 요약: {pillar.luck_label} — {pillar.luck_summary}")
+        lines += render_yearly_environment(build_yearly_environment(self.result, pillar))
+        lines += [f"형충회합: {rl}" for rl in g["relation_lines"]]
+        lines += list(g["sinsal_lines"])
+        if g["gongmang"]:
+            lines.append("공망: " + ", ".join(g["gongmang"]))
+        lines.append(
+            "서술 순서: [월주 상대 관점]이 있으면 ①시절이 만드는 환경 한 문장 → ②[세운:] 줄의 "
+            "일간 기준 십성·십이운성으로 그 환경에서 취하기 쉬운 태도 한 문장 → ③둘을 합친 한 해 "
+            "주제를 이 섹션 "
+            "첫 판정 문단 바로 뒤에 둘 것(환경·태도는 길흉이 아니며 용희기신 판정을 바꾸지 않는다)."
+        )
+        return lines
+
     def era_energy_block(self, year: int) -> list[str]:
         """[올해 시대 기운] — structural_context 위임 + 리포트 전용 연결 지시."""
         lines = era_energy_lines(self.result, year)
@@ -3980,6 +4020,11 @@ def build_section_context(
     # 연간 총운(Y-04) — 세운·대운 천간 십성 이사 유형 간결 surface(인생 총운엔 미부착).
     if sid in _RELOCATION_YEAR_SECTIONS:
         lines += ["", *data.relocation_year_block(spec)]
+    # 해당 연 세운 grounding + 월주 상대 관점(2026-10-25 채팅 패리티) — F-11(올해)·Y-04(그 해).
+    if sid == "Y-04":
+        lines += ["", *data.yearly_sewoon_block(int(spec.period.start[:4]))]
+    elif sid == "F-11":
+        lines += ["", *data.yearly_sewoon_block(data.today.year)]
     # 시대 기운(연운) — 개인 풀이 앞 맥락. Y-01(한해풀이 그 해)·F-11(총운 올해).
     if sid == "Y-01":
         lines += ["", *data.era_energy_block(int(spec.period.start[:4]))]

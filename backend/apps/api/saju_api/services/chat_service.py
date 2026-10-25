@@ -215,6 +215,10 @@ from saju_engines.topic_builder import build_lifestyle_context, build_topic_cont
 from saju_engines.user_facts import user_facts_block
 from saju_engines.v2_scoring import V2ScoringError, build_v2_scoring
 from saju_engines.wealth_capacity import analyze_wealth_capacity
+from saju_engines.yearly_environment import (
+    build_yearly_environment,
+    render_yearly_environment,
+)
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.career_transition import CareerQueryResolution, CareerTransitionKind
@@ -1216,6 +1220,9 @@ def _build_period_fortune(
     # 표현 제한 도메인(Phase 5b-2b) — parser Domain.value(str)만 전달(enum 비종속).
     domain_key = domain_to_expression_key(intent.domain.value)
     grounding = build_luck_grounding(chart, pillar, domain_key=domain_key)
+    # 월주 상대 관점(2026-10-25) — 세운 전용. build_yearly_environment 가 세운이 아니면 None 을 돌려
+    # 일·월 총운에는 빈 목록이 된다(대운·월운 미적용 — 데굴님 결정).
+    environment_lines = render_yearly_environment(build_yearly_environment(chart, pillar))
     # P0(2026-07-27) — 운 스택(대운·세운·월운·해당 기간) 전체가 관여한 합의 구조화 의미.
     # 단일 pillar만 넘기면 세운 午와 일진 寅의 반합처럼 층간 결합이 통째로 빠진다.
     _TARGET_LEVEL = {
@@ -1329,6 +1336,7 @@ def _build_period_fortune(
             composites, _TARGET_LEVEL[fortune_type], start, fortune_type,
         ),
         dohwa_text_keys=list(grounding.get("dohwa_text_keys", [])),
+        environment_lines=environment_lines,
     )
 
 
@@ -4204,6 +4212,22 @@ def _ranking_subject_blocks(
     return blocks, rc
 
 
+def _era_year(intent: IntentJson, today: date) -> int:
+    """[시대 기운] 블록의 기준 연도 — 질문이 단일 연(내년·YYYY년)을 지정하면 그 해, 아니면 올해.
+
+    2026-10-25 실측: '내년 운세'·'2027년 총운'에 [해당 연 총운 — 2027 丁未] 블록과 함께
+    올해(丙午) 시대 기운이 붙어 두 해의 기운이 한 프롬프트에 섞였다. 연 총운 라우팅
+    (`_period_fortune_type`)과 같은 조건(granularity=year·단일 연)으로 대상 해를 고른다.
+    """
+    tr = intent.time_range
+    if (
+        tr is not None and tr.start and tr.granularity.value == "year"
+        and len(tr.start) == 4 and tr.start.isdigit() and (tr.end or tr.start) == tr.start
+    ):
+        return int(tr.start)
+    return today.year
+
+
 def _structural_context(
     result: ManseV2Result,
     intent: IntentJson,
@@ -4253,7 +4277,8 @@ def _structural_context(
     general = domain is Domain.GENERAL  # 확정 intent 아님 → 총운(모든 구조 블록)
     out: list[str] = []
     if general:
-        out += era_energy_lines(result, today.year)  # 시대 기운 먼저(개인 앞 사회 맥락)
+        # 시대 기운 먼저(개인 앞 사회 맥락) — 기준 연도는 질문의 단일 연(내년·YYYY년) 우선.
+        out += era_energy_lines(result, _era_year(intent, today))
     if general or domain is Domain.WEALTH:
         from saju_engines.event_scoring import favorability_map as _wc_fav
 

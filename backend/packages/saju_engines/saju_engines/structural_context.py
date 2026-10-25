@@ -853,9 +853,11 @@ def era_energy_lines(result: ManseV2Result, year: int) -> list[str]:
     if not ganji:
         return []
     era = era_energy_profile(ganji[0], ganji[1])
+    # 헤더에 연도를 박는다(2026-10-25) — '올해'로 고정하면 내년·특정 연 질문에서 그 해 기운을
+    # 올해 것으로 읽는다(기간 총운 헤더의 상대 표현 제거와 같은 이유).
     lines = [
-        "[올해 시대 기운 — 그 해 간지의 명리 기운(개인 앞 사회 맥락). 경제·시장·채용 같은 시사 "
-        "예측·단정은 절대 금지, 기운의 결로만 서술]",
+        f"[{year}년 {ganji}年 시대 기운 — 그 해 간지의 명리 기운(개인 앞 사회 맥락). "
+        "경제·시장·채용 같은 시사 예측·단정은 절대 금지, 기운의 결로만 서술]",
         era.summary,
     ]
     note = era_curated_note(year, era.year_ganji)
