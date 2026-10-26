@@ -98,3 +98,24 @@ def test_chat_unseeded_place_returns_422_not_500() -> None:
     })
     assert res.status_code == 422, res.text
     assert "대구" in res.json()["detail"]
+
+
+def test_findings_sorted_by_raw_sum_not_capped_score() -> None:
+    """⑦ 정렬은 원합 — 포화(100) 동률이어도 원합 큰 시기가 앞, 동률은 period_key 순.
+
+    2026-10-26 175명식 측정: 현행 점수 정렬은 M01 67.6%·M07 90.4% 행이 100 으로 포화해
+    Top-3 절단이 이른 달 우선으로 퇴화(명식 100%). 표시 상한 100 은 유지한다.
+    """
+    from saju_engines.topic_builder import _sort_findings_by_raw
+    from saju_shared_types.topic_context import Finding
+
+    def f(pk: str) -> Finding:
+        return Finding(key=f"x@{pk}", summary=pk, score=100, period_key=pk)
+
+    pairs = [(1.2, f("2026-01")), (2.7, f("2026-05")), (1.2, f("2025-12")), (0.4, f("2026-03"))]
+    assert [x.period_key for x in _sort_findings_by_raw(pairs)] == [
+        "2026-05", "2025-12", "2026-01", "2026-03",
+    ]
+    # 반례: 점수(전부 100) 정렬이었다면 period_key 순으로 '2025-12' 가 1위였을 것.
+    by_score = sorted((x for _, x in pairs), key=lambda x: (-x.score, x.period_key or ""))
+    assert by_score[0].period_key == "2025-12"

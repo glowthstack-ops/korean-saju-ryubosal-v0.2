@@ -12727,3 +12727,18 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 회귀: `tests/unit/test_live_review_20261026.py` 7건(미성립 줄 반례 전제 `late_marriage_notes == []` 포함·중복 1회·한글 라벨·⑩·상위 키·typed error·422). 게이트: `All checks passed` · `production mypy gate clean` · `maintained scripts mypy gate clean` · `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(start_head=end_head 0695f28 · 지문 c5d72bd9… 일치, `var/run_suite_20261026_review.log`).
 - 미해결(기록만): M01 점수 100 상한 자체는 유지 — 두 실답 명식이 같은 사건 구성(new_relationship·relationship_change 4건)이라 줄은 여전히 동일. 상한 변경은 점수 의미 변경이라 별도 결정.
 
+## 2026-10-26 — 토픽 요약 점수 100 상한 결정: 표시 상한 유지 + 정렬은 원합(가중치 합) (데굴님 "남은 결정의 경우 테스트를 통해 유지 여부나 상한을 확정하자")
+
+- 측정 `backend/scripts/measure_topic_score_cap.py`(일회성, allowlist 미편입) — 85사례 재생 모집단 175명식, 각 명식 '만 30세 10-26'을 오늘로 채팅과 같은 조립(연+월 composite·올해~+5년)으로 M01·M07 시기 행. 결과 `var/topic_score_cap_20261026.md`:
+
+  | 모듈 | 행 | 원합 p50/p90/p99/max | 현행 포화 행 | 포화 시기 ≥4 명식 | 현행 Top-3 경계 동률 명식 |
+  |---|---|---|---|---|---|
+  | M01 | 2,935 | 1.35 / 2.70 / 4.55 / 8.5 | 67.6% | 100% | 100% |
+  | M07 | 3,103 | 2.22 / 3.78 / 5.50 / 8.6 | 90.4% | 100% | 100% |
+
+  대안 비교(Top-3 경계 동률 명식 M01/M07): B 원합 정렬 9.7%/6.9% · C 선형 재척도 S=2.0 68%/99%·S=3.0 13%/73% · D 로그 압축 20%/28%. B는 Top-3 집합이 현행과 99.4%/100% 다르다 = 현행 Top-3는 '가장 강한 시기'가 아니라 '이른 달 우선 임의 절단'이었다.
+- **결정**: 표시 점수 `min(100, round(합×100))`·`Finding.score` 0~100 스키마·"가중치 합 1.0 = 100" 의미는 **유지**(재척도는 점수 의미 변경 + `report_checks.allowed_scores` 정합 영향, 로그 압축도 동률 20%+). **정렬만 원합 기준**으로(`topic_builder._sort_findings_by_raw`, 동률은 period_key 오름차순) — M07 `build_career_context`·도메인 공용 `_domain_series_findings` 두 곳. 85사례 적중 지표는 이벤트 엔진 소관이라 불변(토픽 점수는 서술 참고·정렬 전용).
+- 실답 확인(女 1990-05-15 '결혼 언제'): 종전 M01 참고 줄 1개(Top-3 중 2개가 지난 달이라 future_floor 에 제거) → 교정 후 2026 丙午 + 2027-01 辛丑 2개.
+- 회귀: `test_live_review_20261026.py` ⑦(원합 정렬·반례=점수 정렬이면 period_key 순). 게이트: `All checks passed` · `production mypy gate clean` · `maintained scripts mypy gate clean` · `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(start_head=end_head 98e5373 · 지문 54eee761… 일치, `var/run_suite_20261026_cap.log`).
+- 발견(미수정·결정 대기): `TopicContext.findings[:5]` 절단이 빌더 안에서 먼저 일어나고 채팅 `future_floor`(현재 달 이전 월 제거)는 그 뒤라, 올해 1~9월처럼 지난 달이 상위 5 슬롯을 소모하면 미래 줄이 줄어든다. 빌더에 floor 를 넘기거나 절단을 소비 측으로 옮기는 수정 후보.
+
