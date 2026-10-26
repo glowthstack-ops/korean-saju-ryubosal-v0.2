@@ -29,6 +29,7 @@ from .health_vulnerability import (
     percentile_level,
     severe_event_code,
 )
+from .love_type import LoveTypeResult, absent_group_note, love_type_lines
 from .marriage_age_prior import analyze_marriage_age_prior
 from .marriage_timing_profile import active_marriage_aux
 from .relationship_relation_labels import relation_summary_ko
@@ -624,6 +625,19 @@ def marriage_resource_lines(mr: MarriageResourceProfile) -> list[str]:
             bond.append("배우자 별 세력이 강해 이성·인연 신호가 두드러지는 결")
     if mr.spouse_star_absent:
         bond.append("배우자 별 미투출 — 인연을 스스로 만들어가는 능동형 구조(부재 단정 아님)")
+        # P2-5(2026-10-25 강의 S4) — 무재·무관 어휘: 소유욕·구속 선호 낮음(가치 중립) + 운 프레임.
+        absent_note = absent_group_note(mr.spouse_star)
+        bond.append(
+            (absent_note + " · " if absent_note else "")
+            + f"배우자성({mr.spouse_star})이 운(대운·세운)으로 들어오는 시기에 결혼 경향, "
+            "빠지는 시기에 관계 변동 경향(이혼 단정 금지)"
+        )
+    if mr.wealth_absent and mr.spouse_star != "재성":
+        # 재성=관계 유지 욕구(남녀 공통) — 여성 무재는 배우자성과 별개 축으로 적는다.
+        bond.append(
+            "재성 미투출 — 관계를 '내 것'으로 붙잡아 유지하려는 욕구가 약한 결"
+            "(남녀 공통·가치 중립, 비혼·자녀 중심 선택도 중립)"
+        )
     if mr.charm_present:
         # 도화(진도화)·홍염을 각자 성립한 것만 이름으로 든다(글자 보유 사정지는 제외 — 2026-10-13).
         charm = "·".join(
@@ -637,6 +651,28 @@ def marriage_resource_lines(mr: MarriageResourceProfile) -> list[str]:
     if bond:
         lines.append(
             "배우자 인연 결(가능성·경향으로만, 단정·낙인 금지): " + " / ".join(bond)
+        )
+    # P2-3(2026-10-25 강의 S2) 배우자성 자리 — 천간=바라는 결·지지=실제 만남 환경(배우자성 한정).
+    if mr.spouse_star_stem_positions or mr.spouse_star_branch_positions:
+        stem_part = (
+            "천간 " + "·".join(mr.spouse_star_stem_positions) + " = 바라는 결(지향)"
+            if mr.spouse_star_stem_positions else "천간에 없음(지향보다 환경 쪽)"
+        )
+        branch_part = (
+            "지지 " + "·".join(mr.spouse_star_branch_positions) + " = 실제 만남 환경"
+            if mr.spouse_star_branch_positions else "지지에 없음(환경보다 지향 쪽)"
+        )
+        lines.append(
+            f"배우자성 자리(배우자성 한정 — 고정 등식 아님, 자리 표기 그대로 인용): {stem_part} · "
+            f"{branch_part}"
+        )
+    for g in mr.spouse_star_ganyeojidong:
+        lines.append(f"  · {g}")
+    # P2-2 배우자성 정/편 축 — 일지 이상형(A)과 별개 축임을 라벨로 명시.
+    if mr.spouse_star_axis:
+        lines.append(
+            "배우자성 정/편 축(배우자성 자체의 결 — 아래 일지 이상형과 별개 축): "
+            + mr.spouse_star_axis
         )
     # A) 배우자 취향(이상형) — 일지 십성 기준 끌리는 타입(경향) + 잘 안 맞기 쉬운 결.
     if mr.ideal_type_tendency:
@@ -656,6 +692,18 @@ def marriage_resource_lines(mr: MarriageResourceProfile) -> list[str]:
         lines.append(
             "생애 단계 연애 대상(연·월·시지, 경향·시기 단정 아님): "
             + " / ".join(mr.life_stage_ideals)
+        )
+    # P2-4 연상/동갑/연하 경향(강의 S3 — 경향·단정 아님).
+    if mr.partner_age_tendencies:
+        lines.append(
+            "상대 나이대 경향(단정 아님 — 통설·여성 명식에 더 유효): "
+            + " / ".join(mr.partner_age_tendencies)
+        )
+    # P2-7 만혼·비혼 중립 프레임·비겁 과다.
+    if mr.late_marriage_notes:
+        lines.append(
+            "결혼 시기·형태 프레임(늦은 결혼·비혼 모두 중립, 이혼 단정 금지): "
+            + " / ".join(mr.late_marriage_notes)
         )
     # 관계 친화·돌봄 성향 — 십성 구조×신강약(관계에 어떻게 임하는가, 경향·비단정).
     if mr.relationship_affinity:
@@ -699,6 +747,11 @@ def marriage_resource_lines(mr: MarriageResourceProfile) -> list[str]:
         f"자산 출처 경향(가능성): {leans}. 돈의 '출처'(부모/배우자 집안/자수성가)를 구분해 "
         "서술하되 단정하지 말 것."
     )
+    # P2-6 연애 유형(십성군 분류, 사전 love_types.json) — 서술 전용.
+    lines += love_type_lines(LoveTypeResult(
+        primary=mr.love_type, secondary=mr.love_type_secondary, basis=mr.love_type_basis,
+        later_shift=mr.love_type_later_shift,
+    ))
     return lines
 
 

@@ -69,6 +69,13 @@ _REASON_PREFIX_KO: dict[str, str] = {
     "OUTPUT_YEAR_RELATIONSHIP_CHANGE": "식상 해의 인연 교체 흐름",
     "TRANSIT_CLASH": "운끼리 충(변화 보조 근거)",
     # 2026-10-16 — 역할별 사건 전환 시드(사흉신 용신 운·사길신 기신 운) + 유입 강도·상위 뿌리 코드.
+    # 2026-10-25 — 연애운 대조(외부 강의 4편) 실험 코드.
+    "LOVE_QISHA_FEMALE_PARTNER": "편관 운(여성 명식 — 이성 인연이 걸리기 쉬운 해·달)",
+    "LOVE_QISHA_STRONG_INFLOW": "편관이 천간·동계열로 강하게 유입",
+    "LOVE_QISHA_PRESSURE": (
+        "원국 관살이 많거나 혼잡 — 인연과 함께 갈등·선택 폭 확대 주의(이별 단정 아님)"
+    ),
+    "LOVE_PARTNER_ELEMENT_DAEWOON": "배우자성 오행이 약한데 대운이 그 오행을 보강(결혼 배경)",
     "ROLE_SEED_SHANGGUAN_YONG": "상관 용신 운(재능 발휘·표현·발표 쪽 전환)",
     "ROLE_SEED_QISHA_YONG": "편관 용신 운(책임 있는 역할·직책 쪽 전환)",
     "ROLE_SEED_PIANYIN_YONG": "편인 용신 운(자격·전문 연구·산출 쪽 전환)",

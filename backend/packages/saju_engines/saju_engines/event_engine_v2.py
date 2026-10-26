@@ -102,6 +102,12 @@ from .layer_evidence_scope import normalize_layers
 from .layer_flow_modifier import LayerFlowModifier
 from .life_fit_ranker import LifeFitRanker
 from .llm_event_serializer import reason_codes_ko
+from .love_timing import (
+    apply_partner_element_daewoon,
+    hap_overload_damping,
+    produce_female_qisha_seeds,
+    resolve_love_experiments,
+)
 from .marriage_awareness_seed import produce_mt1_awareness_seeds
 from .marriage_directional_tag import apply_mt3_directional_tags
 from .marriage_emergence_modifier import (
@@ -163,7 +169,10 @@ _REL_KIND = {
     RelationType.STEM_COMBINATION: "HAP",
     RelationType.SIX_COMBINATION: "HAP",
     RelationType.THREE_HARMONY_CONTRIB: "HAP",
+    RelationType.THREE_HARMONY_HALF: "HAP",
+    RelationType.THREE_HARMONY_FULL: "HAP",
     RelationType.DIRECTIONAL_CONTRIB: "HAP",
+    RelationType.DIRECTIONAL_FULL: "HAP",
     RelationType.BRANCH_CLASH: "CHUNG",
     RelationType.BRANCH_BREAK: "PA",
     RelationType.HARM: "HAE",
@@ -258,6 +267,7 @@ class EventEngineV2:
         enable_role_event_seed: bool = False,
         role_event_seed_rule_ids: Collection[str] | None = None,
         tamhap_mangchung_mode: str = "shadow",
+        love_experiments: Collection[str] | None = None,
     ) -> None:
         """재설계 6계층 + 만세 신호 추출에 필요한 사전을 로드한다.
 
@@ -288,6 +298,9 @@ class EventEngineV2:
             enable_peer_gisin_mobility: 비겁 기신 × 비겁 운 유입 → career_change 시드(용신 시드의
                 대칭, 2026-10-15 데굴님 확정, 기본 ON). 사전 `peer_gisin_mobility_rules` 절.
                 OFF면 불변.
+            love_experiments: 연애운 실험 플래그 이름 모음(2026-10-25 — `love_timing`
+                키: new_relationship_palace / female_qisha_partner / hap_overload_damping /
+                partner_element_daewoon). None 이면 환경 기본값.
             tamhap_mangchung_mode: 탐합망충(2026-10-25 P0-4) 'off'|'shadow'|'apply'. shadow 는
                 적용 후보를 로그·`take_tamhap_shadow()` 로만 남기고 점수 불변, apply 는 사전
                 `relationAlso: six_combination` 감점을 이동형 후보 점수에 곱한다(측정 전용).
@@ -329,6 +342,7 @@ class EventEngineV2:
         )
         # 세운 육신별 사건 신호(2026-10-15, 교재 6장 대조) — 사전 절 부재·OFF면 불변.
         self._tamhap_mode = tamhap_mangchung_mode
+        self._love = resolve_love_experiments(love_experiments)
         self._tamhap_rules = (
             load_tamhap_rules(dictionaries_dir) if tamhap_mangchung_mode != "off" else {}
         )
@@ -773,6 +787,14 @@ class EventEngineV2:
                 *cands,
                 *produce_mt1_awareness_seeds(target, result, fav_map, marriage_flow.gender, label),
             ]
+        # 연애운 P1-1(2026-10-25, 실험): 여성 편관 운 → 새 인연·관계 변동 시드(남 편재 30 과 대칭).
+        if self._love["female_qisha_partner"]:
+            cands = merge_role_event_seeds(
+                cands,
+                produce_female_qisha_seeds(
+                    signals, target_layer, result, marriage_flow.gender, label,
+                ),
+            )
         # 비겁 용신 × 비겁 유입 → career_change 시드(2026-10-14). 브랜처 직후 합류 → 6계층 보정·랭킹
         # 공통 적용(관성 충 등 다른 작용이 뒤에서 풀이를 바꿀 수 있어야 한다는 데굴님 지시).
         for _peer_rule in (self._peer_mobility_rule, self._peer_gisin_rule):
@@ -889,7 +911,15 @@ class EventEngineV2:
             day_element=day_el, shadow_sink=self.mt4_shadow,
             renewal_enabled=self._enable_resource_clash_renewal,
             ten_god_group_powers=group_powers,
+            # 연애운 실험(2026-10-25): new_relationship 일지 HAP·복음 편입 / 원국 합 과다 감쇠.
+            new_relationship_palace=self._love["new_relationship_palace"],
+            day_hap_damping=(
+                hap_overload_damping(result) if self._love["hap_overload_damping"] else 1.0
+            ),
         )
+        # 연애운 P1-3(2026-10-25, 실험): 배우자성 약 + 대운 오행이 배우자성 오행 → 결혼 배경 가산.
+        if self._love["partner_element_daewoon"]:
+            cands = apply_partner_element_daewoon(cands, stack, result, marriage_flow.gender)
         # 운↔운 충(대운↔월운 등) — 이동형 후보 보조 가산(2026-10-15 승인, 기본 OFF). 궁위 관계
         # 보정과 같은 raw 단계에 둔다(용신 배율 앞). 후보당 1회·쌍 전부를 reason 1건에 기록.
         if self._transit_clash_rule is not None:
@@ -1327,7 +1357,21 @@ def _natal_target(
 _HAP_SUBTYPE: dict[RelationType, str] = {
     RelationType.SIX_COMBINATION: "six_harmony",
     RelationType.THREE_HARMONY_CONTRIB: "three_harmony",
+    RelationType.THREE_HARMONY_HALF: "three_harmony",
+    RelationType.THREE_HARMONY_FULL: "three_harmony",
     RelationType.DIRECTIONAL_CONTRIB: "directional",
+    RelationType.DIRECTIONAL_FULL: "directional",
+    RelationType.STEM_COMBINATION: "stem",
+}
+#: HAP 등급(2026-10-25 연애운 P0-1) — 궁위 가산 배율 키(`hap_grade_multipliers`). 완성 > 왕지 반합 >
+#: 육합·천간합 = 기여(종전 7 유지).
+_HAP_GRADE: dict[RelationType, str] = {
+    RelationType.THREE_HARMONY_FULL: "full",
+    RelationType.DIRECTIONAL_FULL: "full",
+    RelationType.THREE_HARMONY_HALF: "half",
+    RelationType.THREE_HARMONY_CONTRIB: "contrib",
+    RelationType.DIRECTIONAL_CONTRIB: "contrib",
+    RelationType.SIX_COMBINATION: "six",
     RelationType.STEM_COMBINATION: "stem",
 }
 
@@ -1347,13 +1391,14 @@ def _activations(
             continue
         position = "stem" if hit.type is RelationType.STEM_COMBINATION else "branch"
         subtype = _HAP_SUBTYPE.get(hit.type)  # HAP일 때만 채워짐(MT4용)
+        grade = _HAP_GRADE.get(hit.type, "")
         for ref in hit.natal_refs:
             palace = _POS_PILLAR.get(ref.position)
             if palace is not None:
                 target_god, _ = _natal_target(result, palace, position)
                 out.append(RelationActivation(
                     RelationKind(kind), palace, layer, position=position,
-                    hap_subtype=subtype, element=hit.element,
+                    hap_subtype=subtype, element=hit.element, hap_grade=grade,
                     # 관측 가능성 — 어느 운 글자가 어느 원국 글자를 건드렸는지.
                     # 점수·reason_codes 에는 영향이 없다(2026-07-31).
                     relation_id=hit.relation_id,

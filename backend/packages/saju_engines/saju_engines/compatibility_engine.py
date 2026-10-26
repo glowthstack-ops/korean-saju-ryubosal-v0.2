@@ -281,6 +281,43 @@ def _ten_god_complement_signals(
     return out
 
 
+_PEER_EXCESS_PCT = 35.0
+_PEER_EXCESS_VISIBLE = 3
+
+
+def _peer_excess_signals(
+    self_result: ManseV2Result, partner_result: ManseV2Result,
+    *, self_label: str, partner_label: str,
+) -> list[CompatSignal]:
+    """한쪽 비겁 과다(분포 ≥35% 또는 가시 ≥3) → '가족·자기 우선 가능성' 참고 1줄(보조·중립).
+
+    강의(결혼운): 배우자 사주를 볼 때 비겁 과다는 자기 우선 경향이며, 두 사람의 합·보완이 그 성향을
+    완화한다. 카운트·톤에 넣지 않고(auxiliary) 이혼·불화 단정 어휘를 쓰지 않는다.
+    """
+    out: list[CompatSignal] = []
+    for res, label in ((self_result, self_label), (partner_result, partner_label)):
+        fa = res.force_analysis
+        p = res.pillars
+        if fa is None or p is None:
+            continue
+        pct = float(fa.ten_gods.groups.get("peer", 0.0))
+        visible = sum(
+            1 for pil in (p.year, p.month, p.day, p.hour) if pil is not None
+            for tg in (pil.stem_ten_god, pil.branch_main_ten_god) if tg in ("비견", "겁재")
+        )
+        if pct >= _PEER_EXCESS_PCT or visible >= _PEER_EXCESS_VISIBLE:
+            out.append(CompatSignal(
+                kind=CompatSignalKind.PEER_EXCESS, label="비겁 과다(참고)",
+                detail=(
+                    f"{label} 비겁 과다(분포 {pct:.0f}%·가시 {visible}자) — 자기·가족 우선 "
+                    "가능성(경향), 두 사람의 합·보완 신호가 이 성향을 완화하는 쪽으로 읽을 것"
+                    "(이혼·불화 단정 금지)"
+                ),
+                direction=CompatDirection.NEUTRAL, auxiliary=True,
+            ))
+    return out
+
+
 def _sinsal_cross_signals(
     self_dm: Stem, partner_dm: Stem, a: Branch, b: Branch,
     *,
@@ -445,6 +482,11 @@ def analyze_compatibility(
     signals += _ten_god_complement_signals(
         self_result, partner_result,
         self_label=self_label, partner_label=partner_label,
+    )
+
+    # 4c) 비겁 과다(2026-10-25 강의 S6 — 보조·중립): 가족·자기 우선 가능성, 합·보완이 성향 완화.
+    signals += _peer_excess_signals(
+        self_result, partner_result, self_label=self_label, partner_label=partner_label,
     )
 
     # 5) 관계 신살 교차(보조 — 카운트·톤 미반영, 가볍게만).

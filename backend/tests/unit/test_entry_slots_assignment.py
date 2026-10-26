@@ -353,6 +353,10 @@ def test_live_case_prompts_under_default_mode(monkeypatch: pytest.MonkeyPatch) -
     pp2 = r2.prompt_preview or ""
     assert r2.postprocess is not None
     assert "성사 가능 달(사건 신호 매우 강함" in pp2
+    # 2026-10-25 연애운 대조 P0-1(삼합완성·반합성립 변환 복구)을 전 궁위에 열면 2027-03 癸卯가
+    # 亥卯 반합(월지·일지 亥) 월·일주 HAP 가산으로 job_gain 92→96 이 되어 성사 가능 달에 편입되고
+    # 실이력 trigger95 정밀도가 6.4%→5.6% 로 내려갔다(`var/entry_slot_modes_20261025_love.md`).
+    # 2차 조정(`hap_grade_scope`: half·full 은 일지 × 관계 사건만)으로 직업 사건은 종전과 같다.
     assert "2027-02(壬寅 · 조건 불리(처우·강도 주의))" in pp2
     assert "2026-12(庚子)·2027-03(癸卯)·2027-04(甲辰)·2027-05(乙巳)" in pp2
     assert "가장 이른 성사 가능 달은 2027-02(壬寅)(조건 불리" in pp2

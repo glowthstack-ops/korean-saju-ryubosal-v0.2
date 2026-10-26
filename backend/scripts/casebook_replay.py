@@ -35,6 +35,7 @@ from saju_engines.event_engine_v2 import EventEngineV2  # noqa: E402
 # 남긴다(판정·점수 불변).
 from saju_engines.event_scoring import favorability_map  # noqa: E402
 from saju_engines.lifetime_scan import lifetime_pillars, merge_yearly_luck  # noqa: E402
+from saju_engines.love_timing import LOVE_EXPERIMENT_KEYS  # noqa: E402
 from saju_manse_core.calendar.sexagenary_cycle import (  # noqa: E402
     day_ganzi,
     ganzi_index,
@@ -426,6 +427,9 @@ def main() -> int:
     # 2026-10-25 — hap_modes 실험 플래그(trine_third_clash / stem_tougan) 비교 재생용(반복 가능).
     ap.add_argument("--hap-experiment", action="append", default=[],
                     choices=sorted(_hm.HAP_EXPERIMENTS))
+    # 2026-10-25 — 연애운 실험 플래그(love_timing.LOVE_EXPERIMENT_KEYS) 비교 재생용(반복 가능).
+    ap.add_argument("--love-experiment", action="append", default=[],
+                    choices=list(LOVE_EXPERIMENT_KEYS))
     args = ap.parse_args()
     for name in args.hap_experiment:
         _hm.HAP_EXPERIMENTS[name] = True
@@ -442,6 +446,7 @@ def main() -> int:
         enable_role_event_seed=args.role_event_seed,
         role_event_seed_rule_ids=args.role_seed_only or None,
         tamhap_mangchung_mode=args.tamhap_mode,
+        love_experiments=args.love_experiment,
     )
     rows = []
     # --only 실행은 전수 결과를 덮어쓰지 않도록 별도 파일에 쓴다.

@@ -25,6 +25,7 @@ src/dictionaries/
     twelve_stages_text.json # 십이운성 12종 — 에너지 단계 의미/일상 비유
     yearly_environment.json # 세운 환경(월주 상대 관점) — 십성 10 양방향·12운성 12 상태·관계·통근 어휘, 세운 전용 서술층(2026-10-25)
     sinsal_text.json        # 신살 — 의미/발현 영역/주의점 (공포 조장 금지 톤)
+    love_types.json         # 연애 유형 5종(십성군) — 심리·중시·공략·주의·부재 결, 분류기 love_type.py 서술 재료(2026-10-25)
     stems_branches_text.json# 천간 10·지지 12 물상 — 모든 비유의 원천 재료
   favorability_rules.json   # 용신/희신/기신/구신/한신 보정
   daily_fortune/            # ★ 일주별 오늘의 운세 (docs/17, 챠트리스 휘발성 콘텐츠) — 2026-07-23 신설
@@ -294,6 +295,14 @@ compiled/
 - 구현 `career_field._apply_ganji_school`(기준일 `today`로 현재 대운 사용 — 채팅·리포트가 전달) → `CareerFieldFacts.orientation/palace_lines/officer_lines/workplace_lines/business_lines/timing_lines` → `_render_ganji_school`. 업종·사업 시기는 상업형·혼합형에만, 관성 위치는 관성이 있을 때만. 지시문(`_CAREER_FIELD_DIRECTIVE`·`_CAREER_FIELD_REPORT_DIRECTIVE`)에 학파 서술·합산 금지·프로필 우선 규칙 추가. 2단계 프로필 직업이 있으면 그것이 사실(원칙 11).
 - `sinsal_direction.json` `entrance_customer_group`: 출입구 제2기준(간지론) — 연지 삼합의 '앞 그룹'(각 지지 +3: 申子辰→亥卯未·寅午戌→巳酉丑·巳酉丑→申子辰·亥卯未→寅午戌)을 손님으로 보고 그 국 왕지 방위(동/서/북/남)로 출입문. 목적 `sales` 에만 `SinsalDirectionRecommendation.second_basis` 로 붙고 12신살 picks 와 합산하지 않는다(쥐띠: 12신살 지살=서 vs 간지론=동 — 학파별 병기). 조상·단골 쪽문 해석 불채택. 스냅샷 `compiled/sinsal_direction_v1.2.0.json` in-place 재빌드(선택 절 추가, 기존 항목 불변).
 - 테스트 `test_career_ganji_layer.py`(사전 7절·어휘 정책·선택 절 부재·유형 축 5픽스처·월지 가중/충 간섭·대운 축·궁위·관성 위치 3형·업종 상한·사업 시기 2형·정관 규칙·렌더·지시문) / `test_entrance_second_basis.py`(사전·4삼합 표·12신살 불변·sales 전용·렌더 1회). 픽스처 1976-01-05(직장형·천간 통근·관인 인접) / 1976-01-19(직장형·지지만) / 1976-03-22(혼합형) / 1976-01-26(상업형·인성 대운) / 1980-11-22(상업형·월지 충).
+
+### interpretations/love_types.json — 연애 유형 5종 (2026-10-25 데굴님 승인 — 외부 강의 「연애운 셀프 리딩 2탄」, doc/v2_2/EXTERNAL_TEXT_GAP_LOVE_TIMING.md P2-6)
+
+- 구조: `items` 5건(group 비겁·식상·재성·관성·인성 × tenGods·meaning·psychology·wants·approach·caution·absent·basis·reviewed). `absent` 는 해당 군 미투출 시 결(관성·재성·식상만, 비겁·인성은 빈 문자열 — 강의에 없음).
+- 판정은 엔진 `saju_engines.love_type.classify_love_type`: ① 같은 군 가시(천간+지지 본기) ≥3(둘이면 많은 쪽 주·다음 부) → ② 간여지동 기둥(월·일·시·연 순, ①과 다른 군이면 부 유형) → ③ 월지 본기(만 50세 이하) / 일지 본기(51세+) — 강의의 20~37/38+ 는 **100세 밴드**(`time_parser.LIFE_STAGE_AGE_RANGES`, 2026-08-07 확정)로 번역, 나이 미상이면 월지 + 일지 전환 안내. 나이는 호출처(채팅 `_structural_context`·리포트 `ReportData`)가 `age_from_result(result, today)`로 넘긴다.
+- 노출: `structural_context.marriage_resource_lines` 끝 `[연애 유형 — …]` 블록(채팅 관계·총운 도메인, 리포트 결혼 자원 블록 R-02/RP-02 등 공용). 문구는 기본 노출(reviewed 는 노출 조건 아님, 검수는 실답으로).
+- 린트(`_lint_love_types`): 5군 정확 커버리지·소속 십성 정합·금지 어휘(외도·바람·바람둥이·과부·반드시·확정). 강의 원문의 외도·성욕 어휘는 신뢰·욕구 어휘로 바꿨다.
+- 같은 날 결혼 자원(`MarriageResourceProfile`)에 추가된 서술 필드(P2-2~P2-7: 정/편 축·혼재, 배우자성 자리 천간=지향·지지=환경, 간여지동 배우자성, 연상/동갑/연하 경향, 무재·무관 어휘, 만혼·비혼 중립·비겁 과다)와 궁합 `PEER_EXCESS` 보조 신호는 사전 없이 코드 라벨이다.
 
 ### interpretations/yearly_environment.json — 세운 환경 '월주 상대 관점' (2026-10-25 데굴님 승인 — 외부 강의 별의당 「운명의 병오년」)
 

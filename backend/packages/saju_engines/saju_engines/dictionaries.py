@@ -573,6 +573,29 @@ class SinsalTextFile(_AliasModel):
     items: list[SinsalTextItem] = Field(min_length=20)
 
 
+class LoveTypeItem(_AliasModel):
+    """연애 유형 1건 (interpretations/love_types.json — 2026-10-25 강의 셀프 리딩 2탄 번역층)."""
+
+    group: Literal["비겁", "식상", "재성", "관성", "인성"]
+    ten_gods: list[str] = Field(alias="tenGods", min_length=2, max_length=2)
+    meaning: str = Field(min_length=5)
+    psychology: str = Field(min_length=20)
+    wants: str = Field(min_length=5)
+    approach: str = Field(min_length=20)
+    caution: str = Field(min_length=10)
+    absent: str = ""  # 해당 군 미투출 시 결(없으면 빈 문자열)
+    basis: str = Field(min_length=10)
+    reviewed: bool
+
+
+class LoveTypesFile(_AliasModel):
+    """연애 유형 5종 사전 — 판정은 saju_engines.love_type, 문구는 기본 노출(검수는 실답으로)."""
+
+    version: str
+    note: str | None = None
+    items: list[LoveTypeItem] = Field(min_length=5, max_length=5)
+
+
 class StemsBranchesTextFile(_AliasModel):
     version: str
     note: str | None = None
@@ -2656,6 +2679,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/mobility_flow_text.json": MobilityFlowTextFile,
     "interpretations/pattern_transit_text.json": PatternTransitTextFile,
     "interpretations/ten_god_relations.json": TenGodRelationsFile,
+    "interpretations/love_types.json": LoveTypesFile,
     "interpretations/stems_branches_text.json": StemsBranchesTextFile,
     "interpretations/favorability_text.json": FavorabilityTextFile,
     "interpretations/relocation_ten_gods.json": RelocationTenGodsFile,
@@ -3214,6 +3238,25 @@ def _lint_dohwa_text(file: DohwaTextFile) -> list[str]:
             errors.append(f"{head}: {c.group} 라벨은 '{c.group}도화'여야 한다(현재 {c.label})")
         if set(c.ten_gods) != _DOHWA_GROUP_TEN_GODS.get(c.group, set()):
             errors.append(f"{head}: {c.group} 소속 십성 불일치 — {c.ten_gods}")
+    return errors
+
+
+_LOVE_TYPE_BANNED = ("외도", "바람", "바람둥이", "과부", "반드시", "확정")
+
+
+def _lint_love_types(file: LoveTypesFile) -> list[str]:
+    """love_types.json — 십성군 5종 정확 커버리지·소속 십성 정합·낙인/단정 어휘 금지."""
+    errors: list[str] = []
+    head = "interpretations/love_types.json"
+    if sorted(i.group for i in file.items) != sorted(_DOHWA_GROUP_TEN_GODS):
+        errors.append(f"{head}: 십성군 5종(비겁·식상·재성·관성·인성) 각 1건이어야 한다")
+    for i in file.items:
+        if set(i.ten_gods) != _DOHWA_GROUP_TEN_GODS.get(i.group, set()):
+            errors.append(f"{head}: {i.group} 소속 십성 불일치 — {i.ten_gods}")
+        text = " ".join((i.meaning, i.psychology, i.wants, i.approach, i.caution, i.absent))
+        for w in _LOVE_TYPE_BANNED:
+            if w in text:
+                errors.append(f"{head}: {i.group} 문구에 금지 어휘 '{w}'")
     return errors
 
 
@@ -3882,6 +3925,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_pattern_transit_text(parsed))
         elif isinstance(parsed, TenGodRelationsFile):
             errors.extend(_lint_ten_god_relations(parsed))
+        elif isinstance(parsed, LoveTypesFile):
+            errors.extend(_lint_love_types(parsed))
         elif isinstance(parsed, TenGodsTextFile):
             errors.extend(_lint_ten_gods_text(parsed))
         elif isinstance(parsed, TwelveStagesTextFile):

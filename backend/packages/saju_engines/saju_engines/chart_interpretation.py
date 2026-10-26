@@ -418,6 +418,10 @@ def build_luck_grounding(
 
 
 #: 운 도화 사용 규칙 — 원국 도화와 구분(2026-10-13 데굴님 지시).
+_DOHWA_BASE_FRAME = {
+    "year": "연주=타인 시선: 사회적 이미지·첫인상에 매력이 실리는 결",
+    "day": "일지=배우자궁: 사생활·가까운 인연 쪽 끌림",
+}
 _LUCK_DOHWA_RULE = (
     "사용 규칙: 이 기간에 들어온 도화다 — 타고난 성향이나 평생의 매력으로 설명하지 말고 원국 "
     "도화와 구분해 그 기간의 매력 노출·인연 기회로만 말할 것. 기준이 둘이어도 한 번만 다룰 것."
@@ -457,7 +461,12 @@ def _luck_dohwa_line(ld: LuckDohwa, base_line: str) -> tuple[str, str]:
     from .dohwa import load_dohwa_texts
 
     slot_ko = {"year": "연지", "day": "일지"}
-    bases = "·".join(f"{slot_ko[b.slot]} {b.branch} 기준({b.trine}국)" for b in ld.bases)
+    # P2-1(2026-10-25 강의 T2): 연지 기준=연주(타인 시선·사회적 이미지·첫인상)에 매력 / 일지 기준=
+    # 사생활·가까운 인연 쪽 끌림 — 기준별 의미를 나눠 적는다(점수 없음).
+    bases = "·".join(
+        f"{slot_ko[b.slot]} {b.branch} 기준({b.trine}국 — {_DOHWA_BASE_FRAME[b.slot]})"
+        for b in ld.bases
+    )
     combo = load_dohwa_texts()[f"combo:{ld.group.value}"]
     head = base_line.split(":", 1)[0]  # '(보조·세운(올해) 유입) 도화'
     rest = base_line.split(":", 1)[1].strip()

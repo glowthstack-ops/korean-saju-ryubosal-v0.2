@@ -82,6 +82,7 @@ from saju_engines.lifetime_scan import (
     select_lifetime_years,
 )
 from saju_engines.llm_guard import TokenBudgetExceeded
+from saju_engines.love_type import age_from_result
 from saju_engines.manifestation_branch import branch_summary
 from saju_engines.marriage_resource import analyze_marriage_resource
 from saju_engines.mobility_agency import (
@@ -1219,6 +1220,7 @@ class _ReportData:
         self.marriage_resource = analyze_marriage_resource(
             self.result,
             self.summary.useful_gods,
+            age=age_from_result(self.result, today),  # 연애 유형 3단계 월지/일지 분기(2026-10-25)
         )
         self.health_vulnerability = analyze_health_vulnerability(
             self.result,

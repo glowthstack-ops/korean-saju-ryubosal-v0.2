@@ -4355,7 +4355,11 @@ def _structural_context(
         out.append(spouse_star_directive(str(result.input_summary.get("gender", "unknown"))))
         # 배우자성=용신(배우자 덕) 판정에 용희신을 넘긴다(G). 자기인식 가드도 함께(C).
         _useful = build_birth_summary(result).useful_gods
-        out += marriage_resource_lines(analyze_marriage_resource(result, _useful))
+        from saju_engines.love_type import age_from_result
+
+        out += marriage_resource_lines(
+            analyze_marriage_resource(result, _useful, age=age_from_result(result, today))
+        )
         out += marriage_age_prior_lines(result)  # MT6 혼기 static prior(프로파일 off면 빈 줄)
         # 궁위 관계망(P3) — 연·월·일·시 궁위 간 관계질(설명 레이어, 점수 미개입).
         out += palace_network_lines(analyze_palace_network(result), domain)

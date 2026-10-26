@@ -29,6 +29,8 @@ from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.marriage_resource import MarriageResourceProfile
 
 from .dohwa import analyze_dohwa
+from .love_type import classify_love_type
+from .time_parser import LIFE_STAGE_AGE_RANGES
 
 # 오행 상생/상극.
 _GENERATES = {"木": "火", "火": "土", "土": "金", "金": "水", "水": "木"}
@@ -332,7 +334,7 @@ def _spouse_palace_afflictions(day_b: Branch, others: list[Branch]) -> list[str]
 
 
 def analyze_marriage_resource(
-    result: ManseV2Result, useful: UsefulGods | None = None,
+    result: ManseV2Result, useful: UsefulGods | None = None, *, age: int | None = None,
 ) -> MarriageResourceProfile:
     """결혼·자산 자원 구조를 판정한다(운 미반영, 성별 인지).
 
@@ -340,6 +342,7 @@ def analyze_marriage_resource(
         result: 만세 계산 결과(pillars·force_analysis·input_summary 필수).
         useful: 용희기구한(BirthChartSummary.useful_gods). 배우자성=용신 '배우자 덕' 판정에 쓴다.
             미입력이면 spouse_is_yongsin=False로 둔다(graceful).
+        age: 만 나이(연애 유형 3단계 월지/일지 분기 전용 — 2026-10-25). None 이면 월지 기준.
 
     Returns:
         MarriageResourceProfile — 배우자 별·재성 위치·이상형 취향·배우자복 품질(중립).
@@ -510,6 +513,98 @@ def analyze_marriage_resource(
     spouse_palace_afflictions = _spouse_palace_afflictions(day_b, other_branches)
     spouse_palace_stable = not spouse_palace_afflictions
 
+    # ── 연애운 강의 대조 서술층(2026-10-25, P2-2~P2-7) — 전부 경향 어휘·점수 비개입 ──
+    # P2-2 배우자성 자체의 정/편 축 + 정·편 혼재(여 관살혼잡·남 재성혼잡).
+    pian_gods = {"편관", "편재"}
+    visible_spouse = [
+        tg for pil in all_pillars for tg in (pil.stem_ten_god, pil.branch_main_ten_god)
+        if tg in spouse_gods
+    ]
+    n_pian = sum(1 for tg in visible_spouse if tg in pian_gods)
+    n_zheng = len(visible_spouse) - n_pian
+    spouse_star_mixed = n_pian > 0 and n_zheng > 0
+    if spouse_star_mixed:
+        spouse_star_axis = (
+            f"정·편 혼재(정 {n_zheng}·편 {n_pian}) — 안정·가정형과 사회활동·성취형 사이에서 마음이 "
+            "오가기 쉬운 결(선택 폭이 넓은 쪽으로만 읽고 단정·낙인 금지)"
+        )
+    elif n_pian:
+        spouse_star_axis = "편(편관·편재) — 사회활동·커리어·성취가 뚜렷한 활동형 상대에 끌리는 결"
+    elif n_zheng:
+        spouse_star_axis = "정(정관·정재) — 안정·가정·성실을 갖춘 상대를 선호하는 결"
+    else:
+        spouse_star_axis = ""
+    # P2-3 배우자성 자리(천간=바라는 결·지지=실제 만남 환경) + 간여지동 배우자성 기둥.
+    spouse_star_stem_positions: list[str] = []
+    spouse_star_branch_positions: list[str] = []
+    spouse_star_ganyeojidong: list[str] = []
+    _stage_of = {"년": "초년", "월": "청년", "일": "중년", "시": "말년"}
+    for _pname, _pil in zip(
+        ("년", "월", "일", "시"), (p.year, p.month, p.day, p.hour), strict=True
+    ):
+        if _pil is None:
+            continue
+        s_hit = _pil.stem_ten_god in spouse_gods
+        b_hit = _pil.branch_main_ten_god in spouse_gods
+        if s_hit:
+            spouse_star_stem_positions.append(f"{_pname}간 {_pil.stem_ten_god}")
+        if b_hit:
+            spouse_star_branch_positions.append(f"{_pname}지 {_pil.branch_main_ten_god}")
+        if s_hit and b_hit:
+            lo, hi = LIFE_STAGE_AGE_RANGES[_stage_of[_pname]]
+            spouse_star_ganyeojidong.append(
+                f"{_pname}주 간여지동 배우자성({_pil.stem_ten_god}·{_pil.branch_main_ten_god}) — "
+                f"{_stage_of[_pname]}({lo}~{hi}세, 100세 밴드)에 이성·관계 몰입 경향"
+            )
+    # P2-4 연상/동갑/연하 경향(강의 S3 — 여성에 더 유효, 단정 아님).
+    partner_age_tendencies: list[str] = []
+    if any(
+        pil.stem_ten_god in spouse_gods or pil.branch_main_ten_god in spouse_gods
+        for pil in family
+    ):
+        partner_age_tendencies.append("연상 경향(연·월주 배우자성)")
+    if day_pillar.branch_main_ten_god in _PEER_GODS:
+        partner_age_tendencies.append("동갑·또래 경향(일지 비겁)")
+    if hour is not None and (
+        hour.stem_ten_god in spouse_gods or hour.branch_main_ten_god in spouse_gods
+    ):
+        partner_age_tendencies.append(
+            "연하 경향(시주 배우자성" + (" — 여성 명식에 더 유효)" if gender == "female" else ")")
+        )
+    if gender == "female" and day_pillar.branch_main_ten_god == "상관":
+        partner_age_tendencies.append("연하 경향(일지 상관 — 여성 명식)")
+    resource_visible = sum(
+        1 for pil in all_pillars
+        for tg in (pil.stem_ten_god, pil.branch_main_ten_god) if tg in _RESOURCE_GODS
+    )
+    resource_pct_all = float(groups.get("resource", 0.0))
+    if gender == "male" and (resource_visible >= 3 or resource_pct_all >= 35.0):
+        partner_age_tendencies.append("연상 경향(인성 많음 — 남성 명식)")
+    # P2-5 재성 미투출(재성=관계 유지 욕구, 남녀 공통) / P2-7 비겁 과다·만혼 중립 프레임.
+    wealth_absent = not _has_visible(all_pillars, _WEALTH_GODS)
+    peer_visible = sum(
+        1 for pil in all_pillars
+        for tg in (pil.stem_ten_god, pil.branch_main_ten_god) if tg in _PEER_GODS
+    )
+    peer_excess = float(groups.get("peer", 0.0)) >= 35.0 or peer_visible >= 3
+    late_marriage_notes: list[str] = []
+    if spouse_star_absent:
+        late_marriage_notes.append(
+            f"배우자성({spouse_star}) 미투출 — 경험을 쌓은 뒤의 인연이 안정되기 쉬운 결"
+            "(늦은 결혼·비혼 선택 모두 중립)"
+        )
+    if wealth_absent and not (spouse_star_absent and spouse_star == "재성"):
+        late_marriage_notes.append(
+            "재성 미투출 — 관계를 붙잡아 유지하려는 욕구가 약해 서두르지 않는 결(경험 뒤 인연 중립)"
+        )
+    if peer_excess:
+        late_marriage_notes.append(
+            "비겁 과다 — 자기 우선·독립 공간이 필요한 결(상대에 맞추기보다 내 페이스, "
+            "가족·자기 우선 가능성 — 이혼 단정 아님)"
+        )
+    # P2-6 연애 유형(십성군 분류 — 서술 전용).
+    love = classify_love_type(result, age)
+
     # G) 배우자성=용신 → 배우자 덕. 배우자성 오행(남=재성·여=관성)이 용·희신이면 True.
     officer_el = _inverse(_CONTROLS, day_el)  # 일간을 극하는 오행 = 관성
     spouse_star_el = officer_el if gender == "female" else wealth_el
@@ -584,6 +679,19 @@ def analyze_marriage_resource(
         spouse_palace_stable=spouse_palace_stable,
         spouse_palace_afflictions=spouse_palace_afflictions,
         spouse_is_yongsin=spouse_is_yongsin,
+        spouse_star_axis=spouse_star_axis,
+        spouse_star_mixed=spouse_star_mixed,
+        spouse_star_stem_positions=spouse_star_stem_positions,
+        spouse_star_branch_positions=spouse_star_branch_positions,
+        spouse_star_ganyeojidong=spouse_star_ganyeojidong,
+        partner_age_tendencies=partner_age_tendencies,
+        wealth_absent=wealth_absent,
+        peer_excess=peer_excess,
+        late_marriage_notes=late_marriage_notes,
+        love_type=love.primary,
+        love_type_secondary=love.secondary,
+        love_type_basis=love.basis,
+        love_type_later_shift=love.later_shift,
         hour_resource_role=hour_role,
         wealth_source_leans=leans,
         flags=flags,

@@ -35,13 +35,24 @@ _PREFIX_TO_TYPE: dict[str, RelationType] = {
     "무례지형": RelationType.PUNISHMENT_MUTUAL,
     "천간합": RelationType.STEM_COMBINATION,
     "삼합기여": RelationType.THREE_HARMONY_CONTRIB,
+    "삼합완성": RelationType.THREE_HARMONY_FULL,
+    "반합성립": RelationType.THREE_HARMONY_HALF,
     "방합기여": RelationType.DIRECTIONAL_CONTRIB,
+    "방합완성": RelationType.DIRECTIONAL_FULL,
     "자형": RelationType.SELF_PUNISHMENT,
     "삼형": RelationType.PUNISHMENT_TRIPLE,
     "공망전실": RelationType.VOID_FILL,
     "공망발동(충)": RelationType.VOID_TRIGGER_CLASH,
     "공망해소(합)": RelationType.VOID_RELEASE_COMBINE,
 }
+
+_THREE_HARMONY_TYPES = frozenset({
+    RelationType.THREE_HARMONY_CONTRIB, RelationType.THREE_HARMONY_HALF,
+    RelationType.THREE_HARMONY_FULL,
+})
+_TRINE_TYPES = _THREE_HARMONY_TYPES | frozenset({
+    RelationType.DIRECTIONAL_CONTRIB, RelationType.DIRECTIONAL_FULL,
+})
 
 _PERIOD_TYPE_TO_LEVEL: dict[str, GanjiLevel] = {
     "year": GanjiLevel.YEAR,
@@ -76,6 +87,9 @@ def _natal_refs_for_branch(pillars: FourPillarsResult, branch: str) -> list[Ganj
     ]
 
 
+_BRANCH_ORDER: list[Branch] = list(Branch)
+
+
 def _contrib_natal_refs(
     luck_branch: str, element: str, groups: list[tuple[frozenset[Branch], str]],
     pillars: FourPillarsResult,
@@ -91,7 +105,9 @@ def _contrib_natal_refs(
             continue
         if Branch(luck_branch) not in members:
             continue
-        for member in members:
+        # frozenset 순회는 해시 시드에 따라 달라진다 — 삼합 완성(원국 2자)은 natal_refs 가 둘이라
+        # 발동·reason 순서가 프로세스마다 바뀌던 비결정성(2026-10-25 drift 검출) → 지지 순 고정.
+        for member in sorted(members, key=_BRANCH_ORDER.index):
             if str(member) == luck_branch:
                 continue
             refs.extend(_natal_refs_for_branch(pillars, str(member)))
@@ -132,11 +148,11 @@ def _relation_hit(
             type=rtype, luck_ref=luck_ref, natal_refs=natal_refs,
         )
 
-    # 삼합/방합 기여: payload = 완성 오행. 원국 구성 지지를 보강.
-    if rtype in (RelationType.THREE_HARMONY_CONTRIB, RelationType.DIRECTIONAL_CONTRIB):
+    # 삼합/방합 기여·반합·완성: payload = 완성 오행. 원국 구성 지지를 보강.
+    if rtype in _TRINE_TYPES:
         groups = (
             [(m, str(e)) for m, e, _royal in THREE_HARMONY]
-            if rtype is RelationType.THREE_HARMONY_CONTRIB
+            if rtype in _THREE_HARMONY_TYPES
             else [(m, str(e)) for m, e in DIRECTIONAL_COMBINATIONS]
         )
         natal_refs = _contrib_natal_refs(luck_branch, payload, groups, pillars)

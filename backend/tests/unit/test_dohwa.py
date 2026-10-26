@@ -324,7 +324,9 @@ def test_luck_dohwa_line_marks_luck_scope_and_carries_text():
 
     g = build_luck_grounding(_chart(*_WOLLDAM), _luck_day(_WOLLDAM, "2026-10-05"))
     line = next(ln for ln in g["sinsal_lines"] if "도화(운 진도화)" in ln)
-    assert "2026-10-05 壬子의 지지 子 [일지 未 기준(亥卯未국)] — 관성도화(운 지지 본기 편관" in line
+    # 2026-10-25 P2-1: 기준별 프레임(연지=타인 시선 / 일지=사생활·가까운 인연)을 괄호 안에 병기.
+    assert "2026-10-05 壬子의 지지 子 [일지 未 기준(亥卯未국 — 일지=배우자궁: " in line
+    assert "사생활·가까운 인연 쪽 끌림)] — 관성도화(운 지지 본기 편관" in line
     assert "운에 적용된 설명 — 매력의 핵심: 품격·신뢰·카리스마" in line
     assert "타고난 성향이나 평생의 매력으로 설명하지 말고 원국 도화와 구분" in line
     assert g["dohwa_text_keys"] == ["luck_combo:관성"]
