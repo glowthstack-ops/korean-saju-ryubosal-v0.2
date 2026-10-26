@@ -190,9 +190,12 @@ from saju_engines.structural_context import (
     LOVE_MARRIAGE_UNIFIED_DIRECTIVE,
     MANAGE_NOT_OVERCOME_DIRECTIVE,
     NON_NORMATIVE_REASSURANCE_DIRECTIVE,
+    PARTNER_APPEARANCE_REFERENT_DIRECTIVE,
     PARTNER_SOURCE_DIRECTIVE,
     RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
     RETRO_BEHAVIOR_DIRECTIVE,
+    SPOUSE_IMAGE_DIRECTIVE,
+    SPOUSE_MARRIED_DIRECTIVE,
     TENDENCY_SHIFT_DIRECTIVE,
     TRAIT_FEEDBACK_DIRECTIVE,
     UNCERTAINTY_TRANSLATION_DIRECTIVE,
@@ -863,6 +866,49 @@ def _audit_mobility_agency_answer(
     else:
         _logger.info("mobility_agency_audit result=pass thread=%s", thread_id)
     return answer
+# 상대 외모 지시 대상 턴에서 본인 외모·매력을 서술한 표지(2026-10-26 실답 재현 d3 문장형).
+_SELF_APPEARANCE_MARKERS = (
+    "당신의 매력", "당신의 외모", "당신의 인상", "본인의 매력", "본인의 외모", "본인의 인상",
+    "본인만의 개성", "일주의 특성상 겉으로는", "당신은 겉으로", "님은 겉으로",
+)
+_PARTNER_FIRST_MARKERS = ("상대", "배우자", "인연", "만나게 될", "만날 사람", "그 사람")
+
+
+def self_appearance_claims(answer: str) -> list[str]:
+    """상대 외모 턴에서 본인 외모·매력을 서술한 문장 표지를 돌려준다(없으면 빈 목록)."""
+    return [m for m in _SELF_APPEARANCE_MARKERS if m in (answer or "")]
+
+
+def _audit_partner_appearance_answer(
+    answer: str, partner_appearance: bool, thread_id: str | None,
+) -> str:
+    """상대 외모 지시 대상 감사(2026-10-26) — **로그 전용**. LLM 재호출·문장 교체는 하지 않는다.
+
+    위반 = 본인 외모·매력 표지가 있거나 첫 문장에 상대 표지가 없음.
+
+    Args:
+        answer: 후처리 중인 답변.
+        partner_appearance: 이번 턴이 상대 외모 지시 대상 턴인가.
+        thread_id: 스레드 식별자(로깅).
+
+    Returns:
+        답변 원문 그대로.
+    """
+    if not answer or not partner_appearance:
+        return answer
+    first = re.split(r"(?<=[.!?。])\s+", answer.strip(), maxsplit=1)[0]
+    hits = self_appearance_claims(answer)
+    first_ok = any(m in first for m in _PARTNER_FIRST_MARKERS)
+    if hits or not first_ok:
+        _logger.warning(
+            "partner_appearance_audit result=violation thread=%s self_hits=%s first_ok=%s",
+            thread_id, hits[:6], first_ok,
+        )
+    else:
+        _logger.info("partner_appearance_audit result=pass thread=%s", thread_id)
+    return answer
+
+
 # 회고 질문 시제 강제 — is_retro여도 시제 지시가 없어 이벤트 후보·트리거류 미래 지향
 # 디렉티브에 묻혀 과거 사건을 예측처럼 서술하던 결함 교정(2026-07-21 데굴님 실로그).
 _RETRO_TENSE_DIRECTIVE = (
@@ -902,6 +948,8 @@ class ChatPostprocessContext(BaseModel):
     # 두 칸 엔진 배정(2026-10-24) — {'done': 'YYYY-MM', 'move': 'YYYY-MM'}. 승계 저장의 1차 원천
     # (LLM 답 파싱은 보조)이자 성사 달 후보 커버리지 감사의 기준. 배정 없으면 빈 dict.
     entry_slots_engine: dict = Field(default_factory=dict)
+    # 상대 외모 지시 대상 턴(2026-10-26) — 답변 후 본인 외모 서술 감사(로그 전용)의 표지.
+    partner_appearance: bool = False
     # 후속 확인(delayed outcome) 후보 — 답변이 제시한 미래·당월 사건 상위 3건(지문 포함).
     # 라우터가 답변 메시지 메타에 남기고, 기간이 지나면 실제 발생 여부를 묻는다(2026-10-24).
     followup: list[dict] = Field(default_factory=list)
@@ -1969,6 +2017,8 @@ def finalize_answer_full(
         # 이동 주체 단정 감사(2026-10-15) — 로그 전용, 답 불변.
         answer = _audit_mobility_agency_answer(answer, ctx.payload, ctx.question, thread_id)
         answer = _audit_ten_god_labels_answer(answer, ctx, thread_id)
+        # 상대 외모 지시 대상 감사(2026-10-26) — 로그 전용, 답 불변.
+        _audit_partner_appearance_answer(answer, ctx.partner_appearance, thread_id)
     return finalize_answer_text(answer, thread_id)
 
 
@@ -4297,6 +4347,7 @@ def _structural_context(
     turn_no: int | None = None,
     relation_frame: str | None = None,
     frame_companion_label: str | None = None,
+    spouse_image_directive: str | None = None,
 ) -> list[str]:
     """질문 도메인에 맞는 구조 해석 블록(누출 안전 한글). intent 미확정(general)=총운으로 간주해
     모든 블록을, 확정 도메인은 해당 블록만 표면화한다(2026-06-16 사용자 확정).
@@ -4383,7 +4434,13 @@ def _structural_context(
         out += health_lines(result, hv, today.year)
     # 외적 인상·매력 신호 — 자체 allowlist·gender·band 게이트(미해당 시 무언급). 외모 직접질문은
     # suppress 도메인에서도 예외 노출하므로 도메인 분기 밖에서 항상 호출한다.
-    out += external_impression_lines(analyze_external_impression(result), intent, question)
+    # 단 질문의 지시 대상이 '상대'(직전 턴의 만날 사람·배우자)면 본인 인상 블록 대신 배우자상
+    # 지시 + 지시 대상 고정(2026-10-26).
+    if spouse_image_directive:
+        out.append(spouse_image_directive)
+        out.append(PARTNER_APPEARANCE_REFERENT_DIRECTIVE)
+    else:
+        out += external_impression_lines(analyze_external_impression(result), intent, question)
     # 도화 구조(2026-10-13) — 진도화 성립·월담·사정지 구분, 자체 게이트(관계·명식분석·직접질문).
     # 해석 문구는 검수 전(reviewed:false)이어도 싣는다 — 검수는 실제 답변을 보고서만 가능하므로
     # 어떤 턴에 어떤 문구가 실렸는지 노출 원장 로그로 남긴다(실답 검수 경로).
@@ -4491,6 +4548,71 @@ _AGENT_QUESTION_DIRECTIVE = (
 )
 
 
+def _prior_event_periods(prior_results: list, limit: int = 2) -> list[str]:
+    """직전 답변 엔진 결과(`ResultSummaryRef` kind='event', label 'key@period', detail 'score N …')
+    에서 점수 내림차순으로 서로 다른 기간 라벨을 최대 ``limit``개 뽑는다.
+
+    Args:
+        prior_results: 스레드 상태의 `last_results`.
+        limit: 최대 기간 수.
+
+    Returns:
+        'YYYY' / 'YYYY-MM' 라벨 목록(없으면 빈 목록).
+    """
+    scored: list[tuple[int, str]] = []
+    for ref in prior_results:
+        if getattr(ref, "kind", "") != "event" or "@" not in str(getattr(ref, "label", "")):
+            continue
+        period = str(ref.label).partition("@")[2].strip()
+        m = re.search(r"score\s+(\d+)", str(getattr(ref, "detail", "") or ""))
+        if period:
+            scored.append((int(m.group(1)) if m else 0, period))
+    out: list[str] = []
+    for _, period in sorted(scored, key=lambda t: -t[0]):
+        if period not in out:
+            out.append(period)
+        if len(out) >= limit:
+            break
+    return out
+
+
+# 후속 턴 '외모는 어떨까?'의 지시 대상 판정(2026-10-26) — 상대를 가리키는 표지 / 본인 표지
+# (띄어쓰기 제거 비교).
+_PARTNER_REFERENT_TOKENS = (
+    "배우자", "상대", "그사람", "만날사람", "만나게될사람", "어떤사람", "인연",
+)
+_SELF_REFERENT_TOKENS = (
+    "내외모", "제외모", "나의외모", "내인상", "내첫인상", "나는어떤", "저는어떤",
+)
+
+
+def _partner_appearance_question(question: str, prev_question_norm: str) -> bool:
+    """외모·인상 질문이 본인 아닌 '만날 사람·배우자'를 가리키는가.
+
+    현재 질문에 상대 표지가 있으면 True, 본인 표지가 있으면 False. 둘 다 없으면 스레드 직전
+    질문(정규화, process_turn 갱신 전 스냅샷)이 관계 대상 질문('어떤 사람을 만나게 될까')이거나
+    상대 표지를 담았는지로 승계한다. 직전 질문이 없거나 중립이면 종전대로 본인(False).
+
+    Args:
+        question: 이번 질문.
+        prev_question_norm: 직전 턴 질문의 정규화 문자열(공백·문장부호 제거), 없으면 "".
+
+    Returns:
+        상대 외모 질문이면 True.
+    """
+    if not is_appearance_question(question):
+        return False
+    q = question.replace(" ", "")
+    if any(t in q for t in _SELF_REFERENT_TOKENS):
+        return False
+    if any(t in q for t in _PARTNER_REFERENT_TOKENS):
+        return True
+    prev = prev_question_norm or ""
+    if not prev:
+        return False
+    return detect_agent_question(prev) or any(t in prev for t in _PARTNER_REFERENT_TOKENS)
+
+
 def _luck_pillar_for_label(birth: BirthInput, label: str) -> object | None:
     """사건 후보 기간 라벨(YYYY / YYYY-MM / YYYY-MM-DD) → 그 기간의 운 기둥."""
     try:
@@ -4517,10 +4639,14 @@ def _agent_relation_context(
     *,
     thread_id: str | None = None,
     turn_no: int | None = None,
+    prior_results: list | None = None,
 ) -> list[str]:
     """'누가 제안을 해올까' — 사건 후보 상위 기간(최대 2)의 운 십성을 관계 대상으로 옮긴 블록.
 
-    기간은 이번 턴 사건 후보 중 점수 상위 서로 다른 기간 2개, 후보가 없으면 현재 절기월.
+    기간 우선순위: ①이번 턴 사건 후보 중 점수 상위 서로 다른 기간 2개 → ②(후속 턴, 후보 없음)
+    스레드 직전 답변이 제시한 사건 시기(`state.last_results` kind='event', 점수 내림차순) →
+    ③현재 절기월. ②가 없던 종전엔 "만난다면 어떤 사람?" 후속 턴이 현재 달(겁재)로 떨어져 직전
+    턴의 "새 인연 @ 2027-03"과 모순되는 시기를 근거로 답했다(2026-10-26 실답).
     사회적 관계만 쓰고 가족 관계는 관계(연애·가족) 도메인 질문에서만 붙인다(2026-10-13 확정).
     """
     if not detect_agent_question(question):
@@ -4532,6 +4658,8 @@ def _agent_relation_context(
             periods.append(label)
         if len(periods) >= 2:
             break
+    if not periods and prior_results:
+        periods = _prior_event_periods(prior_results, limit=2)
     if not periods and current_month:
         periods = [current_month]
     pillars = [pl for pl in (_luck_pillar_for_label(birth, lb) for lb in periods) if pl]
@@ -5232,6 +5360,7 @@ def chat(
 
     # 멀티턴: 스레드 상태 복원 → 대화 엔진 경유(대상 해소·슬롯 상속·반복 감지).
     state: ConversationState | None = None
+    _prev_question_norm = ""
     repeated = False
     is_followup_turn = False
     _is_challenge_turn = False  # 이의·인용 반문 턴(CHALLENGE 링크) — 정정 답 계약·원장 주입 근거.
@@ -5248,6 +5377,9 @@ def chat(
             raise ThreadAccessDenied(thread_id)
         state = store.load(thread_id) or ConversationState(thread_id=thread_id)
         prior_intent = state.last_intent  # process_turn이 갱신하기 전 직전 intent 보존.
+        # 직전 질문(정규화) — process_turn 이 이번 질문으로 덮어쓰기 전에 보존(상대 외모 지시 대상
+        # 판정용, 2026-10-26). 덮어쓴 뒤 읽으면 이번 질문과 같아 승계가 항상 실패한다.
+        _prev_question_norm = state.last_question_norm or ""
         # P3(2단계 커밋) — 시점 슬롯의 직전 정상 상태 스냅샷. 답변 생성 후 정합성 검사에
         # 실패하면 이 값으로 되돌려 오염이 다음 턴으로 퍼지지 않게 한다.
         _prior_time = {
@@ -6261,6 +6393,18 @@ def chat(
                 if f.key == "excluded_option" and f.status == "confirmed"
             ],
         }
+    # 상대 외모 지시 대상(2026-10-26) — 직전 턴이 '만날 사람·배우자' 질문이고 이번이 외모 질문이면
+    # 본인 인상 블록 대신 배우자상 지시(기혼 프로필은 기혼 서술)로 바꾼다.
+    _spouse_image_directive: str | None = None
+    if _partner_appearance_question(question, _prev_question_norm):
+        _spouse_image_directive = (
+            SPOUSE_MARRIED_DIRECTIVE if relationship_status == "married" else SPOUSE_IMAGE_DIRECTIVE
+        )
+        _logger.info(
+            "partner_appearance_referent thread=%s turn=%s married=%s",
+            thread_id, state.turn_no if state is not None else None,
+            relationship_status == "married",
+        )
     # 구조 해석 블록 — 단일 대상일 때만(궁합 비교는 대상 혼동 방지로 생략).
     structural = (
         _structural_context(
@@ -6268,6 +6412,7 @@ def chat(
             thread_id=thread_id, turn_no=state.turn_no if state is not None else None,
             relation_frame=_relation_frame if non_romantic_frame else None,
             frame_companion_label=(_frame_companion.label if _frame_companion else None),
+            spouse_image_directive=_spouse_image_directive,
         )
         if not plan.per_subject else None
     )
@@ -6718,10 +6863,16 @@ def chat(
     # 이동 주체 미상(2026-10-15) — 이동 후보가 실리거나 질문이 주체(자발·타의)를 물으면 단정 금지.
     if _mobility_agency_directive_needed(question, payload.event_candidates):
         trailing.append(_MOBILITY_AGENCY_DIRECTIVE)
+    # 상대 외모 지시 대상(2026-10-26) — 구조 블록 안의 지시만으로는 LLM 이 본인 외모를 답했다(실답
+    # 재현 d3). 프롬프트 말미에 한 번 더 고정하고, 답변 후 본인 외모 서술 감사(로그 전용)의
+    # 표지로 쓴다.
+    if _spouse_image_directive:
+        trailing.append(PARTNER_APPEARANCE_REFERENT_DIRECTIVE)
     # 관계 대상 질문(2026-10-13) — '누가 제안을 해올까'에 운 십성을 나와의 관계 유형으로 옮긴 근거.
     _agent_lines = _agent_relation_context(
         birth, result, intent, question, list(payload.event_candidates), luck_month,
         thread_id=thread_id, turn_no=state.turn_no if state is not None else None,
+        prior_results=list(state.last_results) if state is not None else None,
     )
     if _agent_lines:
         trailing.extend(_agent_lines)
@@ -7407,6 +7558,7 @@ def chat(
                 call_type=call_type, system=system, owner_id=owner_id, question=question,
                 entry_window=_entry_window_on, followup=_followup_meta,
                 entry_slots_engine=_entry_slots_engine,
+                partner_appearance=bool(_spouse_image_directive),
             ),
         )
 
@@ -7472,6 +7624,7 @@ def chat(
                 payload=payload, career_prep=_career_prep, prompt_text=prompt_text,
                 call_type=call_type, system=system, owner_id=owner_id, question=question,
                 entry_window=_entry_window_on, entry_slots_engine=_entry_slots_engine,
+                partner_appearance=bool(_spouse_image_directive),
             ),
             thread_id,
         )

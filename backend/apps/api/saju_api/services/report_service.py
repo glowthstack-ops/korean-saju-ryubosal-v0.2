@@ -152,6 +152,8 @@ from saju_engines.structural_context import (
     MANAGE_NOT_OVERCOME_DIRECTIVE,
     NON_NORMATIVE_REASSURANCE_DIRECTIVE,
     RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
+    SPOUSE_IMAGE_DIRECTIVE,
+    SPOUSE_MARRIED_DIRECTIVE,
     TENDENCY_SHIFT_DIRECTIVE,
     TONE_LAYER_DIRECTIVE,
     UNCERTAINTY_TRANSLATION_DIRECTIVE,
@@ -779,16 +781,9 @@ _ORG_SCALE_DIRECTIVE = (
 )
 # 미혼 배우자상(F-17 — docs/10 3-3, 2026-08-13 사용자 확정: 재미요소로 외모 추측 허용).
 # 실존 상대(궁합 RP-03)의 외모 추측 금지는 별개로 유지된다(이원 정책).
-_SPOUSE_IMAGE_DIRECTIVE = (
-    "[미혼 배우자상 — 재미요소] 원국 배우자궁(일지)·배우자성 글자의 물상을 근거로, 인연이 "
-    "닿기 쉬운 배우자상의 외모 인상·체형 결·스타일·분위기와 성격·성향을 적극적으로 그려줄 것 "
-    "— '~한 결/인상일 가능성'으로 쓰되 구체 수치(키 몇 cm 등)·확정 단정만 금지. 서두나 "
-    "말미에 '겉모습은 재미로 보는 참고' 단서를 1회 넣을 것."
-)
-_SPOUSE_MARRIED_DIRECTIVE = (
-    "[배우자 서술 — 기혼] 프로필상 기혼이므로 새 배우자상 묘사 대신 배우자와의 관계 흐름·"
-    "서로 돌볼 포인트 중심으로 서술할 것."
-)
+# 문장 SSOT 는 saju_engines.structural_context(채팅 상대 외모 턴과 공용, 2026-10-26).
+_SPOUSE_IMAGE_DIRECTIVE = SPOUSE_IMAGE_DIRECTIVE
+_SPOUSE_MARRIED_DIRECTIVE = SPOUSE_MARRIED_DIRECTIVE
 
 # 십년 풀이 하위 페이지(F-14-D*) 서술 가이드 — docs/10 3-1(2026-08-13 사용자 제안
 # '10년 단위 페이지 분리' 채택). 동적 sid라 _SECTION_GUIDES 대신 접두 판정으로 적용.

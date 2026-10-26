@@ -164,3 +164,138 @@ def test_in_period_same_year_range_keeps_month_keys() -> None:
     assert _in_period("2026", floored) and _in_period("2026-12", floored)
     assert not _in_period("2026-09", floored)
     assert _in_period("2031-12", floored) and not _in_period("2032", floored)
+
+
+# ── 2026-10-26 대화 흐름 검토 후속(데굴님 "권유내용 대로 진행하자") ────────────────────────
+_FLOW_BIRTH = BirthInput(
+    calendar_type="solar", birth_date=date(1980, 11, 22), birth_time="09:08",
+    birth_place_name="서울", gender="male",
+)
+
+
+def _rel_intent():
+    from saju_shared_types.intent import Constraints, Domain, IntentJson, QueryType
+
+    return IntentJson(
+        intent_id="t", query_type=QueryType.CHART_ANALYSIS, domain=Domain.RELATIONSHIP,
+        constraints=Constraints(),
+    )
+
+
+def test_agent_relation_inherits_prior_turn_event_period() -> None:
+    """⑩ 후속 턴(사건 후보 없음)은 직전 답변의 사건 시기(2027-03)를 쓴다 — 반례: 종전엔 현재 달."""
+    from saju_api.services import chat_service
+    from saju_shared_types.conversation import ResultSummaryRef
+
+    r = calculate(_FLOW_BIRTH)
+    prior = [
+        ResultSummaryRef(kind="event", label="new_relationship@2027-03",
+                         detail="score 45 · negative_or_forced"),
+        ResultSummaryRef(kind="claim", label="기타", detail=""),
+    ]
+    out = chat_service._agent_relation_context(
+        _FLOW_BIRTH, r, _rel_intent(), "만난다면 어떤 사람을 만나게 될까", [], "2026-10",
+        prior_results=prior,
+    )
+    assert len(out) == 2 and out[1].startswith("- 2027-03 癸卯"), out
+    # 반례: 승계 자료가 없으면 현재 달(戊戌 겁재)로 폴백 — 종전 동작.
+    old = chat_service._agent_relation_context(
+        _FLOW_BIRTH, r, _rel_intent(), "만난다면 어떤 사람을 만나게 될까", [], "2026-10",
+    )
+    assert old[1].startswith("- 2026-10 戊戌")
+    # 이번 턴 후보가 있으면 후보가 우선(승계보다 앞).
+    from types import SimpleNamespace
+
+    cur = chat_service._agent_relation_context(
+        _FLOW_BIRTH, r, _rel_intent(), "누가 연락을 해올까?",
+        [SimpleNamespace(period="2026-12", score=70)], "2026-10", prior_results=prior,
+    )
+    assert cur[1].startswith("- 2026-12 庚子")
+
+
+def test_prior_event_periods_sorted_by_score_distinct() -> None:
+    from saju_api.services.chat_service import _prior_event_periods
+    from saju_shared_types.conversation import ResultSummaryRef
+
+    refs = [
+        ResultSummaryRef(kind="event", label="a@2027-01", detail="score 30 · x"),
+        ResultSummaryRef(kind="event", label="b@2027-03", detail="score 45 · y"),
+        ResultSummaryRef(kind="event", label="c@2027-03", detail="score 10 · y"),
+        ResultSummaryRef(kind="event", label="d@2028", detail=""),
+    ]
+    assert _prior_event_periods(refs) == ["2027-03", "2027-01"]
+    assert _prior_event_periods(refs, limit=3) == ["2027-03", "2027-01", "2028"]
+    assert _prior_event_periods([]) == []
+
+
+def test_partner_appearance_referent_detection() -> None:
+    """⑪ '외모는 어떨까?'는 직전 턴이 상대 질문일 때만 상대 지시 대상 — 본인 표지는 항상 본인."""
+    from saju_api.services.chat_service import _partner_appearance_question as pq
+
+    assert pq("외모는 어떨까?", "만난다면어떤사람을만나게될까")
+    assert pq("외모는 어떨까?", "누가연락을해올까")
+    assert pq("배우자 외모는 어떨까?", "")
+    # 반례들: 본인 표지 / 중립 직전 질문 / 직전 질문 없음 / 외모 질문 아님.
+    assert not pq("내 외모는 어때?", "만난다면어떤사람을만나게될까")
+    assert not pq("외모는 어떨까?", "올해운세어때")
+    assert not pq("외모는 어떨까?", "")
+    assert not pq("결혼은 언제 할까?", "만난다면어떤사람을만나게될까")
+    # 반례(실측 결함): process_turn 이 덮어쓴 뒤의 값(=이번 질문)으로 판정하면 승계가 실패한다.
+    assert not pq("외모는 어떨까?", "외모는어떨까")
+
+
+def test_structural_context_swaps_self_impression_for_spouse_image() -> None:
+    """⑫ 상대 지시 대상이면 본인 [외적 인상] 블록 대신 [미혼 배우자상] + [지시 대상 — 상대]."""
+    from saju_api.services import chat_service
+    from saju_engines.structural_context import SPOUSE_IMAGE_DIRECTIVE
+
+    r = calculate(_FLOW_BIRTH)
+    today = date(2026, 10, 26)
+    with_dir = chat_service._structural_context(
+        r, _rel_intent(), today, "외모는 어떨까?", spouse_image_directive=SPOUSE_IMAGE_DIRECTIVE,
+    )
+    text = "\n".join(with_dir)
+    assert "[미혼 배우자상" in text and "[지시 대상 — 상대" in text
+    assert "[외적 인상·분위기 구조" not in text
+    # 반례: 지시 대상이 본인이면 종전처럼 외적 인상 블록.
+    plain = "\n".join(chat_service._structural_context(r, _rel_intent(), today, "외모는 어떨까?"))
+    assert "[외적 인상·분위기 구조" in plain and "[미혼 배우자상" not in plain
+
+
+def test_report_spouse_directive_is_shared_constant() -> None:
+    from saju_api.services import report_service
+    from saju_engines.structural_context import SPOUSE_IMAGE_DIRECTIVE, SPOUSE_MARRIED_DIRECTIVE
+
+    assert report_service._SPOUSE_IMAGE_DIRECTIVE == SPOUSE_IMAGE_DIRECTIVE
+    assert report_service._SPOUSE_MARRIED_DIRECTIVE == SPOUSE_MARRIED_DIRECTIVE
+
+
+def test_impression_yinhai_line_names_only_present_branch() -> None:
+    """⑬ 己亥 일주: 인상 톤 보조 줄은 亥만 적고 寅을 언급하지 않는다."""
+    from saju_engines.external_impression import analyze_external_impression
+
+    sig = analyze_external_impression(calculate(_FLOW_BIRTH))
+    yin = [s for s in sig.signals if s.code == "YIN_HAI_DAY"]
+    assert yin and "亥" in yin[0].modern_ko and "寅" not in yin[0].modern_ko
+
+
+def test_partner_appearance_trailing_directive_and_audit() -> None:
+    """⑭ 상대 외모 턴: 말미 지시 문구 강화 + 본인 외모 서술 감사(로그 전용) 판정."""
+    from saju_api.services import chat_service
+    from saju_engines.structural_context import PARTNER_APPEARANCE_REFERENT_DIRECTIVE
+
+    assert "첫 문장을 '만나게 될 상대는" in PARTNER_APPEARANCE_REFERENT_DIRECTIVE
+    assert chat_service.ChatPostprocessContext.model_fields["partner_appearance"].default is False
+    bad = (
+        "따뜻하고 차분한 매력으로 주변을 편안하게 만드는 己亥 일주의 특성상 겉으로는 단정합니다. "
+        "당신의 매력은 깊이입니다."
+    )
+    good = (
+        "만나게 될 상대는 차분하고 단정한 인상일 가능성이 큽니다. 배우자궁 亥의 물상이 근거입니다."
+    )
+    assert chat_service.self_appearance_claims(bad)
+    assert not chat_service.self_appearance_claims(good)
+    # 감사는 답을 바꾸지 않는다(로그 전용) — 위반·통과 모두 원문 그대로.
+    assert chat_service._audit_partner_appearance_answer(bad, True, "t") == bad
+    assert chat_service._audit_partner_appearance_answer(good, True, "t") == good
+    assert chat_service._audit_partner_appearance_answer(bad, False, "t") == bad

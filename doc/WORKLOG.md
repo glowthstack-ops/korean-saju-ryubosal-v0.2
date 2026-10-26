@@ -12757,3 +12757,15 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 실답: "내년에 이직하면 어떨까?" M07 참고 줄 1→2개(2027-01 辛丑 + 2027 丁未), 입력 토큰 16,942→16,978(+36).
 - 회귀 `test_live_review_20261026.py` ⑨(같은 해 범위 월 키 포함·경계 밖 제외·floor 월 정밀). 게이트: `All checks passed` · `production mypy gate clean` · `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(start_head=end_head cebc045 · 지문 f63f14e1… 일치, `var/run_suite_20261026_inperiod.log`).
 
+## 2026-10-26 — 대화 흐름 검토 후속 3건: 관계 대상 시기 승계 · 상대 외모 지시 대상 · 寅亥 인상 문구 (데굴님 "다음 대화 흐름을 검토 해줘" → "권유내용 대로 진행하자")
+
+- 검토 대상: 데굴님 명식(庚申 丁亥 己亥 己巳 — 진태양시 미적용 변형) 3턴 실답 "연애운·누군가 만날까?" → "만난다면 어떤 사람?" → "외모는 어떨까?". 스레드 재현(dry-run 프롬프트 + 실답)으로 대조.
+- **① 관계 대상 시기 승계**(`chat_service._agent_relation_context`): 후속 턴은 사건 후보가 비어 현재 절기월(2026-10 戊戌 겁재)로 폴백 → 1턴 "새 인연 @ 2027-03"과 모순("지금 10월에 응축"). 우선순위를 이번 턴 후보 → **직전 답변 사건 시기(`state.last_results` kind=event, 점수 내림차순, `_prior_event_periods`)** → 현재 달로. 재현: 블록이 `2027-03 癸卯 — 癸 편재(거래처·고객·실무) / 卯 편관(상사·조직)`으로 바뀌고 답도 2027년 봄·공적 관계로 정합.
+- **② 상대 외모 지시 대상**: 채팅엔 배우자상 블록이 없어 본인 [외적 인상] 블록만 실렸고, 같은 입력에서 '상대 외모 창작'(실답)과 '본인 외모 답'(재현) 두 오답. 교정: `_partner_appearance_question(question, prev_question_norm)` — 외모 질문 + 현재 질문 상대 표지(배우자·상대·어떤사람…) 또는 직전 질문이 관계 대상 질문/상대 표지(본인 표지 '내 외모' 등은 항상 본인). 성립 시 `_structural_context(spouse_image_directive=…)`가 본인 인상 블록 대신 **`SPOUSE_IMAGE_DIRECTIVE`(기혼 프로필 `relationship_status=="married"`면 `SPOUSE_MARRIED_DIRECTIVE`) + `PARTNER_APPEARANCE_REFERENT_DIRECTIVE`**를 싣고, 같은 지시를 프롬프트 말미 trailing 에 반복. 디렉티브 문장 SSOT 는 `saju_engines.structural_context`로 이동(리포트 F-17 `_SPOUSE_IMAGE_DIRECTIVE`는 별칭).
+  - 1차 실측 결함: `process_turn`이 `last_question_norm`을 이번 질문으로 덮어쓴 뒤 읽어 승계가 항상 실패 → 상태 로드 직후 `_prev_question_norm` 스냅샷으로 교정. 2차 실측: 구조 블록 안 지시만으로는 LLM 이 본인 외모를 답함 → 말미 반복 + 문구 강화("첫 문장을 '만나게 될 상대는…'", 본인 매력·일주 소개·방위 안내 금지).
+  - 감사(로그 전용, 답 불변): `_audit_partner_appearance_answer` — `ChatPostprocessContext.partner_appearance` 표지 턴에서 본인 외모 표지(`self_appearance_claims`) 또는 첫 문장 상대 표지 부재면 `partner_appearance_audit result=violation`.
+  - 최종 재현(flow-e 3턴): 첫 문장 "인연이 닿기 쉬운 배우자상은 … 정갈하고 단정한 매력", 배우자궁·취향 근거, '재미로 보는 참고' 단서, 감사 `pass`. 잔여 드리프트: 지시에도 방위 활용 문단이 덧붙음(로그 기록, 후속 후보=상대 외모 턴에 방위 블록 미주입).
+- **③ 寅亥 인상 문구**(`external_impression.py` C6): "寅은 생동감, 亥는 부드러움" 병기 문장이 寅 없는 명식에도 寅 노출 → 일지 글자만 적는 f-string.
+- 참고(미수정): 외모 질문의 "식상이 발달" 과장(상관 15%)은 LLM 서술 문제로 기록만. dry-run 호출도 스레드 turn_no 를 올린다(프론트 미사용 전제, 기록).
+- 회귀 `test_live_review_20261026.py` ⑩~⑭(승계·우선순위·지시 대상 판정 반례 포함·블록 교체·공용 상수·寅亥·감사). 게이트: `All checks passed` · `production mypy gate clean` · `maintained scripts mypy gate clean` · `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(start_head=end_head 29e3915 · 지문 58b448a3… 일치, `var/run_suite_20261026_flow3.log`).
+
