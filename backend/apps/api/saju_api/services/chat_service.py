@@ -2490,6 +2490,13 @@ def _topic_module_context(
         tr = intent.time_range
         start = tr.start[:4] if tr and tr.start else str(today.year)
         end = tr.end[:4] if tr and tr.end else str(today.year + 5)
+        if future_floor and future_floor > start:
+            # 월 정밀 start — 빌더의 findings[:5] 절단 **앞에서** 지난 달을 제외한다. 종전엔 절단
+            # 뒤 아래 후처리만 있어 올해 1~9월 포화 행이 상위 슬롯을 소모하고 미래 줄이 줄었다
+            # (2026-10-26 실답: M01 참고 줄 1개 → 교정 후 2개). `_in_period` 는 'YYYY-MM' start 를
+            # 월 키엔 월 정밀로, 연 키엔 연 정밀로 비교한다. 연 단위 start('2027')가 floor 보다
+            # 뒤면 그대로 둔다(문자열 비교: '2027' > '2026-10').
+            start = future_floor
         chart = calculate(birth.model_copy(update={"reference_date": today}))
         composites = CompositeBuilder(_DICTS).build(
             chart,

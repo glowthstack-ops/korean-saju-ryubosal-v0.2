@@ -12742,3 +12742,11 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 회귀: `test_live_review_20261026.py` ⑦(원합 정렬·반례=점수 정렬이면 period_key 순). 게이트: `All checks passed` · `production mypy gate clean` · `maintained scripts mypy gate clean` · `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(start_head=end_head 98e5373 · 지문 54eee761… 일치, `var/run_suite_20261026_cap.log`).
 - 발견(미수정·결정 대기): `TopicContext.findings[:5]` 절단이 빌더 안에서 먼저 일어나고 채팅 `future_floor`(현재 달 이전 월 제거)는 그 뒤라, 올해 1~9월처럼 지난 달이 상위 5 슬롯을 소모하면 미래 줄이 줄어든다. 빌더에 floor 를 넘기거나 절단을 소비 측으로 옮기는 수정 후보.
 
+## 2026-10-26 — 토픽 참고 신호: future_floor 를 PeriodSpec.start 로 올려 빌더 절단 앞에서 지난 달 제외 (데굴님 "입력 토큰 증가가 필요하면 진행해도 좋아. 진행하자")
+
+- 결함: `TopicContext.findings[:5]` 절단이 빌더 안에서 먼저 일어나고 채팅 `future_floor` 후처리는 그 뒤라, 올해 1~9월 포화 행이 상위 슬롯을 소모해 미래 줄이 줄었다(실답 女 1990 '결혼 언제': 참고 줄 1개).
+- 교정: `chat_service._topic_module_context` — `future_floor > start` 면 `start = future_floor`('YYYY-MM'). `_in_period` 가 월 키엔 월 정밀·연 키엔 연 정밀로 비교하므로 지난 달만 빠지고 연 행은 유지. 연 단위 start('2027')가 floor 보다 뒤면 그대로(문자열 비교). 후처리 필터는 방어용으로 유지.
+- 실답: 女 1990 '결혼 언제' 참고 줄 1→3개(2026 丙午·2027-01 辛丑·2026-12 庚子), 입력 토큰 19,825→19,885(+60).
+- 회귀 `test_live_review_20261026.py` ⑧(floor 적용 시 미래 줄 ≥2·월 키 전부 floor 이상, 반례=floor 없이는 지난 달이 상위 슬롯). 게이트: `All checks passed` · `production mypy gate clean` · `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(start_head=end_head 9cc6b14 · 지문 d4b96e8d… 일치, `var/run_suite_20261026_floor.log`).
+- 같은 계열 발견(다음 항목에서 교정): `_in_period` 가 end 를 `end[:len(key)]` 로 잘라 비교해 end 가 연 단위('2027')면 월 키('2027-03' > '2027')가 전부 빠진다 — "내년에 이직하면?"(2027~2027)에서 M07 월 행 0개, 연 행만 노출.
+

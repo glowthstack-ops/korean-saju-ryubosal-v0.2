@@ -119,3 +119,33 @@ def test_findings_sorted_by_raw_sum_not_capped_score() -> None:
     # 반례: 점수(전부 100) 정렬이었다면 period_key 순으로 '2025-12' 가 1위였을 것.
     by_score = sorted((x for _, x in pairs), key=lambda x: (-x.score, x.period_key or ""))
     assert by_score[0].period_key == "2025-12"
+
+
+def test_topic_future_floor_applied_before_truncation() -> None:
+    """⑧ future_floor 를 PeriodSpec.start 로 올려 빌더 절단(findings[:5]) 앞에서 지난 달 제외.
+
+    女 1990-05-15 10:30, 오늘 2026-10-26, 연애 질문: 종전엔 상위 5 가 올해 지난 달로 채워져
+    후처리 뒤 참고 줄이 1개만 남았다. 교정 후 미래 줄 ≥2 · 월 키는 전부 floor 이상.
+    """
+    from saju_api.services import chat_service
+    from saju_shared_types.intent import Constraints, Domain, IntentJson, QueryType
+
+    b = BirthInput(
+        calendar_type="solar", birth_date=date(1990, 5, 15), birth_time="10:30",
+        birth_place_name="서울", gender="female",
+    )
+    love = IntentJson(
+        intent_id="t", query_type=QueryType.DOMAIN_ANALYSIS, domain=Domain.RELATIONSHIP,
+        constraints=Constraints(),
+    )
+    today = date(2026, 10, 26)
+    lines = chat_service._topic_module_context(b, love, today, "2026-10")
+    entries = [ln for ln in lines if ln.startswith("- ")]
+    assert len(entries) >= 2, lines
+    month_keys = [ln[2:9] for ln in entries if ln[6] == "-"]
+    assert month_keys and all(k >= "2026-10" for k in month_keys)
+    # 반례: floor 없이 같은 기간이면 지난 달(2026-01~09)이 상위 슬롯을 차지한다.
+    raw_lines = chat_service._topic_module_context(b, love, today)
+    no_floor = [ln for ln in raw_lines if ln.startswith("- ")]
+    past = [ln for ln in no_floor if ln[6] == "-" and ln[2:9] < "2026-10"]
+    assert past, no_floor
