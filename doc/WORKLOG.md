@@ -12719,3 +12719,11 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - **발견(엔진, 미수정·승인 대기)**: 남 1985 명식 '결혼 늦게 하는 게 좋은 사주?'에서 결혼 시기·형태 프레임 신호(무재·무관·비겁 과다)가 없으면 줄 자체가 생략되고 `[혼기 경향]`은 '이른 인연 경향'인데, LLM은 "중반부로 갈수록 인연이 뚜렷·서두를 필요 없음"으로 질문 프레임에 동조(근거 없음). 프롬프트 블록 미성립 명시 원칙(2026-10-08)대로 '만혼 쪽 구조 신호 없음 — 배우자성 이른 노출' 미성립 줄 추가 제안.
 - **발견(LLM 드리프트, 로그 전용)**: '연애 스타일' 답에 "동쪽이나 남쪽" — 방위 블록은 동쪽 卯 년살만 적극 활용(남쪽 근거 없음). 사소.
 - 참고: `[혼기 경향]` 축 라벨이 영문(year·month·hour)으로 노출(MT6 2026-06-30 기존). 女 명식에서 '재성 미투출' 문구가 배우자 인연 결·결혼 시기 프레임 두 줄에 중복. M01 love_timing 점수는 100 상한 포화로 명식이 달라도 같은 줄("연애 신호 4건·점수 100"). 출생지 seed 미등록('대구')은 400이 아닌 500(기존 동작, 프론트는 좌표 전송).
+
+## 2026-10-26 — 실답 감수 후속 교정 6건: 결혼 시기·형태 프레임 미성립 줄 + 참고 5건 (데굴님 "결함 수정 승인할께 그외에 수정건도 진행해줘")
+
+- **결함(엔진)**: `structural_context.marriage_resource_lines` — `late_marriage_notes` 가 비면 "결혼 시기·형태 프레임: 늦춤 쪽 구조 신호(배우자성 미투출·재성 미투출·비겁 과다) 없음 — 결혼을 늦춰야 할 구조 근거는 없다 … 이르고 늦음은 운의 결혼 신호 시기로만" 미성립 줄을 낸다(프롬프트 블록 미성립 명시 원칙 2026-10-08). 실답 재생(남 1985-08-20 14:00 부산, '결혼 늦게 하는 게 좋은 사주?'): 종전 "중반부로 갈수록 인연 뚜렷·서두를 필요 없음"(무근거 동조) → 교정 후 첫 문장 "결혼을 늦게 해야만 하는 사주 구조는 아니며 오히려 인연이 일찍부터 곁에 머무는 흐름" + "늦춰야 할 특별한 구조적 제약은 확인되지 않습니다".
+- 참고 5건: ① `marriage_resource` 프레임의 '재성 미투출' 본문을 "재성 미투출(인연 결 줄 참조) — 서두르지 않는 결"로 축약(본문은 배우자 인연 결 줄 한 곳) ② `marriage_age_prior_lines` 축 라벨 year·month·day·hour → 연주·월주·일주·시주(`_PILLAR_POSITION_KO`) ③ `SINSAL_DIRECTION_INSTRUCTION` ⑩ — 블록에 없는 방향(예: '동쪽이나 남쪽') 추가 금지 ④ `topic_builder._lead_event_keys` — 토픽 요약 '○○ 중심'을 가중치 상위 사건 키 최대 3종(중복 없음)으로(M01·M07 공용, 점수 100 상한 포화 시 사건 구성으로 변별, 새 수치 없음) ⑤ `location.LocationResolveError(ValueError)` + chat 라우터 422("출생지 '대구'의 좌표를 확정할 수 없습니다 …", 종전 500 '서버 내부 오류'; manse 라우터는 기존 ValueError→422 그대로).
+- 회귀: `tests/unit/test_live_review_20261026.py` 7건(미성립 줄 반례 전제 `late_marriage_notes == []` 포함·중복 1회·한글 라벨·⑩·상위 키·typed error·422). 게이트: `All checks passed` · `production mypy gate clean` · `maintained scripts mypy gate clean` · `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(start_head=end_head 0695f28 · 지문 c5d72bd9… 일치, `var/run_suite_20261026_review.log`).
+- 미해결(기록만): M01 점수 100 상한 자체는 유지 — 두 실답 명식이 같은 사건 구성(new_relationship·relationship_change 4건)이라 줄은 여전히 동일. 상한 변경은 점수 의미 변경이라 별도 결정.
+

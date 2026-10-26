@@ -43,6 +43,7 @@ from ..deps import (
     optional_owner,
     require_owner,
 )
+from ..location import LocationResolveError
 from ..services import chat_service, llm_service_state
 from ..services.llm_client import LLMServiceSuspended
 from ..services.manse_service import calculate
@@ -318,6 +319,13 @@ def chat(
             return _run_chat(dry)
         except chat_service.ThreadAccessDenied as exc:
             raise HTTPException(status_code=404, detail="대화를 찾을 수 없습니다.") from exc
+        except LocationResolveError as exc:
+            # 시드 미등록 지명 + 좌표 없음 — 입력 문제라 500이 아니라 422(2026-10-26).
+            raise HTTPException(
+                status_code=422,
+                detail=f"출생지 '{req.birth.birth_place_name}'의 좌표를 확정할 수 없습니다. "
+                "출생지 목록에서 선택하거나 위도·경도·시간대를 함께 보내 주세요.",
+            ) from exc
 
     def _run_chat(dry: bool) -> chat_service.ChatResponse:
         return chat_service.chat(

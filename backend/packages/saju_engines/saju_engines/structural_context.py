@@ -705,6 +705,16 @@ def marriage_resource_lines(mr: MarriageResourceProfile) -> list[str]:
             "결혼 시기·형태 프레임(늦은 결혼·비혼 모두 중립, 이혼 단정 금지): "
             + " / ".join(mr.late_marriage_notes)
         )
+    else:
+        # 미성립도 명시한다(2026-10-26 실답: 신호가 없으면 줄이 빠져 LLM이 '늦게 하는 게 좋은
+        # 사주?' 질문 프레임에 동조 — "중반부로 갈수록 인연 뚜렷" 무근거 서술). 프롬프트 블록
+        # 미성립 명시 원칙(2026-10-08)과 같은 결.
+        lines.append(
+            "결혼 시기·형태 프레임(늦은 결혼·비혼 모두 중립, 이혼 단정 금지): 늦춤 쪽 구조 신호"
+            "(배우자성 미투출·재성 미투출·비겁 과다) 없음 — 결혼을 늦춰야 할 구조 근거는 없다. "
+            "'늦게 하는 게 좋다/서두를 필요 없다'를 명식 근거로 단정하지 말고, 이르고 늦음은 "
+            "운(대운·세운)의 결혼 신호 시기로만 말할 것"
+        )
     # 관계 친화·돌봄 성향 — 십성 구조×신강약(관계에 어떻게 임하는가, 경향·비단정).
     if mr.relationship_affinity:
         lines.append(
@@ -1005,6 +1015,11 @@ def daewoon_progression_lines(profiles: list[DaewoonProgressionProfile]) -> list
     return out
 
 
+_PILLAR_POSITION_KO: dict[str, str] = {
+    "year": "연주", "month": "월주", "day": "일주", "hour": "시주",
+}
+
+
 def marriage_age_prior_lines(result: ManseV2Result) -> list[str]:
     """[혼기 경향 — static prior] MT6 배우자성 위치 기반 광역 혼기 경향(특정 시기 아님).
 
@@ -1023,8 +1038,11 @@ def marriage_age_prior_lines(result: ManseV2Result) -> list[str]:
     if prior.band == "unknown" or not prior.positions:
         return []
     band_ko = _MARRIAGE_AGE_BAND_KO.get(prior.band, prior.band)
+    # 축 라벨은 한글 기둥명으로(2026-10-26 실답: year·month·hour 영문 노출 — LLM 입력 계약의
+    # 한글 라벨 규칙과 어긋남).
+    positions_ko = "·".join(_PILLAR_POSITION_KO.get(pos, pos) for pos in prior.positions)
     note = (
-        f"[혼기 경향(static prior·특정 시기 아님)] 배우자성이 {'·'.join(prior.positions)}에 "
+        f"[혼기 경향(static prior·특정 시기 아님)] 배우자성이 {positions_ko}에 "
         f"드러나 {band_ko}. 실제 결혼 시점은 운(대운·세운)이 결정하며, 넓은 경향으로만 참고."
     )
     lines = [note]

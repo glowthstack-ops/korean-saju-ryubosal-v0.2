@@ -156,7 +156,8 @@ def build_career_context(
             key=f"{top.event_key}@{c.period_key}",
             summary=(
                 f"{c.period_key} {c.ganji.stem}{c.ganji.branch} — "
-                f"직업 신호 {len(signals)}건({top.event_key} 중심), {c.favorability} 기조"
+                f"직업 신호 {len(signals)}건({_lead_event_keys(signals, '직업')} 중심), "
+                f"{c.favorability} 기조"
             ),
             score=score,
             event_key=top.event_key,
@@ -597,6 +598,30 @@ def _signal_key_match(
         and s.source_event_key in (legacy_compat_keys or set())
 
 
+def _lead_event_keys(signals: list, label: str, limit: int = 3) -> str:
+    """요약 줄의 '○○ 중심' 자리 — 가중치 상위 사건 키를 중복 없이 최대 ``limit``개 '·'로 잇는다.
+
+    점수는 0~100 상한에 포화되기 쉬워(가중치 합 ≥1.0) 명식이 달라도 같은 줄이 나오던 것을,
+    사건 구성으로 변별한다(2026-10-26 실답). 새 수치는 만들지 않는다.
+
+    Args:
+        signals: 해당 시기의 도메인 신호(``weight``·``event_key`` 속성).
+        label: event_key 가 비었을 때 대신 쓸 라벨.
+        limit: 최대 표기 개수.
+
+    Returns:
+        ``"new_relationship·marriage_signal"`` 형태의 문자열.
+    """
+    seen: list[str] = []
+    for s in sorted(signals, key=lambda s: -s.weight):
+        k = s.event_key or label
+        if k not in seen:
+            seen.append(k)
+        if len(seen) >= limit:
+            break
+    return "·".join(seen)
+
+
 def _domain_series_findings(
     composites: list[LuckComposite],
     period: PeriodSpec,
@@ -644,7 +669,7 @@ def _domain_series_findings(
             key=f"{top.event_key or label}@{c.period_key}",
             summary=(
                 f"{c.period_key} {gz} — {label} 신호 {len(sigs)}건"
-                f"({top.event_key or label} 중심), {c.favorability} 기조"
+                f"({_lead_event_keys(sigs, label)} 중심), {c.favorability} 기조"
             ),
             score=score, event_key=top.event_key, period_key=c.period_key, signals=names,
         ))

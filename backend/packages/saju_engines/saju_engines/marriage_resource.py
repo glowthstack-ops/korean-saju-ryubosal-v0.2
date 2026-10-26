@@ -595,7 +595,9 @@ def analyze_marriage_resource(
         )
     if wealth_absent and not (spouse_star_absent and spouse_star == "재성"):
         late_marriage_notes.append(
-            "재성 미투출 — 관계를 붙잡아 유지하려는 욕구가 약해 서두르지 않는 결(경험 뒤 인연 중립)"
+            # 어휘 본문(관계 유지 욕구·가치 중립)은 '배우자 인연 결' 줄에 있다 —
+            # 여기선 시기 프레임만(2026-10-26 실답: 같은 문장이 두 줄에 중복).
+            "재성 미투출(인연 결 줄 참조) — 서두르지 않는 결(경험 뒤 인연 중립)"
         )
     if peer_excess:
         late_marriage_notes.append(
