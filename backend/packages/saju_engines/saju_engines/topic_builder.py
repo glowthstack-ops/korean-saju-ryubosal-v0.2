@@ -101,11 +101,15 @@ _BASE_STYLE = StyleRules(
 def _in_period(period_key: str, period: PeriodSpec) -> bool:
     """period_key('2026'/'2026-06'/'2026-06-10')가 기간 범위에 드는지(문자열 비교).
 
-    ISO 정렬 가능 라벨 전제. 연 키는 'start[:4] <= key <= end[:4]'로 비교한다.
+    ISO 정렬 가능 라벨 전제. 키와 경계를 **둘 중 짧은 정밀도**로 잘라 비교한다 — 연 키는
+    연 정밀, 월 키 × 연 경계도 연 정밀('2027-03' ∈ [2027, 2027]). 종전엔 경계만 키 길이로
+    잘라 end 가 연 단위면 월 키가 모두 빠졌다('2027-03' > '2027' → "내년에 이직하면?"에서
+    M07 월 행 0개, 2026-10-26 실답). start 가 'YYYY-MM'(future_floor)이고 키가 월이면 월 정밀로
+    비교해 지난 달만 제외한다.
     """
-    if len(period_key) == 4:
-        return period.start[:4] <= period_key <= period.end[:4]
-    return period.start[: len(period_key)] <= period_key <= period.end[: len(period_key)]
+    ns = min(len(period_key), len(period.start))
+    ne = min(len(period_key), len(period.end))
+    return period.start[:ns] <= period_key[:ns] and period_key[:ne] <= period.end[:ne]
 
 
 def _calendar_context(composites: list[LuckComposite]) -> list[CalendarContextEntry]:

@@ -12750,3 +12750,10 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 회귀 `test_live_review_20261026.py` ⑧(floor 적용 시 미래 줄 ≥2·월 키 전부 floor 이상, 반례=floor 없이는 지난 달이 상위 슬롯). 게이트: `All checks passed` · `production mypy gate clean` · `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(start_head=end_head 9cc6b14 · 지문 d4b96e8d… 일치, `var/run_suite_20261026_floor.log`).
 - 같은 계열 발견(다음 항목에서 교정): `_in_period` 가 end 를 `end[:len(key)]` 로 잘라 비교해 end 가 연 단위('2027')면 월 키('2027-03' > '2027')가 전부 빠진다 — "내년에 이직하면?"(2027~2027)에서 M07 월 행 0개, 연 행만 노출.
 
+## 2026-10-26 — `_in_period` 경계 정밀 교정: end 가 연 단위여도 그 해 월 키 포함 (같은 계열 훑기, 데굴님 "진행하자" 범위)
+
+- 결함: `topic_builder._in_period` 가 경계를 `bound[:len(key)]` 로 잘라 비교 → end='2027' 이면 월 키 '2027-03' > '2027' 로 전부 제외. "내년에 이직하면?"(time_range 2027~2027)에서 M07 월 행 0개·연 행만 노출(실답 남 1985).
+- 교정: 키와 경계를 **둘 중 짧은 정밀도**로 잘라 비교(`ns=min(len(key),len(start))`, `ne=min(len(key),len(end))`). 월 키 × 연 경계는 연 정밀, future_floor 월 start × 월 키는 월 정밀(지난 달만 제외), 연 키는 연 정밀 — 종전 통과 사례 전부 동일.
+- 실답: "내년에 이직하면 어떨까?" M07 참고 줄 1→2개(2027-01 辛丑 + 2027 丁未), 입력 토큰 16,942→16,978(+36).
+- 회귀 `test_live_review_20261026.py` ⑨(같은 해 범위 월 키 포함·경계 밖 제외·floor 월 정밀). 게이트: `All checks passed` · `production mypy gate clean` · `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(start_head=end_head cebc045 · 지문 f63f14e1… 일치, `var/run_suite_20261026_inperiod.log`).
+

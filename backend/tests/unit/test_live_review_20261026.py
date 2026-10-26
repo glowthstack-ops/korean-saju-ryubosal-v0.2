@@ -149,3 +149,18 @@ def test_topic_future_floor_applied_before_truncation() -> None:
     no_floor = [ln for ln in raw_lines if ln.startswith("- ")]
     past = [ln for ln in no_floor if ln[6] == "-" and ln[2:9] < "2026-10"]
     assert past, no_floor
+
+
+def test_in_period_same_year_range_keeps_month_keys() -> None:
+    """⑨ end 가 연 단위('2027')여도 그 해의 월 키는 기간 안 — "내년" 범위에서 월 행 0개 결함."""
+    from saju_engines.topic_builder import _in_period
+    from saju_shared_types.topic_context import PeriodSpec
+
+    same_year = PeriodSpec(start="2027", end="2027", granularity="year")
+    assert _in_period("2027-03", same_year) and _in_period("2027", same_year)
+    assert not _in_period("2026-12", same_year) and not _in_period("2028-01", same_year)
+    # future_floor 월 정밀 start: 지난 달만 제외, 연 키·floor 이후 월 키는 유지.
+    floored = PeriodSpec(start="2026-10", end="2031", granularity="year")
+    assert _in_period("2026", floored) and _in_period("2026-12", floored)
+    assert not _in_period("2026-09", floored)
+    assert _in_period("2031-12", floored) and not _in_period("2032", floored)
