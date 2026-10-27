@@ -1,0 +1,42 @@
+{
+  "version": "1.0.0",
+  "note": "반복 구조 해석 후보 사전(2026-10-27 데굴님 승인). 판정은 saju_engines.repetition_structure(같은 글자 여부만), 이 사전은 서술 재료만 준다. 반복 자체로 성격·사건을 확정하지 않고, 유불리는 반복된 글자의 십성·용희기구한이 정한다. 자형은 지지 반복 가운데 辰辰·午午·酉酉·亥亥 네 종류만이다. 천간 반복을 형살로 부르지 않는다.",
+  "principles": {
+    "no_event": "반복 구조가 있다는 사실만으로 사건(이직·이별·손실 등)을 말하지 말 것 — 사건은 독립 근거가 있는 후보에서만.",
+    "no_fixed_fortune": "반복·자형을 흉살로 단정하지 말 것 — 반복된 글자의 십성과 용희기구한 역할이 유불리를 정한다.",
+    "group_not_pairs": "같은 글자가 셋 이상이어도 그룹 하나로 읽을 것 — 관계 쌍 수만큼 사건이나 흉을 늘리지 말 것.",
+    "luck_activation": "운에서 같은 글자가 들어오면 새 사건이 아니라 기존 구조의 기간 활성화로 읽을 것."
+  },
+  "stems": [
+    {"char": "甲", "base": "개척·성장·목표 지향", "excess": "독단·목표 충돌", "reviewed": false},
+    {"char": "乙", "base": "조율·적응·연결", "excess": "우유부단·관계 얽힘", "reviewed": false},
+    {"char": "丙", "base": "활동·표현·확장", "excess": "과시·성급한 추진", "reviewed": false},
+    {"char": "丁", "base": "집중·정교함·내적 열의", "excess": "예민함·집착", "reviewed": false},
+    {"char": "戊", "base": "안정·통제·책임", "excess": "경직성·변화 저항", "reviewed": false},
+    {"char": "己", "base": "관리·조정·지속성", "excess": "과도한 책임·자기주장 반복", "reviewed": false},
+    {"char": "庚", "base": "결단·실행·개혁", "excess": "강압적 판단·충돌", "reviewed": false},
+    {"char": "辛", "base": "정밀함·평가·전문성", "excess": "비판 과잉·완벽주의", "reviewed": false},
+    {"char": "壬", "base": "확장·유동성·기획", "excess": "분산·잦은 방향 변경", "reviewed": false},
+    {"char": "癸", "base": "관찰·축적·세밀한 판단", "excess": "고민 누적·결정 지연", "reviewed": false}
+  ],
+  "branches": [
+    {"char": "子", "base": "정보·교류·수기의 반복", "reviewed": false},
+    {"char": "丑", "base": "저장·관리·유지의 반복", "reviewed": false},
+    {"char": "寅", "base": "개척·성장·활동의 반복", "reviewed": false},
+    {"char": "卯", "base": "확장·관계·조정의 반복", "reviewed": false},
+    {"char": "辰", "base": "축적·정체·자기조정의 반복", "reviewed": false},
+    {"char": "巳", "base": "실행·변화·활동의 반복", "reviewed": false},
+    {"char": "午", "base": "추진·경쟁·과열의 반복", "reviewed": false},
+    {"char": "未", "base": "완충·조율·축적의 반복", "reviewed": false},
+    {"char": "申", "base": "기술·변화·실행의 반복", "reviewed": false},
+    {"char": "酉", "base": "평가·정밀·통제의 반복", "reviewed": false},
+    {"char": "戌", "base": "방어·관리·유지의 반복", "reviewed": false},
+    {"char": "亥", "base": "사고·탐구·내면 활동의 반복", "reviewed": false}
+  ],
+  "self_punishment": [
+    {"char": "辰", "center": "저장·축적·고집·내부 갈등", "positive": "지속력·자원 관리·독립적 판단", "negative": "과도한 고집·결정 지연·문제 누적", "reviewed": false},
+    {"char": "午", "center": "왕성한 화기·경쟁·과열", "positive": "추진력·표현력·경쟁력", "negative": "성급함·과잉 반응·무리한 추진", "reviewed": false},
+    {"char": "酉", "center": "정밀함·규칙·완벽주의", "positive": "전문성·분석력·정교한 판단", "negative": "지나친 비판·완벽주의·대인 마찰", "reviewed": false},
+    {"char": "亥", "center": "수기·사고·내면의 반복", "positive": "깊은 탐구·집중력·통찰", "negative": "과도한 숙고·우유부단·내적 갈등", "reviewed": false}
+  ]
+}

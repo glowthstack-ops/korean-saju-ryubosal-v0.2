@@ -40,6 +40,9 @@ class BirthChartSummary(BaseModel):
     day_master: str
     pillars: dict[str, str]  # {'year': '庚申', ...} — 시주 미상이면 hour 생략
     void_branches: list[str] = Field(default_factory=list)
+    # 확장 공망 사실(2026-10-23) — '일주 甲子旬'·'절로공망(시간 壬)'·'호환공망 연↔일' 등.
+    # 산출 사실만.
+    gongmang_facts: list[str] = Field(default_factory=list)
     strength: str = ""  # '중화신강'
     useful_gods: UsefulGods = Field(default_factory=UsefulGods)
     geokguk: str = ""  # '정재격 · 중성 · 반성반패'(항목 9 — 격국 정보)
@@ -209,6 +212,12 @@ class LlmEventCandidate(BaseModel):
     domain_interaction: str = ""
     # 표현 결(12운성 유입, 2026-09-10 daily §23 이식) — 흐름·결과 서술의 결. 문체 전용·점수 무관.
     stage_note: str = ""
+    # 연애 운 결(2026-10-27) — 관계 사건 후보 기간의 일지 충·운 역할·약한 오행·십성 구절.
+    # '그럴 수 있다' 수준의 서술 전용(점수·판정 비개입). 관계 도메인 질문에만 렌더.
+    love_notes: list[str] = Field(default_factory=list)
+    # 반복 구조 활성화(2026-10-27) — 후보 기간 간지가 원국 반복 그룹을 건드린 기록. 새 사건이 아니라
+    # 구조의 기간 활성화(서술 전용, 점수·판정 비개입).
+    repetition_notes: list[str] = Field(default_factory=list)
     # 운 암합(보조 자료) — 점수 미반영, 물밑·비공식 뉘앙스 참고용(2026-06-12 자료).
     amhap_notes: list[str] = Field(default_factory=list)
     # 유불리 주의(후보별 사실) — 천간 흉신 시기: 발생해도 계약·결실 불리(우호 단정 방지).
@@ -343,6 +352,10 @@ class MonthOverviewRow(BaseModel):
     # 발현 분기 — 그 달 우세 사건과 같은 계열(EVENT_CATEGORY)에서 같은 시점에 점수화된
     # 형제 사건(예: 이직↔이사)을 강도순으로. 한 사건으로 단정하지 않게 한다(2026-06-14).
     branch_ko: str = ""
+    # 연애 운의 결 라벨(2026-10-27) — 그 달 관계 계열 후보가 하한 이상일 때만. 구절 본문은 표 아래
+    # 범례에 한 번만 싣는다(같은 구절 반복 방지). 관계 도메인 질문에서만 렌더.
+    love_note_labels: list[str] = Field(default_factory=list)
+    love_note_texts: dict[str, str] = Field(default_factory=dict)
 
 
 class PeriodFortuneSlot(BaseModel):
@@ -394,6 +407,14 @@ class PeriodFortune(BaseModel):
     hierarchy_lines: list[str] = Field(default_factory=list)
     hierarchy_appendix: list[str] = Field(default_factory=list)
     luck_hierarchy: LuckHierarchy | None = None
+    # 월주 상대 관점(2026-10-25 데굴님 승인, 별의당 강의 번역층) — 세운 전용. 월주↔세운 상대 기운
+    # (월간 기준·세운 천간 기준 십성/12운성·지지/천간 관계·통근 비교)으로 '시절이 만드는 환경'을,
+    # [세운:] 줄의 일간 기준 십성·운성으로 '태도'를 세워 합치라는 서술 전용 블록(점수·판정 inert).
+    environment_lines: list[str] = Field(default_factory=list)
+    # 이번 기간 운 스택 간지(2026-10-25) — {'대운': '壬辰', '세운': '丙午', '월운': …, '일진': …}.
+    # 관계 확정 문장의 참여 글자 층위 라벨([원국 월간 丁 + 대운 壬])과 생성 후 층위 라벨 감사가
+    # 쓴다.
+    stack_ganji: dict[str, str] = Field(default_factory=dict)
     # 운 도화 × 십성군 문구가 실렸으면 그 키(2026-10-13) — 노출 로그(실답 검수 경로)용.
     dohwa_text_keys: list[str] = Field(default_factory=list)
 
@@ -516,6 +537,16 @@ class LlmInput(BaseModel):
     # 질문 기간 밖 상위 후보 — 참고 맥락 전용(메인 서술 금지 지시 동반).
     out_of_range_candidates: list[LlmEventCandidate] = Field(default_factory=list)
     no_candidates_in_period: bool = False
+    #: 같은 영역 다른 사건 후보(2026-10-27) — 질문 사건 키가 아닌 같은 영역 계열 사건 중 70점 이상.
+    #: 진입 시기·상담 결론 판정이 읽는 `event_candidates` 와 분리한다(별도 블록 렌더).
+    family_candidates: list[LlmEventCandidate] = Field(default_factory=list)
+    #: 대상의 교제 상태(2단계 프로필 marital → single|dating|married, 미입력 "").
+    #: 같은 영역 관계 후보의 해석 분기 전용(2026-10-27) — 점수·선별 비개입, 미입력이어도
+    #: 기능을 막지 않는다(원칙 11).
+    relationship_status: str = ""
+    #: 같은 기간 다른 영역 강신호(2026-10-27) — 질문 영역 밖 '가능성이 높습니다' 이상 후보 요약 줄.
+    #: 질문 영역 후보가 없을 때 '아무 일도 없다'로 덮는 것을 막는다(주 서사 승격 금지).
+    period_other_signals: list[str] = Field(default_factory=list)
     #: P2 — 후보는 있었으나 상위 근거가 없어 주요 사건 자격에서 제외된 경우.
     #: `no_candidates_in_period`와 의미가 다르다: 신호가 없는 게 아니라 자격이 없다.
     #: 둘을 섞으면 "이직운이 없습니다"로 왜곡된다.

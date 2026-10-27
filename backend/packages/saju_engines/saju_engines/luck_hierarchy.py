@@ -34,7 +34,7 @@ from saju_shared_types.relation_semantics import (
 _KIND_FAMILY: dict[str, frozenset[str]] = {
     "stem_combine": frozenset({"stem_combination"}),
     "branch_six_combine": frozenset({"six"}),
-    "branch_three_combine": frozenset({"three_harmony", "half"}),
+    "branch_three_combine": frozenset({"three_harmony", "half", "gonghap"}),
     "branch_directional": frozenset({"directional"}),
 }
 #: 클러스터로 묶을 수 있는 효과 계열 — '강화'끼리만. 묶임(SUPPRESSED)은 강화와
@@ -94,7 +94,26 @@ def _to_interaction(
         out.binding_state = sem.binding_state
         out.effects = list(sem.effects)
         out.canonical_claim = sem.canonical_claim
+        out.semantic_kind = sem.kind
         out.semantic_resolution_status = SemanticResolutionStatus.RESOLVED
+        if sem.kind == "gonghap":
+            # 공합(가합, 2026-10-25) — 왕지 없는 생지+고지 2자. 의미는 확정(부분 가세·미약)이라
+            # 서술은 하되, 완전한 삼합·반합처럼 점수·클러스터에 넣지 않는다. 2차 실험
+            # (gonghap_effective_scoring)이 ON 이고 상태가 유효·강화면 반합처럼 점수 대상.
+            from saju_manse_analysis.relations.hap_modes import HAP_EXPERIMENTS
+
+            scoring_ok = (
+                HAP_EXPERIMENTS.get("gonghap_effective_scoring", False)
+                and sem.aux_state in ("effective", "strengthened")
+            )
+            if scoring_ok:
+                out.semantic_kind = "gonghap_effective"
+            else:
+                out.cluster_eligible = False
+                out.score_eligible = False
+                out.exclusion_reason = (
+                    "공합(가합) — 왕지 없는 부분 가세(미약), 점수·클러스터 미반영"
+                )
         return out
 
     if hit.kind.value in _KIND_FAMILY:

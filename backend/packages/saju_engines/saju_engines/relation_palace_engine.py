@@ -40,6 +40,9 @@ class RelationActivation:
     luck_stem: str = ""        # 발동시킨 운 천간
     luck_branch: str = ""      # 발동시킨 운 지지
     natal_stem: str = ""       # 관계에 참여한 원국 천간
+    # HAP 등급(2026-10-25 연애운 P0-1): 'full'(삼합·방합 완성) | 'half'(왕지 반합) | 'contrib' |
+    # 'six' | 'stem' | ''. 궁위 가산 배율 `hap_grade_multipliers` 키.
+    hap_grade: str = ""
     natal_branch: str = ""     # 관계에 참여한 원국 지지
     # MT4(MARRIAGE_TIMING_ENHANCEMENT §9): HAP은 RelationKind로 유지하되 원 합 종류를 곁들인다.
     # 'six_harmony'|'three_harmony'|'directional'|'stem'|None. element=삼합/방합 완성 오행(한자).
@@ -220,6 +223,17 @@ class RelationPalaceEngine:
             k: float(v["score_multiplier"]) for k, v in raw["relation_layer_weights"].items()
         }
         self._palace_mult: dict[str, dict] = raw["palace_relation_score_multipliers"]
+        # HAP 등급 배율(2026-10-25 연애운 P0-1) — 사전에 없으면 전부 1.0(종전 동작).
+        self._hap_grade_mult: dict[str, float] = {
+            k: float(v) for k, v in (raw.get("hap_grade_multipliers") or {}).items()
+            if not k.startswith("_")  # `_note` 설명 키 제외
+        }
+        # 등급별 적용 범위(2026-10-25 2차) — {등급: (궁위 집합, 사건 집합)}. 없는 등급은 제한 없음.
+        self._hap_grade_scope: dict[str, tuple[frozenset[str], frozenset[str]]] = {
+            k: (frozenset(v["palaces"]), frozenset(v["events"]))
+            for k, v in (raw.get("hap_grade_scope") or {}).items()
+            if not k.startswith("_")
+        }
 
     def apply(
         self,
@@ -232,8 +246,14 @@ class RelationPalaceEngine:
         shadow_sink: list[dict] | None = None,
         renewal_enabled: bool = False,
         ten_god_group_powers: dict[str, float] | None = None,
+        new_relationship_palace: bool = False,
+        day_hap_damping: float = 1.0,
     ) -> list[EventCandidateV2]:
         """후보에 관계·궁성 발동 보너스를 적용한다.
+
+        new_relationship_palace(2026-10-25 연애운 실험): True 면 일지 HAP·복음의 likely_events 에
+        new_relationship 을 더한다(종전 사각 — 부록 A-3 #2 는 legacy 즉시 추가 금지라 플래그로만).
+        day_hap_damping: 일지 HAP 가산 배율(원국 합 과다 감쇠 실험, 기본 1.0).
 
         MT4(§9): mt4_mode='off'면 기존 동작 그대로(byte 불변). 'shadow'면 관계 도메인 HAP 활성의
         합 종류(subtype) multiplier를 **계산만** 해 shadow_sink에 기록하고 점수·reason은 불변.
@@ -252,6 +272,9 @@ class RelationPalaceEngine:
         for r in self._rel_to_palace:
             key = (r["relation"], r["target_palace"])
             rel_palace_events.setdefault(key, set()).update(r["likely_events"])
+        if new_relationship_palace:
+            for key in (("HAP", "day_pillar"), ("BOKEUM", "day_pillar")):
+                rel_palace_events.setdefault(key, set()).add("new_relationship")
         partner_els = partner_elements(day_element, gender) if mt4_mode != "off" else set()
 
         out: list[EventCandidateV2] = []
@@ -268,12 +291,23 @@ class RelationPalaceEngine:
                 likely = ek in rel_palace_events.get((act.kind.value, act.palace.value), set())
                 if not (in_domain or likely):
                     continue
+                scope = (
+                    self._hap_grade_scope.get(act.hap_grade)
+                    if act.kind is RelationKind.HAP else None
+                )
+                if scope is not None and (act.palace.value not in scope[0] or ek not in scope[1]):
+                    continue  # 복구 등급(half·full)은 배우자궁 × 관계 사건에만(범위 밖=종전 가산 0)
                 layer_mult = self._layer_w.get(f"{act.layer.value}_to_natal", 1.0)
                 pmult = self._palace_mult[act.palace.value][act.position]
                 bonus = self._rel_bonus[act.kind.value] * float(pinfo["activation_weight"])
                 bonus *= layer_mult * pmult
                 if likely:
                     bonus *= 1.2
+                if act.kind is RelationKind.HAP:
+                    # 등급 배율(완성 > 왕지 반합 > 기여·육합·천간합) + 일지 과다 감쇠(실험).
+                    bonus *= self._hap_grade_mult.get(act.hap_grade, 1.0)
+                    if act.palace is Pillar4.DAY and day_hap_damping != 1.0:
+                        bonus *= day_hap_damping
                 # MT4 — 관계 도메인 HAP 활성만 합 종류 재가중(상향 없음). off는 건너뜀.
                 if mt4_mode != "off" and act.kind is RelationKind.HAP and ek in _MT4_DOMAIN:
                     mult, mt4_reason = mt4_subtype_multiplier(

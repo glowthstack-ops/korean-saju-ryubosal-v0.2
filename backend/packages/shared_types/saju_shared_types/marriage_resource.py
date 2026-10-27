@@ -68,6 +68,28 @@ class MarriageResourceProfile(BaseModel):
     spouse_palace_stable: bool = True  # 일지에 충/형/원진/파/해 없음(관계 내구성 좋음)
     spouse_palace_afflictions: list[str] = Field(default_factory=list)  # 일지를 흔드는 살(충/형 등)
     spouse_is_yongsin: bool = False  # 배우자성 오행이 용신/희신(배우자 덕 큰 결)
+    # ── 연애운 강의 4편 대조 서술층(2026-10-25 데굴님 승인 —
+    # doc/v2_2/EXTERNAL_TEXT_GAP_LOVE_TIMING.md P2-2~P2-7). 전부 서술 전용·점수 비개입·경향 어휘.
+    # 배우자성=여 관성·남 재성 정책 그대로.
+    # P2-2 배우자성 자체의 정/편 축(일지 이상형과 별개 축) + 정·편 혼재(여 관살혼잡·남 재성혼잡 —
+    # '마음이 오가는 결·선택 폭'으로만, 외도·낙인 어휘 금지).
+    spouse_star_axis: str = ""  # 한글 축 라벨(빈 문자열=배우자성 미투출)
+    spouse_star_mixed: bool = False  # 정·편 동시 가시
+    # P2-3 배우자성 자리 — 천간=바라는 결(지향)·지지=실제 만남 환경(배우자성 한정, 고정 등식 아님).
+    spouse_star_stem_positions: list[str] = Field(default_factory=list)  # 예: ["년간 정관"]
+    spouse_star_branch_positions: list[str] = Field(default_factory=list)  # 예: ["월지 편관"]
+    spouse_star_ganyeojidong: list[str] = Field(default_factory=list)  # 간여지동 배우자성 기둥 안내
+    # P2-4 연상/동갑/연하 경향(단정 아님 — 여성에 더 유효 주석 포함).
+    partner_age_tendencies: list[str] = Field(default_factory=list)
+    # P2-5 재성 미투출(남녀 공통 — 재성=관계 유지 욕구) / P2-7 만혼·비혼 중립 프레임·비겁 과다.
+    wealth_absent: bool = False
+    peer_excess: bool = False  # 비겁 과다(분포 ≥35% 또는 가시 ≥3)
+    late_marriage_notes: list[str] = Field(default_factory=list)
+    # P2-6 연애 유형(십성군 분류 — saju_engines.love_type, 사전 love_types.json).
+    love_type: str = ""  # 주 유형 군(한글), 빈 문자열=미분류
+    love_type_secondary: str = ""
+    love_type_basis: str = ""
+    love_type_later_shift: str = ""
     hour_resource_role: str  # 시주 천간 십성 → 자원 역할(중립 라벨)
     # 자산 출처 경향(중립·가능성) — 'parental'/'spouse_family'/'self' 중복 가능.
     wealth_source_leans: list[str] = Field(default_factory=list)

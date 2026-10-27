@@ -133,6 +133,11 @@ class RelationSemantics(BaseModel):
     transform_tier: str = ""  # 엔진 원값 'confirmed'|'conditional'|'none'
     role: str = ""  # transform_element의 용희기구한 역할
     luck_origin: bool = False
+    # 보조 상태(2026-10-25): 공합이면 'candidate'|'weak'|'effective'|'strengthened'. 점수 편입
+    # 여부(gonghap_effective_scoring 실험)와 서술 어휘가 이 값을 본다. 다른 kind 는 ''.
+    aux_state: str = ""
+    # 化神 투간 표기(2026-10-25) — '투간 직접(원국 甲)' / '투간 없음'. 근거 표기이며 판정이 아니다.
+    tougan_label: str = ""
     effects: list[RelationEffect] = Field(default_factory=list)
     # 엔진이 확정한 서술 문장. LLM은 이 의미를 바꾸지 말고 그대로 쓰거나 생략만 한다.
     # 관계 사실을 자유 작문 영역에서 빼는 것이 최초 오류율을 낮추는 가장 큰 지렛대다

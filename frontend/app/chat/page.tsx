@@ -12,18 +12,24 @@ import { InlinePartnerForm } from "@/components/subject/InlinePartnerForm";
 import { SubjectGateway } from "@/components/subject/SubjectGateway";
 import {
   deleteChatThread,
+  getChatFollowup,
   getChatPartner,
   getChatThread,
   getLlmServiceStatus,
   listChatThreads,
   postChat,
+  postChatFeedback,
+  submitChatFollowup,
 } from "@/lib/api";
 import { readingFontClasses } from "@/lib/storage";
 import { useReadingFontSize } from "@/lib/useReadingFontSize";
 import { summaryToProfile } from "@/lib/subject-mapping";
-import { getPersona, getSubject, listSubjects } from "@/lib/subjects";
+import { getCalibrationStatus, getPersona, getSubject, listSubjects } from "@/lib/subjects";
 import { relationLabel } from "@/lib/relations";
 import type {
+  CalibrationStatus,
+  FollowupOutcome,
+  FollowupPrompt,
   ChatApiResponse,
   ChatMessageDTO,
   ChatPartner,
@@ -35,6 +41,7 @@ import type {
 } from "@/lib/types";
 
 interface Message {
+  id?: number; // 서버 메시지 id(저장된 답변만) — 평가 버튼 키
   role: "user" | "assistant";
   text: string;
   meta?: ChatApiResponse;
@@ -108,6 +115,7 @@ function Modal({
 // 서버 저장 메시지 → 말풍선. pending(생성 중)/error(실패)는 플래그로 표시한다.
 function toMessage(m: ChatMessageDTO): Message {
   return {
+    id: m.id,
     role: m.role,
     text: m.text || (m.status === "pending" ? "답변 생성 중…" : ""),
     pending: m.status === "pending",
@@ -162,6 +170,66 @@ export default function ChatPage() {
 
   // 백그라운드 답변 폴링 세션 토큰 — 스레드 전환/언마운트 시 증가시켜 진행 중 폴링을 무효화.
   const pollTokenRef = useRef(0);
+  // 이어보기 대상 스레드가 다른 명식에 묶여 있으면 명식을 먼저 전환하고, 전환이 끝난 뒤 이
+  // 스레드를 연다(보안 점검 S4 — 스레드만 복원하면 다른 명식의 사실이 현재 명식 풀이에 섞였다).
+  const pendingResumeRef = useRef<string | null>(null);
+  // 수집 소스 ②③(2026-10-24): 후속 확인 카드·사건 수집 상태 배너·답변 평가.
+  const [followup, setFollowup] = useState<FollowupPrompt | null>(null);
+  const [followupAnswers, setFollowupAnswers] = useState<Record<string, FollowupOutcome>>({});
+  const [followupBusy, setFollowupBusy] = useState(false);
+  const [calibStatus, setCalibStatus] = useState<CalibrationStatus | null>(null);
+  const [nudgeDismissed, setNudgeDismissed] = useState(false);
+  const [rated, setRated] = useState<Record<number, "up" | "down">>({});
+  const [noteFor, setNoteFor] = useState<number | null>(null);
+  const [noteText, setNoteText] = useState("");
+
+  // 명식이 바뀌면 후속 확인 질문과 수집 상태를 새로 가져온다(실패=표시 안 함).
+  useEffect(() => {
+    if (!isLoggedIn || !selected) {
+      setFollowup(null);
+      setCalibStatus(null);
+      return;
+    }
+    const sid = selected.subjectId;
+    setFollowupAnswers({});
+    setNudgeDismissed(false);
+    void getChatFollowup(sid).then((f) => setFollowup(f));
+    void getCalibrationStatus(sid).then((st) => setCalibStatus(st));
+  }, [isLoggedIn, selected]);
+
+  async function submitFollowup() {
+    if (!followup?.message_id || !selected) return;
+    setFollowupBusy(true);
+    try {
+      const answers = followup.candidates.map((c) => ({
+        event_key: c.event_key,
+        period: c.period,
+        outcome: followupAnswers[`${c.event_key}|${c.period}`] ?? ("unknown" as FollowupOutcome),
+      }));
+      await submitChatFollowup(followup.message_id, selected.subjectId, answers);
+      setFollowup(null);
+      void getCalibrationStatus(selected.subjectId).then((st) => setCalibStatus(st));
+    } catch {
+      /* 실패는 다음 진입 때 다시 묻는다 */
+    } finally {
+      setFollowupBusy(false);
+    }
+  }
+
+  async function rate(messageId: number, rating: "up" | "down") {
+    setRated((prev) => ({ ...prev, [messageId]: rating }));
+    setNoteFor(messageId);
+    setNoteText("");
+    await postChatFeedback(messageId, rating).catch(() => {});
+  }
+
+  async function sendNote(messageId: number) {
+    const rating = rated[messageId];
+    if (!rating) return;
+    await postChatFeedback(messageId, rating, noteText).catch(() => {});
+    setNoteFor(null);
+    setNoteText("");
+  }
 
   // 백그라운드 생성 답변을 완료까지 폴링한다(2초 간격, 최대 ~4분). 서버가 진리원본이므로
   // 완료 시 스레드 전체 메시지로 교체한다. 클라이언트 이탈 후 재진입에도 동일 경로로 복구된다.
@@ -253,10 +321,17 @@ export default function ChatPage() {
         setProfile(summaryToProfile(subj));
         setPersona(p);
         pollTokenRef.current++; // 대상 전환 — 진행 중 폴링 무효화
+        const resumeId = pendingResumeRef.current;
+        pendingResumeRef.current = null;
+        if (resumeId) {
+          void resumeThread(resumeId); // 명식 전환이 끝났으니 묶인 스레드를 연다
+          return;
+        }
         setMessages([]);
         setThreadId(newThreadId());
       })
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, selected]);
 
   // 저장된 대화 목록 로드(로그인 시).
@@ -301,6 +376,16 @@ export default function ChatPage() {
 
   async function resumeThread(id: string) {
     setShowHistory(false);
+    // 스레드가 다른 명식에 묶여 있으면 그 명식으로 먼저 전환(전환 effect 가 이 스레드를 연다).
+    const bound = threads.find((t) => t.thread_id === id)?.subject_id;
+    if (bound && bound !== selected?.subjectId) {
+      const subj = subjects.find((s) => s.subject_id === bound);
+      if (subj) {
+        pendingResumeRef.current = id;
+        setSelected({ subjectId: subj.subject_id, label: subj.label });
+        return;
+      }
+    }
     setBusy(true);
     try {
       const msgs = await getChatThread(id);
@@ -562,7 +647,97 @@ export default function ChatPage() {
       )}
 
       <section className="min-h-[70vh] space-y-3 pt-3">
-        {messages.length === 0 && (
+        {/* 사건 수집 미완료·갱신 유도(P2·P3, 2026-10-24) — 온보딩 바로가기 진입 때 건너뛴 단계 보완 */}
+        {calibStatus?.suggested_mode && !nudgeDismissed && selected && (
+          <div
+            role="status"
+            className="flex items-start justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900"
+          >
+            <p>
+              {calibStatus.suggested_mode === "initial"
+                ? "과거에 실제 있었던 일을 알려주시면 이 사주 풀이가 더 정확해져요. (2~3분, 선택)"
+                : "마지막 입력 후 1년이 지났어요. 최근 해의 일만 짧게 추가해 주시면 풀이가 더 정확해져요."}{" "}
+              <Link
+                href={`/reality-calibration?subject=${selected.subjectId}&mode=${
+                  calibStatus.suggested_mode === "refresh" ? "refresh" : "full"
+                }`}
+                className="font-semibold underline"
+              >
+                입력하러 가기
+              </Link>
+            </p>
+            <button
+              type="button"
+              aria-label="닫기"
+              onClick={() => setNudgeDismissed(true)}
+              className="shrink-0 text-emerald-700"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* 지연 outcome 후속 확인(소스 ③) — 지난 답변이 제시한 흐름이 실제로 있었는지 1회 질문 */}
+        {followup && (
+          <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-3 text-sm text-indigo-900">
+            <p className="font-medium">{followup.question}</p>
+            <ul className="mt-2 space-y-1.5">
+              {followup.candidates.map((c) => {
+                const k = `${c.event_key}|${c.period}`;
+                const cur = followupAnswers[k];
+                return (
+                  <li key={k} className="flex flex-wrap items-center gap-1.5">
+                    <span className="mr-1 text-xs">
+                      {c.period.length === 7
+                        ? `${Number(c.period.slice(0, 4))}년 ${Number(c.period.slice(5, 7))}월`
+                        : `${c.period}년`}{" "}
+                      · {c.event_ko}
+                    </span>
+                    {(
+                      [
+                        ["confirmed", "있었어요"],
+                        ["not_happened", "없었어요"],
+                        ["unknown", "모르겠어요"],
+                      ] as const
+                    ).map(([v, label]) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setFollowupAnswers((prev) => ({ ...prev, [k]: v }))}
+                        className={`rounded-full border px-2 py-0.5 text-xs ${
+                          cur === v
+                            ? "border-indigo-600 bg-indigo-600 text-white"
+                            : "border-indigo-300 bg-white text-indigo-700"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                disabled={followupBusy || Object.keys(followupAnswers).length === 0}
+                onClick={() => void submitFollowup()}
+                className="rounded bg-indigo-600 px-3 py-1 text-xs text-white disabled:opacity-50"
+              >
+                저장
+              </button>
+              <button
+                type="button"
+                onClick={() => setFollowup(null)}
+                className="rounded border border-indigo-300 px-3 py-1 text-xs text-indigo-700"
+              >
+                다음에
+              </button>
+            </div>
+          </div>
+        )}
+
+        {messages.length === 0 && !followup && (
           <p className="pt-20 text-center text-sm text-gray-400">무엇이든 물어보세요.</p>
         )}
 
@@ -602,6 +777,48 @@ export default function ChatPage() {
                 </div>
               )}
             </div>
+            {/* 답변 평가(소스 ②) — 저장된 완료 답변에만. 점수에 쓰지 않고 후속 확인 우선순위·감수 자료 */}
+            {m.role === "assistant" && m.id != null && !m.pending && !m.error && (
+              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-400">
+                <button
+                  type="button"
+                  aria-label="도움이 됐어요"
+                  onClick={() => void rate(m.id as number, "up")}
+                  className={`rounded-full border px-2 py-0.5 ${
+                    rated[m.id] === "up" ? "border-indigo-400 bg-indigo-50 text-indigo-700" : ""
+                  }`}
+                >
+                  👍
+                </button>
+                <button
+                  type="button"
+                  aria-label="맞지 않아요"
+                  onClick={() => void rate(m.id as number, "down")}
+                  className={`rounded-full border px-2 py-0.5 ${
+                    rated[m.id] === "down" ? "border-indigo-400 bg-indigo-50 text-indigo-700" : ""
+                  }`}
+                >
+                  👎
+                </button>
+                {noteFor === m.id && (
+                  <span className="flex items-center gap-1">
+                    <input
+                      value={noteText}
+                      onChange={(e) => setNoteText(e.target.value.slice(0, 300))}
+                      placeholder="실제로는 어땠나요? (선택)"
+                      className="w-48 rounded border px-2 py-0.5 text-xs text-gray-700"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void sendNote(m.id as number)}
+                      className="rounded border px-2 py-0.5 text-gray-600"
+                    >
+                      보내기
+                    </button>
+                  </span>
+                )}
+              </div>
+            )}
             {m.meta && m.meta.status !== "answered" && (
               <p className="mt-1 text-xs text-amber-600">
                 {m.meta.status === "too_broad" && "범위를 좁히면 바로 풀이해 드려요."}

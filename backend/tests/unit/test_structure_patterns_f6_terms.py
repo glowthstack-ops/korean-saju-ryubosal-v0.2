@@ -63,7 +63,8 @@ def test_aliases_registered_and_lint_clean() -> None:
     assert "양인가살(羊刃駕殺)" in by["YANGIN_HAPSAL"].aliases
     # 2026-09-18 전문가 참고 기준: 별칭 6건 추가(겁재탈재·재자살·신약살왕·편인탈식·식상태과·
     # 인성태과) 중 3건은 별칭이 없던 항목(재생살·설기태과·인왕신왕)에 붙어 19 → 22.
-    assert sum(1 for p in dic.patterns if p.aliases) == 22, "기존 19 + 신규 항목 3"
+    # 2026-10-27 조토불생금(별칭 조토취금) 추가로 22 → 23.
+    assert sum(1 for p in dic.patterns if p.aliases) == 23, "기존 19 + 신규 항목 3 + 조토취금 1"
     assert "겁재탈재(劫財奪財)" in by["GUNGEOP_JAENGJAE"].aliases
     assert "편인탈식(偏印奪食)" in by["PYEONIN_DOSIK"].aliases
     assert _lint_structure_patterns(dic) == []

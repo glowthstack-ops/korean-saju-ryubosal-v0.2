@@ -38,7 +38,13 @@ class RelationType(StrEnum):
     STEM_COMBINATION = "stem_combination"  # 천간합
     BRANCH_CLASH = "branch_clash"  # 충
     SIX_COMBINATION = "six_combination"  # 육합
-    THREE_HARMONY_CONTRIB = "three_harmony_contrib"  # 삼합기여
+    THREE_HARMONY_CONTRIB = "three_harmony_contrib"  # 삼합기여(왕지 없는 생지+묘지 가세)
+    # 2026-10-25(연애운 대조 P0-1): 엔진이 내던 `삼합완성·반합성립·방합완성`이 변환기에 없어 조용히
+    # 버려졌다 — 일지(배우자궁) 반합·완성이 관계 사건 점수에 전혀 안 들어가던 결함. 기여와 같은
+    # 페이로드(완성 오행)이며 국 구성 지지를 원국에서 보강한다.
+    THREE_HARMONY_FULL = "three_harmony_full"  # 삼합완성(운 글자로 세 글자 완성)
+    THREE_HARMONY_HALF = "three_harmony_half"  # 반합성립(왕지 포함 2자)
+    DIRECTIONAL_FULL = "directional_full"  # 방합완성
     DIRECTIONAL_CONTRIB = "directional_contrib"  # 방합기여
     BRANCH_BREAK = "branch_break"  # 파
     HARM = "harm"  # 해
@@ -82,7 +88,10 @@ RELATION_ID_SHAPE: Mapping[RelationType, RelationIdShape] = MappingProxyType({
     RelationType.VOID_TRIGGER_CLASH: RelationIdShape.BRANCH_PAIR,
     RelationType.VOID_RELEASE_COMBINE: RelationIdShape.BRANCH_PAIR,
     RelationType.THREE_HARMONY_CONTRIB: RelationIdShape.ELEMENT,
+    RelationType.THREE_HARMONY_HALF: RelationIdShape.ELEMENT,
+    RelationType.THREE_HARMONY_FULL: RelationIdShape.ELEMENT,
     RelationType.DIRECTIONAL_CONTRIB: RelationIdShape.ELEMENT,
+    RelationType.DIRECTIONAL_FULL: RelationIdShape.ELEMENT,
     RelationType.PUNISHMENT_TRIPLE: RelationIdShape.MULTI_NATAL,
     RelationType.SELF_PUNISHMENT: RelationIdShape.SINGLE,
 })

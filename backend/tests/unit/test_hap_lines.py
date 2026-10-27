@@ -30,7 +30,8 @@ def _res(**kw) -> StemHapResolution:
 
 def test_format_transform() -> None:
     r = _res(hap_mode="transform", transform_tier="confirmed")
-    assert _format(r, {"土": "용신"}) == "甲己合 → 합화 土(용신) · 化 확정"
+    # 2026-10-25: 化神 투간 근거가 꼬리에 붙는다(판정 아님).
+    assert _format(r, {"土": "용신"}) == "甲己合 → 합화 土(용신) · 化 확정 · 투간 없음"
 
 
 def test_format_combine_self() -> None:

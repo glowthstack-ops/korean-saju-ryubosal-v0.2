@@ -181,10 +181,15 @@ def analyze_external_impression(result: ManseV2Result) -> ExternalImpressionProf
 
     # C6) 寅·亥 — 생동감/부드러움 보조 톤(단독 노출 금지). 일지(0.5) 우선, 아니면 년·월지(0.2).
     if day_branch in _YIN_HAI:
+        # 있는 글자만 적는다 — 종전 "寅은 …, 亥는 …" 병기 문장은 寅이 없는 명식에도 寅을 노출해
+        # LLM 이 寅을 명식 사실로 쓸 여지가 있었다(2026-10-26 실답 己亥 일주).
+        _glyph, _tone = (
+            ("寅", "생동감·신선함") if day_branch is Branch.IN else ("亥", "부드러움·깊이감")
+        )
         signals.append(ExternalImpressionSignal(
             code="YIN_HAI_DAY", category="yinhai",
-            legacy_ko="일지 寅·亥",
-            modern_ko="寅은 생동감·신선함, 亥는 부드러움·깊이감 — 전체 인상 톤을 보조",
+            legacy_ko=f"일지 {_glyph}",
+            modern_ko=f"일지 {_glyph} — {_tone}의 인상 톤을 보조",
             weight=0.5, tier="secondary",
         ))
     elif any(

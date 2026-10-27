@@ -119,3 +119,49 @@ def test_cohort_activation_gate_with_db(store, chart) -> None:
     # 8명 동일 사주 → fine 활성, relocation 보유 비율>0.
     assert stats.tier in ("fine", "coarse")
     assert stats.rate_by_event.get("relocation", 0) > 0
+
+
+def test_employment_history_rows_attrs_scoped_delete_and_supersede(store, chart) -> None:
+    """직장 이력 P0(EMPLOYMENT_HISTORY_CALIBRATION.md F3·§2-3): attrs 왕복, 소스 범위 삭제,
+    같은 (key, period) 캘리브레이션 행 치환."""
+    from saju_engines.employment_history import rows_from_history, superseded_keys
+    from saju_shared_types.life_event import EmploymentHistoryEntry, LifeEventSource
+
+    sig_pillars = pillars_signature(chart)
+    subj = "eh-subj"
+    # 캘리브레이션 회상 행(2025-11 job_gain) — 정본 적재 시 치환돼야 한다.
+    calib = _relocation_row(subj, sig_pillars, "2025-11").model_copy(update={
+        "event_row_id": f"{_OWNER}:{subj}:2025-11:job_gain", "event_key": "job_gain",
+    })
+    other = _relocation_row(subj, sig_pillars, "2025-08")  # 다른 키 — 보존
+    store.append_rows([calib, other])
+
+    rows = rows_from_history(
+        [EmploymentHistoryEntry(date="2025-12-01", kind="entry", org="타임소프트",
+                                channel="direct", group="g11"),
+         EmploymentHistoryEntry(date="2026-10-??", kind="exit", org="타임소프트",
+                                exit_reason="involuntary", group="g11")],
+        subj, _OWNER, sig_pillars,
+    )
+    removed = store.delete_superseded_rows(
+        _OWNER, subj, superseded_keys(rows), keep_source="employment_history",
+    )
+    assert removed == 1  # 2025-11 job_gain 회상 행만
+    store.append_rows(rows)
+    sig = store.subject_signature(_OWNER, subj)
+    by_id = {r.event_row_id: r for r in sig}
+    assert f"{_OWNER}:{subj}:2025-11:job_gain" not in by_id
+    assert f"{_OWNER}:{subj}:2025-08:relocation" in by_id
+    eh = by_id[f"{subj}:eh:2025-12-01:job_gain"]
+    assert eh.attrs.label == "타임소프트" and eh.attrs.entry_channel == "direct"
+    assert eh.attrs.event_date == date(2025, 12, 1) and eh.attrs.luck_month_label == "2025-11"
+    assert by_id[f"{subj}:eh:2026-10:resignation"].attrs.exit_reason == "involuntary"
+
+    # 캘리브레이션 소스만 삭제 → 직장 이력 행은 남는다(F3).
+    n = store.delete_subject_rows(
+        _OWNER, subj, source=str(LifeEventSource.REALITY_SIGNAL_CALIBRATION),
+    )
+    assert n == 1
+    left = store.subject_signature(_OWNER, subj)
+    assert {r.source for r in left} == {LifeEventSource.EMPLOYMENT_HISTORY}
+    assert len(left) == 2

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from saju_manse_analysis.structure.gongmang_extended import extended_gongmang
 from saju_manse_core.pillars.gongmang import gongmang_branches
 from saju_manse_core.relations import Relation
 from saju_shared_types.constants import (
@@ -290,6 +291,7 @@ def _gongmang_analysis(
             "일공망 중심. 년공망은 참조. 원국 공망은 배경값이며 "
             "대운·세운·운에서 충/합으로 자극될 때 발동 가능."
         ),
+        extended=extended_gongmang(pillars),
     )
 
 
@@ -332,9 +334,8 @@ def _structure_modifier(
 
     # 궁성 공망 — 단, 그 지지가 일간 뿌리면 공망 약화는 rooting.reliability가 전담하므로
     # 여기서 다시 감산하지 않는다(이중 반영 방지). 비root 지지의 궁성 공망만 반영.
-    if pillars.day.branch in void and "day" not in root_positions:
-        modifier -= 2
-        breakdown.append("day_branch_void:-2")
+    # 일지는 대상이 아니다 — 일주 기준 순중공망에서 일지는 자기 旬 안의 글자라 공망이 될 수
+    # 없다(2026-10-23 공망 체계 재검토: 죽은 분기 제거, 결과 불변).
     if pillars.month.branch in void and "month" not in root_positions:
         modifier -= 2
         breakdown.append("month_branch_void:-2")

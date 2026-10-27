@@ -35,6 +35,7 @@ from saju_engines.event_engine_v2 import EventEngineV2  # noqa: E402
 # 남긴다(판정·점수 불변).
 from saju_engines.event_scoring import favorability_map  # noqa: E402
 from saju_engines.lifetime_scan import lifetime_pillars, merge_yearly_luck  # noqa: E402
+from saju_engines.love_timing import LOVE_EXPERIMENT_KEYS  # noqa: E402
 from saju_manse_core.calendar.sexagenary_cycle import (  # noqa: E402
     day_ganzi,
     ganzi_index,
@@ -421,7 +422,17 @@ def main() -> int:
     ap.add_argument("--role-event-seed", action="store_true")
     ap.add_argument("--role-seed-only", action="append", default=[],
                     help="역할 시드 규칙 id 만 적용(--role-event-seed 와 함께, 반복 가능)")
+    # 2026-10-25 — 탐합망충 shadow/apply 비교 재생용(기본 shadow: 기록만, 점수 불변).
+    ap.add_argument("--tamhap-mode", default="shadow", choices=("off", "shadow", "apply"))
+    # 2026-10-25 — hap_modes 실험 플래그(trine_third_clash / stem_tougan) 비교 재생용(반복 가능).
+    ap.add_argument("--hap-experiment", action="append", default=[],
+                    choices=sorted(_hm.HAP_EXPERIMENTS))
+    # 2026-10-25 — 연애운 실험 플래그(love_timing.LOVE_EXPERIMENT_KEYS) 비교 재생용(반복 가능).
+    ap.add_argument("--love-experiment", action="append", default=[],
+                    choices=list(LOVE_EXPERIMENT_KEYS))
     args = ap.parse_args()
+    for name in args.hap_experiment:
+        _hm.HAP_EXPERIMENTS[name] = True
     _OUT_DIR.mkdir(parents=True, exist_ok=True)
     lines = _CASES.read_text(encoding="utf-8").splitlines()
     cases = [json.loads(line) for line in lines if line.strip()]
@@ -434,6 +445,8 @@ def main() -> int:
         enable_yearly_ten_god_signals=not args.no_yearly_signals,
         enable_role_event_seed=args.role_event_seed,
         role_event_seed_rule_ids=args.role_seed_only or None,
+        tamhap_mangchung_mode=args.tamhap_mode,
+        love_experiments=args.love_experiment,
     )
     rows = []
     # --only 실행은 전수 결과를 덮어쓰지 않도록 별도 파일에 쓴다.
@@ -450,6 +463,12 @@ def main() -> int:
                     f"date={row['date_used']} err={row['error']}",
                     flush=True,
                 )
+    shadow = engine.take_tamhap_shadow()
+    print(
+        f"tamhap_mangchung mode={args.tamhap_mode} periods={len(shadow)} "
+        f"events={sum(len(s['events']) for s in shadow)} "
+        f"hap_experiments={sorted(k for k, v in _hm.HAP_EXPERIMENTS.items() if v)}"
+    )
     print(f"done {len(rows)} subjects → {_OUT_DIR}")
     return 0
 

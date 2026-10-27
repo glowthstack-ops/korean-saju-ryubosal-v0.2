@@ -119,10 +119,40 @@ PEER_GISIN_MOBILITY_ENABLED: bool = (
     os.environ.get("SAJU_PEER_GISIN_MOBILITY_ENABLED", "true").strip().lower()
     in ("1", "true", "yes")
 )
+# 개인 글자 지문의 점수 반영(직장 이력 캘리브레이션 P1, 2026-10-22). 기본 OFF — 글자 차원은
+# 근거 코드·서술에만 쓰고, 점수 가중은 leave-one-out 적중 측정이 기준선을 넘을 때만 켠다
+# (EMPLOYMENT_HISTORY_CALIBRATION.md §3-3). 'true'로만 켠다.
+PERSONAL_GLYPH_SCORE_ENABLED: bool = (
+    os.environ.get("SAJU_PERSONAL_GLYPH_SCORE_ENABLED", "false").strip().lower()
+    in ("1", "true", "yes")
+)
 # 이중 충 표지(2026-10-15, 교재 2장·기타절) — favorability 만, 기본 ON(점수 불변이라 적중 영향
 # 없음).
 DOUBLE_CLASH_FLAG_ENABLED: bool = (
     os.environ.get("SAJU_DOUBLE_CLASH_FLAG_ENABLED", "true").strip().lower() in ("1", "true", "yes")
+)
+# 같은 영역 다른 사건 후보(2026-10-27 데굴님 "일정 점수가 넘는 모든 사건을 표시") — 질문 사건 키가
+# 하나여도 같은 영역(관계=새 인연·관계 변화·결혼 신호·출산 등)의 70점 이상 사건을 별도 블록으로
+# 싣는다. 질문 사건 후보·판정은 그대로. 점수 불변 — 'false'면 블록 미노출.
+DOMAIN_FAMILY_SCOPE_ENABLED: bool = (
+    os.environ.get("SAJU_DOMAIN_FAMILY_SCOPE_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
+)
+# 관계 적중 중복 제거(2026-10-27) — 원국에 같은 글자가 둘 이상이면 만세력 엔진이 관계 문자열을
+# 자리마다 한 번씩 내고(`충:巳-亥` ×2), 해석기는 문자열마다 그 글자의 모든 원국 자리를 붙여 발동이
+# N×N 로 불어났다(천간합·해 등 점수 부풀림). 'true'면 같은 문자열을 한 번만 해석한다(자리는
+# natal_refs 가 이미 전부 담는다). 측정(2026-10-27, 동일 셸): 사례집 85사례 지표 전부 불변, 입퇴사
+# 이력 운영 기준 trigger95 정밀도 6.3%→6.5%(표지 111→107달·적중 7 유지), trigger70 적중 15→14 —
+# 운영 지표가 나빠지지 않아 기본 ON. 'false'로 되돌릴 수 있다.
+RELATION_HIT_DEDUP_ENABLED: bool = (
+    os.environ.get("SAJU_RELATION_HIT_DEDUP_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
+)
+# 같은 기간 다른 영역 강신호(2026-10-27) — 질문 영역 밖 후보 중 '가능성이 높습니다'(70) 이상을
+# 짧은 줄로 함께 싣는다(주 서사 승격 금지). 'false'면 미노출.
+PERIOD_OTHER_SIGNALS_ENABLED: bool = (
+    os.environ.get("SAJU_PERIOD_OTHER_SIGNALS_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
 )
 # 세운 육신별 사건 신호 5계열(외부 교재 6장 대조, 2026-10-15) — 기본 ON(데굴님 원칙: 적용 후 감수).
 YEARLY_TEN_GOD_SIGNALS_ENABLED: bool = (
@@ -135,12 +165,28 @@ YONG_TIER_MODES: tuple[str, ...] = ("off", "a", "b")
 YONG_TIERED_MULTIPLIER_MODE: str = (
     os.environ.get("SAJU_YONG_TIERED_MULTIPLIER_MODE", "off").strip().lower() or "off"
 )
+# 탐합망충(貪合忘沖, 2026-10-25 데굴님 승인 — 합 체계 대조 P0-4): 운 충의 구성 지지가 같은 기간
+# 육합으로 묶여 있으면 이동형 후보(career_change·relocation) 발동을 약화. 사전
+# events/*.json 의 `relationAlso: six_combination` 감점이 소비자 없이 사문이던 것을 되살리되,
+# 통설이 '자동 우선'이 아니라 비교라 **shadow(로그·계량만)** 가 기본이고, `apply` 는 85사례
+# 적중률 비교 후 데굴님 결정으로만 켠다. off=로그도 없음.
+TAMHAP_MANGCHUNG_MODES = ("off", "shadow", "apply")
+TAMHAP_MANGCHUNG_MODE: str = (
+    os.environ.get("SAJU_TAMHAP_MANGCHUNG_MODE", "shadow").strip().lower() or "shadow"
+)
 # 운↔운 충 → 이동형 후보 보조 가산(2026-10-15 승인, 선택 항목). 기본 OFF.
 TRANSIT_CLASH_SUPPORT_ENABLED: bool = _env_flag("SAJU_TRANSIT_CLASH_SUPPORT_ENABLED")
 # 역할별 사건 전환 시드(2026-10-16 데굴님 확정 6규칙 — 상관·편관·편인 용신 운 / 정관·정인·식신 기신
 # 운). 점수 규칙이라 기본 OFF — 85사례 재생 적중률·실사례로 규칙별 ON 을 정한다(문구층은 플래그와
 # 무관하게 항상 노출).
 ROLE_EVENT_SEED_ENABLED: bool = _env_flag("SAJU_ROLE_EVENT_SEED_ENABLED")
+# 공망 점수 규칙 측정용 비활성 플래그(2026-10-23 P4) — 기본 false = 기존 동작 그대로. 사례집 적중률
+# 비교(ON/OFF)에만 쓰고, 운영 OFF 전환은 측정 결과로 데굴님이 결정한다.
+#   GONGMANG_CLASH_DELAY_DISABLED: 이벤트 게이트의 공망 충발 감점(−10)·지연(DELAY)을 끈다.
+#   TRANSIT_VOID_DISCOUNT_DISABLED: 세운·월운·일운 지지가 공망 글자(전실)일 때의 지지 점수
+#   ×0.60 감산을 끈다.
+GONGMANG_CLASH_DELAY_DISABLED: bool = _env_flag("SAJU_GONGMANG_CLASH_DELAY_DISABLED")
+TRANSIT_VOID_DISCOUNT_DISABLED: bool = _env_flag("SAJU_TRANSIT_VOID_DISCOUNT_DISABLED")
 
 # ── 버전 태그(계측·회귀 비교용) ─────────────────────────────────────────────
 FORTUNE_LOGIC_VERSION = "period_hierarchy_v2"
@@ -170,6 +216,11 @@ def validate_flags() -> None:
         raise ConfigurationError(
             "SAJU_YONG_TIERED_MULTIPLIER_MODE 는 off|a|b 중 하나여야 한다: "
             f"{YONG_TIERED_MULTIPLIER_MODE!r}"
+        )
+    if TAMHAP_MANGCHUNG_MODE not in TAMHAP_MANGCHUNG_MODES:
+        raise ConfigurationError(
+            "SAJU_TAMHAP_MANGCHUNG_MODE 는 off|shadow|apply 중 하나여야 한다: "
+            f"{TAMHAP_MANGCHUNG_MODE!r}"
         )
     if PILLAR_POLARITY_V2_ENABLED and not PERIOD_HIERARCHY_ENABLED:
         raise ConfigurationError(
@@ -217,13 +268,18 @@ def active_versions() -> dict[str, str | bool]:
         "health_window_channel_enabled": HEALTH_WINDOW_CHANNEL_ENABLED,
         "peer_yongsin_mobility_enabled": PEER_YONGSIN_MOBILITY_ENABLED,
         "peer_gisin_mobility_enabled": PEER_GISIN_MOBILITY_ENABLED,
+        "personal_glyph_score_enabled": PERSONAL_GLYPH_SCORE_ENABLED,
         "yearly_ten_god_signals_enabled": YEARLY_TEN_GOD_SIGNALS_ENABLED,
+        "tamhap_mangchung_mode": TAMHAP_MANGCHUNG_MODE,
         "double_clash_flag_enabled": DOUBLE_CLASH_FLAG_ENABLED,
         "yong_tiered_multiplier_mode": YONG_TIERED_MULTIPLIER_MODE,
         "transit_clash_support_enabled": TRANSIT_CLASH_SUPPORT_ENABLED,
         "role_event_seed_enabled": ROLE_EVENT_SEED_ENABLED,
         "sewoon_daewoon_context_enabled": SEWOON_DAEWOON_CONTEXT_ENABLED,
         "transit_hidden_stem_enabled": TRANSIT_HIDDEN_STEM_ENABLED,
+        "domain_family_scope_enabled": DOMAIN_FAMILY_SCOPE_ENABLED,
+        "relation_hit_dedup_enabled": RELATION_HIT_DEDUP_ENABLED,
+        "period_other_signals_enabled": PERIOD_OTHER_SIGNALS_ENABLED,
         # LLM 재호출은 설계상 존재하지 않는다(요청당 1회 고정) — 계측 계약으로 못박는다.
         "llm_retry_policy": "none",
     }

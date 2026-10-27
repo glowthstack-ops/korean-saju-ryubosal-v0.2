@@ -16,6 +16,14 @@ _SEED_PATH = (
 )
 
 
+class LocationResolveError(ValueError):
+    """출생지를 좌표·시간대로 확정할 수 없음 — 요청 입력 문제(서버 오류 아님).
+
+    시드 미등록 지명에 좌표가 동반되지 않은 경우. API 계층은 이 예외를 422로 번역한다
+    (2026-10-26 실답: '대구' 단독 입력이 500 '서버 내부 오류'로 떨어짐).
+    """
+
+
 @dataclass
 class ResolvedLocation:
     name: str
@@ -51,7 +59,7 @@ def resolve(
                 source="seed",
             )
 
-    raise ValueError(
+    raise LocationResolveError(
         f"cannot resolve birth place '{place_name}': provide latitude, longitude and "
         f"timezone, or use a known seed location"
     )

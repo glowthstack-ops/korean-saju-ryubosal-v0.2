@@ -57,7 +57,7 @@ from .wealth_capacity import analyze_wealth_capacity
 _DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries"
 _STORAGE_CLASH_PAIRS = (("辰", "戌"), ("丑", "未"))  # 묘고 충 지지쌍(충개고)
 _COMPILED_DEFAULT = Path(__file__).resolve().parents[3] / "compiled"
-STRUCTURE_PATTERNS_VERSION = "1.3.0"  # 1.3.0: 전문가 참고 기준 — 별칭 6건·쟁합 문구(2026-09-18)
+STRUCTURE_PATTERNS_VERSION = "1.4.0"  # 1.4.0: 조토불생금·습토회화 + 상생 기능어(2026-10-27)
 
 
 @lru_cache(maxsize=8)
@@ -133,6 +133,12 @@ _ELEMENT_HARMONY: list[tuple[str, str, str, str, bool]] = [
     ("木", "金", "GEUMMOK_DONGRYANG", "GEUMDA_MOKJEOL", True),
     ("金", "火", "HWAGEUM_JUIN", "HWADA_GEUMSAK", True),
 ]
+# 조토·습토(2026-10-27 데굴님 승인 — 용어 감사 B 등급 '조토/습토 규칙' 확정): 지지 글자로만
+# 판정한다. 戌·未 는 지장간에 丁火를 품은 마른 흙, 辰·丑 은 癸水를 품은 젖은 흙. 천간 戊·己 의
+# 월령 의존 판정은 근거 범위 밖이라 넣지 않는다.
+_DRY_EARTH_BRANCHES = {"戌", "未"}
+_WET_EARTH_BRANCHES = {"辰", "丑"}
+_WET_EARTH_MIN = 2  # 습토회화 — 젖은 흙 지지 2개 이상
 _WINTER_BRANCHES = {"亥", "子", "丑"}
 _SUMMER_BRANCHES = {"巳", "午", "未"}
 _TRANSFORM_GEOK: dict[str, str] = {  # 化神 오행 → 화기격 pattern_id (F6)
@@ -457,8 +463,9 @@ def detect_structure_patterns(
             emit("GISIN_HAPGEO", 0.55, scope, (pair, "기·구신 합에 묶임"))  # 기신합거(F6)
         if r.direction == "away":
             emit("HAPGEO", 0.6, scope, (pair,))
-        elif r.direction == "toward":
-            emit("HAPRAE", 0.6, scope, (pair,))
+        # 합래(HAPRAE)는 내지 않는다(2026-10-25 사문 정리) — 엔진이 direction='toward' 를
+        # 할당한 적이 없어 도달 불가였다. 운 글자가 원국 글자를 데려오는 뜻은 bind·away 의
+        # notes("운 글자 합래")로 서술만 남긴다. 사전 항목은 보존(detector_source 에 미도달 표기).
         if r.hap_mode == "bind":
             emit("HAPBAN", 0.55, scope, (pair,))
             # 탐합망극(F6): 묶인 천간이 원국의 다른 천간(합 밖)을 극하는 오행이면 그 극이 약해진다.
@@ -539,11 +546,32 @@ def detect_structure_patterns(
             and "MOKDA_HWASIK" not in seen  # F6: 목다화식이면 '통명' 아님
         ):
             emit("MOKHWA_TONGMYEONG", 0.55, "natal", ("木일간·火 통명",))
+        # 조토불생금·습토회화(2026-10-27) — 토생금·화생토가 글자 존재만으로 성립하지 않는 예외.
+        _natal_brs = [
+            p.branch for pos in ("year", "month", "day", "hour")
+            if (p := getattr(pillars, pos)) is not None
+        ]
+        _dry = [b for b in _natal_brs if b in _DRY_EARTH_BRANCHES]
+        _wet = [b for b in _natal_brs if b in _WET_EARTH_BRANCHES]
+        _water_v = vis.get("水", 0.0)
+        if (
+            _dry and not _wet and vis.get("金", 0.0) > 0
+            and ("水" in defi or _water_v < _WEAK_VIS)
+        ):
+            emit("JOTO_BULSAENGGEUM", 0.5, "natal",
+                 (f"조토 {'·'.join(_dry)}·습토 없음·水 약({_water_v:.0f}%)",))
+        _fire_v = vis.get("火", 0.0)
+        if len(_wet) >= _WET_EARTH_MIN and _fire_v > 0 and ("火" in defi or _fire_v < _WEAK_VIS):
+            emit("SEUPTO_HOEHWA", 0.5, "natal",
+                 (f"습토 {'·'.join(_wet)}·火 약({_fire_v:.0f}%)",))
         # 두 오행 배합(F6): 일간 오행 × 상대 오행. 대응 과다 물상 미성립이 전제.
         for base_el, other_el, pid, excl_pid, excl_other_exc in _ELEMENT_HARMONY:
             if dm_el != base_el or vis.get(other_el, 0.0) <= 0 or other_el in defi:
                 continue
             if excl_pid in seen or band in _WEAK_BANDS:
+                continue
+            # 마른 흙이 금을 기르지 못하면 토금육수(土生金 배합)는 성립하지 않는다(2026-10-27).
+            if pid == "TOGEUM_YUKSU" and "JOTO_BULSAENGGEUM" in seen:
                 continue
             if excl_other_exc and other_el in exc:
                 continue

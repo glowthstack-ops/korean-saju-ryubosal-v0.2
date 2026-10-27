@@ -44,7 +44,8 @@ _TARGET_KEYS = (EventKeyV2.MARRIAGE_SIGNAL, EventKeyV2.RELATIONSHIP_CHANGE)
 # 구동 십성을 base 조합 reason_code(SINGLE_/SPEC_/TRI_)로 식별한다(브랜칭 직후 적용 — amplifier
 # 전). 남성 정관 단독 = 직위·자식(배우자 아님), 여성 재성 단독 = 시댁·물질(직접 배우자 아님)이라
 # 약화한다. 잠정값(reviewed:false) — 캘리브레이션 전 미보장.
-_OFFICER_DRIVE_TOKENS = ("ZHENGGUAN", "PIANGUAN", "AUTHORITY")
+# 2026-10-25: 편관 사전 키는 "QISHA"(종전 "PIANGUAN"은 어떤 코드와도 매칭되지 않던 잠재 결함).
+_OFFICER_DRIVE_TOKENS = ("ZHENGGUAN", "QISHA", "AUTHORITY")
 _WEALTH_DRIVE_TOKENS = ("ZHENGCAI", "PIANCAI", "WEALTH")
 _GENDER_TARGET_KEYS = (EventKeyV2.MARRIAGE_SIGNAL, EventKeyV2.NEW_RELATIONSHIP)
 _MALE_OFFICER_ONLY_MULT = 0.6   # 남성 정관 단독 — 배우자성 아님

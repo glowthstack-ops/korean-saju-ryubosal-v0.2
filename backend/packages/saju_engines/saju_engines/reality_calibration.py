@@ -146,8 +146,13 @@ def build_reality_calibration(
     subject_id: str | None = None,
     n_years: int = _DEFAULT_N_YEARS,
     max_events_per_year: int = _MAX_EVENTS_PER_YEAR,
+    years: list[int] | None = None,
 ) -> RealityCalibrationQuestionSet:
-    """성년~현재에서 주요 ~n_years개 연도를 골라 연도별 발생 이벤트 선택 질문을 만든다."""
+    """성년~현재에서 주요 ~n_years개 연도를 골라 연도별 발생 이벤트 선택 질문을 만든다.
+
+    `years` 를 주면 salience 선정을 건너뛰고 그 연도들(성년 이후·현재 이하만)을 전부 묻는다 —
+    연 1회 갱신 설문(마지막 제출 이후 해만, 2026-10-24).
+    """
     by = _birth_year(chart)
     if by is None:
         return RealityCalibrationQuestionSet(subject_id=subject_id)
@@ -169,7 +174,10 @@ def build_reality_calibration(
         top = max((_CONF_RANK.get(c.confidence_level, 0) for c in cands), default=0)
         return top + (1.5 if year in jiao else 0.0)
 
-    ranked = _pick_years_spread(candidate_years, salience, by, n_years)
+    if years is not None:
+        ranked = [y for y in years if y in candidate_years]
+    else:
+        ranked = _pick_years_spread(candidate_years, salience, by, n_years)
     ganji_by_year = _sewoon_ganji(chart)
 
     years_out: list[RealityCalibrationYear] = []

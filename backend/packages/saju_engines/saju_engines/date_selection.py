@@ -109,6 +109,7 @@ class DateSelectionEngine:
         favorability: dict[str, str] | None = None,
         stated_direction: str | None = None,
         relocation_kind: str = "home",
+        domain_override: str | None = None,
     ) -> DateSelectionResult:
         """기간 [start, end](ISO 일자) 안에서 목적별 실행일을 랭킹한다.
 
@@ -120,11 +121,13 @@ class DateSelectionEngine:
             reality_constraints: 현실 제약("주말만 가능" 등) — T7.4.
             include_hour_fit: True면 상위 후보에 12시진 적합도 동반(T7.7).
             top_n: 반환 후보 수.
+            domain_override: 연·월 신호 가중의 도메인을 프로필 domainOverride 대신 지정
+                (목적 별칭 — 취업 서류 제출이 계약·문서 프로필을 빌릴 때 career, 2026-10-19).
         """
         profile = self._profiles.get(str(purpose)) or self._profiles["relocation"]
         weights = profile["weights"]
         options = profile["options"]
-        domain = profile.get("domainOverride", "relocation")
+        domain = domain_override or profile.get("domainOverride", "relocation")
         # R3·R4 — 계약일/이삿날이면 십성 점수표를 일운 실행 점수에 블렌드.
         # 이사 목적 + 사무실 이전(office)이면 월주 중심 officeMove 규격을 적용한다.
         table_key = _TEN_GOD_TABLE_BY_PURPOSE.get(str(purpose))

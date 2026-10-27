@@ -8,6 +8,10 @@
 
 from __future__ import annotations
 
+import json
+from functools import lru_cache
+from pathlib import Path
+
 from saju_shared_types.daewoon_progression import DaewoonProgressionProfile
 from saju_shared_types.dohwa import DohwaProfile
 from saju_shared_types.external_impression import ExternalImpressionProfile
@@ -29,6 +33,7 @@ from .health_vulnerability import (
     percentile_level,
     severe_event_code,
 )
+from .love_type import LoveTypeResult, absent_group_note, love_type_lines
 from .marriage_age_prior import analyze_marriage_age_prior
 from .marriage_timing_profile import active_marriage_aux
 from .relationship_relation_labels import relation_summary_ko
@@ -423,18 +428,48 @@ def activity_keyword_lines(
     ]
 
 
+@lru_cache(maxsize=4)
+def load_remedy_action_map(dictionaries_dir: Path) -> dict:
+    """remedy_action_map.json 로드(프로세스 캐시) — reviewed:false 초안, 서술 재료 전용."""
+    path = dictionaries_dir / "interpretations" / "remedy_action_map.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def excess_remedy_lines(excess_elements: list[str], action_map: dict) -> list[str]:
+    """과다 오행의 개운 방향 줄(2026-10-27) — element_excess_actions(오행다자 개운법).
+
+    Args:
+        excess_elements: 과다 오행 한자 목록(`five_elements.excessive_elements` — 엔진 판정).
+        action_map: remedy_action_map.json 파싱 결과.
+
+    Returns:
+        '{오행} 과다 개운(경향): 행동' 줄 목록. 사전에 없으면 빈 목록.
+    """
+    actions = action_map.get("element_excess_actions", {})
+    out: list[str] = []
+    for hanja in excess_elements:
+        entry = actions.get(_ELEMENT_EN.get(hanja, ""))
+        if entry:
+            out.append(
+                f"{hanja} 과다 개운({entry['tendency']}): {', '.join(entry['recommended_actions'])}"
+            )
+    return out
+
+
 def remedy_action_lines(
-    favorable_elements: list[str], action_map: dict,
+    favorable_elements: list[str], action_map: dict, excess_elements: list[str] | None = None,
 ) -> list[str]:
     """[개운 행동] 블록 — 보완할 오행(용신·희신)의 생활 행동 제안을 직렬화한다.
 
-    remedy_action_map.json(reviewed:false 초안)의 element_actions만 사용한다.
+    remedy_action_map.json(reviewed:false 초안)의 element_actions와, 과다 오행이 주어지면
+    element_excess_actions(2026-10-27)를 사용한다.
     개운 행동은 주술적 처방·결과 보장이 아니라 생활 리듬·선택 습관 보완 조언이며,
     행동·환경·루틴을 색상·물건보다 우선한다(사전 principles — 원칙 3).
 
     Args:
         favorable_elements: 보완할 오행 한자 목록(용신·희신 — 엔진 확정값).
         action_map: remedy_action_map.json 파싱 결과.
+        excess_elements: 과다 오행 한자 목록(엔진 판정). None/빈 목록이면 과다 줄 없음.
 
     Returns:
         직렬화 라인 목록. 매칭 항목이 없으면 빈 목록(블록 미부착).
@@ -451,6 +486,7 @@ def remedy_action_lines(
         if avoid:
             line += f" / 피할 것: {avoid}"
         lines.append(line)
+    lines += excess_remedy_lines(list(excess_elements or []), action_map)
     if not lines:
         return []
     principles = action_map.get("principles", {})
@@ -624,6 +660,19 @@ def marriage_resource_lines(mr: MarriageResourceProfile) -> list[str]:
             bond.append("배우자 별 세력이 강해 이성·인연 신호가 두드러지는 결")
     if mr.spouse_star_absent:
         bond.append("배우자 별 미투출 — 인연을 스스로 만들어가는 능동형 구조(부재 단정 아님)")
+        # P2-5(2026-10-25 강의 S4) — 무재·무관 어휘: 소유욕·구속 선호 낮음(가치 중립) + 운 프레임.
+        absent_note = absent_group_note(mr.spouse_star)
+        bond.append(
+            (absent_note + " · " if absent_note else "")
+            + f"배우자성({mr.spouse_star})이 운(대운·세운)으로 들어오는 시기에 결혼 경향, "
+            "빠지는 시기에 관계 변동 경향(이혼 단정 금지)"
+        )
+    if mr.wealth_absent and mr.spouse_star != "재성":
+        # 재성=관계 유지 욕구(남녀 공통) — 여성 무재는 배우자성과 별개 축으로 적는다.
+        bond.append(
+            "재성 미투출 — 관계를 '내 것'으로 붙잡아 유지하려는 욕구가 약한 결"
+            "(남녀 공통·가치 중립, 비혼·자녀 중심 선택도 중립)"
+        )
     if mr.charm_present:
         # 도화(진도화)·홍염을 각자 성립한 것만 이름으로 든다(글자 보유 사정지는 제외 — 2026-10-13).
         charm = "·".join(
@@ -637,6 +686,28 @@ def marriage_resource_lines(mr: MarriageResourceProfile) -> list[str]:
     if bond:
         lines.append(
             "배우자 인연 결(가능성·경향으로만, 단정·낙인 금지): " + " / ".join(bond)
+        )
+    # P2-3(2026-10-25 강의 S2) 배우자성 자리 — 천간=바라는 결·지지=실제 만남 환경(배우자성 한정).
+    if mr.spouse_star_stem_positions or mr.spouse_star_branch_positions:
+        stem_part = (
+            "천간 " + "·".join(mr.spouse_star_stem_positions) + " = 바라는 결(지향)"
+            if mr.spouse_star_stem_positions else "천간에 없음(지향보다 환경 쪽)"
+        )
+        branch_part = (
+            "지지 " + "·".join(mr.spouse_star_branch_positions) + " = 실제 만남 환경"
+            if mr.spouse_star_branch_positions else "지지에 없음(환경보다 지향 쪽)"
+        )
+        lines.append(
+            f"배우자성 자리(배우자성 한정 — 고정 등식 아님, 자리 표기 그대로 인용): {stem_part} · "
+            f"{branch_part}"
+        )
+    for g in mr.spouse_star_ganyeojidong:
+        lines.append(f"  · {g}")
+    # P2-2 배우자성 정/편 축 — 일지 이상형(A)과 별개 축임을 라벨로 명시.
+    if mr.spouse_star_axis:
+        lines.append(
+            "배우자성 정/편 축(배우자성 자체의 결 — 아래 일지 이상형과 별개 축): "
+            + mr.spouse_star_axis
         )
     # A) 배우자 취향(이상형) — 일지 십성 기준 끌리는 타입(경향) + 잘 안 맞기 쉬운 결.
     if mr.ideal_type_tendency:
@@ -656,6 +727,28 @@ def marriage_resource_lines(mr: MarriageResourceProfile) -> list[str]:
         lines.append(
             "생애 단계 연애 대상(연·월·시지, 경향·시기 단정 아님): "
             + " / ".join(mr.life_stage_ideals)
+        )
+    # P2-4 연상/동갑/연하 경향(강의 S3 — 경향·단정 아님).
+    if mr.partner_age_tendencies:
+        lines.append(
+            "상대 나이대 경향(단정 아님 — 통설·여성 명식에 더 유효): "
+            + " / ".join(mr.partner_age_tendencies)
+        )
+    # P2-7 만혼·비혼 중립 프레임·비겁 과다.
+    if mr.late_marriage_notes:
+        lines.append(
+            "결혼 시기·형태 프레임(늦은 결혼·비혼 모두 중립, 이혼 단정 금지): "
+            + " / ".join(mr.late_marriage_notes)
+        )
+    else:
+        # 미성립도 명시한다(2026-10-26 실답: 신호가 없으면 줄이 빠져 LLM이 '늦게 하는 게 좋은
+        # 사주?' 질문 프레임에 동조 — "중반부로 갈수록 인연 뚜렷" 무근거 서술). 프롬프트 블록
+        # 미성립 명시 원칙(2026-10-08)과 같은 결.
+        lines.append(
+            "결혼 시기·형태 프레임(늦은 결혼·비혼 모두 중립, 이혼 단정 금지): 늦춤 쪽 구조 신호"
+            "(배우자성 미투출·재성 미투출·비겁 과다) 없음 — 결혼을 늦춰야 할 구조 근거는 없다. "
+            "'늦게 하는 게 좋다/서두를 필요 없다'를 명식 근거로 단정하지 말고, 이르고 늦음은 "
+            "운(대운·세운)의 결혼 신호 시기로만 말할 것"
         )
     # 관계 친화·돌봄 성향 — 십성 구조×신강약(관계에 어떻게 임하는가, 경향·비단정).
     if mr.relationship_affinity:
@@ -699,6 +792,11 @@ def marriage_resource_lines(mr: MarriageResourceProfile) -> list[str]:
         f"자산 출처 경향(가능성): {leans}. 돈의 '출처'(부모/배우자 집안/자수성가)를 구분해 "
         "서술하되 단정하지 말 것."
     )
+    # P2-6 연애 유형(십성군 분류, 사전 love_types.json) — 서술 전용.
+    lines += love_type_lines(LoveTypeResult(
+        primary=mr.love_type, secondary=mr.love_type_secondary, basis=mr.love_type_basis,
+        later_shift=mr.love_type_later_shift,
+    ))
     return lines
 
 
@@ -853,9 +951,11 @@ def era_energy_lines(result: ManseV2Result, year: int) -> list[str]:
     if not ganji:
         return []
     era = era_energy_profile(ganji[0], ganji[1])
+    # 헤더에 연도를 박는다(2026-10-25) — '올해'로 고정하면 내년·특정 연 질문에서 그 해 기운을
+    # 올해 것으로 읽는다(기간 총운 헤더의 상대 표현 제거와 같은 이유).
     lines = [
-        "[올해 시대 기운 — 그 해 간지의 명리 기운(개인 앞 사회 맥락). 경제·시장·채용 같은 시사 "
-        "예측·단정은 절대 금지, 기운의 결로만 서술]",
+        f"[{year}년 {ganji}年 시대 기운 — 그 해 간지의 명리 기운(개인 앞 사회 맥락). "
+        "경제·시장·채용 같은 시사 예측·단정은 절대 금지, 기운의 결로만 서술]",
         era.summary,
     ]
     note = era_curated_note(year, era.year_ganji)
@@ -950,6 +1050,37 @@ def daewoon_progression_lines(profiles: list[DaewoonProgressionProfile]) -> list
     return out
 
 
+# 미혼 배우자상(F-17 — docs/10 3-3, 2026-08-13 사용자 확정: 재미요소로 외모 추측 허용). 리포트와
+# 채팅(상대 외모 지시 대상 턴, 2026-10-26)이 같은 문장을 쓴다. 실존 상대(궁합 RP-03)의 외모 추측
+# 금지는 별개 정책.
+SPOUSE_IMAGE_DIRECTIVE = (
+    "[미혼 배우자상 — 재미요소] 원국 배우자궁(일지)·배우자성 글자의 물상을 근거로, 인연이 "
+    "닿기 쉬운 배우자상의 외모 인상·체형 결·스타일·분위기와 성격·성향을 적극적으로 그려줄 것 "
+    "— '~한 결/인상일 가능성'으로 쓰되 구체 수치(키 몇 cm 등)·확정 단정만 금지. 서두나 "
+    "말미에 '겉모습은 재미로 보는 참고' 단서를 1회 넣을 것."
+)
+SPOUSE_MARRIED_DIRECTIVE = (
+    "[배우자 서술 — 기혼] 프로필상 기혼이므로 새 배우자상 묘사 대신 배우자와의 관계 흐름·"
+    "서로 돌볼 포인트 중심으로 서술할 것."
+)
+# 채팅 후속 턴 '외모는 어떨까?'가 직전 턴의 상대(만날 사람·배우자)를 가리킬 때 — 본인 인상 블록을
+# 빼고 지시 대상을 고정한다(2026-10-26 실답: 같은 입력에서 상대 외모 창작 / 본인 외모 답 두 오답).
+PARTNER_APPEARANCE_REFERENT_DIRECTIVE = (
+    "[지시 대상 — 상대(필수)] 이 외모·인상 질문은 본인이 아니라 직전 대화의 '만날 사람·배우자상'에 "
+    "대한 것이다. 첫 문장을 '만나게 될 상대는 …' 또는 '인연이 닿기 쉬운 배우자상은 …'으로 "
+    "시작하고, "
+    "답 전체에서 본인의 외모·인상·매력·스타일('당신의 매력', '○○ 일주의 특성상 겉으로는 …', "
+    "'본인의 인상')을 한 문장도 서술하지 말 것. 일주 소개 문장·[외적 인상] 류 본인 매력 서술·"
+    "[방위 활용](본인 매력 돋보이는 방향) 안내도 이 턴에는 쓰지 않는다. 근거는 [미혼 배우자상] "
+    "지시 + 배우자궁(일지)·배우자성 글자의 물상 + '배우자 취향(이상형)' 줄만 쓰고, 본인 명식의 "
+    "일주 물상은 '어떤 상대에게 끌리는가'의 근거로만 1회 인용한다."
+)
+
+_PILLAR_POSITION_KO: dict[str, str] = {
+    "year": "연주", "month": "월주", "day": "일주", "hour": "시주",
+}
+
+
 def marriage_age_prior_lines(result: ManseV2Result) -> list[str]:
     """[혼기 경향 — static prior] MT6 배우자성 위치 기반 광역 혼기 경향(특정 시기 아님).
 
@@ -968,8 +1099,11 @@ def marriage_age_prior_lines(result: ManseV2Result) -> list[str]:
     if prior.band == "unknown" or not prior.positions:
         return []
     band_ko = _MARRIAGE_AGE_BAND_KO.get(prior.band, prior.band)
+    # 축 라벨은 한글 기둥명으로(2026-10-26 실답: year·month·hour 영문 노출 — LLM 입력 계약의
+    # 한글 라벨 규칙과 어긋남).
+    positions_ko = "·".join(_PILLAR_POSITION_KO.get(pos, pos) for pos in prior.positions)
     note = (
-        f"[혼기 경향(static prior·특정 시기 아님)] 배우자성이 {'·'.join(prior.positions)}에 "
+        f"[혼기 경향(static prior·특정 시기 아님)] 배우자성이 {positions_ko}에 "
         f"드러나 {band_ko}. 실제 결혼 시점은 운(대운·세운)이 결정하며, 넓은 경향으로만 참고."
     )
     lines = [note]

@@ -655,23 +655,35 @@ def dedupe_canonical_claims(answer: str, semantics: list[RelationSemantics]) -> 
     return out
 
 
-def canonical_claim_lines(semantics: list[RelationSemantics]) -> list[str]:
+def canonical_claim_lines(
+    semantics: list[RelationSemantics], *, stack_ganji: dict[str, str] | None = None,
+) -> list[str]:
     """생성 **전** LLM 입력용 — 관계별 확정 문장과 금지 주장.
 
     관계 사실을 자유 작문 영역에서 빼는 것이 최초 오류율을 낮추는 가장 큰 지렛대다.
+    2026-10-25: 참여 글자의 층위 라벨 `[원국 월간 丁 + 대운 壬]` 을 문장 앞에 붙인다 — 실답에서
+    "두 글자가 손을 잡고"만 보고 LLM 이 원국 월간 丁을 '세운의 丁'으로 썼다. stack_ganji 가 없으면
+    운 글자는 '운 壬'으로만 표기한다.
     """
+    from .layer_labels import participants_label  # 지역 import — 순환 의존 회피
+
     if not semantics:
         return []
     lines = [
         "[관계 확정 문장 — 아래 문장의 의미를 바꾸지 말 것. 그대로 쓰거나 생략만 "
         "허용하며, 다른 뜻으로 바꿔 쓰면 안 된다(엔진 확정값). 각 문장은 답 전체에서 "
         "한 번만 인용하고, 같은 관계를 다른 영역에서 다시 다룰 때는 원문 반복 없이 "
-        "결과어로만 받는다]"
+        "결과어로만 받는다. 대괄호의 참여 글자 층위(원국 월간/대운/세운…)를 그대로 쓰고 "
+        "다른 층위로 바꿔 부르지 말 것 — 예: 원국 월간 丁을 '세운의 丁'이라 쓰지 말 것]"
     ]
     for sem in semantics:
         if not sem.canonical_claim:
             continue
-        line = f"- {sem.canonical_claim}"
+        who = participants_label(sem.occurrences, stack_ganji)
+        line = (
+            f"- {sem.relation_label} [{who}]: {sem.canonical_claim}" if who
+            else f"- {sem.canonical_claim}"
+        )
         if sem.forbidden_interpretations:
             line += " (금지: " + " / ".join(sem.forbidden_interpretations) + ")"
         lines.append(line)

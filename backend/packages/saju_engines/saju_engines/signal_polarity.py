@@ -49,6 +49,7 @@ class ScoreExclusionReason(StrEnum):
     ENGINE_CONFLICT = "ENGINE_CONFLICT"  # 성립 자체가 미확정
     MIXED_UNALLOCATED = "MIXED_UNALLOCATED"  # 혼재 — 대상별 배분 근거 없음
     UNKNOWN_ROLE = "UNKNOWN_ROLE"  # 역할 미상
+    WEAK_PARTIAL = "WEAK_PARTIAL"  # 공합(가합) — 왕지 없는 부분 가세(미약), 서술만(2026-10-25)
     DERIVATION_UNAVAILABLE = "DERIVATION_UNAVAILABLE"  # 원본 부족 — 유일한 coverage 실패
 
     @property
@@ -136,6 +137,13 @@ def classify_relation_polarity(inter: HierarchyInteraction) -> RelationPolarityR
             polarity_state=PolarityState.UNRESOLVED,
             volatility_eligible=True,
             exclusion_reason=ScoreExclusionReason.STRUCTURAL_ONLY,
+        )
+    if inter.semantic_kind == "gonghap":
+        # 공합(가합) — 성립·의미는 확정이나 작용이 미약해 점수·변동성 제외, 서술만.
+        return RelationPolarityResult(
+            narrative_axis="neutral_activation",
+            polarity_state=PolarityState.NEUTRAL,
+            exclusion_reason=ScoreExclusionReason.WEAK_PARTIAL,
         )
     if inter.binding_state in (BindingState.BOUND, BindingState.REMOVED):
         return _binding_polarity(inter)

@@ -10,6 +10,8 @@ reviewed:false 사전 초안 기반이므로 점수 절대값보다 상대 순�
 
 from __future__ import annotations
 
+import json
+import logging
 import math
 import threading as _threading
 from collections.abc import Collection, Mapping
@@ -17,6 +19,7 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from types import MappingProxyType
+from typing import Any
 
 from saju_manse_analysis.relations.hap_mitigation import resolve_hap_mitigation
 from saju_manse_analysis.relations.hap_modes import resolve_stem_hap
@@ -26,9 +29,11 @@ from saju_manse_analysis.yongsin.operational_role_config import is_unfavorable_r
 
 from saju_shared_types.constants import (
     BRANCH_ELEMENT,
+    SIX_COMBINATIONS,
     STEM_CLASHES,
     STEM_ELEMENT,
     main_hidden_stem,
+    season_state,
     ten_god,
 )
 from saju_shared_types.enums import Branch, Stem
@@ -92,10 +97,17 @@ from .event_scoring import daewoon_transition_boost, favorability_map
 from .exam_outcome_modifier import ExamOutcomeModifier
 from .favorable_role_tiering import load_favorable_tiering
 from .ganji_calendar import relation_hits
+from .glyph_context import GlyphContext
 from .layer_evidence_scope import normalize_layers
 from .layer_flow_modifier import LayerFlowModifier
 from .life_fit_ranker import LifeFitRanker
 from .llm_event_serializer import reason_codes_ko
+from .love_timing import (
+    apply_partner_element_daewoon,
+    hap_overload_damping,
+    produce_female_qisha_seeds,
+    resolve_love_experiments,
+)
 from .marriage_awareness_seed import produce_mt1_awareness_seeds
 from .marriage_directional_tag import apply_mt3_directional_tags
 from .marriage_emergence_modifier import (
@@ -157,7 +169,10 @@ _REL_KIND = {
     RelationType.STEM_COMBINATION: "HAP",
     RelationType.SIX_COMBINATION: "HAP",
     RelationType.THREE_HARMONY_CONTRIB: "HAP",
+    RelationType.THREE_HARMONY_HALF: "HAP",
+    RelationType.THREE_HARMONY_FULL: "HAP",
     RelationType.DIRECTIONAL_CONTRIB: "HAP",
+    RelationType.DIRECTIONAL_FULL: "HAP",
     RelationType.BRANCH_CLASH: "CHUNG",
     RelationType.BRANCH_BREAK: "PA",
     RelationType.HARM: "HAE",
@@ -251,6 +266,8 @@ class EventEngineV2:
         enable_transit_clash_support: bool = False,
         enable_role_event_seed: bool = False,
         role_event_seed_rule_ids: Collection[str] | None = None,
+        tamhap_mangchung_mode: str = "shadow",
+        love_experiments: Collection[str] | None = None,
     ) -> None:
         """재설계 6계층 + 만세 신호 추출에 필요한 사전을 로드한다.
 
@@ -281,6 +298,12 @@ class EventEngineV2:
             enable_peer_gisin_mobility: 비겁 기신 × 비겁 운 유입 → career_change 시드(용신 시드의
                 대칭, 2026-10-15 데굴님 확정, 기본 ON). 사전 `peer_gisin_mobility_rules` 절.
                 OFF면 불변.
+            love_experiments: 연애운 실험 플래그 이름 모음(2026-10-25 — `love_timing`
+                키: new_relationship_palace / female_qisha_partner / hap_overload_damping /
+                partner_element_daewoon). None 이면 환경 기본값.
+            tamhap_mangchung_mode: 탐합망충(2026-10-25 P0-4) 'off'|'shadow'|'apply'. shadow 는
+                적용 후보를 로그·`take_tamhap_shadow()` 로만 남기고 점수 불변, apply 는 사전
+                `relationAlso: six_combination` 감점을 이동형 후보 점수에 곱한다(측정 전용).
             enable_yearly_ten_god_signals: 세운 육신별 사건 신호 5계열(외부 교재 6장 대조,
                 2026-10-15, 기본 ON — 85사례 재생으로 적중 확인 후 유지). 사전
                 `yearly_ten_god_signal_rules`. OFF면 불변.
@@ -318,6 +341,12 @@ class EventEngineV2:
             frozenset(role_event_seed_rule_ids) if role_event_seed_rule_ids is not None else None
         )
         # 세운 육신별 사건 신호(2026-10-15, 교재 6장 대조) — 사전 절 부재·OFF면 불변.
+        self._tamhap_mode = tamhap_mangchung_mode
+        self._love = resolve_love_experiments(love_experiments)
+        self._tamhap_rules = (
+            load_tamhap_rules(dictionaries_dir) if tamhap_mangchung_mode != "off" else {}
+        )
+        self._tamhap_shadow: list[dict[str, Any]] = []
         self._yearly_rules = (
             load_yearly_signal_rules(dictionaries_dir) if enable_yearly_ten_god_signals else ()
         )
@@ -348,12 +377,10 @@ class EventEngineV2:
         # shadow 컨텍스트(감수 19차 — QA·시나리오 밀도 전용): set_risk_shadow_contexts로
         # 주입하면 shadow 후보 생성에 현실 컨텍스트(선발·관계·이동)가 반영된다.
         # LLM 입력·긍정 파이프라인과 무관하며 off 모드에선 사용되지 않는다.
-        self._risk_shadow_selection: SelectionContext | None = None
-        self._risk_shadow_relationships: list[RelationshipContext] | None = None
-        self._risk_shadow_mobility: list[MobilityContext] | None = None
-        self._risk_shadow_health: list[HealthContext] | None = None
-        self._risk_shadow_legal: list[LegalProcessContext] | None = None
-        self._risk_shadow_selections: list[SelectionContext] | None = None
+        # 보안 점검 S5(2026-10-24): 싱글턴 인스턴스 속성이던 컨텍스트를 thread-local 로 —
+        # 동기 엔드포인트가 스레드풀에서 병렬 실행되면 다른 요청의 관계·이동 컨텍스트로
+        # 채점되던 경합의 교정. set→score→clear 는 같은 워커 스레드에서 직선으로 일어난다.
+        self._risk_ctx_tls = _threading.local()
         self._dictionaries_dir = dictionaries_dir  # 보조 증폭 사전(P2) 지연 로드 경로
         try:
             self._risk: RiskEngine | None = RiskEngine(dictionaries_dir)
@@ -470,6 +497,87 @@ class EventEngineV2:
         위해 동작 계약을 바꾸는 일이 되기 때문이다.
         """
         return tuple(getattr(self._risk_tls, "last", ()) or ())
+
+    def take_tamhap_shadow(self) -> list[dict[str, Any]]:
+        """탐합망충 shadow 기록을 비우며 반환(측정 스크립트용)."""
+        out, self._tamhap_shadow = self._tamhap_shadow, []
+        return out
+
+    def _apply_tamhap_mangchung(
+        self,
+        cands: list[EventCandidateV2],
+        target: LuckPillar,
+        result: ManseV2Result,
+        fav_map: dict[str, str],
+        hits: list[RelationHit],
+        stack: list[tuple[LuckLayer, LuckPillar]],
+        label: str,
+    ) -> list[EventCandidateV2]:
+        """탐합망충(貪合忘沖) — 운 충의 구성 지지가 같은 기간 육합으로 묶이면 이동 발동 약화.
+
+        통설(2026-10-25 조사): 합이 충을 자동 해소하는 것이 아니라 월령·뿌리·거리·완성도를 비교한다.
+        그래서 육합 판정(`resolve_branch_hap`)이 tier none 이 아닌(confirmed/conditional) 경우에만
+        '묶임'으로 본다. 대상은 사전 `relationAlso: six_combination` 규칙의 사건(career_change·
+        relocation)이며 감점은 사전 값(-0.2/-0.25)을 점수에 곱한다. shadow 모드는 기록만.
+        """
+        if result.pillars is None or not target.branch:
+            return cands
+        clash_hits = [h for h in hits if h.type is RelationType.BRANCH_CLASH]
+        if not clash_hits:
+            return cands
+        # 충 구성 지지(운 지지·맞은 원국 지지)가 원국·운 스택의 다른 지지와 육합 짝인가.
+        # 합 자체의 월령 조건(化神 왕·상·휴 — 사·수(囚)면 합이 충을 붙잡을 힘이 없다)만 본다:
+        # `resolve_branch_hap` 의 등급은 '구성 지지가 충을 받음'을 방해로 쳐서(P0-5) 여기서는
+        # 항상 none 이 되므로 쓰지 않는다 — 탐합망충은 바로 그 충·합 경쟁을 묻는 판정이다.
+        pil = result.pillars
+        natal_branches = [
+            x.branch for x in (pil.year, pil.month, pil.day, pil.hour) if x is not None
+        ]
+        pool = list(dict.fromkeys(
+            [*natal_branches, *(p.branch for _, p in stack if p.branch)]
+        ))
+        month_branch = Branch(pil.month.branch)
+        bound: list[str] = []
+        for h in clash_hits:
+            struck = [ref.branch for ref in h.natal_refs if ref.side == "natal" and ref.branch]
+            for member in dict.fromkeys([target.branch, *struck]):
+                for other in pool:
+                    if other == member:
+                        continue
+                    elem = SIX_COMBINATIONS.get(frozenset({Branch(member), Branch(other)}))
+                    if elem is None:
+                        continue
+                    season = season_state(elem, month_branch)
+                    if season in ("qiu", "si"):
+                        continue  # 합이 월령을 잃어 충을 붙잡지 못함
+                    bound.append(f"{member}{other}合({elem.value}·{season})")
+        if not bound:
+            return cands
+        bound = list(dict.fromkeys(bound))
+        affected = [c for c in cands if str(c.event_key) in self._tamhap_rules]
+        self._tamhap_shadow.append({
+            "period": label, "luck_branch": target.branch, "bound_by": bound,
+            "events": [str(c.event_key) for c in affected], "mode": self._tamhap_mode,
+        })
+        _logger.info(
+            "tamhap_mangchung mode=%s period=%s luck=%s bound_by=%s events=%s",
+            self._tamhap_mode, label, target.branch, bound, [str(c.event_key) for c in affected],
+        )
+        if self._tamhap_mode != "apply" or not affected:
+            return cands
+        code = f"合_탐합망충_{target.branch}:{'·'.join(bound)}"
+        out: list[EventCandidateV2] = []
+        for c in cands:
+            delta = self._tamhap_rules.get(str(c.event_key))
+            if delta is None or code in c.reason_codes:
+                out.append(c)
+                continue
+            out.append(c.model_copy(update={  # provenance-audit: not-risk (EventCandidateV2)
+                "score": max(0, round(c.score * (1.0 + delta))),
+                "reason_codes": [*c.reason_codes, code],
+                "contributions": {**c.contributions, "tamhap_mangchung": delta},
+            }))
+        return out
 
     def take_relationship_shadow(self) -> tuple[RelationshipShadowProjection, ...]:
         """직전 score() 호출(같은 스레드)의 관계 탐지 불변 projection(P1-6 §12).
@@ -616,6 +724,7 @@ class EventEngineV2:
         )
         v2 = LifeFitRanker().rank(
             v2, signature=signature, reality_context=reality_context, cohort=cohort,
+            glyph_context=GlyphContext.from_result(result) if signature else None,
         )
         return [to_legacy_candidate(c) for c in v2]
 
@@ -678,6 +787,14 @@ class EventEngineV2:
                 *cands,
                 *produce_mt1_awareness_seeds(target, result, fav_map, marriage_flow.gender, label),
             ]
+        # 연애운 P1-1(2026-10-25, 실험): 여성 편관 운 → 새 인연·관계 변동 시드(남 편재 30 과 대칭).
+        if self._love["female_qisha_partner"]:
+            cands = merge_role_event_seeds(
+                cands,
+                produce_female_qisha_seeds(
+                    signals, target_layer, result, marriage_flow.gender, label,
+                ),
+            )
         # 비겁 용신 × 비겁 유입 → career_change 시드(2026-10-14). 브랜처 직후 합류 → 6계층 보정·랭킹
         # 공통 적용(관성 충 등 다른 작용이 뒤에서 풀이를 바꿀 수 있어야 한다는 데굴님 지시).
         for _peer_rule in (self._peer_mobility_rule, self._peer_gisin_rule):
@@ -794,7 +911,15 @@ class EventEngineV2:
             day_element=day_el, shadow_sink=self.mt4_shadow,
             renewal_enabled=self._enable_resource_clash_renewal,
             ten_god_group_powers=group_powers,
+            # 연애운 실험(2026-10-25): new_relationship 일지 HAP·복음 편입 / 원국 합 과다 감쇠.
+            new_relationship_palace=self._love["new_relationship_palace"],
+            day_hap_damping=(
+                hap_overload_damping(result) if self._love["hap_overload_damping"] else 1.0
+            ),
         )
+        # 연애운 P1-3(2026-10-25, 실험): 배우자성 약 + 대운 오행이 배우자성 오행 → 결혼 배경 가산.
+        if self._love["partner_element_daewoon"]:
+            cands = apply_partner_element_daewoon(cands, stack, result, marriage_flow.gender)
         # 운↔운 충(대운↔월운 등) — 이동형 후보 보조 가산(2026-10-15 승인, 기본 OFF). 궁위 관계
         # 보정과 같은 raw 단계에 둔다(용신 배율 앞). 후보당 1회·쌍 전부를 reason 1건에 기록.
         if self._transit_clash_rule is not None:
@@ -847,6 +972,12 @@ class EventEngineV2:
             # 이중 충(2026-10-15, 교재 2장·기타절 '원국 충이 있는데 운이 또 충하면 큰 화·충 둘은
             # 불가') — favorability 만 소폭 감점, 점수·순위·사건 종류 불변.
             cands = _apply_double_clash_flag(cands, target, result, hits)
+        if self._tamhap_rules:
+            # 탐합망충(2026-10-25 P0-4) — shadow 는 기록만, apply 는 이동형 후보 점수 감산
+            # (측정 전용).
+            cands = self._apply_tamhap_mangchung(
+                cands, target, result, fav_map, hits, stack, label,
+            )
         # 시험·합격·취업 결과 길흉 — 십성 구조 합·불 패턴으로 favorability만 보정(점수 불변,
         # 자료 9-3·9-4). 극성 NEUTRAL이어도 적용되도록 yongi 블록 밖에서 호출한다.
         cands = self._exam.apply(cands, present_gods)
@@ -969,12 +1100,18 @@ class EventEngineV2:
         프로필·질문 컨텍스트가 확인된 시나리오의 위험 밀도를 실측하기 위한 통로다.
         긍정 파이프라인·LLM 입력에는 어떤 영향도 없다(risk_shadow 사이드채널 한정).
         """
-        self._risk_shadow_selection = selection_context
-        self._risk_shadow_selections = selection_contexts
-        self._risk_shadow_relationships = relationship_contexts
-        self._risk_shadow_mobility = mobility_contexts
-        self._risk_shadow_health = health_contexts
-        self._risk_shadow_legal = legal_contexts
+        self._risk_ctx_tls.ctx = {
+            "selection_context": selection_context,
+            "selection_contexts": selection_contexts,
+            "relationship_contexts": relationship_contexts,
+            "mobility_contexts": mobility_contexts,
+            "health_contexts": health_contexts,
+            "legal_contexts": legal_contexts,
+        }
+
+    def _risk_shadow_ctx(self) -> dict:
+        """이 스레드에 주입된 현실 컨텍스트(없으면 전부 None)."""
+        return getattr(self._risk_ctx_tls, "ctx", None) or {}
 
     @staticmethod
     def _yeokma_reference_sets(result: ManseV2Result) -> dict[str, set[str]]:
@@ -1046,14 +1183,15 @@ class EventEngineV2:
         _sink = getattr(self._risk_tls, "sink", None)
         if _sink is None:  # score() 밖 직접 호출(테스트 등) — 레거시 경로
             _sink = self.risk_shadow
+        _ctx = self._risk_shadow_ctx()
         generated = self._risk.generate(
             facts,
-            selection_context=self._risk_shadow_selection,
-            selection_contexts=self._risk_shadow_selections,
-            relationship_contexts=self._risk_shadow_relationships,
-            mobility_contexts=self._risk_shadow_mobility,
-            health_contexts=self._risk_shadow_health,
-            legal_contexts=self._risk_shadow_legal,
+            selection_context=_ctx.get("selection_context"),
+            selection_contexts=_ctx.get("selection_contexts"),
+            relationship_contexts=_ctx.get("relationship_contexts"),
+            mobility_contexts=_ctx.get("mobility_contexts"),
+            health_contexts=_ctx.get("health_contexts"),
+            legal_contexts=_ctx.get("legal_contexts"),
         )
         if period_v2_config.RISK_AUX_AMPLIFIER_ENABLED and generated:
             # family 단위 보조 증폭 층(P2) — 위험 사전 항목 불변. 흉 극성 동반 신살·구조·합
@@ -1219,7 +1357,21 @@ def _natal_target(
 _HAP_SUBTYPE: dict[RelationType, str] = {
     RelationType.SIX_COMBINATION: "six_harmony",
     RelationType.THREE_HARMONY_CONTRIB: "three_harmony",
+    RelationType.THREE_HARMONY_HALF: "three_harmony",
+    RelationType.THREE_HARMONY_FULL: "three_harmony",
     RelationType.DIRECTIONAL_CONTRIB: "directional",
+    RelationType.DIRECTIONAL_FULL: "directional",
+    RelationType.STEM_COMBINATION: "stem",
+}
+#: HAP 등급(2026-10-25 연애운 P0-1) — 궁위 가산 배율 키(`hap_grade_multipliers`). 완성 > 왕지 반합 >
+#: 육합·천간합 = 기여(종전 7 유지).
+_HAP_GRADE: dict[RelationType, str] = {
+    RelationType.THREE_HARMONY_FULL: "full",
+    RelationType.DIRECTIONAL_FULL: "full",
+    RelationType.THREE_HARMONY_HALF: "half",
+    RelationType.THREE_HARMONY_CONTRIB: "contrib",
+    RelationType.DIRECTIONAL_CONTRIB: "contrib",
+    RelationType.SIX_COMBINATION: "six",
     RelationType.STEM_COMBINATION: "stem",
 }
 
@@ -1239,13 +1391,14 @@ def _activations(
             continue
         position = "stem" if hit.type is RelationType.STEM_COMBINATION else "branch"
         subtype = _HAP_SUBTYPE.get(hit.type)  # HAP일 때만 채워짐(MT4용)
+        grade = _HAP_GRADE.get(hit.type, "")
         for ref in hit.natal_refs:
             palace = _POS_PILLAR.get(ref.position)
             if palace is not None:
                 target_god, _ = _natal_target(result, palace, position)
                 out.append(RelationActivation(
                     RelationKind(kind), palace, layer, position=position,
-                    hap_subtype=subtype, element=hit.element,
+                    hap_subtype=subtype, element=hit.element, hap_grade=grade,
                     # 관측 가능성 — 어느 운 글자가 어느 원국 글자를 건드렸는지.
                     # 점수·reason_codes 에는 영향이 없다(2026-07-31).
                     relation_id=hit.relation_id,
@@ -1634,6 +1787,35 @@ def _apply_structure_background(
             **({"contributions": {**c.contributions, "fav_adj": round(prev + delta, 4)}}
                if delta else {}),
         }))
+    return out
+
+
+_logger = logging.getLogger(__name__)
+_TIER_KO_SHORT = {"confirmed": "확정", "conditional": "조건부", "none": "불성"}
+
+
+def load_tamhap_rules(dictionaries_dir: Path) -> dict[str, float]:
+    """events/*.json 의 탐합망충 규칙(signal.relation=branch_clash + relationAlso=six_combination)
+    → {사건 키: 감점 비율}. 종전에는 검증만 되고 소비자가 없던 사전 항목(2026-10-25 P0-4)."""
+    out: dict[str, float] = {}
+    events_dir = Path(dictionaries_dir) / "events"
+    if not events_dir.is_dir():
+        return out
+    for path in sorted(events_dir.glob("*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        for item in data.get("signals") or data.get("items") or []:
+            sig = item.get("signal") or {}
+            if sig.get("relation") != "branch_clash":
+                continue
+            if sig.get("relationAlso") != "six_combination":
+                continue
+            for cand in item.get("eventCandidates") or []:
+                ev, sc = cand.get("event"), cand.get("score")
+                if isinstance(ev, str) and isinstance(sc, int | float) and sc < 0:
+                    out[ev] = float(sc)
     return out
 
 

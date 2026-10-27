@@ -360,6 +360,8 @@ renderer contract 버전 상승 → 1,800장 전수 재렌더 → render fingerp
    `render_result_fingerprint` 를 테스트에 고정한다. 문장이 바뀌면 즉시 실패한다.
    실패했을 때 고정값을 갱신하는 것이 아니라, 새 pool version 으로 올린다.
 
+> **공합(왕지 없는 2자) 반합 제외 — 운영 적용(2026-10-25 데굴님 "풀이 정확도 쪽으로")**: 정본 `hap_modes` 의 공합 분리와 통일해 운영(실시간 v2 모델) 경로는 `daily_ilju_fortune.HALF_HARMONY_REQUIRES_ROYAL=True`(申辰·寅戌·巳丑·亥未를 반합으로 세지 않음). 동결된 베타 pool(renderer contract `daily-beta-render.c10.v1`, 즉 c10.v2 pool)은 `daily_beta_registry.render` 가 `half_royal_override=False` 로 종전 규칙으로 렌더해 문장·확률 지문을 유지한다 — 동결 계약은 pool 단위로 지키고 운영 규칙은 contract 상승 없이 적용. 측정 `scripts/measure_daily_gonghap.py`(c10.v2 공개 창 30일×60일주): 바뀐 카드 204/1,800(11.3%), 확률 변화 425건 평균 |Δ| 3.74p·최대 13p, top5 축 이동 38(29/30일). 다음 contract 의 pool 부터는 새 규칙으로 선생성된다. Redis 에 선생성된 당일·익일 보드는 TTL 까지 종전 규칙이다.
+
 ### 21-6. 배포 smoke
 
 `scripts/smoke_daily_beta.py` — 공개 경계(2026-07-30 00:00 KST) 전후를 나눈다. 한 벌로

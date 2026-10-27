@@ -806,7 +806,7 @@ def test_direction_question_prompt_keeps_all_parts_without_trim() -> None:
     from saju_engines.llm_guard import CALL_LIMITS
     from saju_engines.sinsal_direction import DIRECTION_ANSWER_DIRECTIVE
 
-    assert CALL_LIMITS["chat_single"].max_input_tokens == 28_000
+    assert CALL_LIMITS["chat_single"].max_input_tokens >= 28_000  # 2026-10-27 38,000 상향
     res = cs.chat(_BIRTH, "잠잘때 좋은 방향을 추천해줘", _TODAY, dry_run=True)
     assert res.status == "dry_run"
     p = res.prompt_preview or ""

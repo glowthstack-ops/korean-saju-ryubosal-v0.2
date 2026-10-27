@@ -17,7 +17,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from saju_shared_types.constants import (
+    SIX_COMBINATIONS,
     STEM_COMBINATIONS,
+    THREE_HARMONY,
     hidden_stems_for,
     ten_god,
 )
@@ -62,6 +64,18 @@ class LuckAmhap:
         )
 
 
+def _openly_combined(a: Branch, b: Branch) -> bool:
+    """두 지지가 이미 드러난 합(육합·왕지 포함 반합)을 이루는가 — 그러면 암합으로 세지 않는다.
+
+    통설(2026-10-25 조사): 子辰처럼 이미 반합을 이루는 쌍은 암합으로 보지 않는다(드러난 합이
+    숨은 합을 덮는다). 왕지 없는 2자(공합)는 드러난 합이 아니므로 암합 후보로 남긴다.
+    """
+    pair = frozenset({a, b})
+    if pair in SIX_COMBINATIONS:
+        return True
+    return any(pair <= members and royal in pair for members, _el, royal in THREE_HARMONY)
+
+
 def detect_luck_amhap(
     luck_stem: str, luck_branch: str, pillars: FourPillarsResult
 ) -> list[LuckAmhap]:
@@ -99,7 +113,12 @@ def detect_luck_amhap(
                     luck_char=luck_stem, natal_hidden=nh,
                     ten_god=str(ten_god(day_master, Stem(nh))), weight=pw,
                 ))
-        # ② 지장간암합: 운 지지 지장간 + 원국 지장간.
+        # ② 지장간암합: 운 지지 지장간 + 원국 지장간 — 두 지지가 이미 드러난 합이면 제외(가드).
+        try:
+            if luck_branch_hidden and _openly_combined(Branch(luck_branch), Branch(pillar.branch)):
+                continue
+        except ValueError:
+            pass
         for lh in luck_branch_hidden:
             for nh in natal_hidden:
                 if _combines(lh, nh):

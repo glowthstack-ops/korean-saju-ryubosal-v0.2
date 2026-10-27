@@ -29,6 +29,7 @@ from saju_shared_types.constants import (
     SIX_COMBINATIONS,
     STEM_COMBINATIONS,
     STEM_ELEMENT,
+    group_elements,
     ten_god,
 )
 from saju_shared_types.dohwa import DohwaProfile
@@ -167,6 +168,79 @@ def _yongsin_signals(
     return out
 
 
+#: 신약 밴드(7단계 strength band, structure_patterns._WEAK_BANDS 와 동일 — 중화신약 제외).
+_WEAK_BANDS = frozenset({"신약", "태신약"})
+_RESOURCE_TEN_GODS = frozenset({"정인", "편인"})
+
+
+def _weak_resource_signals(
+    self_result: ManseV2Result, partner_result: ManseV2Result,
+    *, self_label: str, partner_label: str,
+) -> list[CompatSignal]:
+    """신약한 쪽에게 상대 일간이 인성(나를 생하는 일간)인지(양방향, 2026-10-27 데굴님 승인).
+
+    신약할수록 나를 생해 주는 일간의 상대가 기운을 받쳐 준다는 궁합 해석. 성별 조건은 두지 않는다.
+    """
+    out: list[CompatSignal] = []
+    pairs = [
+        (self_result, partner_result, self_label, partner_label),
+        (partner_result, self_result, partner_label, self_label),
+    ]
+    for taker, giver, taker_label, giver_label in pairs:
+        if taker.pillars is None or giver.pillars is None or taker.force_analysis is None:
+            continue
+        # 시주 미상으로 신강약 밴드가 후보마다 갈리면(미확정) 신약 전제를 쓰지 않는다
+        # (2026-10-27 재검토).
+        hu = taker.hour_unknown
+        if hu is not None and hu.is_unconfirmed("strength_band"):
+            continue
+        band = taker.force_analysis.strength.band
+        if band not in _WEAK_BANDS:
+            continue
+        taker_dm = Stem(taker.pillars.day_master)
+        giver_dm = Stem(giver.pillars.day_master)
+        tg = ten_god(taker_dm, giver_dm).value
+        if tg in _RESOURCE_TEN_GODS:
+            out.append(CompatSignal(
+                kind=CompatSignalKind.WEAK_RESOURCE_PARTNER, label="신약 보완(인성 일간)",
+                detail=(
+                    f"{taker_label}({band})에게 {giver_label} 일간 {giver_dm.value}이(가) "
+                    f"인성({tg}) — 약한 기운을 생해 받쳐 주는 결"
+                ),
+                direction=CompatDirection.HARMONY,
+            ))
+    return out
+
+
+def _output_yongsin_signals(
+    self_dm: Stem, partner_dm: Stem,
+    self_useful: UsefulGods, partner_useful: UsefulGods,
+    *, self_label: str, partner_label: str,
+) -> list[CompatSignal]:
+    """상대 일간의 식상 오행(상대가 생해 내놓는 기운)이 내 용·희신인지(양방향, 2026-10-27).
+
+    상대 오행이 많다는 사실보다 상대가 내어놓는 기운이 나를 채우는지를 본다. 일간 오행 자체가
+    용·희신인 경우는 `_yongsin_signals` 가 따로 잡는다.
+    """
+    out: list[CompatSignal] = []
+    pairs = [
+        (partner_dm, self_useful, partner_label, self_label),
+        (self_dm, partner_useful, self_label, partner_label),
+    ]
+    for giver_dm, taker_useful, giver_label, taker_label in pairs:
+        output_el = group_elements(STEM_ELEMENT[giver_dm])["output"].value
+        if output_el in set(taker_useful.yongsin) | set(taker_useful.heesin):
+            out.append(CompatSignal(
+                kind=CompatSignalKind.OUTPUT_YONGSIN_SUPPORT, label="식상 오행 용신 보완",
+                detail=(
+                    f"{giver_label} 일간 {giver_dm.value}의 식상 오행 {output_el}이(가) "
+                    f"{taker_label}의 용·희신 — 상대가 내어놓는 기운이 나를 채워 주는 결"
+                ),
+                direction=CompatDirection.HARMONY,
+            ))
+    return out
+
+
 _SEASON_OF = {
     "寅": "봄", "卯": "봄", "辰": "봄", "巳": "여름", "午": "여름", "未": "여름",
     "申": "가을", "酉": "가을", "戌": "가을", "亥": "겨울", "子": "겨울", "丑": "겨울",
@@ -281,6 +355,43 @@ def _ten_god_complement_signals(
     return out
 
 
+_PEER_EXCESS_PCT = 35.0
+_PEER_EXCESS_VISIBLE = 3
+
+
+def _peer_excess_signals(
+    self_result: ManseV2Result, partner_result: ManseV2Result,
+    *, self_label: str, partner_label: str,
+) -> list[CompatSignal]:
+    """한쪽 비겁 과다(분포 ≥35% 또는 가시 ≥3) → '가족·자기 우선 가능성' 참고 1줄(보조·중립).
+
+    강의(결혼운): 배우자 사주를 볼 때 비겁 과다는 자기 우선 경향이며, 두 사람의 합·보완이 그 성향을
+    완화한다. 카운트·톤에 넣지 않고(auxiliary) 이혼·불화 단정 어휘를 쓰지 않는다.
+    """
+    out: list[CompatSignal] = []
+    for res, label in ((self_result, self_label), (partner_result, partner_label)):
+        fa = res.force_analysis
+        p = res.pillars
+        if fa is None or p is None:
+            continue
+        pct = float(fa.ten_gods.groups.get("peer", 0.0))
+        visible = sum(
+            1 for pil in (p.year, p.month, p.day, p.hour) if pil is not None
+            for tg in (pil.stem_ten_god, pil.branch_main_ten_god) if tg in ("비견", "겁재")
+        )
+        if pct >= _PEER_EXCESS_PCT or visible >= _PEER_EXCESS_VISIBLE:
+            out.append(CompatSignal(
+                kind=CompatSignalKind.PEER_EXCESS, label="비겁 과다(참고)",
+                detail=(
+                    f"{label} 비겁 과다(분포 {pct:.0f}%·가시 {visible}자) — 자기·가족 우선 "
+                    "가능성(경향), 두 사람의 합·보완 신호가 이 성향을 완화하는 쪽으로 읽을 것"
+                    "(이혼·불화 단정 금지)"
+                ),
+                direction=CompatDirection.NEUTRAL, auxiliary=True,
+            ))
+    return out
+
+
 def _sinsal_cross_signals(
     self_dm: Stem, partner_dm: Stem, a: Branch, b: Branch,
     *,
@@ -349,6 +460,8 @@ _ATTRACTION_WEIGHT: dict[CompatSignalKind, int] = {
     CompatSignalKind.DAY_BRANCH_SIX: 1,     # 육합 — 잔잔한 끌림(안정형)
     CompatSignalKind.TEN_GOD_COMPLEMENT: 1,  # 없는 십성 채움 — 보완형 끌림(잔잔)
     CompatSignalKind.ELEMENT_COMPLEMENT: 1,  # 없는 오행 채움 — 보완형 끌림(2026-10-15)
+    CompatSignalKind.WEAK_RESOURCE_PARTNER: 1,  # 신약에게 인성 일간 — 받쳐 주는 끌림(2026-10-27)
+    CompatSignalKind.OUTPUT_YONGSIN_SUPPORT: 1,  # 상대 식상 오행=내 용·희신(2026-10-27)
     CompatSignalKind.SINSAL_CHARM: 2,       # 홍염 교차 — 매력·끌림(개인 도화 SINSAL_DOHWA는 0)
     CompatSignalKind.SINSAL_FRICTION: 1,    # 원진·귀문 — 애증(끌리며 거슬림)
 }
@@ -440,11 +553,24 @@ def analyze_compatibility(
     signals += _yongsin_signals(self_dm, partner_dm, self_useful, partner_useful)
     # 결핍 오행·계절 보완(2026-10-15, 외부 교재 기타절 궁합 규칙 2종).
     signals += _element_season_signals(self_result, partner_result)
+    # 신약 보완(인성 일간)·상대 식상 오행 용신 보완(2026-10-27 데굴님 '끌림 점수에 넣자').
+    signals += _weak_resource_signals(
+        self_result, partner_result, self_label=self_label, partner_label=partner_label,
+    )
+    signals += _output_yongsin_signals(
+        self_dm, partner_dm, self_useful, partner_useful,
+        self_label=self_label, partner_label=partner_label,
+    )
 
     # 4b) 십성군 상호보완(없는 십성을 상대가 채움 — 보완 끌림).
     signals += _ten_god_complement_signals(
         self_result, partner_result,
         self_label=self_label, partner_label=partner_label,
+    )
+
+    # 4c) 비겁 과다(2026-10-25 강의 S6 — 보조·중립): 가족·자기 우선 가능성, 합·보완이 성향 완화.
+    signals += _peer_excess_signals(
+        self_result, partner_result, self_label=self_label, partner_label=partner_label,
     )
 
     # 5) 관계 신살 교차(보조 — 카운트·톤 미반영, 가볍게만).

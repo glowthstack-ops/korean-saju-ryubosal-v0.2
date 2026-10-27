@@ -42,6 +42,11 @@ def test_day_range_not_single() -> None:
     assert not _is_single_day(_intent("2026-09-28", "2026-10-02"))
 
 
+def test_month_label_with_day_granularity_not_single() -> None:
+    """월 라벨('2026-11')에 day granularity가 얹힌 intent는 특정일이 아니다(2026-10-23 500 반례)."""
+    assert not _is_single_day(_intent("2026-11", "2026-11"))
+
+
 def test_month_granularity_not_single() -> None:
     assert not _is_single_day(_intent("2026-09-01", "2026-09-30", gran="month"))
 

@@ -101,6 +101,12 @@ def _ten_god_by_name() -> dict[str, dict]:
 
 
 @lru_cache(maxsize=1)
+def _group_traits_by_group() -> dict[str, dict]:
+    """십성다자 성향(군 → 항목) — ten_god_group_traits.json(2026-10-27)."""
+    return {item["group"]: item for item in _load("ten_god_group_traits.json")["items"]}
+
+
+@lru_cache(maxsize=1)
 def _stage_by_name() -> dict[str, dict]:
     return {item["stage"]: item for item in _load("twelve_stages_text.json")["items"]}
 
@@ -316,6 +322,9 @@ def build_luck_grounding(
         + (f"({stage_txt})" if stage_txt else "")
         + f" · {getattr(luck_pillar, 'yongsin_alignment', '')}"
     )
+    _first = first_arrival_note(result, ganji, getattr(luck_pillar, "period_type", ""), fav)
+    if _first:
+        pillar_line += f" · {_first}"
 
     rel_index = _luck_rel_text_index()
     rel_lines: list[str] = []
@@ -352,6 +361,15 @@ def build_luck_grounding(
         [luck_stem] if luck_stem else None,
         [luck_branch] if luck_branch else None,
     ))
+    # 반복 구조 활성화(2026-10-27) — 같은 글자 유입·반복 그룹 충. 새 사건이 아니라 구조의
+    # 기간 활성화.
+    from .repetition_structure import activation_line, repetition_activations
+
+    for _act in repetition_activations(
+        result, getattr(luck_pillar, "period_type", ""), str(getattr(luck_pillar, "label", "")),
+        ganji,
+    ):
+        rel_lines.append(f"반복 구조(서술 전용): {activation_line(_act)}")
 
     # 운 신살은 들어온 운 레벨이 곧 시기·작용력 — 대운=장기 배경, 세운=올해, 월/일=단기.
     level_ko = _LUCK_LEVEL_KO.get(getattr(luck_pillar, "period_type", ""), "운")
@@ -417,7 +435,55 @@ def build_luck_grounding(
     }
 
 
+#: 처음 들어오는 용·희신 기운 — 세운만(월·일운은 짧아 적응 서술이 맞지 않고, 대운 기둥은
+#: `build_luck_grounding` 호출 경로가 없다 — 2026-10-27 재검토에서 대운 분기는 사문이라 뺐다).
+_FIRST_ARRIVAL_LEVELS = frozenset({"year"})
+_FIRST_ARRIVAL_ROLES = ("용신", "희신")
+
+
+def first_arrival_note(
+    result: ManseV2Result, ganji: str, period_type: str, fav: dict[str, str],
+) -> str:
+    """원국 표면에 없던 용·희신 오행이 세운으로 들어올 때의 체감 서술 1구절(2026-10-27).
+
+    필요한 기운이라도 처음 들어올 때는 바로 편해지기보다 낯섦·내면의 조정이 먼저 올 수 있다는
+    서술 전용 줄이다. 용신 판정(부재해도 필요는 유지 — 결정 D)과 점수는 바꾸지 않는다.
+
+    Args:
+        result: 원국 결과(`force_analysis.five_elements.visible_percent` 사용).
+        ganji: 운 간지 2글자.
+        period_type: LuckPillar.period_type(year 만 대상 — daewoon/month/day 는 빈 문자열).
+        fav: {오행 한자: 역할} — `event_scoring.favorability_map`.
+
+    Returns:
+        서술 구절. 해당 없으면 빈 문자열.
+    """
+    if period_type not in _FIRST_ARRIVAL_LEVELS or len(ganji) < 2 or result.force_analysis is None:
+        return ""
+    vis = result.force_analysis.five_elements.visible_percent or {}
+    try:
+        els = [str(STEM_ELEMENT[Stem(ganji[0])]), str(BRANCH_ELEMENT[Branch(ganji[1])])]
+    except ValueError:
+        return ""
+    hits: list[str] = []
+    for el in els:
+        role = fav.get(el, "")
+        if role in _FIRST_ARRIVAL_ROLES and vis.get(el, 0.0) <= 0 and f"{el}({role})" not in hits:
+            hits.append(f"{el}({role})")
+    if not hits:
+        return ""
+    return (
+        f"처음 들어오는 기운: 원국 겉에 없던 {'·'.join(hits)}이(가) 들어오는 운 — "
+        "필요한 기운이어도 바로 편해지기보다 낯섦·내면의 조정이 먼저 올 수 있고, "
+        "들어온 기운을 직접 써 보는 행동이 체감을 앞당길 수 있다(서술 전용 — 점수·판정 불변)"
+    )
+
+
 #: 운 도화 사용 규칙 — 원국 도화와 구분(2026-10-13 데굴님 지시).
+_DOHWA_BASE_FRAME = {
+    "year": "연주=타인 시선: 사회적 이미지·첫인상에 매력이 실리는 결",
+    "day": "일지=배우자궁: 사생활·가까운 인연 쪽 끌림",
+}
 _LUCK_DOHWA_RULE = (
     "사용 규칙: 이 기간에 들어온 도화다 — 타고난 성향이나 평생의 매력으로 설명하지 말고 원국 "
     "도화와 구분해 그 기간의 매력 노출·인연 기회로만 말할 것. 기준이 둘이어도 한 번만 다룰 것."
@@ -457,7 +523,12 @@ def _luck_dohwa_line(ld: LuckDohwa, base_line: str) -> tuple[str, str]:
     from .dohwa import load_dohwa_texts
 
     slot_ko = {"year": "연지", "day": "일지"}
-    bases = "·".join(f"{slot_ko[b.slot]} {b.branch} 기준({b.trine}국)" for b in ld.bases)
+    # P2-1(2026-10-25 강의 T2): 연지 기준=연주(타인 시선·사회적 이미지·첫인상)에 매력 / 일지 기준=
+    # 사생활·가까운 인연 쪽 끌림 — 기준별 의미를 나눠 적는다(점수 없음).
+    bases = "·".join(
+        f"{slot_ko[b.slot]} {b.branch} 기준({b.trine}국 — {_DOHWA_BASE_FRAME[b.slot]})"
+        for b in ld.bases
+    )
     combo = load_dohwa_texts()[f"combo:{ld.group.value}"]
     head = base_line.split(":", 1)[0]  # '(보조·세운(올해) 유입) 도화'
     rest = base_line.split(":", 1)[1].strip()
@@ -693,6 +764,7 @@ def build_chart_interpretation(result: ManseV2Result) -> ChartInterpretation | N
         pillars.day, ten_god_names, relation_ids, pillars=pillars,
         palace_pairs=_relation_palace_pairs(result),
     )
+    excerpts += _repetition_excerpts(result)
     excerpts += _sinsal_excerpts(result)
     excerpts += _favorability_excerpts(result)
     excerpts += _spouse_palace_excerpts(pillars.day.branch)
@@ -705,6 +777,33 @@ def build_chart_interpretation(result: ManseV2Result) -> ChartInterpretation | N
         excerpts=excerpts,
         yongsin_operational_summary=build_yongsin_operational_summary(result),
     )
+
+
+def _repetition_excerpts(result: ManseV2Result) -> list[InterpretationExcerpt]:
+    """원국 반복 구조 발췌(2026-10-27) — 천간·지지 반복·자형·같은 간지 기둥, 그룹당 1줄.
+
+    판정·문구는 `repetition_structure` 가 맡고 여기서는 싣기만 한다. 첫 줄에 사용 원칙(사건·흉살
+    단정 금지, 유불리는 십성·역할, 그룹 단위)을 붙인다. 점수·오행 세력 비개입.
+    """
+    from .event_scoring import favorability_map
+    from .repetition_structure import (  # 지역 import — 순환 회피
+        detect_repetition_groups,
+        group_line,
+        load_repetition_text,
+    )
+
+    groups = detect_repetition_groups(result, favorability_map(result))
+    if not groups:
+        return []
+    pr = load_repetition_text()["principles"]
+    rule = f" ※ {pr['no_event']} {pr['no_fixed_fortune']} {pr['group_not_pairs']}"
+    out: list[InterpretationExcerpt] = []
+    for i, g in enumerate(groups):
+        out.append(InterpretationExcerpt(
+            kind="repetition", key=f"반복 구조 {g.char}",
+            text=group_line(g) + (rule if i == 0 else ""),
+        ))
+    return out
 
 
 _MAX_AMHAP_LINES = 3  # 원국 암합 보조 표기 상한(항목 9)
@@ -763,7 +862,19 @@ def _relation_palace_pair_text() -> dict[tuple[str, str], dict]:
 
 
 def _void_ten_god_text() -> dict[str, str]:
-    return {it["ten_god"]: it["text"] for it in _load("void_ten_god_text.json")["items"]}
+    """십성 → 공망 서사(본문 + 생극 연쇄 가설, 2026-10-23 P3). 출처 등급을 꼬리에 붙인다.
+
+    `utilization`(대체 경로)은 채팅 발췌에 싣지 않는다 — 단건 입력 상한 20k 안에서 10년 창 질문이
+    넘치지 않게(e2e 결혼 시기 질문 19,983) 조언층은 remedy·리포트가 담당한다.
+    """
+    out: dict[str, str] = {}
+    for it in _load("void_ten_god_text.json")["items"]:
+        parts = [it["text"]]
+        if it.get("indirect"):
+            parts.append(it["indirect"])
+        tag = it.get("evidence_status")
+        out[it["ten_god"]] = " ".join(parts) + (f"(출처: {tag}·단정 금지)" if tag else "")
+    return out
 
 
 def _relation_palace_pairs(result: ManseV2Result) -> list[tuple[str, str, str]]:
@@ -808,6 +919,8 @@ def _build_excerpts(
             kind="ten_god", key=name,
             text=f"{item['core']} 원국: {_first_sentence(item['natal'], 200)}",
         ))
+    # 십성다자 성향(2026-10-27) — 십성 발췌 뒤(예산 축소 시 앞 4개 보존 순서 유지).
+    excerpts += _group_trait_excerpts(pillars)
     stage_item = _stage_by_name().get(day_pillar.twelve_unseong)
     if stage_item is not None:
         excerpts.append(InterpretationExcerpt(
@@ -858,11 +971,49 @@ def _build_excerpts(
         item = relation_texts.get(rel_id)
         if item is None:
             continue
-        excerpts.append(InterpretationExcerpt(
-            kind="relation", key=item["name"],
-            text=_first_sentence(item["natal"], 200),
-        ))
+        text = _first_sentence(item["natal"], 200)
+        if item.get("natalTrait"):
+            # 충 성향 한 문장(2026-10-27) — 그럴 수 있는 경향. 질환어는 참고용 표기 동반(사전 린트).
+            text += f" 성향: {item['natalTrait']}"
+        excerpts.append(InterpretationExcerpt(kind="relation", key=item["name"], text=text))
     return excerpts
+
+
+def _group_trait_excerpts(pillars: object) -> list[InterpretationExcerpt]:
+    """십성다자 성향 발췌(2026-10-27) — 같은 군 가시 글자 ≥3 인 군만, 두 갈래 발현을 함께.
+
+    판정은 `love_type.group_visible_counts_from_pillars`(연애 유형 1단계와 같은 셈)로만 하고 문구는
+    ten_god_group_traits.json 에서 고르기만 한다. 어느 갈래로 드러날지는 명식이 정하지 않으므로
+    한쪽으로 단정하지 않게 지시를 함께 붙인다(점수·판정 비개입).
+    """
+    if pillars is None:
+        return []
+    from .love_type import (  # 지역 import — 순환 회피
+        LOVE_TYPE_COUNT_THRESHOLD,
+        group_visible_counts_from_pillars,
+    )
+    order = ("관성", "재성", "비겁", "식상", "인성")  # love_type 동률 순서와 동일
+    counts = group_visible_counts_from_pillars(pillars)
+    traits = _group_traits_by_group()
+    out: list[InterpretationExcerpt] = []
+    ranked = sorted(
+        (g for g in order if counts[g] >= LOVE_TYPE_COUNT_THRESHOLD),
+        key=lambda g: (-counts[g], order.index(g)),
+    )
+    for g in ranked:
+        item = traits.get(g)
+        if item is None:
+            continue
+        out.append(InterpretationExcerpt(
+            kind="ten_god_group",
+            key=f"{g} 다자({counts[g]}글자)",
+            text=(
+                f"같은 군이 많아도 두 갈래로 드러날 수 있다 — ①{item['faceA']} ②{item['faceB']}. "
+                "어느 쪽으로 드러나는지는 사람·환경에 따라 달라 명식만으로 한쪽을 단정하지 말 것. "
+                f"참기 어려워하기 쉬운 상황: {item['trigger']}"
+            ),
+        ))
+    return out
 
 
 _MAX_SINSAL_EXCERPTS = 5
@@ -957,6 +1108,16 @@ def _favorability_excerpts(result: ManseV2Result) -> list[InterpretationExcerpt]
     fav = favorability_map(result)  # {오행 한자: 역할}
     texts = _favorability_by_role()
     excerpts: list[InterpretationExcerpt] = []
+    # 용신·기신 운의 다른 얼굴(2026-10-27) — 역할별 1회. 용신 운의 정리·조기 발견을 미화하지 않고,
+    # 기신 운의 생활 리듬 신호를 불행 단정 없이 싣는다(사전 otherFace).
+    for role in ("용신", "기신"):
+        elements = [el for el, r in fav.items() if r == role]
+        face = (texts.get(role) or {}).get("otherFace", "")
+        if elements and face:
+            excerpts.append(InterpretationExcerpt(
+                kind="favorability_face", key=f"{'·'.join(elements)} {role} 운의 다른 얼굴",
+                text=face,
+            ))
     for element, role in fav.items():
         if not is_unfavorable_role(role):
             continue

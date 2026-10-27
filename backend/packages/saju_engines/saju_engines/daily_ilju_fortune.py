@@ -19,6 +19,7 @@ import hashlib
 import json
 import math
 from collections.abc import Mapping
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import date
 from functools import lru_cache
@@ -83,6 +84,20 @@ _DUP_RETRY = 10  # 중복 감사 시 seed salt 재시도 상한
 _LOVE_LINE_MIN_SUPPORT = 3
 
 # 관계 종류별 감지 강도(성립 조건 세분화) — 사건별 방향·크기는 카탈로그 affinity 가 결정
+#: 반합(半合) 왕지 필수 여부 — 2026-10-25 데굴님 "풀이 정확도 쪽으로": 운영(실시간 v2 모델) 경로는
+#: True(정본 hap_modes 의 공합 분리와 통일 — 왕지 없는 申辰·寅戌·巳丑·亥未는 반합으로 세지 않는다).
+#: 동결된 베타 pool(renderer contract daily-beta-render.c10.v1) 렌더만 `half_royal_override` 로
+#: 종전 동작(False)을 유지한다(문장·확률 동결 계약, test_daily_beta_routing 골든 지문).
+#: 측정: scripts/measure_daily_gonghap.py — 공개 창 1,800장 중 204장(11.3%) 변경.
+HALF_HARMONY_REQUIRES_ROYAL: bool = True
+#: 동결 pool 렌더 전용 임시 재정의(None=모듈 기본값). 서비스 코드는 contextvar 로만 바꾼다.
+half_royal_override: ContextVar[bool | None] = ContextVar("half_royal_override", default=None)
+
+
+def _half_royal_required() -> bool:
+    """이 호출 문맥에서 반합에 왕지를 요구하는가(동결 pool 렌더는 False 로 재정의)."""
+    ov = half_royal_override.get()
+    return HALF_HARMONY_REQUIRES_ROYAL if ov is None else ov
 _REL_STRENGTH = {
     "six_combination": 1.0,
     "half_harmony": 1.0,  # 반합은 카탈로그 affinity 자체가 낮음
@@ -209,7 +224,12 @@ def _branch_relations(
                 third = next(iter(members - pair))
                 if third in helpers:
                     hits["three_harmony_complete"] = _REL_STRENGTH["three_harmony_complete"]
-                else:
+                elif _royal in pair or not _half_royal_required():
+                    # 왕지 없는 2자(申辰·寅戌·巳丑·亥未)는 정본 hap_modes 가 2026-10-25 부터 공합
+                    # (가합)으로 분리했다. 일주별 오늘의 운세는 베타 pool(`beta-daily-pool.c10.v2`)
+                    # 문장·확률 동결 계약 아래라 같은 pool version 에서는 반합으로 그대로 센다
+                    # (`HALF_HARMONY_REQUIRES_ROYAL=False`). 다음 pool version(renderer contract
+                    # 상승·전수 재렌더)에서 True 로 올린다 — 실험 측정은 `measure_daily_gonghap.py`.
                     hits["half_harmony"] = _REL_STRENGTH["half_harmony"]
                 break
 

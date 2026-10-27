@@ -101,11 +101,15 @@ _BASE_STYLE = StyleRules(
 def _in_period(period_key: str, period: PeriodSpec) -> bool:
     """period_key('2026'/'2026-06'/'2026-06-10')가 기간 범위에 드는지(문자열 비교).
 
-    ISO 정렬 가능 라벨 전제. 연 키는 'start[:4] <= key <= end[:4]'로 비교한다.
+    ISO 정렬 가능 라벨 전제. 키와 경계를 **둘 중 짧은 정밀도**로 잘라 비교한다 — 연 키는
+    연 정밀, 월 키 × 연 경계도 연 정밀('2027-03' ∈ [2027, 2027]). 종전엔 경계만 키 길이로
+    잘라 end 가 연 단위면 월 키가 모두 빠졌다('2027-03' > '2027' → "내년에 이직하면?"에서
+    M07 월 행 0개, 2026-10-26 실답). start 가 'YYYY-MM'(future_floor)이고 키가 월이면 월 정밀로
+    비교해 지난 달만 제외한다.
     """
-    if len(period_key) == 4:
-        return period.start[:4] <= period_key <= period.end[:4]
-    return period.start[: len(period_key)] <= period_key <= period.end[: len(period_key)]
+    ns = min(len(period_key), len(period.start))
+    ne = min(len(period_key), len(period.end))
+    return period.start[:ns] <= period_key[:ns] and period_key[:ne] <= period.end[:ne]
 
 
 def _calendar_context(composites: list[LuckComposite]) -> list[CalendarContextEntry]:
@@ -139,11 +143,13 @@ def build_career_context(
 
     series: list[TimeSeriesPoint] = []
     findings: list[Finding] = []
+    pairs: list[tuple[float, Finding]] = []  # (원합, Finding) — 정렬은 원합 기준
     for c in sorted(selected, key=lambda x: x.period_key):
         signals = [s for s in c.domain_signals if s.domain == "career"]
         if not signals:
             continue
-        score = max(0, min(100, round(sum(s.weight for s in signals) * 100)))
+        raw = sum(s.weight for s in signals)
+        score = max(0, min(100, round(raw * 100)))
         names = [s.source_interaction for s in signals]
         series.append(TimeSeriesPoint(
             period_key=c.period_key,
@@ -152,19 +158,20 @@ def build_career_context(
             signals=names,
         ))
         top = max(signals, key=lambda s: s.weight)
-        findings.append(Finding(
+        pairs.append((raw, Finding(
             key=f"{top.event_key}@{c.period_key}",
             summary=(
                 f"{c.period_key} {c.ganji.stem}{c.ganji.branch} — "
-                f"직업 신호 {len(signals)}건({top.event_key} 중심), {c.favorability} 기조"
+                f"직업 신호 {len(signals)}건({_lead_event_keys(signals, '직업')} 중심), "
+                f"{c.favorability} 기조"
             ),
             score=score,
             event_key=top.event_key,
             period_key=c.period_key,
             signals=names,
-        ))
+        )))
 
-    findings.sort(key=lambda f: -f.score)
+    findings = _sort_findings_by_raw(pairs)
     return TopicContext(
         module_id="M07",
         subjects=subjects,
@@ -597,6 +604,49 @@ def _signal_key_match(
         and s.source_event_key in (legacy_compat_keys or set())
 
 
+def _sort_findings_by_raw(pairs: list[tuple[float, Finding]]) -> list[Finding]:
+    """findings 를 **원합(가중치 합)** 내림차순으로 정렬한다 — 동률은 period_key 오름차순.
+
+    표시 점수는 0~100 상한(가중치 합 1.0 = 100)을 유지하지만, 정렬까지 그 점수로 하면 포화
+    행(M01 67.6%·M07 90.4%, 2026-10-26 175명식 측정)이 전부 동률이 되어 Top-3/5 절단이
+    period_key 순(이른 달 우선)으로 퇴화한다. 원합 정렬은 표시 의미를 바꾸지 않고 Top-3 경계
+    동률을 100%→9.7%(M01)·6.9%(M07)로 낮춘다(`scripts/measure_topic_score_cap.py`).
+
+    Args:
+        pairs: (원합, Finding) 목록.
+
+    Returns:
+        정렬된 Finding 목록.
+    """
+    return [
+        f for _, f in sorted(pairs, key=lambda t: (-t[0], t[1].period_key or ""))
+    ]
+
+
+def _lead_event_keys(signals: list, label: str, limit: int = 3) -> str:
+    """요약 줄의 '○○ 중심' 자리 — 가중치 상위 사건 키를 중복 없이 최대 ``limit``개 '·'로 잇는다.
+
+    점수는 0~100 상한에 포화되기 쉬워(가중치 합 ≥1.0) 명식이 달라도 같은 줄이 나오던 것을,
+    사건 구성으로 변별한다(2026-10-26 실답). 새 수치는 만들지 않는다.
+
+    Args:
+        signals: 해당 시기의 도메인 신호(``weight``·``event_key`` 속성).
+        label: event_key 가 비었을 때 대신 쓸 라벨.
+        limit: 최대 표기 개수.
+
+    Returns:
+        ``"new_relationship·marriage_signal"`` 형태의 문자열.
+    """
+    seen: list[str] = []
+    for s in sorted(signals, key=lambda s: -s.weight):
+        k = s.event_key or label
+        if k not in seen:
+            seen.append(k)
+        if len(seen) >= limit:
+            break
+    return "·".join(seen)
+
+
 def _domain_series_findings(
     composites: list[LuckComposite],
     period: PeriodSpec,
@@ -625,6 +675,7 @@ def _domain_series_findings(
     stats = NormalizationStats()
     series: list[TimeSeriesPoint] = []
     findings: list[Finding] = []
+    pairs: list[tuple[float, Finding]] = []  # (원합, Finding) — 정렬은 원합 기준
     for c in sorted(selected, key=lambda x: x.period_key):
         sigs = [
             s for s in normalize_domain_signals(c.domain_signals, stats)
@@ -633,22 +684,23 @@ def _domain_series_findings(
         ]
         if not sigs:
             continue
-        score = max(0, min(100, round(sum(s.weight for s in sigs) * 100)))
+        raw = sum(s.weight for s in sigs)
+        score = max(0, min(100, round(raw * 100)))
         names = [s.source_interaction for s in sigs]
         gz = f"{c.ganji.stem}{c.ganji.branch}"
         series.append(TimeSeriesPoint(
             period_key=c.period_key, ganji=gz, score=score, signals=names,
         ))
         top = max(sigs, key=lambda s: s.weight)
-        findings.append(Finding(
+        pairs.append((raw, Finding(
             key=f"{top.event_key or label}@{c.period_key}",
             summary=(
                 f"{c.period_key} {gz} — {label} 신호 {len(sigs)}건"
-                f"({top.event_key or label} 중심), {c.favorability} 기조"
+                f"({_lead_event_keys(sigs, label)} 중심), {c.favorability} 기조"
             ),
             score=score, event_key=top.event_key, period_key=c.period_key, signals=names,
-        ))
-    findings.sort(key=lambda f: -f.score)
+        )))
+    findings = _sort_findings_by_raw(pairs)
     stats.merge_log(label)  # legacy·미지 키 계측(부록 B §8-3 — B1-b 종료 판단 자료)
     return selected, series, findings
 

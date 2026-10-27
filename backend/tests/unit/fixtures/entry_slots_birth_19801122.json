@@ -1,0 +1,30 @@
+{
+  "gender": "male",
+  "latitude": 37.4944,
+  "timezone": "Asia/Seoul",
+  "longitude": 126.8563,
+  "birth_date": "1980-11-22",
+  "birth_time": "09:40:00",
+  "twin_shift": 0,
+  "country_code": null,
+  "time_options": {
+    "ja_hour_rule": "standard_zi",
+    "day_boundary_rule": "23:00",
+    "apply_daylight_saving": true,
+    "apply_true_solar_time": true,
+    "apply_equation_of_time": false,
+    "apply_longitude_correction": true,
+    "compare_standard_and_true_solar": true
+  },
+  "calendar_type": "solar",
+  "chart_variant": "original",
+  "is_leap_month": null,
+  "reference_date": null,
+  "birth_place_name": "서울 구로구",
+  "hour_branch_hint": null,
+  "birth_time_approx": null,
+  "birth_time_unknown": false,
+  "hour_branch_candidates": null,
+  "daewoon_direction_basis": "gender_yinyang",
+  "manual_daewoon_direction": null
+}

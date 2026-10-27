@@ -52,6 +52,10 @@ _REASON_PREFIX_KO: dict[str, str] = {
         "종살에 역행하는 인성 천간이 원국과 합거로 묶임 — 역행 경향만 표기(강도 조정 없음)"
     ),
     "PROFILE_public_official": "공직 발령·전보",
+    # 개인 이력(Life Event Inference) — 과거 확인 사건과의 일치·반복(2026-10-22 라벨 등록).
+    "PERSONAL_MATCH": "개인 이력 일치(과거 확인 사건과 같은 신호 유형)",
+    "PERSONAL_SEED": "개인 이력 반복 시드(사주 신호가 약해도 되풀이된 사건)",
+    "PERSONAL_GLYPH_REPEAT": "개인 이력 반복(같은 월운 글자에서 같은 사건이 되풀이됨)",
     # 인성 동요 신호(2026-08-10, relation_target_ten_god_rules) — 일반 REL_ 보다 앞.
     "REL_CHUNG_RESOURCE_RENEWAL": "문서 교체 자극(기존 계약·문서를 깨고 갈아타는 흐름)",
     "REL_CHUNG_RESOURCE_UNROOTED": "문서 동요(받치는 힘 약함 — 성사보다 흔들림·지연 배경)",
@@ -65,6 +69,13 @@ _REASON_PREFIX_KO: dict[str, str] = {
     "OUTPUT_YEAR_RELATIONSHIP_CHANGE": "식상 해의 인연 교체 흐름",
     "TRANSIT_CLASH": "운끼리 충(변화 보조 근거)",
     # 2026-10-16 — 역할별 사건 전환 시드(사흉신 용신 운·사길신 기신 운) + 유입 강도·상위 뿌리 코드.
+    # 2026-10-25 — 연애운 대조(외부 강의 4편) 실험 코드.
+    "LOVE_QISHA_FEMALE_PARTNER": "편관 운(여성 명식 — 이성 인연이 걸리기 쉬운 해·달)",
+    "LOVE_QISHA_STRONG_INFLOW": "편관이 천간·동계열로 강하게 유입",
+    "LOVE_QISHA_PRESSURE": (
+        "원국 관살이 많거나 혼잡 — 인연과 함께 갈등·선택 폭 확대 주의(이별 단정 아님)"
+    ),
+    "LOVE_PARTNER_ELEMENT_DAEWOON": "배우자성 오행이 약한데 대운이 그 오행을 보강(결혼 배경)",
     "ROLE_SEED_SHANGGUAN_YONG": "상관 용신 운(재능 발휘·표현·발표 쪽 전환)",
     "ROLE_SEED_QISHA_YONG": "편관 용신 운(책임 있는 역할·직책 쪽 전환)",
     "ROLE_SEED_PIANYIN_YONG": "편인 용신 운(자격·전문 연구·산출 쪽 전환)",
@@ -132,6 +143,14 @@ def _void_pair_label(code: str) -> str | None:
         branch = code.partition(":")[2]
         if branch:
             return f"공망 전실(실체화 — 공망지 {branch} 채움)"
+    if code.startswith("PERSONAL_GLYPH_REPEAT:"):
+        # 'PERSONAL_GLYPH_REPEAT:亥:4/11' → 수치만(회사·사례 지목 없음 — 2026-10-22 데굴님 결정).
+        _, glyph, ratio = (code.split(":") + ["", ""])[:3]
+        if glyph and ratio:
+            return (
+                f"개인 이력 반복(같은 {glyph}월 글자에서 같은 사건 {ratio}건 — 기대 비율 1/12, "
+                "특정 사례·회사 지목 아님)"
+            )
     return None
 
 

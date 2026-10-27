@@ -72,6 +72,16 @@ relationship(관계상태·연애의향·배우자), education(재학·시험계
 ②③은 기존 chat의 claim 등록/정정 경로(`ConversationEngine.register_system_results`,
 FEEDBACK_CORRECTION)를 확장한다. 후보 신호 지문은 엔진이 그 후보를 만들 때 이미 계산한다.
 
+**구현 상태(2026-10-24 데굴님 승인·구현)** — 실측: 계정 53·명식 65 중 사건 보유 12(확정 9), 설문 제출 10건.
+①만 구현돼 있고 온보딩 바로가기(dest) 진입 때는 단계가 생략됐으며 재질문 계기가 없었다.
+
+| 소스 | 구현 | 저장 | 비고 |
+|---|---|---|---|
+| ① 캘리브레이션 | 온보딩 step 4 + `/reality-calibration` | `subject_life_events` | `?mode=refresh`(P3): 마지막 답한 해 다음부터 올해까지만 묻고 답한 해만 치환(`delete_subject_rows_for_years`) |
+| ② 채팅 평가 | 답변 말풍선 👍/👎 + 한 줄 메모 → `POST /chat/messages/{id}/feedback` | **메시지 meta 만** | 사건 행을 만들지 않는다: `personal_calibration`은 confirmed/planned 외 전부를 '미발생'으로 집계하므로 reality_fit_only 행은 👍를 '안 일어남'으로 읽어 점수를 왜곡. 평가는 ③의 질문 우선순위(👍 먼저)·감수 자료로만 쓴다 |
+| ③ 지연 outcome | 답변 시 최종 후보 중 열린 기간 상위 3건을 답변 meta(`followup`)에 기록 → 기간 경과 후 채팅 진입 시 `GET /chat/followups?subject_id` 1문항 카드 → `POST /chat/followups/{message_id}` | `source=delayed_outcome`, row id 는 ①과 같은 `{subject}:{period}:{event_key}`(최상 신뢰라 덮어씀) | 경과 판정은 절기 월운 라벨(연=해 바뀐 뒤, 월=라벨 지난 뒤). 채팅 후보는 legacy 라 지문은 적재 시 `resolve_fingerprints`(연=`score_years`, 월=그 달 월운 채점)로 ①과 같은 규칙으로 산출. 모듈 `saju_engines/life_event_followup.py` |
+| 미완료 유도(P2) | `GET /reality-calibration/{id}/status` → 채팅 상단 배너(사건 0건=initial, 제출 후 365일=refresh) | — | 세션 중 닫기 가능, 차단 없음(규칙11) |
+
 ### 4.2 미래 사건 루프 (채팅의 핵심 단서)
 
 채팅은 미래 질문이 많아 즉시 outcome을 못 받는다. 그래서 상태를 분리:

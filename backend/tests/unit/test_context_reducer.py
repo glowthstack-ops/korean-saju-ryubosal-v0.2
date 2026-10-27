@@ -119,8 +119,13 @@ def test_serialize_with_guard_reserve_accounts_overhead(
     _, ok = serialize_with_guard(payload, "chat_single", reserve_tokens=100)
     assert ok == base
     # 예약분이 상한 전체를 먹으면 어떤 payload도 못 들어가 축소 후에도 초과 → 전파(차단).
+    from saju_engines.llm_guard import CALL_LIMITS
+
     with pytest.raises(TokenBudgetExceeded, match="Context Reduction"):
-        serialize_with_guard(payload, "chat_single", reserve_tokens=28_000)
+        serialize_with_guard(
+            payload, "chat_single",
+            reserve_tokens=CALL_LIMITS["chat_single"].max_input_tokens,
+        )
 
 
 def test_relocation_reasons_render_in_date_block(

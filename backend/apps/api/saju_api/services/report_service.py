@@ -24,17 +24,21 @@ from saju_manse_analysis.luck.luck_calendar import luck_month_label
 
 from saju_engines import counseling_arbiter, period_v2_config
 from saju_engines.ai_tell_audit import audit_ai_tells
+from saju_engines.answer_label_audit import rewrite_rank_labels, rewrite_raw_period_labels
 from saju_engines.candidate_semantics import candidate_semantics
 from saju_engines.career_field import build_career_field_facts, render_career_field_lines
-from saju_engines.chart_interpretation import build_chart_interpretation
+from saju_engines.chart_interpretation import build_chart_interpretation, build_luck_grounding
 from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
 from saju_engines.context_reducer import (
     _DOMAIN_EVENT_KEYS,
     _PROFILE_FACTS_INSTRUCTION,
     _STRUCTURE_PATTERN_INSTRUCTION,
+    PERIOD_OTHER_SIGNAL_MIN,
+    PERSONAL_REPEAT_DIRECTIVE,
     build_birth_summary,
     event_ko,
     first_sentence,
+    has_personal_repeat_signal,
     overview_cluster_key,
     serialize_chart_prefix,
 )
@@ -52,6 +56,8 @@ from saju_engines.direction_suggestion import (
     format_direction_suggestion_lines,
     select_direction_suggestions,
 )
+from saju_engines.entry_channel import ENTRY_CHANNEL_DIRECTIVE, entry_channel_lines
+from saju_engines.entry_slots import assign_entry_slots, entry_slot_directive
 from saju_engines.event_engine_config import (
     DaewoonHwaMode,
     active_event_engine_flags,
@@ -64,8 +70,11 @@ from saju_engines.folk_direction import (
     folk_taboo_summary,
     format_folk_taboo_lines,
 )
+from saju_engines.gongmang_state import same_xun_line, transit_state, transit_suffix
 from saju_engines.hap_lines import luck_hap_mode_lines
 from saju_engines.health_vulnerability import analyze_health_vulnerability
+from saju_engines.horizon import ENTRY_WINDOW_DIRECTIVE
+from saju_engines.impossible_relation_audit import strip_impossible_relation_claims
 from saju_engines.intent_event_filter import IntentEventFilter
 from saju_engines.lifetime_scan import (
     PER_CLUSTER_CAP,
@@ -75,6 +84,8 @@ from saju_engines.lifetime_scan import (
     select_lifetime_years,
 )
 from saju_engines.llm_guard import TokenBudgetExceeded
+from saju_engines.love_period_notes import LOVE_NOTE_EVENT_KEYS, love_period_note_items
+from saju_engines.love_type import age_from_result
 from saju_engines.manifestation_branch import branch_summary
 from saju_engines.marriage_resource import analyze_marriage_resource
 from saju_engines.mobility_agency import (
@@ -97,6 +108,7 @@ from saju_engines.relationship_hints import (
     normalize_relation_type,
     relation_context_lines,
 )
+from saju_engines.repetition_structure import activation_line, repetition_activations
 from saju_engines.report_builder import ReportBuilder
 from saju_engines.report_event_input import (
     month_overview_lines,
@@ -144,6 +156,8 @@ from saju_engines.structural_context import (
     MANAGE_NOT_OVERCOME_DIRECTIVE,
     NON_NORMATIVE_REASSURANCE_DIRECTIVE,
     RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
+    SPOUSE_IMAGE_DIRECTIVE,
+    SPOUSE_MARRIED_DIRECTIVE,
     TENDENCY_SHIFT_DIRECTIVE,
     TONE_LAYER_DIRECTIVE,
     UNCERTAINTY_TRANSLATION_DIRECTIVE,
@@ -155,6 +169,7 @@ from saju_engines.structural_context import (
     external_impression_lines,
     health_lines,
     hour_unknown_directive,
+    load_remedy_action_map,
     marriage_age_prior_lines,
     marriage_resource_lines,
     preparation_context_lines,
@@ -185,6 +200,10 @@ from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
 from saju_engines.topic_builder import build_topic_context
 from saju_engines.wealth_capacity import analyze_wealth_capacity
 from saju_engines.wealth_status_lean import analyze_wealth_status_lean
+from saju_engines.yearly_environment import (
+    build_yearly_environment,
+    render_yearly_environment,
+)
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.constants import BRANCH_KO, STEM_KO
@@ -767,16 +786,9 @@ _ORG_SCALE_DIRECTIVE = (
 )
 # 미혼 배우자상(F-17 — docs/10 3-3, 2026-08-13 사용자 확정: 재미요소로 외모 추측 허용).
 # 실존 상대(궁합 RP-03)의 외모 추측 금지는 별개로 유지된다(이원 정책).
-_SPOUSE_IMAGE_DIRECTIVE = (
-    "[미혼 배우자상 — 재미요소] 원국 배우자궁(일지)·배우자성 글자의 물상을 근거로, 인연이 "
-    "닿기 쉬운 배우자상의 외모 인상·체형 결·스타일·분위기와 성격·성향을 적극적으로 그려줄 것 "
-    "— '~한 결/인상일 가능성'으로 쓰되 구체 수치(키 몇 cm 등)·확정 단정만 금지. 서두나 "
-    "말미에 '겉모습은 재미로 보는 참고' 단서를 1회 넣을 것."
-)
-_SPOUSE_MARRIED_DIRECTIVE = (
-    "[배우자 서술 — 기혼] 프로필상 기혼이므로 새 배우자상 묘사 대신 배우자와의 관계 흐름·"
-    "서로 돌볼 포인트 중심으로 서술할 것."
-)
+# 문장 SSOT 는 saju_engines.structural_context(채팅 상대 외모 턴과 공용, 2026-10-26).
+_SPOUSE_IMAGE_DIRECTIVE = SPOUSE_IMAGE_DIRECTIVE
+_SPOUSE_MARRIED_DIRECTIVE = SPOUSE_MARRIED_DIRECTIVE
 
 # 십년 풀이 하위 페이지(F-14-D*) 서술 가이드 — docs/10 3-1(2026-08-13 사용자 제안
 # '10년 단위 페이지 분리' 채택). 동적 sid라 _SECTION_GUIDES 대신 접두 판정으로 적용.
@@ -827,6 +839,9 @@ _SAMJAE_SECTIONS: dict[str, str] = {
     "W-06": "forecast", "J-05": "forecast", "R-05": "forecast", "RL-06": "forecast",
     "C-03": "forecast",
 }
+
+#: 관계 도메인이지만 연애 운의 결을 싣지 않는 섹션 — 자녀(출산 신호) 섹션(2026-10-27 재검토).
+_NO_LOVE_NOTE_SECTIONS = frozenset({"F-17c"})
 
 # 도메인 섹션 → 생애 도메인 변곡 행(장기 연동) 매핑 — 모든 도메인 섹션이 근접 5년만
 # 반복하던 결함 교정(2026-08-13). 값=(도메인, 사건 키 필터, 헤더 라벨).
@@ -913,6 +928,9 @@ _NON_NORMATIVE_SECTIONS = {"R-07", "RP-09"}
 # 시기 단정 금지 디렉티브를 붙일 주목할 달 섹션 — 우선 직업 테마 J-06만(사례 §6 모방 금지,
 # 감수·실측 후 타 테마 '주목할 달' 확장 검토).
 _DATE_CERTAINTY_SECTIONS = {"J-06"}
+#: 진입 시기 두 칸·진입 통로·개인 이력 반복 지시를 붙이는 직업 섹션(2026-10-22) — 주목할 달·
+#: 행동 전략.
+_ENTRY_WINDOW_SECTIONS = frozenset({"J-06", "J-07"})
 
 
 @lru_cache(maxsize=1)
@@ -923,12 +941,9 @@ def _activity_keyword_map() -> dict:
     )
 
 
-@lru_cache(maxsize=1)
 def _remedy_action_map() -> dict:
-    """remedy_action_map.json 로드(프로세스 캐시) — reviewed:false 초안, 서술 재료 전용."""
-    return json.loads(
-        (_DICTS / "interpretations" / "remedy_action_map.json").read_text(encoding="utf-8")
-    )
+    """remedy_action_map.json 로드 — 공용 캐시 로더(structural_context)에 위임."""
+    return load_remedy_action_map(_DICTS)
 
 
 # 원국 횡재 그릇 블록을 부착하는 재물 섹션(Phase 1 — 횡재 잠재구조 표면화).
@@ -1205,6 +1220,7 @@ class _ReportData:
         self.marriage_resource = analyze_marriage_resource(
             self.result,
             self.summary.useful_gods,
+            age=age_from_result(self.result, today),  # 연애 유형 3단계 월지/일지 분기(2026-10-25)
         )
         self.health_vulnerability = analyze_health_vulnerability(
             self.result,
@@ -1393,6 +1409,12 @@ class _ReportData:
             lines += relative_sinsal_lines(self.result, partner)
             # 삼합국 관계 역학(P1) — 년지 삼합국 오행 생극 경향(설명 레이어, 점수 미개입).
             lines += trine_dynamics_lines(self.result, partner)
+            # 동순(同旬) 사실(2026-10-23, 채팅 패리티) — 두 일주의 旬 일치 여부만.
+            _ps = getattr(self, "partner_summary", None)
+            if _ps is not None:
+                _xun = same_xun_line(self.summary.pillars, _ps.pillars, "본인", "상대")
+                if _xun:
+                    lines.append(_xun)
         return lines
 
     @property
@@ -1820,12 +1842,25 @@ class _ReportData:
             if best
             else ""
         )
-        return [
+        block = [
             f"[월별 흐름 — {scope_label}. 아래 각 달을 하나도 빠뜨리지 말고 서술할 것 — "
             "좋은 달·주의할 달의 1차 기준은 사건 밀도가 아니라 운 품질 등급〈…〉"
             f"(길흉=용신/기신).{callout}]",
             *overview,
         ]
+        _rep = self._repetition_month_lines(months)
+        if _rep:
+            block += ["", *_rep]
+        if domain == "relationship" and not self.non_romantic_pair:
+            # 연애 운의 결(2026-10-27, 채팅 월별 표 패리티) — 관계 사건이 '가능성이 높습니다'(70)
+            # 이상인 달만(하한 40은 관계 변화가 거의 매달 넘어 12달 전부가 붙었다 — 재검토).
+            _love = self._love_note_lines([
+                c for c in self.scored
+                if str(c.period) in months and c.score >= PERIOD_OTHER_SIGNAL_MIN
+            ])
+            if _love:
+                block += ["", *_love]
+        return block
 
     # ── 상대 운 표(궁합 모드, 2026-10-15) — 본인 표와 같은 형식, 머리줄로 주체를 명시 ──
     def pair_subject_header(self, partner: bool) -> str:
@@ -1968,7 +2003,11 @@ class _ReportData:
         keyword_block = activity_keyword_lines(
             favorable, cautious, natal_sinsal, _activity_keyword_map()
         )
-        remedy_block = remedy_action_lines([el for el, _ in favorable], _remedy_action_map())
+        _fa = self.result.force_analysis
+        remedy_block = remedy_action_lines(
+            [el for el, _ in favorable], _remedy_action_map(),
+            excess_elements=list(_fa.five_elements.excessive_elements) if _fa else None,
+        )
         if not keyword_block and not remedy_block:
             return []
         out = [*keyword_block]
@@ -2189,6 +2228,42 @@ class _ReportData:
             lines.append(f"구성원 이동운이 엇갈리는 달: {', '.join(conflicts)}")
         return lines
 
+    def yearly_sewoon_block(self, year: int) -> list[str]:
+        """[해당 연 세운 grounding] — 채팅 '해당 연 총운'과 같은 세운 줄 + 월주 상대 관점 환경 블록.
+
+        2026-10-25 리포트 패리티(데굴님 승인): F-11·Y-04 는 `luck_block`(대운표·후보 클러스터)만
+        있어 그 해 세운 자체의 십성·십이운성·형충회합·신살·공망 줄이 없었다(채팅
+        `build_luck_grounding` 미호출). 같은 함수로 세운 1줄 grounding 을 내고, 월주 상대 관점
+        (세운 전용) 환경 블록을 붙인다.
+        계층 블록(composite 기반)은 리포트에 넣지 않는다 — 관계는 기존 relation 줄이 담당.
+        해당 연 세운이 없으면 빈 목록(graceful).
+        """
+        lc = self.result.luck_cycles
+        if lc is None:
+            return []
+        pillar = next((p for p in lc.yearly_luck if p.label == str(year)), None)
+        if pillar is None:
+            return []
+        g = build_luck_grounding(self.result, pillar)
+        lines = [
+            f"[해당 연 세운 grounding — {year} {pillar.ganji} · 엔진 확정값(채팅 패리티)]",
+            f"세운: {g['pillar_line']}",
+        ]
+        if pillar.luck_label or pillar.luck_summary:
+            lines.append(f"운 요약: {pillar.luck_label} — {pillar.luck_summary}")
+        lines += render_yearly_environment(build_yearly_environment(self.result, pillar))
+        lines += [f"형충회합: {rl}" for rl in g["relation_lines"]]
+        lines += list(g["sinsal_lines"])
+        if g["gongmang"]:
+            lines.append("공망: " + ", ".join(g["gongmang"]))
+        lines.append(
+            "서술 순서: [월주 상대 관점]이 있으면 ①시절이 만드는 환경 한 문장 → ②[세운:] 줄의 "
+            "일간 기준 십성·십이운성으로 그 환경에서 취하기 쉬운 태도 한 문장 → ③둘을 합친 한 해 "
+            "주제를 이 섹션 "
+            "첫 판정 문단 바로 뒤에 둘 것(환경·태도는 길흉이 아니며 용희기신 판정을 바꾸지 않는다)."
+        )
+        return lines
+
     def era_energy_block(self, year: int) -> list[str]:
         """[올해 시대 기운] — structural_context 위임 + 리포트 전용 연결 지시."""
         lines = era_energy_lines(self.result, year)
@@ -2215,6 +2290,33 @@ class _ReportData:
             if line:
                 out.append(f"{period}: {line}")
         return out
+
+    def entry_channel_block(self) -> list[str]:
+        """진입 통로 블록(J-06·J-07) — 직업 후보 상위 달 2개의 운 십성을 관계 범주로(공용 모듈).
+
+        운 기둥은 라벨의 절기 연도 월운(1월 라벨은 전년) 또는 세운에서 찾는다. 없으면 빈 목록.
+        """
+        def _pillar(label: str) -> object | None:
+            try:
+                if len(label) == 4:
+                    pls = luck_years(self._chart_birth, [int(label)])
+                elif len(label) == 7:
+                    year = int(label[:4]) - (1 if label[5:7] == "01" else 0)
+                    pls = luck_months(self._chart_birth, year)
+                else:
+                    return None
+            except (ValueError, TypeError):
+                return None
+            return next((p for p in pls if p.label == label), None)
+
+        gender = str((self.result.input_summary or {}).get("gender", ""))
+        lines, keys, periods = entry_channel_lines(
+            self.domain_candidates("career"), _pillar, self.fav_map, gender,
+        )
+        if lines:
+            _logger.info("entry_channel_exposed surface=report periods=%s keys=%s", periods, keys)
+            lines = [*lines, ENTRY_CHANNEL_DIRECTIVE]
+        return lines
 
     def career_field_block(self) -> list[str]:
         """[직업 분야 근거] 블록(캐시) — 원국 십성 기능 표 + 제안 통로(현재 대운·세운 천간 십성).
@@ -2255,21 +2357,37 @@ class _ReportData:
         lc = self.result.luck_cycles
         if lc is None:
             return []
+        # 2026-10-25(데굴님 승인, 합 체계 대조 P0-1): 종전에는 후보 기간 전체의 세운·월운·대운
+        # 글자를
+        # **집합**으로 합쳐 한 번에 판정해 ①서로 다른 기간의 운 글자끼리 쌍(운–운 합) ②같은 글자
+        # 중복 소실 ③운–운 쌍에도 "원국 글자 합거" 라벨이 붙었다. 기간별(그 기간 운 간지 + 그
+        # 기간이 속한 대운)로 따로 판정하고 기간·층위 라벨을 붙인다. 점수·후보 불변(서술 입력).
         by_label = {p.label: p.ganji for p in [*lc.yearly_luck, *lc.monthly_luck]}
-        cand_years = {int(c.period[:4]) for c in candidates if c.period[:4].isdigit()}
-        stems: set[str] = set()
-        branches: set[str] = set()
-        for c in candidates:
-            ganji = by_label.get(c.period) or by_label.get(c.period[:4])
-            if ganji and len(ganji) >= 2:
-                stems.add(ganji[0])
-                branches.add(ganji[1])
-        for d in lc.daewoon_table:  # 후보 연도를 커버하는 대운 간지
-            if any(d.approx_start_date.year <= y <= d.approx_end_date.year for y in cand_years):
-                if len(d.ganji) >= 2:
-                    stems.add(d.ganji[0])
-                    branches.add(d.ganji[1])
-        return luck_hap_mode_lines(self.result, sorted(stems), sorted(branches))
+
+        def _daewoon_for(year: int) -> str | None:
+            for d in lc.daewoon_table:
+                if d.approx_start_date.year <= year <= d.approx_end_date.year and len(d.ganji) >= 2:
+                    return d.ganji
+            return None
+
+        lines: list[str] = []
+        seen_periods: set[str] = set()
+        for c in sorted(candidates, key=lambda x: x.period):
+            period = c.period
+            if period in seen_periods:
+                continue
+            seen_periods.add(period)
+            ganji = by_label.get(period) or by_label.get(period[:4])
+            if not ganji or len(ganji) < 2 or not period[:4].isdigit():
+                continue
+            dw = _daewoon_for(int(period[:4]))
+            layer = f"[{period} {ganji}" + (f" · 대운 {dw}" if dw else "") + "]"
+            stack = [ganji] + ([dw] if dw and dw != ganji else [])
+            for ln in luck_hap_mode_lines(
+                self.result, [g[0] for g in stack], [g[1] for g in stack],
+            ):
+                lines.append(f"{layer} {ln}")
+        return list(dict.fromkeys(lines))
 
     def pattern_change_lines(self, candidates: list[EventCandidate]) -> list[str]:
         """후보 기간(연·월)의 운 적용 구조 상태 줄(F8-P1) — composite.pattern_states 읽기만(원칙 9).
@@ -2339,9 +2457,92 @@ class _ReportData:
         )
         return counseling_arbiter.counseling_block_lines(sem)
 
+    def _gongmang_transit_lines(self, cands: list[EventCandidate]) -> list[str]:
+        """후보 기간(연 'YYYY'·월 'YYYY-MM')별 공망 자극 줄 — 활성 자극이 있는 기간만.
+
+        간지는 세운은 `luck_years`, 월운은 `luck_months`(절기 기준·결정론)로 구한다. 원국 공망
+        자리가 없으면 빈 목록(연·월 모두 미산출).
+        """
+        if not self.summary.void_branches:
+            return []
+        periods = sorted({c.period for c in cands if len(c.period) in (4, 7)})
+        if not periods:
+            return []
+        years = sorted({int(p[:4]) for p in periods})
+        ganji_of: dict[str, str] = {}
+        try:
+            for ly in luck_years(self._chart_birth, years):
+                ganji_of[ly.label] = ly.ganji
+            for y in years:
+                if any(len(p) == 7 and p.startswith(str(y)) for p in periods):
+                    for lm in luck_months(self._chart_birth, y):
+                        ganji_of[lm.label] = lm.ganji
+        except Exception:  # noqa: BLE001 — 간지 조회 실패가 리포트 블록을 막지 않는다
+            return []
+        out: list[str] = []
+        for p in periods:
+            g = ganji_of.get(p)
+            if not g:
+                continue
+            sfx = transit_suffix(transit_state(
+                self.summary.pillars, self.summary.day_master, self.summary.void_branches, p, g,
+            ))
+            if sfx:
+                out.append(f"{'세운' if len(p) == 4 else '월운'} {p} {g}{sfx}")
+        return out
+
+    def _repetition_month_lines(self, months: set[str]) -> list[str]:
+        """월별 표 구간의 반복 구조 활성화 줄(2026-10-27, 채팅 후보 블록 패리티).
+
+        같은 글자 유입·반복 그룹 충을 달마다 한 줄씩 — 새 사건이 아니라 구조의 기간 활성화다.
+        서술 전용(점수·선별 불변). 해당 달이 없으면 빈 목록.
+        """
+        rows: list[str] = []
+        for m in sorted(months):
+            gj = self._ganji_by_label.get(m, "")
+            for act in repetition_activations(self.result, "month", m, gj):
+                rows.append(f"{m} {gj}: {activation_line(act)}")
+        if not rows:
+            return []
+        return [
+            "[반복 구조 활성화(월) — 원국 반복 그룹·자형이 이 달에 두드러지는 표지. "
+            "새 사건이 아니며 관계 쌍 수만큼 사건을 세지 말 것. 유불리는 반복 글자의 "
+            "십성·용희기구한이 정한다]",
+            *rows,
+        ]
+
+    def _love_note_lines(self, cands: list[EventCandidate]) -> list[str]:
+        """관계 후보 기간별 연애 운의 결 — 라벨은 기간마다, 구절은 범례에 한 번(2026-10-27).
+
+        채팅 후보 블록·월별 표와 같은 `love_period_note_items` 를 쓴다. 서술 전용(점수·선별 불변).
+        """
+        periods = sorted({
+            str(c.period) for c in cands
+            if str(c.event_key) in LOVE_NOTE_EVENT_KEYS and len(str(c.period)) in (4, 7)
+        })
+        rows: list[str] = []
+        legend: dict[str, str] = {}
+        for p in periods:
+            gj = self._ganji_by_label.get(p, "")
+            items = love_period_note_items(self.result, gj, self.fav_map)
+            if not items:
+                continue
+            rows.append(f"{p} {gj}: " + " · ".join(label for label, _t in items))
+            for label, text in items:
+                legend.setdefault(label, text)
+        if not rows:
+            return []
+        return [
+            "[연애 운의 결(후보 기간) — '그럴 수 있다'는 경향이다. "
+            "'반드시'·'운명'·'끝난다' 단정 금지]",
+            *rows,
+            *(f"  · {label}: {text}" for label, text in legend.items()),
+        ]
+
     def luck_block(
         self, candidates: list[EventCandidate] | None = None, *, daewoon_only: bool = False,
         include_event_candidates: bool = True, domain: str | None = None,
+        love_notes: bool = True,
     ) -> list[str]:
         """[대운표]+[이벤트 후보] — 운 관련 섹션의 데이터 블록.
 
@@ -2378,10 +2579,17 @@ class _ReportData:
                         if d.index == _cur_dw
                         else (" [지남]" if d.index < _cur_dw else " [예정]")
                     )
+                # 공망 자극(2026-10-23, 채팅 패리티) — 원국 공망 자리가 이 대운 지지로 활성되는
+                # 경우만.
+                _gm = transit_suffix(transit_state(
+                    self.summary.pillars, self.summary.day_master, self.summary.void_branches,
+                    f"{d.approx_start_date.year}-{d.approx_end_date.year}", d.ganji,
+                    is_daewoon=True,
+                ))
                 lines.append(
                     f"대운 {d.ganji}(천간 {d.stem}={d.stem_ten_god}/지지 {d.branch}="
                     f"{d.branch_ten_god}) {d.approx_start_date.year}-{d.approx_end_date.year}, "
-                    f"{d.start_age}-{d.start_age + 9}세: 발현 {mode_ko}{_dw_tag}"
+                    f"{d.start_age}-{d.start_age + 9}세: 발현 {mode_ko}{_dw_tag}{_gm}"
                 )
             if _cur_dw is not None:
                 lines.append(
@@ -2409,6 +2617,23 @@ class _ReportData:
                 lines += clusters
             else:
                 lines.append("이 도메인의 두드러진 후보 신호는 약함 — 원국 구조 중심으로 서술.")
+            # 공망 자극(2026-10-23, 채팅 간지달력 접미와 패리티) — 후보 기간(연·월)에서 원국 공망
+            # 자리가 활성되는 경우만 한 줄씩. 서술 참고값이며 점수·선별 불변.
+            _gm_lines = self._gongmang_transit_lines(cands)
+            if _gm_lines:
+                lines.append("")
+                lines.append(
+                    "[공망 자극(후보 기간) — 엔진 사실. 상태는 해공 정도이지 길흉이 아니다 — "
+                    "살아난 글자의 십성·용희기구한으로 별도 판정]"
+                )
+                lines += _gm_lines
+            # 연애 운의 결(2026-10-27, 채팅 패리티) — 관계 섹션 후보 기간에만, 라벨 + 범례 1회.
+            # 비연애 관계(부모·자녀 등) 짝 리포트와 자녀 섹션은 제외(2026-10-27 재검토).
+            if domain == "relationship" and love_notes and not self.non_romantic_pair:
+                _love = self._love_note_lines(cands)
+                if _love:
+                    lines.append("")
+                    lines += _love
             # 이동 주체 미상(2026-10-15 데굴님 지시, 채팅과 동일) — 이 섹션 후보에 직장·역할 이동이
             # 있으면 자발·타의 단정 금지 지시를 같이 싣는다.
             if has_mobility_candidate(cands):
@@ -3733,6 +3958,19 @@ def build_section_context(
             if sid in _DATE_CERTAINTY_SECTIONS:
                 lines.append(AVOID_DATE_CERTAINTY_DIRECTIVE)
             lines.append("")
+        # 직장 이력 캘리브레이션 P2 리포트 배선(2026-10-22, EMPLOYMENT_HISTORY_CALIBRATION.md §4-4):
+        # 주목할 달(J-06)·행동 전략(J-07)에 진입 시기 두 칸·진입 통로·개인 이력 반복 수치 지시 —
+        # 채팅과 같은 공용 모듈·지시문(회사명 없음). 후보가 없으면 블록 없음(규칙 11).
+        if sid in _ENTRY_WINDOW_SECTIONS:
+            lines += ["", *data.entry_channel_block(), ENTRY_WINDOW_DIRECTIVE]
+            # 두 칸 엔진 배정(2026-10-24, 채팅과 동일 모듈) — 국면 후보 달을 성사 달로 세우지 않게
+            # 한다.
+            _slot_assignment = assign_entry_slots(data.domain_candidates("career"))
+            if _slot_assignment is not None:
+                lines.append(entry_slot_directive(_slot_assignment, event_ko="취업·이직"))
+            if has_personal_repeat_signal(data.domain_candidates("career")):
+                lines.append(PERSONAL_REPEAT_DIRECTIVE)
+            lines.append("")
         # P1 — 정책 등록 섹션은 named view 만 쓴다. 전역 top-8 fallback 을 타지 않는다.
         policy = (
             _SECTION_EVIDENCE_POLICY.get(sid)
@@ -3762,7 +4000,8 @@ def build_section_context(
         # 후보 상세 — 도메인 스코프면 자기 도메인 후보(길·흉 포함), 아니면 전역 top 후보.
         elif section_domain is not None:
             lines += data.luck_block(
-                data.domain_candidates(section_domain), domain=section_domain
+                data.domain_candidates(section_domain), domain=section_domain,
+                love_notes=sid not in _NO_LOVE_NOTE_SECTIONS,
             )
         else:
             # 2부 과거·메타 섹션은 [대운표]만 — 미래 이벤트 후보가 섞이는 시간범위 불일치 차단.
@@ -3873,6 +4112,11 @@ def build_section_context(
     # 연간 총운(Y-04) — 세운·대운 천간 십성 이사 유형 간결 surface(인생 총운엔 미부착).
     if sid in _RELOCATION_YEAR_SECTIONS:
         lines += ["", *data.relocation_year_block(spec)]
+    # 해당 연 세운 grounding + 월주 상대 관점(2026-10-25 채팅 패리티) — F-11(올해)·Y-04(그 해).
+    if sid == "Y-04":
+        lines += ["", *data.yearly_sewoon_block(int(spec.period.start[:4]))]
+    elif sid == "F-11":
+        lines += ["", *data.yearly_sewoon_block(data.today.year)]
     # 시대 기운(연운) — 개인 풀이 앞 맥락. Y-01(한해풀이 그 해)·F-11(총운 올해).
     if sid == "Y-01":
         lines += ["", *data.era_energy_block(int(spec.period.start[:4]))]
@@ -4205,8 +4449,10 @@ def _try_risk_exposed_section(
         section_cfg = _RISK_EXPOSED_SECTIONS.get(
             section_id, _RISK_EXPOSED_SECTIONS["C-06"])
         payload = _reb.build_risk_payload(
-            list(getattr(data, "risk_shadow", ())
-                 or data.scorer.risk_shadow),
+            # 요청 로컬 snapshot 만 쓴다(보안 점검 S6, 2026-10-24): 본인 후보가 0건일 때
+            # `scorer.risk_shadow` 로 폴백하면 직전 채점분(궁합 상대)의 위험 후보가 본인
+            # 섹션에 들어갔다. 폴백 없음 = 후보 없음.
+            list(getattr(data, "risk_shadow", ()) or ()),
             question_type=section_cfg["question_type"],
             target_domains=tuple(section_cfg["target_domains"]),
             allowed_periods=frozenset(str(y) for y in years))
@@ -4484,12 +4730,28 @@ def generate_report(
                         reduction_level,
                     )
                 text = _tighten(text)  # 지면 낭비 정규화(공백수정)
+                # 성립 불가 간지 관계 주장 제거(2026-10-27, 채팅과 동일 — 재호출 없음).
+                text, _bad_rel = strip_impossible_relation_claims(text)
+                if _bad_rel:
+                    _logger.warning(
+                        "impossible_relation_stripped surface=report section=%s pairs=%s",
+                        plan.section_id, [f"{c.pair}{c.relation}" for c in _bad_rel],
+                    )
                 # 겉/속 거짓 역접 재작성(2026-10-01) — 채팅과 같은 결정론 후처리(재호출 없음).
                 text, _fc = rewrite_false_contrast(text)
                 if _fc:
                     _logger.warning(
                         "false_contrast_rewritten surface=report section=%s count=%d",
                         plan.section_id, len(_fc),
+                    )
+                # 내부 표기 누수 교정(2026-10-22, 채팅과 동일): '1위로' → 서술어, 'YYYY-MM' →
+                # 'YYYY년 M월'.
+                text, _rank = rewrite_rank_labels(text)
+                text, _plabel = rewrite_raw_period_labels(text)
+                if _rank or _plabel:
+                    _logger.warning(
+                        "internal_label_rewritten surface=report section=%s rank=%s period=%s",
+                        plan.section_id, _rank, _plabel,
                     )
                 # 원국 지지 자리 십성 표기 감사(2026-10-13) — 명확한 불일치만 결정론 교정. 궁합처럼
                 # 두 사람이 나오는 리포트는 어느 사람의 자리인지 확정할 수 없어 건너뛴다.

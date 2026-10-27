@@ -19,6 +19,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
+from .enums import Stem
 from .relation_semantics import (
     BindingState,
     EffectKind,
@@ -75,6 +76,31 @@ LAYER_KO: dict[ParticipantLayer, str] = {
 }
 
 
+#: 천간 글자 집합 — 원국 참여자 라벨에서 간·지를 가르는 기준(표시 전용).
+_STEM_CHARS: frozenset[str] = frozenset(s.value for s in Stem)
+
+
+def participant_label(layer: ParticipantLayer, char: str) -> str:
+    """참여 글자 1개의 층위 라벨 — 원국 자리는 간·지를 구분한다.
+
+    `LAYER_KO`는 궁위만 보고 '원국 월지'로 고정돼 있어 천간 참여자(丙壬沖의 월간 壬)까지
+    '월지'로 표기됐다(2026-10-25 발견). LLM이 壬을 지지로 오인해 '월지 임수' 같은 오기를
+    내는 입력 계약 결함이라, 천간이면 '원국 월간 壬', 지지면 '원국 월지 寅'으로 낸다.
+    운 층위(대운·세운·월운·일진)는 간지 2자를 함께 쓰므로 그대로 둔다.
+
+    Args:
+        layer: 참여 글자의 층위.
+        char: 참여 글자(한자 1자).
+
+    Returns:
+        '원국 월간' / '원국 월지' / '세운' 같은 표시 라벨.
+    """
+    base = LAYER_KO[layer]
+    if layer.is_natal and char in _STEM_CHARS:
+        return base[:-1] + "간"
+    return base
+
+
 def normalize_participant_layer(source: str) -> ParticipantLayer | None:
     """composite source → 층위. 알 수 없으면 None(호출부가 fail-closed 처리)."""
     return _SOURCE_TO_LAYER.get(source)
@@ -122,6 +148,9 @@ class HierarchyInteraction(BaseModel):
     interaction_id: str  # 사전 relation_id 'rel_巳午未方合'
     relation_label: str = ""  # P0 정규 라벨(매칭 실패 시 빈 문자열)
     kind: str  # InteractionKind 값
+    # P0 의미의 kind('six'|'three_harmony'|'half'|'gonghap'|'directional'|'stem_combination').
+    # 공합(gonghap, 2026-10-25)은 서술만 하고 점수·클러스터에서 빼는 판정에 쓴다.
+    semantic_kind: str = ""
     participants: list[HierarchyParticipant] = Field(default_factory=list)
     base_intensity: float = 0.0  # 사전 baseScore 그대로(부호·변동성 판정은 P3 소관)
     # ── P0에서 복사(재계산 금지) ─────────────────────────────────────────────

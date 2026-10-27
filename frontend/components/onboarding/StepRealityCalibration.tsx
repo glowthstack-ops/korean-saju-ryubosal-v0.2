@@ -13,7 +13,11 @@ import {
   OVERALL_OPTIONS,
   normalizeEventRating,
 } from "@/lib/calibration";
-import { getRealityCalibration, submitRealityCalibration } from "@/lib/subjects";
+import {
+  type CalibrationMode,
+  getRealityCalibration,
+  submitRealityCalibration,
+} from "@/lib/subjects";
 import type {
   RealityCalibrationQuestionSet,
   RealityCalibrationSubmitResult,
@@ -22,6 +26,8 @@ import type {
 
 interface Props {
   subjectId: string;
+  // 'refresh' = 마지막 입력 이후 해만(연 1회 갱신, 2026-10-24). 기본 'full'.
+  mode?: CalibrationMode;
   // 저장 결과(사용자용 요약)를 넘긴다 — 온보딩 위저드는 무시하고 다음 단계로, 전용 페이지는 표시.
   onDone: (result?: RealityCalibrationSubmitResult) => void;
 }
@@ -37,7 +43,7 @@ type YearState = {
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 const _EMPTY: YearState = { occurred: {}, none: false, domains: {} };
 
-export function StepRealityCalibration({ subjectId, onDone }: Props) {
+export function StepRealityCalibration({ subjectId, onDone, mode = "full" }: Props) {
   const [q, setQ] = useState<RealityCalibrationQuestionSet | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [state, setState] = useState<Record<number, YearState>>({});
@@ -45,7 +51,7 @@ export function StepRealityCalibration({ subjectId, onDone }: Props) {
   const [hasPrior, setHasPrior] = useState(false); // 이전 제출 존재(수정 모드)
 
   useEffect(() => {
-    getRealityCalibration(subjectId)
+    getRealityCalibration(subjectId, mode)
       .then((res) => {
         setQ(res);
         // 이전 제출(prior)로 상태 프리필 — 발생/월 + 경험/강도 + 전체·영역 체감 모두 복원.
@@ -75,7 +81,7 @@ export function StepRealityCalibration({ subjectId, onDone }: Props) {
         setState(init);
       })
       .catch((e: unknown) => setErr((e as Error)?.message ?? "불러오기에 실패했습니다."));
-  }, [subjectId]);
+  }, [subjectId, mode]);
 
   const patchYear = (year: number, next: Partial<YearState>) =>
     setState((prev) => ({ ...prev, [year]: { ...(prev[year] ?? _EMPTY), ...next } }));
@@ -121,7 +127,7 @@ export function StepRealityCalibration({ subjectId, onDone }: Props) {
           })),
         };
       });
-      const result = await submitRealityCalibration(subjectId, answers);
+      const result = await submitRealityCalibration(subjectId, answers, mode);
       onDone(result);
     } catch (e: unknown) {
       setErr((e as Error)?.message ?? "저장에 실패했습니다.");
@@ -134,7 +140,11 @@ export function StepRealityCalibration({ subjectId, onDone }: Props) {
   if (!q) return <p className="text-sm text-zinc-500">불러오는 중…</p>;
   if (q.years.length === 0) {
     return (
-      <p className="text-sm text-zinc-500">표시할 연도가 없습니다. 이 단계는 건너뛰셔도 됩니다.</p>
+      <p className="text-sm text-zinc-500">
+        {mode === "refresh"
+          ? "마지막 입력 이후 새로 물어볼 해가 아직 없어요."
+          : "표시할 연도가 없습니다. 이 단계는 건너뛰셔도 됩니다."}
+      </p>
     );
   }
 
