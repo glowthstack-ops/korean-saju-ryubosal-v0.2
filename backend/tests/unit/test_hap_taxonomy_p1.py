@@ -11,7 +11,6 @@ from datetime import date
 
 import pytest
 from saju_manse_analysis.relations import hap_modes as hm
-from tests.unit.test_hap_modes import _pillars
 
 from saju_api.services.chat_service import calculate
 from saju_engines.amhap_luck import detect_luck_amhap
@@ -23,11 +22,45 @@ from saju_engines.hap_lines import (
 )
 from saju_engines.structure_patterns import detect_structure_patterns
 from saju_shared_types.birth_input import BirthInput
+from saju_shared_types.constants import STEM_ELEMENT, hidden_stems_for, ten_god
+from saju_shared_types.enums import Branch, Stem
+from saju_shared_types.pillars import FourPillarsResult, HiddenStem, Pillar
 
 _DG = BirthInput(
     calendar_type="solar", birth_date=date(1980, 11, 22), birth_time="09:40",
     birth_place_name="서울", gender="male", apply_true_solar_time=False,
 )
+
+
+# CI 는 저장소 루트를 sys.path 에 넣지 않아 `from tests.unit.test_hap_modes import _pillars` 가
+# 수집 단계에서 실패했다(2026-10-27 PR #9 CI) — 같은 helper 를 이 파일에 둔다
+# (test_hap_modes 와 동일).
+def _pillar(stem: str, branch: str, dm: str) -> Pillar:
+    """리졸버가 읽는 필드(stem·branch·hidden_stems)만 실제값으로, 나머지는 placeholder."""
+    b = Branch(branch)
+    hs = [
+        HiddenStem(
+            stem=h.value, element=STEM_ELEMENT[h].value, type=t.value, weight=wt,
+            ten_god=str(ten_god(Stem(dm), h)),
+        )
+        for h, t, wt in hidden_stems_for(b)
+    ]
+    return Pillar(
+        stem=stem, branch=branch, ganji=stem + branch,
+        stem_element="", branch_element="", stem_yinyang="", branch_yinyang="",
+        stem_ten_god="", branch_main_ten_god="", twelve_unseong="", hidden_stems=hs,
+    )
+
+
+def _pillars(y: str, m: str, d: str, h: str, dm: str) -> FourPillarsResult:
+    return FourPillarsResult(
+        year=(_pillar(y.split()[0], y.split()[1], dm) if " " in y
+              else _pillar(y[0], y[1], dm)),
+        month=_pillar(m[0], m[1], dm),
+        day=_pillar(d[0], d[1], dm),
+        hour=_pillar(h[0], h[1], dm),
+        day_master=dm,
+    )
 
 
 # ── P1-2 천합지합 ───────────────────────────────────────────────────────────
