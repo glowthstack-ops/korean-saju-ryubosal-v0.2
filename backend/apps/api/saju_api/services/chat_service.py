@@ -204,6 +204,8 @@ from saju_engines.structural_context import (
     document_contrast_block,
     hour_unknown_directive,
     is_appearance_question,
+    load_remedy_action_map,
+    remedy_action_lines,
     spouse_star_directive,
 )
 from saju_engines.task_procedures import (
@@ -6989,6 +6991,17 @@ def chat(
     # 개운/보완 질문 — 결핍·기신은 극복 아니라 관리 프레임(상담 사례 파생 P0-4).
     if intent.query_type is QueryType.REMEDY or is_behavior_pattern or intent.chart_caution:
         trailing.append(MANAGE_NOT_OVERCOME_DIRECTIVE)
+    # 오행 과다 개운(2026-10-27) — 개운·명식 주의점 질문에만. 과다 판정은 엔진(excessive_elements),
+    # 문구는 remedy_action_map.json element_excess_actions 에서 고르기만 한다(서술 전용).
+    if (intent.query_type is QueryType.REMEDY or intent.chart_caution) and (
+        result.force_analysis is not None
+    ):
+        _excess_block = remedy_action_lines(
+            [], load_remedy_action_map(_DICTS),
+            excess_elements=list(result.force_analysis.five_elements.excessive_elements),
+        )
+        if _excess_block:
+            trailing.append("\n".join(_excess_block))
     if intent.chart_caution:  # 명식 범위 주의점 — 시점 사건이 아니라 원국 약점 축(2026-09-17)
         trailing.append(_CHART_CAUTION_DIRECTIVE)
     # 규범 당위형 질문('결혼 꼭 해야 하나') — 사회적 정답 강요 차단(상담 사례 파생 P0-3).

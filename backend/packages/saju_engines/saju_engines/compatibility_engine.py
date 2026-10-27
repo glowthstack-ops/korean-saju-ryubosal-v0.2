@@ -29,6 +29,7 @@ from saju_shared_types.constants import (
     SIX_COMBINATIONS,
     STEM_COMBINATIONS,
     STEM_ELEMENT,
+    group_elements,
     ten_god,
 )
 from saju_shared_types.dohwa import DohwaProfile
@@ -163,6 +164,74 @@ def _yongsin_signals(
                 kind=CompatSignalKind.YONGSIN_BURDEN, label="기신 강화",
                 detail=f"{giver} 일간 오행 {elem}이(가) {taker}의 기·구신을 키움",
                 direction=CompatDirection.FRICTION,
+            ))
+    return out
+
+
+#: 신약 밴드(7단계 strength band, structure_patterns._WEAK_BANDS 와 동일 — 중화신약 제외).
+_WEAK_BANDS = frozenset({"신약", "태신약"})
+_RESOURCE_TEN_GODS = frozenset({"정인", "편인"})
+
+
+def _weak_resource_signals(
+    self_result: ManseV2Result, partner_result: ManseV2Result,
+    *, self_label: str, partner_label: str,
+) -> list[CompatSignal]:
+    """신약한 쪽에게 상대 일간이 인성(나를 생하는 일간)인지(양방향, 2026-10-27 데굴님 승인).
+
+    신약할수록 나를 생해 주는 일간의 상대가 기운을 받쳐 준다는 궁합 해석. 성별 조건은 두지 않는다.
+    """
+    out: list[CompatSignal] = []
+    pairs = [
+        (self_result, partner_result, self_label, partner_label),
+        (partner_result, self_result, partner_label, self_label),
+    ]
+    for taker, giver, taker_label, giver_label in pairs:
+        if taker.pillars is None or giver.pillars is None or taker.force_analysis is None:
+            continue
+        band = taker.force_analysis.strength.band
+        if band not in _WEAK_BANDS:
+            continue
+        taker_dm = Stem(taker.pillars.day_master)
+        giver_dm = Stem(giver.pillars.day_master)
+        tg = ten_god(taker_dm, giver_dm).value
+        if tg in _RESOURCE_TEN_GODS:
+            out.append(CompatSignal(
+                kind=CompatSignalKind.WEAK_RESOURCE_PARTNER, label="신약 보완(인성 일간)",
+                detail=(
+                    f"{taker_label}({band})에게 {giver_label} 일간 {giver_dm.value}이(가) "
+                    f"인성({tg}) — 약한 기운을 생해 받쳐 주는 결"
+                ),
+                direction=CompatDirection.HARMONY,
+            ))
+    return out
+
+
+def _output_yongsin_signals(
+    self_dm: Stem, partner_dm: Stem,
+    self_useful: UsefulGods, partner_useful: UsefulGods,
+    *, self_label: str, partner_label: str,
+) -> list[CompatSignal]:
+    """상대 일간의 식상 오행(상대가 생해 내놓는 기운)이 내 용·희신인지(양방향, 2026-10-27).
+
+    상대 오행이 많다는 사실보다 상대가 내어놓는 기운이 나를 채우는지를 본다. 일간 오행 자체가
+    용·희신인 경우는 `_yongsin_signals` 가 따로 잡는다.
+    """
+    out: list[CompatSignal] = []
+    pairs = [
+        (partner_dm, self_useful, partner_label, self_label),
+        (self_dm, partner_useful, self_label, partner_label),
+    ]
+    for giver_dm, taker_useful, giver_label, taker_label in pairs:
+        output_el = group_elements(STEM_ELEMENT[giver_dm])["output"].value
+        if output_el in set(taker_useful.yongsin) | set(taker_useful.heesin):
+            out.append(CompatSignal(
+                kind=CompatSignalKind.OUTPUT_YONGSIN_SUPPORT, label="식상 오행 용신 보완",
+                detail=(
+                    f"{giver_label} 일간 {giver_dm.value}의 식상 오행 {output_el}이(가) "
+                    f"{taker_label}의 용·희신 — 상대가 내어놓는 기운이 나를 채워 주는 결"
+                ),
+                direction=CompatDirection.HARMONY,
             ))
     return out
 
@@ -386,6 +455,8 @@ _ATTRACTION_WEIGHT: dict[CompatSignalKind, int] = {
     CompatSignalKind.DAY_BRANCH_SIX: 1,     # 육합 — 잔잔한 끌림(안정형)
     CompatSignalKind.TEN_GOD_COMPLEMENT: 1,  # 없는 십성 채움 — 보완형 끌림(잔잔)
     CompatSignalKind.ELEMENT_COMPLEMENT: 1,  # 없는 오행 채움 — 보완형 끌림(2026-10-15)
+    CompatSignalKind.WEAK_RESOURCE_PARTNER: 1,  # 신약에게 인성 일간 — 받쳐 주는 끌림(2026-10-27)
+    CompatSignalKind.OUTPUT_YONGSIN_SUPPORT: 1,  # 상대 식상 오행=내 용·희신(2026-10-27)
     CompatSignalKind.SINSAL_CHARM: 2,       # 홍염 교차 — 매력·끌림(개인 도화 SINSAL_DOHWA는 0)
     CompatSignalKind.SINSAL_FRICTION: 1,    # 원진·귀문 — 애증(끌리며 거슬림)
 }
@@ -477,6 +548,14 @@ def analyze_compatibility(
     signals += _yongsin_signals(self_dm, partner_dm, self_useful, partner_useful)
     # 결핍 오행·계절 보완(2026-10-15, 외부 교재 기타절 궁합 규칙 2종).
     signals += _element_season_signals(self_result, partner_result)
+    # 신약 보완(인성 일간)·상대 식상 오행 용신 보완(2026-10-27 데굴님 '끌림 점수에 넣자').
+    signals += _weak_resource_signals(
+        self_result, partner_result, self_label=self_label, partner_label=partner_label,
+    )
+    signals += _output_yongsin_signals(
+        self_dm, partner_dm, self_useful, partner_useful,
+        self_label=self_label, partner_label=partner_label,
+    )
 
     # 4b) 십성군 상호보완(없는 십성을 상대가 채움 — 보완 끌림).
     signals += _ten_god_complement_signals(

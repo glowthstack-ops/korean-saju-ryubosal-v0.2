@@ -212,6 +212,9 @@ class LlmEventCandidate(BaseModel):
     domain_interaction: str = ""
     # 표현 결(12운성 유입, 2026-09-10 daily §23 이식) — 흐름·결과 서술의 결. 문체 전용·점수 무관.
     stage_note: str = ""
+    # 연애 운 결(2026-10-27) — 관계 사건 후보 기간의 일지 충·운 역할·약한 오행·십성 구절.
+    # '그럴 수 있다' 수준의 서술 전용(점수·판정 비개입). 관계 도메인 질문에만 렌더.
+    love_notes: list[str] = Field(default_factory=list)
     # 운 암합(보조 자료) — 점수 미반영, 물밑·비공식 뉘앙스 참고용(2026-06-12 자료).
     amhap_notes: list[str] = Field(default_factory=list)
     # 유불리 주의(후보별 사실) — 천간 흉신 시기: 발생해도 계약·결실 불리(우호 단정 방지).
@@ -346,6 +349,10 @@ class MonthOverviewRow(BaseModel):
     # 발현 분기 — 그 달 우세 사건과 같은 계열(EVENT_CATEGORY)에서 같은 시점에 점수화된
     # 형제 사건(예: 이직↔이사)을 강도순으로. 한 사건으로 단정하지 않게 한다(2026-06-14).
     branch_ko: str = ""
+    # 연애 운의 결 라벨(2026-10-27) — 그 달 관계 계열 후보가 하한 이상일 때만. 구절 본문은 표 아래
+    # 범례에 한 번만 싣는다(같은 구절 반복 방지). 관계 도메인 질문에서만 렌더.
+    love_note_labels: list[str] = Field(default_factory=list)
+    love_note_texts: dict[str, str] = Field(default_factory=dict)
 
 
 class PeriodFortuneSlot(BaseModel):
@@ -527,6 +534,12 @@ class LlmInput(BaseModel):
     # 질문 기간 밖 상위 후보 — 참고 맥락 전용(메인 서술 금지 지시 동반).
     out_of_range_candidates: list[LlmEventCandidate] = Field(default_factory=list)
     no_candidates_in_period: bool = False
+    #: 같은 영역 다른 사건 후보(2026-10-27) — 질문 사건 키가 아닌 같은 영역 계열 사건 중 70점 이상.
+    #: 진입 시기·상담 결론 판정이 읽는 `event_candidates` 와 분리한다(별도 블록 렌더).
+    family_candidates: list[LlmEventCandidate] = Field(default_factory=list)
+    #: 같은 기간 다른 영역 강신호(2026-10-27) — 질문 영역 밖 '가능성이 높습니다' 이상 후보 요약 줄.
+    #: 질문 영역 후보가 없을 때 '아무 일도 없다'로 덮는 것을 막는다(주 서사 승격 금지).
+    period_other_signals: list[str] = Field(default_factory=list)
     #: P2 — 후보는 있었으나 상위 근거가 없어 주요 사건 자격에서 제외된 경우.
     #: `no_candidates_in_period`와 의미가 다르다: 신호가 없는 게 아니라 자격이 없다.
     #: 둘을 섞으면 "이직운이 없습니다"로 왜곡된다.

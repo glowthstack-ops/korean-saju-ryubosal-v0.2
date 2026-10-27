@@ -71,6 +71,43 @@ def age_from_result(result: ManseV2Result, today: date) -> int | None:
     return age if age >= 0 else None
 
 
+def group_visible_counts(result: ManseV2Result) -> dict[str, int]:
+    """십성군별 가시 글자 수(천간 + 지지 본기, 일간 제외) — 연애 유형 1단계·십성다자 공용.
+
+    Args:
+        result: 만세 결과. pillars 가 없으면 전 군 0.
+
+    Returns:
+        {군(한글): 개수} — 5군 키 전부 포함(강의 순서).
+    """
+    return group_visible_counts_from_pillars(result.pillars)
+
+
+def group_visible_counts_from_pillars(pillars: object | None) -> dict[str, int]:
+    """`group_visible_counts` 의 기둥 입력판 — 원국 기둥 묶음(연·월·일·시 속성)만 받는다."""
+    counts: dict[str, int] = dict.fromkeys(_GROUP_ORDER, 0)
+    if pillars is None:
+        return counts
+    for palace in ("year", "month", "day", "hour"):
+        pil = getattr(pillars, palace, None)
+        if pil is None:
+            continue
+        for tg in (getattr(pil, "stem_ten_god", None), getattr(pil, "branch_main_ten_god", None)):
+            g = TEN_GOD_GROUP_KO.get(tg or "", "")
+            if g:
+                counts[g] += 1
+    return counts
+
+
+def excess_groups(result: ManseV2Result) -> list[tuple[str, int]]:
+    """십성다자 — 가시 글자 ≥ `LOVE_TYPE_COUNT_THRESHOLD` 인 군을 많은 순(동률은 강의 순서)으로."""
+    counts = group_visible_counts(result)
+    return sorted(
+        ((g, n) for g, n in counts.items() if n >= LOVE_TYPE_COUNT_THRESHOLD),
+        key=lambda x: (-x[1], _GROUP_ORDER.index(x[0])),
+    )
+
+
 def classify_love_type(result: ManseV2Result, age: int | None = None) -> LoveTypeResult:
     """강의 1~3단계로 연애 유형(십성군)을 정한다 — 서술 전용, 점수·판정 비개입.
 
@@ -85,17 +122,13 @@ def classify_love_type(result: ManseV2Result, age: int | None = None) -> LoveTyp
     if p is None or p.month is None or p.day is None:
         return LoveTypeResult(primary="")
     pillars = [("연", p.year), ("월", p.month), ("일", p.day), ("시", p.hour)]
-    counts: dict[str, int] = dict.fromkeys(_GROUP_ORDER, 0)
+    counts = group_visible_counts(result)
     ganyeo: list[tuple[str, str]] = []  # (기둥, 군)
     for name, pil in pillars:
         if pil is None:
             continue
         sg = TEN_GOD_GROUP_KO.get(pil.stem_ten_god or "", "")
         bg = TEN_GOD_GROUP_KO.get(pil.branch_main_ten_god or "", "")
-        if sg:
-            counts[sg] += 1
-        if bg:
-            counts[bg] += 1
         if sg and sg == bg:
             ganyeo.append((name, sg))
     # 1단계 — 같은 군 ≥3(많은 순, 동률은 강의 순서).
@@ -164,6 +197,11 @@ def love_type_lines(lt: LoveTypeResult) -> list[str]:
         f"  · 상대가 이 유형일 때 다가가는 법: {item['approach']}",
         f"  · 주의: {item['caution']}",
     ]
+    # 사랑에 빠졌을 때·이별 후 미련(2026-10-27) — 사전에 문구가 있는 군만(빈 칸은 생략).
+    if item.get("inLove"):
+        lines.append(f"  · 사랑에 빠졌을 때(그럴 수 있는 결): {item['inLove']}")
+    if item.get("lingering"):
+        lines.append(f"  · 이별 뒤 미련의 결(그럴 수 있는 결): {item['lingering']}")
     if lt.later_shift:
         lines.append(f"  · {lt.later_shift}")
     if lt.secondary and (sec := items.get(lt.secondary)) is not None:
@@ -187,6 +225,9 @@ __all__ = [
     "absent_group_note",
     "age_from_result",
     "classify_love_type",
+    "excess_groups",
+    "group_visible_counts",
+    "group_visible_counts_from_pillars",
     "load_love_types",
     "love_type_lines",
 ]

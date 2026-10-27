@@ -1698,7 +1698,7 @@
       ],
       "detector_source": "new:element(木일간+火 존재)",
       "llm_usage": "explanation_tag_only",
-      "llm_tag": "목화통명: 목(木)이 화(火)로 맑게 통하는 구조 — 지성·표현·문화·교육·명료함이 빛나는 기운",
+      "llm_tag": "목화통명: 목(木)이 화(火)로 맑게 통하는 구조 — 지성·표현·문화·교육·명료함이 빛나는 기운 — 아이디어를 말·글·콘텐츠·강의로 드러내는 표현력",
       "classical_note": null,
       "aliases": [
         "목화교휘(木火交輝)",
@@ -3385,7 +3385,7 @@
       ],
       "detector_source": "new:element(火일간+土 존재, HWADA_TOCHO 미성립)",
       "llm_usage": "explanation_tag_only",
-      "llm_tag": "화토성자: 불(火)이 흙(土)을 순하게 길러 기운이 안정적으로 축적되는 구조 — 포용·신뢰·기반 형성의 기운",
+      "llm_tag": "화토성자: 불(火)이 흙(土)을 순하게 길러 기운이 안정적으로 축적되는 구조 — 포용·신뢰·기반 형성의 기운 — 열정과 생각을 현실의 결과물로 만들어 정착시키는 현실화",
       "classical_note": null,
       "aliases": [
         "화토상자(火土相資)"
@@ -3403,7 +3403,8 @@
       "evidence": [
         "土 일간",
         "金 존재(결핍 아님)",
-        "토다금매 미성립"
+        "토다금매 미성립",
+        "조토불생금 미성립"
       ],
       "domain_hints": [
         "creative_output",
@@ -3420,9 +3421,9 @@
         "공망",
         "operability"
       ],
-      "detector_source": "new:element(土일간+金 존재, TODA_GEUMMAE 미성립)",
+      "detector_source": "new:element(土일간+金 존재, TODA_GEUMMAE·JOTO_BULSAENGGEUM 미성립)",
       "llm_usage": "explanation_tag_only",
-      "llm_tag": "토금육수: 흙(土)이 금(金)을 길러 빼어남을 드러내는 구조 — 성실이 결실·기술로 다듬어지는 기운",
+      "llm_tag": "토금육수: 흙(土)이 금(金)을 길러 빼어남을 드러내는 구조 — 성실이 결실·기술로 다듬어지는 기운 — 경험을 실력으로 쌓아 자기 기준·체계를 만드는 전문화",
       "classical_note": null,
       "aliases": []
     },
@@ -3458,7 +3459,7 @@
       ],
       "detector_source": "new:element(金일간+水 존재, 金/土/火 과다 없음)",
       "llm_usage": "explanation_tag_only",
-      "llm_tag": "금백수청: 금(金)과 물(水)이 맑게 어우러지는 구조 — 논리·분석·정제된 표현이 빛나는 기운",
+      "llm_tag": "금백수청: 금(金)과 물(水)이 맑게 어우러지는 구조 — 논리·분석·정제된 표현이 빛나는 기운 — 쌓은 전문성을 정보로 바꿔 분석·판단에 쓰는 활용력",
       "classical_note": null,
       "aliases": [
         "금수쌍청(金水雙淸)",
@@ -3496,7 +3497,7 @@
       ],
       "detector_source": "new:element(水일간+木 존재, SUDA_MOKBU 미성립)",
       "llm_usage": "explanation_tag_only",
-      "llm_tag": "수목청화: 물(水)이 나무(木)를 맑게 길러 자라게 하는 구조 — 학습·성장·창의가 순조로운 기운",
+      "llm_tag": "수목청화: 물(水)이 나무(木)를 맑게 길러 자라게 하는 구조 — 학습·성장·창의가 순조로운 기운 — 배운 지식을 자기 것으로 만들어 기획·교육·육성에 쓰는 성장력",
       "classical_note": null,
       "aliases": [
         "수령목수(水靈木秀)"
@@ -3856,6 +3857,78 @@
       "detector_source": "new:five_elements(土 과다+火 약)",
       "llm_usage": "explanation_tag_only",
       "llm_tag": "토다화회: 흙(土)이 지나쳐 불(火)의 빛이 가려지는 구조 — 현실·책임에 눌려 열정이 흐려질 수 있음",
+      "classical_note": null,
+      "aliases": []
+    },
+    {
+      "pattern_id": "JOTO_BULSAENGGEUM",
+      "name_ko": "조토불생금",
+      "name_hanja": "燥土不生金",
+      "family": [
+        "element_image"
+      ],
+      "structure": "燥土(戌·未) -/-> 金 (water lacking)",
+      "ten_god_chain": [],
+      "evidence": [
+        "원국 지지 戌·未(조토) 존재",
+        "辰·丑(습토) 없음",
+        "金 존재",
+        "水 결핍 또는 표면 12% 미만"
+      ],
+      "domain_hints": [
+        "creative_output",
+        "preparation_delay"
+      ],
+      "polarity_mode": "context_only",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "new:element(지지 戌·未 + 辰·丑 없음 + 金 존재 + 水 약)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "조토불생금: 마른 흙(戌·未 — 지장간에 丁火를 품음)이 금(金)을 제대로 기르지 못하고 메마르게 하거나 묻는 구조 — 흙이 있어도 금이 받는 실질 도움이 약할 수 있고, 물(水)이 보태질 때 생금이 살아남",
+      "classical_note": null,
+      "aliases": [
+        "조토취금(燥土脆金)"
+      ]
+    },
+    {
+      "pattern_id": "SEUPTO_HOEHWA",
+      "name_ko": "습토회화",
+      "name_hanja": "濕土晦火",
+      "family": [
+        "element_image"
+      ],
+      "structure": "濕土(辰·丑) 2+ -> 火 dimmed",
+      "ten_god_chain": [],
+      "evidence": [
+        "원국 지지 辰·丑(습토) 2개 이상",
+        "火 존재하되 결핍 또는 표면 12% 미만"
+      ],
+      "domain_hints": [
+        "preparation_delay",
+        "public_exposure"
+      ],
+      "polarity_mode": "context_only",
+      "severity_inputs": [
+        "신강약",
+        "용기신",
+        "월령",
+        "투간",
+        "통근",
+        "합충",
+        "공망",
+        "operability"
+      ],
+      "detector_source": "new:element(지지 辰·丑 2+ + 火 약)",
+      "llm_usage": "explanation_tag_only",
+      "llm_tag": "습토회화: 젖은 흙(辰·丑)이 불(火)의 빛을 가리는 구조 — 환경·의무에 눌려 열정이 눅눅해질 수 있음",
       "classical_note": null,
       "aliases": []
     },
@@ -5578,6 +5651,6 @@
       "aliases": []
     }
   ],
-  "compiled_at": "2026-10-25T07:04:45.766876+00:00",
-  "snapshot_version": "1.3.0"
+  "compiled_at": "2026-10-27T08:00:38.386255+00:00",
+  "snapshot_version": "1.4.0"
 }

@@ -25,7 +25,8 @@ src/dictionaries/
     twelve_stages_text.json # 십이운성 12종 — 에너지 단계 의미/일상 비유
     yearly_environment.json # 세운 환경(월주 상대 관점) — 십성 10 양방향·12운성 12 상태·관계·통근 어휘, 세운 전용 서술층(2026-10-25)
     sinsal_text.json        # 신살 — 의미/발현 영역/주의점 (공포 조장 금지 톤)
-    love_types.json         # 연애 유형 5종(십성군) — 심리·중시·공략·주의·부재 결, 분류기 love_type.py 서술 재료(2026-10-25)
+    love_types.json         # 연애 유형 5종(십성군) — 심리·중시·공략·주의·부재 결, 분류기 love_type.py 서술 재료(2026-10-25), 사랑에 빠졌을 때·미련(2026-10-27)
+    ten_god_group_traits.json # 십성다자 5군 — 두 갈래 발현(faceA/faceB)·참기 어려운 상황, 원국 해석 발췌 서술 재료(2026-10-27)
     stems_branches_text.json# 천간 10·지지 12 물상 — 모든 비유의 원천 재료
   favorability_rules.json   # 용신/희신/기신/구신/한신 보정
   daily_fortune/            # ★ 일주별 오늘의 운세 (docs/17, 챠트리스 휘발성 콘텐츠) — 2026-07-23 신설
@@ -303,6 +304,16 @@ compiled/
 - 노출: `structural_context.marriage_resource_lines` 끝 `[연애 유형 — …]` 블록(채팅 관계·총운 도메인, 리포트 결혼 자원 블록 R-02/RP-02 등 공용). 문구는 기본 노출(reviewed 는 노출 조건 아님, 검수는 실답으로).
 - 린트(`_lint_love_types`): 5군 정확 커버리지·소속 십성 정합·금지 어휘(외도·바람·바람둥이·과부·반드시·확정). 강의 원문의 외도·성욕 어휘는 신뢰·욕구 어휘로 바꿨다.
 - 같은 날 결혼 자원(`MarriageResourceProfile`)에 추가된 서술 필드(P2-2~P2-7: 정/편 축·혼재, 배우자성 자리 천간=지향·지지=환경, 간여지동 배우자성, 연상/동갑/연하 경향, 무재·무관 어휘, 만혼·비혼 중립·비겁 과다)와 궁합 `PEER_EXCESS` 보조 신호는 사전 없이 코드 라벨이다.
+
+### 십성다자·연애 행동·운의 다른 얼굴·충 성향·오행 과다 개운 (2026-10-27 데굴님 승인 — 대조 기록 doc/v2_2/EXTERNAL_TEXT_GAP_TAESAN.md)
+
+- **출처 표기 금지**(데굴님 결정): 이번 문구는 `basis`·`note` 를 포함한 사전 어디에도 출처를 적지 않는다. 회귀 테스트가 문자열로 검사한다.
+- `interpretations/ten_god_group_traits.json`(신규, `TenGodGroupTraitsFile`): 5군 × `faceA`·`faceB`(같은 군이 많아도 상반되게 드러나는 두 갈래)·`trigger`(참기 어려운 상황). 판정은 `love_type.group_visible_counts_from_pillars` — 연애 유형 1단계와 같은 셈(천간+지지 본기 ≥3). 발췌 `kind=ten_god_group`, key "관성 다자(3글자)", 문장에 '한쪽으로 단정하지 말 것' 지시 포함. 원국 해석 발췌(고정 prefix)에 십성 발췌 뒤로 들어간다. 린트 `_lint_ten_god_group_traits`(5군 커버리지·금지 어휘).
+- `love_types.json` `inLove`·`lingering`(선택 필드): 5군 모두 채움. 관성 연애 행동·재성 미련·관성 미련 3칸은 같은 날 2차로 보완 해석(각 군의 기존 성향에서 확장한 해석)을 넣었다. 빈 칸이면 렌더에서 생략한다. `love_type_lines` 가 '(그럴 수 있는 결)' 표기로 싣는다.
+- `favorability_text.json` `otherFace`(선택): 용신 = 좋은 운에도 오는 정리·조기 발견·숨은 사실·큰 지출 + 흐름이 좋아질 때의 행동 변화·귀인(도움을 주고받는 관계), 기신 = 미루기·습관·생활 리듬 신호. 사건을 미화하지 않도록 "정리 뒤 결과는 이후 운이 정한다"를 문장에 둔다. 발췌 `kind=favorability_face`, 원국에 해당 역할 오행이 있을 때 역할별 1회.
+- `relations_text.json` `natalTrait`(선택): 충 10종 중 寅申·巳亥·卯酉·子午·4천간충 원국 성향 한 문장. `natal` 은 첫 문장만 렌더되므로 별도 필드로 두고 원국 관계 발췌에 '성향:'으로 붙인다. 질환어(두통·화병·중독·강박)는 "(참고용 경향 — 의학적 판단 아님)" 표기 동반을 린트가 강제한다.
+- `remedy_action_map.json` `element_excess_actions`(선택, 있으면 5오행 고정): 오행 과다 시 `tendency`·`recommended_actions`. 과다 판정은 엔진 `five_elements.excessive_elements`. 배선은 리포트 J-07 개운 블록(보완 행동 뒤)과 채팅 개운·명식 주의점 질문(과다 줄만 — 용신 보완 행동 블록은 기존 결정대로 리포트 전용). `remedy.json` `temperament` 는 어떤 경로도 렌더하지 않는 사문이라 쓰지 않았다.
+- 문구 보강: `sinsal_text` 천문성 manifestation·flipSide(긍정 4·부정 4 발현), 역마 flipSide(콘텐츠·온라인·유통 확산도 역마 활용, 평생 떠돌아야 한다는 뜻 아님), `ten_gods_text` 편인 incoming 첫 문장(불안을 달래는 학습 지출·한 분야 깊게 — 첫 문장만 렌더). 천문성 판정 범위(일지 戌·亥)는 그대로.
 
 ### interpretations/yearly_environment.json — 세운 환경 '월주 상대 관점' (2026-10-25 데굴님 승인 — 외부 강의 별의당 「운명의 병오년」)
 

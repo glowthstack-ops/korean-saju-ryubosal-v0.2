@@ -165,6 +165,7 @@ from saju_engines.structural_context import (
     external_impression_lines,
     health_lines,
     hour_unknown_directive,
+    load_remedy_action_map,
     marriage_age_prior_lines,
     marriage_resource_lines,
     preparation_context_lines,
@@ -933,12 +934,9 @@ def _activity_keyword_map() -> dict:
     )
 
 
-@lru_cache(maxsize=1)
 def _remedy_action_map() -> dict:
-    """remedy_action_map.json 로드(프로세스 캐시) — reviewed:false 초안, 서술 재료 전용."""
-    return json.loads(
-        (_DICTS / "interpretations" / "remedy_action_map.json").read_text(encoding="utf-8")
-    )
+    """remedy_action_map.json 로드 — 공용 캐시 로더(structural_context)에 위임."""
+    return load_remedy_action_map(_DICTS)
 
 
 # 원국 횡재 그릇 블록을 부착하는 재물 섹션(Phase 1 — 횡재 잠재구조 표면화).
@@ -1985,7 +1983,11 @@ class _ReportData:
         keyword_block = activity_keyword_lines(
             favorable, cautious, natal_sinsal, _activity_keyword_map()
         )
-        remedy_block = remedy_action_lines([el for el, _ in favorable], _remedy_action_map())
+        _fa = self.result.force_analysis
+        remedy_block = remedy_action_lines(
+            [el for el, _ in favorable], _remedy_action_map(),
+            excess_elements=list(_fa.five_elements.excessive_elements) if _fa else None,
+        )
         if not keyword_block and not remedy_block:
             return []
         out = [*keyword_block]

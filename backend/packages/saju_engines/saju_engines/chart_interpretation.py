@@ -101,6 +101,12 @@ def _ten_god_by_name() -> dict[str, dict]:
 
 
 @lru_cache(maxsize=1)
+def _group_traits_by_group() -> dict[str, dict]:
+    """십성다자 성향(군 → 항목) — ten_god_group_traits.json(2026-10-27)."""
+    return {item["group"]: item for item in _load("ten_god_group_traits.json")["items"]}
+
+
+@lru_cache(maxsize=1)
 def _stage_by_name() -> dict[str, dict]:
     return {item["stage"]: item for item in _load("twelve_stages_text.json")["items"]}
 
@@ -316,6 +322,9 @@ def build_luck_grounding(
         + (f"({stage_txt})" if stage_txt else "")
         + f" · {getattr(luck_pillar, 'yongsin_alignment', '')}"
     )
+    _first = first_arrival_note(result, ganji, getattr(luck_pillar, "period_type", ""), fav)
+    if _first:
+        pillar_line += f" · {_first}"
 
     rel_index = _luck_rel_text_index()
     rel_lines: list[str] = []
@@ -415,6 +424,49 @@ def build_luck_grounding(
         "gongmang": gongmang,
         "dohwa_text_keys": dohwa_text_keys,
     }
+
+
+#: 처음 들어오는 용·희신 기운 — 대운·세운만(월·일운은 짧아 적응 서술이 맞지 않는다).
+_FIRST_ARRIVAL_LEVELS = frozenset({"daewoon", "year"})
+_FIRST_ARRIVAL_ROLES = ("용신", "희신")
+
+
+def first_arrival_note(
+    result: ManseV2Result, ganji: str, period_type: str, fav: dict[str, str],
+) -> str:
+    """원국 표면에 없던 용·희신 오행이 대운·세운으로 들어올 때의 체감 서술 1구절(2026-10-27).
+
+    필요한 기운이라도 처음 들어올 때는 바로 편해지기보다 낯섦·내면의 조정이 먼저 올 수 있다는
+    서술 전용 줄이다. 용신 판정(부재해도 필요는 유지 — 결정 D)과 점수는 바꾸지 않는다.
+
+    Args:
+        result: 원국 결과(`force_analysis.five_elements.visible_percent` 사용).
+        ganji: 운 간지 2글자.
+        period_type: LuckPillar.period_type(daewoon/year/month/day).
+        fav: {오행 한자: 역할} — `event_scoring.favorability_map`.
+
+    Returns:
+        서술 구절. 해당 없으면 빈 문자열.
+    """
+    if period_type not in _FIRST_ARRIVAL_LEVELS or len(ganji) < 2 or result.force_analysis is None:
+        return ""
+    vis = result.force_analysis.five_elements.visible_percent or {}
+    try:
+        els = [str(STEM_ELEMENT[Stem(ganji[0])]), str(BRANCH_ELEMENT[Branch(ganji[1])])]
+    except ValueError:
+        return ""
+    hits: list[str] = []
+    for el in els:
+        role = fav.get(el, "")
+        if role in _FIRST_ARRIVAL_ROLES and vis.get(el, 0.0) <= 0 and f"{el}({role})" not in hits:
+            hits.append(f"{el}({role})")
+    if not hits:
+        return ""
+    return (
+        f"처음 들어오는 기운: 원국 겉에 없던 {'·'.join(hits)}이(가) 들어오는 운 — "
+        "필요한 기운이어도 바로 편해지기보다 낯섦·내면의 조정이 먼저 올 수 있고, "
+        "들어온 기운을 직접 써 보는 행동이 체감을 앞당길 수 있다(서술 전용 — 점수·판정 불변)"
+    )
 
 
 #: 운 도화 사용 규칙 — 원국 도화와 구분(2026-10-13 데굴님 지시).
@@ -829,6 +881,8 @@ def _build_excerpts(
             kind="ten_god", key=name,
             text=f"{item['core']} 원국: {_first_sentence(item['natal'], 200)}",
         ))
+    # 십성다자 성향(2026-10-27) — 십성 발췌 뒤(예산 축소 시 앞 4개 보존 순서 유지).
+    excerpts += _group_trait_excerpts(pillars)
     stage_item = _stage_by_name().get(day_pillar.twelve_unseong)
     if stage_item is not None:
         excerpts.append(InterpretationExcerpt(
@@ -879,11 +933,49 @@ def _build_excerpts(
         item = relation_texts.get(rel_id)
         if item is None:
             continue
-        excerpts.append(InterpretationExcerpt(
-            kind="relation", key=item["name"],
-            text=_first_sentence(item["natal"], 200),
-        ))
+        text = _first_sentence(item["natal"], 200)
+        if item.get("natalTrait"):
+            # 충 성향 한 문장(2026-10-27) — 그럴 수 있는 경향. 질환어는 참고용 표기 동반(사전 린트).
+            text += f" 성향: {item['natalTrait']}"
+        excerpts.append(InterpretationExcerpt(kind="relation", key=item["name"], text=text))
     return excerpts
+
+
+def _group_trait_excerpts(pillars: object) -> list[InterpretationExcerpt]:
+    """십성다자 성향 발췌(2026-10-27) — 같은 군 가시 글자 ≥3 인 군만, 두 갈래 발현을 함께.
+
+    판정은 `love_type.group_visible_counts_from_pillars`(연애 유형 1단계와 같은 셈)로만 하고 문구는
+    ten_god_group_traits.json 에서 고르기만 한다. 어느 갈래로 드러날지는 명식이 정하지 않으므로
+    한쪽으로 단정하지 않게 지시를 함께 붙인다(점수·판정 비개입).
+    """
+    if pillars is None:
+        return []
+    from .love_type import (  # 지역 import — 순환 회피
+        LOVE_TYPE_COUNT_THRESHOLD,
+        group_visible_counts_from_pillars,
+    )
+    order = ("관성", "재성", "비겁", "식상", "인성")  # love_type 동률 순서와 동일
+    counts = group_visible_counts_from_pillars(pillars)
+    traits = _group_traits_by_group()
+    out: list[InterpretationExcerpt] = []
+    ranked = sorted(
+        (g for g in order if counts[g] >= LOVE_TYPE_COUNT_THRESHOLD),
+        key=lambda g: (-counts[g], order.index(g)),
+    )
+    for g in ranked:
+        item = traits.get(g)
+        if item is None:
+            continue
+        out.append(InterpretationExcerpt(
+            kind="ten_god_group",
+            key=f"{g} 다자({counts[g]}글자)",
+            text=(
+                f"같은 군이 많아도 두 갈래로 드러날 수 있다 — ①{item['faceA']} ②{item['faceB']}. "
+                "어느 쪽으로 드러나는지는 사람·환경에 따라 달라 명식만으로 한쪽을 단정하지 말 것. "
+                f"참기 어려워하기 쉬운 상황: {item['trigger']}"
+            ),
+        ))
+    return out
 
 
 _MAX_SINSAL_EXCERPTS = 5
@@ -978,6 +1070,16 @@ def _favorability_excerpts(result: ManseV2Result) -> list[InterpretationExcerpt]
     fav = favorability_map(result)  # {오행 한자: 역할}
     texts = _favorability_by_role()
     excerpts: list[InterpretationExcerpt] = []
+    # 용신·기신 운의 다른 얼굴(2026-10-27) — 역할별 1회. 용신 운의 정리·조기 발견을 미화하지 않고,
+    # 기신 운의 생활 리듬 신호를 불행 단정 없이 싣는다(사전 otherFace).
+    for role in ("용신", "기신"):
+        elements = [el for el, r in fav.items() if r == role]
+        face = (texts.get(role) or {}).get("otherFace", "")
+        if elements and face:
+            excerpts.append(InterpretationExcerpt(
+                kind="favorability_face", key=f"{'·'.join(elements)} {role} 운의 다른 얼굴",
+                text=face,
+            ))
     for element, role in fav.items():
         if not is_unfavorable_role(role):
             continue

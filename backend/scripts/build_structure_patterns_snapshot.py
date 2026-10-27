@@ -24,7 +24,7 @@ from saju_shared_types.structure_patterns import StructurePatternDict
 _BACKEND = Path(__file__).resolve().parent.parent
 _DEFAULT_DICTS = _BACKEND / "dictionaries"
 _DEFAULT_COMPILED = _BACKEND / "compiled"
-STRUCTURE_PATTERNS_VERSION = "1.3.0"  # 1.3.0: 전문가 참고 기준 — 별칭 6건·쟁합 문구(2026-09-18)
+STRUCTURE_PATTERNS_VERSION = "1.4.0"  # 1.4.0: 조토불생금·습토회화 + 상생 기능어(2026-10-27)
 
 
 def build(dictionaries_dir: Path, compiled_dir: Path) -> int:

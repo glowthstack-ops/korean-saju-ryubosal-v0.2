@@ -8,6 +8,10 @@
 
 from __future__ import annotations
 
+import json
+from functools import lru_cache
+from pathlib import Path
+
 from saju_shared_types.daewoon_progression import DaewoonProgressionProfile
 from saju_shared_types.dohwa import DohwaProfile
 from saju_shared_types.external_impression import ExternalImpressionProfile
@@ -424,18 +428,48 @@ def activity_keyword_lines(
     ]
 
 
+@lru_cache(maxsize=4)
+def load_remedy_action_map(dictionaries_dir: Path) -> dict:
+    """remedy_action_map.json 로드(프로세스 캐시) — reviewed:false 초안, 서술 재료 전용."""
+    path = dictionaries_dir / "interpretations" / "remedy_action_map.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def excess_remedy_lines(excess_elements: list[str], action_map: dict) -> list[str]:
+    """과다 오행의 개운 방향 줄(2026-10-27) — element_excess_actions(오행다자 개운법).
+
+    Args:
+        excess_elements: 과다 오행 한자 목록(`five_elements.excessive_elements` — 엔진 판정).
+        action_map: remedy_action_map.json 파싱 결과.
+
+    Returns:
+        '{오행} 과다 개운(경향): 행동' 줄 목록. 사전에 없으면 빈 목록.
+    """
+    actions = action_map.get("element_excess_actions", {})
+    out: list[str] = []
+    for hanja in excess_elements:
+        entry = actions.get(_ELEMENT_EN.get(hanja, ""))
+        if entry:
+            out.append(
+                f"{hanja} 과다 개운({entry['tendency']}): {', '.join(entry['recommended_actions'])}"
+            )
+    return out
+
+
 def remedy_action_lines(
-    favorable_elements: list[str], action_map: dict,
+    favorable_elements: list[str], action_map: dict, excess_elements: list[str] | None = None,
 ) -> list[str]:
     """[개운 행동] 블록 — 보완할 오행(용신·희신)의 생활 행동 제안을 직렬화한다.
 
-    remedy_action_map.json(reviewed:false 초안)의 element_actions만 사용한다.
+    remedy_action_map.json(reviewed:false 초안)의 element_actions와, 과다 오행이 주어지면
+    element_excess_actions(2026-10-27)를 사용한다.
     개운 행동은 주술적 처방·결과 보장이 아니라 생활 리듬·선택 습관 보완 조언이며,
     행동·환경·루틴을 색상·물건보다 우선한다(사전 principles — 원칙 3).
 
     Args:
         favorable_elements: 보완할 오행 한자 목록(용신·희신 — 엔진 확정값).
         action_map: remedy_action_map.json 파싱 결과.
+        excess_elements: 과다 오행 한자 목록(엔진 판정). None/빈 목록이면 과다 줄 없음.
 
     Returns:
         직렬화 라인 목록. 매칭 항목이 없으면 빈 목록(블록 미부착).
@@ -452,6 +486,7 @@ def remedy_action_lines(
         if avoid:
             line += f" / 피할 것: {avoid}"
         lines.append(line)
+    lines += excess_remedy_lines(list(excess_elements or []), action_map)
     if not lines:
         return []
     principles = action_map.get("principles", {})

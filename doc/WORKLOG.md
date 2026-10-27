@@ -12769,3 +12769,23 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 참고(미수정): 외모 질문의 "식상이 발달" 과장(상관 15%)은 LLM 서술 문제로 기록만. dry-run 호출도 스레드 turn_no 를 올린다(프론트 미사용 전제, 기록).
 - 회귀 `test_live_review_20261026.py` ⑩~⑭(승계·우선순위·지시 대상 판정 반례 포함·블록 교체·공용 상수·寅亥·감사). 게이트: `All checks passed` · `production mypy gate clean` · `maintained scripts mypy gate clean` · `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(start_head=end_head 29e3915 · 지문 58b448a3… 일치, `var/run_suite_20261026_flow3.log`).
 
+
+## 2026-10-27 — 외부 자료(명리 게시물 2차 정리) 대조 반영: 십성다자·운의 다른 얼굴·연애 운 결·궁합 신호 2종·충 성향·오행 과다 개운·조토/습토 규칙 (데굴님 결정 6건 + "이제 진행하자")
+
+- 대조 문서 `doc/v2_2/EXTERNAL_TEXT_GAP_TAESAN.md`(동등 14 · 보강 8 · 결정 6 · 불채택 11). 불채택: 원국 부재 오행 용신 불가(결정 D 충돌), 성별 고정관념 궁합·연애 4건, 건강·신체 단정, 2026 일간별 시즌 콘텐츠.
+- 서술층(점수 불변): `ten_god_group_traits.json` 신규 + `love_types` inLove/lingering, `favorability_text` otherFace, `relations_text` natalTrait(질환어 참고 표기 린트), `remedy_action_map` element_excess_actions(J-07 + 채팅 개운 질문), 천문성·역마·편인 문구, 상생 5종 기능어, 대운·세운 '처음 들어오는 기운', 관계 후보 `love_notes`.
+- 점수 영향: 궁합 `WEAK_RESOURCE_PARTNER`·`OUTPUT_YONGSIN_SUPPORT`(보완 + 끌림 가중 1). 구조 패턴 `JOTO_BULSAENGGEUM`·`SEUPTO_HOEHWA`(context_only, 지지 기준) + 조토 성립 시 `TOGEUM_YUKSU` 제외 — 사전 156종·스냅샷 v1.4.0(1.3.0 삭제).
+- 발견: `remedy.json` temperament·structure 분기는 어떤 경로도 렌더하지 않는다(advice 는 time_avoidance·behavior_caution 첫 줄만). 이번엔 건드리지 않고 기록만.
+- 출처 표기 금지(데굴님): 사전 basis·note 포함 어디에도 적지 않음 — 회귀가 문자열 검사.
+- 실답 경로 확인(dry-run): 궁합 신호 2종·운의 다른 얼굴·십성다자·충 성향·과다 개운(개운 질문 4종 중 3종, 1종은 too_broad 되물음)은 프롬프트 도달. **연애 운 결(`love_notes`)은 도달 0** — 후보 블록에만 붙는데, 관계 질문의 후보 범위가 질문 사건 키 하나로 좁혀진다.
+- 발견(기존 결함, 미수정·결정 대기): 女 1992-07-21 08:00 "2027년 2월에 새로운 인연이 생길까?" — `reduce_with_context` graph_scope=[new_relationship]만, 그 달 new_relationship 25점 < SCORE_FLOOR 40 → 후보 0 + "뚜렷한 신호가 없습니다" 지시. 같은 달 marriage_signal 96·relationship_change 92 는 범위 밖이라 버려지는데 같은 프롬프트의 월별 요약 표는 2027-02 '결혼 신호 · ★기간 내 강도 1위'라 서로 모순. stash 기준 코드에서도 동일(이번 변경과 무관).
+- 회귀 `tests/unit/test_gap_layer_20261027.py` 25건(반례 포함), 기대값 갱신 3건(패턴 154→156, 별칭 22→23, 골든 1990-03-15 14:30 에 조토불생금 추가 — 庚午 己卯 己卯 辛未: 未 조토·辰丑 없음·金 25%·水 0%).
+
+## 2026-10-27 (2차) — 관계 질문 후보 범위 결함 수정 · 같은 기간 다른 영역 신호 · 월별 표 연애 운의 결 · 연애 유형 빈칸 3칸 (데굴님 "일정 점수가 넘는 모든 사건을 표시" · "붙이는 게 낫겠어" · "결함도 수정해주고")
+
+- 결함: 비총운 질문 후보가 질문 사건 키 하나로만 선별돼, 그 키가 하한 40 미만이면 같은 달 같은 영역 90점대(결혼 신호 96·관계 변화 92)가 버려지고 "뚜렷한 신호 없음" 지시 — 월별 표 '결혼 신호 1위'와 모순.
+- 교정: `family_extra_candidates`(같은 영역 다른 사건 70점 이상 4건 → `LlmInput.family_candidates` 별도 블록) + `period_other_signal_lines`(영역 밖 70점 이상 키별 1건·4건, 별도 줄) + '후보 없음' 지시 한정 문구. 플래그 2종 기본 ON(롤백용).
+  - 1차 시도(후보 목록 자체를 계열로 확장)는 `test_entry_slots_assignment` 실답 회귀가 잡았다: 취업 질문 후보 5칸을 계약·승진 98~95점이 차지해 움직이는 달 2026-12·2027-03~05가 사라짐 → 진입 시기·상담 결론 판정이 질문 사건 후보만 읽는 계약을 지키도록 별도 필드로 분리.
+- 월별 표: 관계 계열 후보가 있는 달에 연애 운의 결 라벨, 범례 1회(관계 도메인 질문만).
+- 빈칸: 관성 inLove·재성/관성 lingering 을 보완 해석으로 채움(출처·근거 상태는 사전에 적지 않고 대조 문서에만).
+- 회귀 `test_gap_layer_20261027.py` 34건(같은 영역 70점·질문 키 제외·계열 없는 키·총운 제외·다른 영역 임계·플래그 OFF 반례·비관계 질문 라벨 없음 반례·질문 후보 목록 불변).

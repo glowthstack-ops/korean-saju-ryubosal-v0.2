@@ -131,6 +131,19 @@ PERSONAL_GLYPH_SCORE_ENABLED: bool = (
 DOUBLE_CLASH_FLAG_ENABLED: bool = (
     os.environ.get("SAJU_DOUBLE_CLASH_FLAG_ENABLED", "true").strip().lower() in ("1", "true", "yes")
 )
+# 같은 영역 다른 사건 후보(2026-10-27 데굴님 "일정 점수가 넘는 모든 사건을 표시") — 질문 사건 키가
+# 하나여도 같은 영역(관계=새 인연·관계 변화·결혼 신호·출산 등)의 70점 이상 사건을 별도 블록으로
+# 싣는다. 질문 사건 후보·판정은 그대로. 점수 불변 — 'false'면 블록 미노출.
+DOMAIN_FAMILY_SCOPE_ENABLED: bool = (
+    os.environ.get("SAJU_DOMAIN_FAMILY_SCOPE_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
+)
+# 같은 기간 다른 영역 강신호(2026-10-27) — 질문 영역 밖 후보 중 '가능성이 높습니다'(70) 이상을
+# 짧은 줄로 함께 싣는다(주 서사 승격 금지). 'false'면 미노출.
+PERIOD_OTHER_SIGNALS_ENABLED: bool = (
+    os.environ.get("SAJU_PERIOD_OTHER_SIGNALS_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
+)
 # 세운 육신별 사건 신호 5계열(외부 교재 6장 대조, 2026-10-15) — 기본 ON(데굴님 원칙: 적용 후 감수).
 YEARLY_TEN_GOD_SIGNALS_ENABLED: bool = (
     os.environ.get("SAJU_YEARLY_TEN_GOD_SIGNALS_ENABLED", "true").strip().lower()
@@ -254,6 +267,8 @@ def active_versions() -> dict[str, str | bool]:
         "role_event_seed_enabled": ROLE_EVENT_SEED_ENABLED,
         "sewoon_daewoon_context_enabled": SEWOON_DAEWOON_CONTEXT_ENABLED,
         "transit_hidden_stem_enabled": TRANSIT_HIDDEN_STEM_ENABLED,
+        "domain_family_scope_enabled": DOMAIN_FAMILY_SCOPE_ENABLED,
+        "period_other_signals_enabled": PERIOD_OTHER_SIGNALS_ENABLED,
         # LLM 재호출은 설계상 존재하지 않는다(요청당 1회 고정) — 계측 계약으로 못박는다.
         "llm_retry_policy": "none",
     }

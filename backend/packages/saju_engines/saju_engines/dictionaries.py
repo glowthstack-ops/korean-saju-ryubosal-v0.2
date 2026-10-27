@@ -272,6 +272,9 @@ class RelationTextItem(_AliasModel):
     role: Literal["core", "auxiliary"]
     meaning: str
     natal: str
+    # 원국 성향 한 문장(충 성향, 2026-10-27) — natal 은 첫 문장만 렌더되므로 별도 필드. 질환어는
+    # '참고용 경향 — 의학적 판단 아님' 표기와 함께만 싣는다(데굴님 결정).
+    natal_trait: str = Field("", alias="natalTrait")
     from_luck: str = Field(alias="fromLuck")
     basis: str
     reviewed: bool
@@ -346,6 +349,9 @@ class FavorabilityTextItem(_AliasModel):
     core: str
     manifestation: str
     reversal: str = Field(min_length=10)
+    # 그 역할 운의 다른 얼굴(2026-10-27) — 용신 운의 정리·조기 발견, 기신 운의 생활 리듬 신호.
+    # 사건 미화·결과 단정 금지(정리 뒤 결과는 이후 운이 정한다). 없으면 빈 문자열.
+    other_face: str = Field("", alias="otherFace")
     basis: str
     reviewed: bool
 
@@ -584,6 +590,9 @@ class LoveTypeItem(_AliasModel):
     approach: str = Field(min_length=20)
     caution: str = Field(min_length=10)
     absent: str = ""  # 해당 군 미투출 시 결(없으면 빈 문자열)
+    # 사랑에 빠졌을 때 · 이별 후 미련(2026-10-27) — 자료에 없는 군은 빈 문자열(지어 채우지 않음).
+    in_love: str = Field("", alias="inLove")
+    lingering: str = ""
     basis: str = Field(min_length=10)
     reviewed: bool
 
@@ -594,6 +603,27 @@ class LoveTypesFile(_AliasModel):
     version: str
     note: str | None = None
     items: list[LoveTypeItem] = Field(min_length=5, max_length=5)
+
+
+class TenGodGroupTraitItem(_AliasModel):
+    """십성다자 성향 1건 (interpretations/ten_god_group_traits.json, 2026-10-27).
+
+    같은 십성군이 많아도 두 갈래(face_a/face_b)로 상반되게 드러날 수 있어 둘을 함께 싣는다.
+    """
+
+    group: Literal["비겁", "식상", "재성", "관성", "인성"]
+    face_a: str = Field(alias="faceA", min_length=5)
+    face_b: str = Field(alias="faceB", min_length=5)
+    trigger: str = Field(min_length=10)
+    reviewed: bool
+
+
+class TenGodGroupTraitsFile(_AliasModel):
+    """십성다자 성향 사전 — 판정은 love_type.group_visible_counts(≥3), 문구는 서술 전용."""
+
+    version: str
+    note: str | None = None
+    items: list[TenGodGroupTraitItem] = Field(min_length=5, max_length=5)
 
 
 class StemsBranchesTextFile(_AliasModel):
@@ -642,6 +672,14 @@ class RemedyElementActions(_AliasModel):
     reviewed: bool
 
 
+class RemedyExcessActions(_AliasModel):
+    """오행 하나가 과다할 때의 개운 방향 (remedy_action_map.json element_excess_actions)."""
+
+    tendency: str = Field(min_length=5)
+    recommended_actions: list[str] = Field(min_length=1)
+    reviewed: bool
+
+
 class TenGodDomainInteractionFile(_AliasModel):
     """운 십성 × 도메인 교차 작용 사전(interpretations/ten_god_domain_interaction.json, 2026-10-01).
 
@@ -672,6 +710,8 @@ class RemedyActionMapFile(_AliasModel):
     note: str | None = None
     principles: dict[str, str]
     element_actions: dict[str, RemedyElementActions]
+    # 오행 과다 개운(2026-10-27) — 보완(용·희신) 행동과 별개 축. 있으면 5오행 고정.
+    element_excess_actions: dict[str, RemedyExcessActions] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _check_required_keys(self) -> RemedyActionMapFile:
@@ -681,6 +721,8 @@ class RemedyActionMapFile(_AliasModel):
         required_elements = {"wood", "fire", "earth", "metal", "water"}
         if set(self.element_actions) != required_elements:
             raise ValueError(f"element_actions는 {required_elements} 5오행 고정")
+        if self.element_excess_actions and set(self.element_excess_actions) != required_elements:
+            raise ValueError(f"element_excess_actions는 {required_elements} 5오행 고정")
         return self
 
 
@@ -2680,6 +2722,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/pattern_transit_text.json": PatternTransitTextFile,
     "interpretations/ten_god_relations.json": TenGodRelationsFile,
     "interpretations/love_types.json": LoveTypesFile,
+    "interpretations/ten_god_group_traits.json": TenGodGroupTraitsFile,
     "interpretations/stems_branches_text.json": StemsBranchesTextFile,
     "interpretations/favorability_text.json": FavorabilityTextFile,
     "interpretations/relocation_ten_gods.json": RelocationTenGodsFile,
@@ -3253,7 +3296,24 @@ def _lint_love_types(file: LoveTypesFile) -> list[str]:
     for i in file.items:
         if set(i.ten_gods) != _DOHWA_GROUP_TEN_GODS.get(i.group, set()):
             errors.append(f"{head}: {i.group} 소속 십성 불일치 — {i.ten_gods}")
-        text = " ".join((i.meaning, i.psychology, i.wants, i.approach, i.caution, i.absent))
+        text = " ".join((
+            i.meaning, i.psychology, i.wants, i.approach, i.caution, i.absent, i.in_love,
+            i.lingering,
+        ))
+        for w in _LOVE_TYPE_BANNED:
+            if w in text:
+                errors.append(f"{head}: {i.group} 문구에 금지 어휘 '{w}'")
+    return errors
+
+
+def _lint_ten_god_group_traits(file: TenGodGroupTraitsFile) -> list[str]:
+    """ten_god_group_traits.json — 십성군 5종 정확 커버리지·낙인/단정 어휘 금지."""
+    errors: list[str] = []
+    head = "interpretations/ten_god_group_traits.json"
+    if sorted(i.group for i in file.items) != sorted(_DOHWA_GROUP_TEN_GODS):
+        errors.append(f"{head}: 십성군 5종(비겁·식상·재성·관성·인성) 각 1건이어야 한다")
+    for i in file.items:
+        text = " ".join((i.face_a, i.face_b, i.trigger))
         for w in _LOVE_TYPE_BANNED:
             if w in text:
                 errors.append(f"{head}: {i.group} 문구에 금지 어휘 '{w}'")
@@ -3479,7 +3539,20 @@ def _lint_relations_text(directory: Path, file: RelationsTextFile) -> list[str]:
         # 암합은 보조 자료 — 단독 결론 금지(2026-06-12 사용자 확정).
         if item.type == "amhap" and item.role != "auxiliary":
             errors.append(f"interpretations/relations_text.json: {item.id}는 role=auxiliary여야 함")
+        # 충 성향 질환어는 참고용 표기와 함께만(2026-10-27 데굴님 결정).
+        if any(w in item.natal_trait for w in _ILLNESS_TERMS) and (
+            _ILLNESS_NOTE not in item.natal_trait
+        ):
+            errors.append(
+                f"interpretations/relations_text.json: {item.id} natalTrait 질환어에 "
+                f"'{_ILLNESS_NOTE}' 표기 필요"
+            )
     return errors
+
+
+#: 성향 문구에 들어갈 수 있는 질환어 — 참고용 표기 강제 대상(relations_text natalTrait).
+_ILLNESS_TERMS = ("두통", "화병", "중독", "강박")
+_ILLNESS_NOTE = "의학적 판단 아님"
 
 
 def _lint_relocation_ten_gods(file: RelocationTenGodsFile) -> list[str]:
@@ -3927,6 +4000,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_ten_god_relations(parsed))
         elif isinstance(parsed, LoveTypesFile):
             errors.extend(_lint_love_types(parsed))
+        elif isinstance(parsed, TenGodGroupTraitsFile):
+            errors.extend(_lint_ten_god_group_traits(parsed))
         elif isinstance(parsed, TenGodsTextFile):
             errors.extend(_lint_ten_gods_text(parsed))
         elif isinstance(parsed, TwelveStagesTextFile):
