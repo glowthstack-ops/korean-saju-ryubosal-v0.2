@@ -66,6 +66,7 @@ from saju_engines.context_reducer import (
     event_ko,
     family_verdict_directive,
     first_sentence,
+    period_other_directive,
     serialize_with_guard,
 )
 from saju_engines.contrast_rewrite import rewrite_false_contrast
@@ -6933,6 +6934,10 @@ def chat(
     _fam_verdict = family_verdict_directive(payload)
     if _fam_verdict:
         trailing.append(_fam_verdict)
+    # 다른 영역 강신호 한 문장 언급(2026-10-27) — 블록만으로는 실답에서 빠졌다.
+    _other_dir = period_other_directive(payload)
+    if _other_dir:
+        trailing.append(_other_dir)
     # 개인 이력 반복 수치 서술(회사명 없음) — 동반 신호에 라벨이 실린 후보가 있을 때만.
     if _personal_repeat_present(list(payload.event_candidates)):
         trailing.append(_PERSONAL_REPEAT_DIRECTIVE)

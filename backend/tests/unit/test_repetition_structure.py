@@ -126,6 +126,16 @@ def test_luck_luck_repetition_without_natal_char() -> None:
     ]
 
 
+def test_luck_luck_stem_repetition_not_recorded() -> None:
+    # 反例: 천간·일반 지지의 운끼리 반복(대운 壬 + 세운 壬)은 노이즈라 기록하지 않는다.
+    dw = [SimpleNamespace(
+        stem="壬", branch="辰", approx_start_date=date(2025, 1, 1),
+        approx_end_date=date(2034, 12, 31),
+    )]
+    r = _result(["甲子", "丙寅", "戊午", "庚申"], daewoon=dw)
+    assert repetition_activations(r, "year", "2032", "壬子") == []
+
+
 def test_no_fortune_word_in_group_line() -> None:
     r = _result(["庚申", "丁亥", "己亥", "己巳"])
     for g in detect_repetition_groups(r, {"水": "희신"}):
@@ -173,3 +183,43 @@ def test_relation_hit_dedup_flag(
     )
     assert len(hits) == n_hits
     assert sum(len(h.natal_refs) for h in hits) == n_refs  # 켜면 월지·일지 2자리, 끄면 4(중복)
+
+
+def _report_bodies(birth: BirthInput, topic: str) -> dict[str, str]:
+    from saju_api.services import report_service
+    from saju_shared_types.intent import SubjectKind, SubjectRef
+    from saju_shared_types.report import ReportPeriod, ReportSpec
+
+    spec = ReportSpec(
+        product_code="RPT_FOCUS", topic=topic,
+        subjects=[SubjectRef(kind=SubjectKind.SELF, label="본인")],
+        period=ReportPeriod(start="2026-01-01", end="2027-12-31"),
+    )
+    return {c.section_id: c.body_prompt
+            for c in report_service.plan_report(birth, spec, date(2026, 10, 27))}
+
+
+def test_report_month_tables_carry_repetition_activation() -> None:
+    birth = BirthInput.model_validate(json.loads(_FIXTURE.read_text(encoding="utf-8")))
+    pages = _report_bodies(birth, "career")
+    page = next(b for sid, b in pages.items() if sid.endswith("-Y2026"))
+    block = page[page.index("[반복 구조 활성화(월)"):]
+    expected = "2026-11 己亥: 월운 亥 유입 — 원국 亥 반복 그룹(월지·일지) 자형(亥亥)의 기간 활성화"
+    assert expected in block
+
+
+def test_report_month_tables_without_repetition() -> None:
+    # 反例: 원국에 반복 글자도 자형 글자(辰·午·酉·亥)도 없으면 원국 기반 활성화 줄이 없다
+    # (대운·월운이 같은 자형 글자일 때의 '운끼리' 줄만 가능).
+    birth = BirthInput(
+        birth_date="1985-02-09", birth_time="14:00", birth_place_name="서울", gender="male",
+    )
+    r = calculate(birth.model_copy(update={"reference_date": date(2026, 10, 27)}))
+    assert detect_repetition_groups(r) == []
+    pages = _report_bodies(birth, "career")
+    rows = [
+        ln for sid, b in pages.items() if "-Y20" in sid
+        for ln in b.split("[반복 구조 활성화(월)", 1)[-1].splitlines()[1:]
+        if "[반복 구조 활성화(월)" in b and ln.startswith("20")
+    ]
+    assert all("운끼리" in ln for ln in rows)

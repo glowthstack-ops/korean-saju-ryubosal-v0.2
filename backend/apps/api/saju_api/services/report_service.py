@@ -108,6 +108,7 @@ from saju_engines.relationship_hints import (
     normalize_relation_type,
     relation_context_lines,
 )
+from saju_engines.repetition_structure import activation_line, repetition_activations
 from saju_engines.report_builder import ReportBuilder
 from saju_engines.report_event_input import (
     month_overview_lines,
@@ -1847,6 +1848,9 @@ class _ReportData:
             f"(길흉=용신/기신).{callout}]",
             *overview,
         ]
+        _rep = self._repetition_month_lines(months)
+        if _rep:
+            block += ["", *_rep]
         if domain == "relationship" and not self.non_romantic_pair:
             # 연애 운의 결(2026-10-27, 채팅 월별 표 패리티) — 관계 사건이 '가능성이 높습니다'(70)
             # 이상인 달만(하한 40은 관계 변화가 거의 매달 넘어 12달 전부가 붙었다 — 재검토).
@@ -2486,6 +2490,26 @@ class _ReportData:
             if sfx:
                 out.append(f"{'세운' if len(p) == 4 else '월운'} {p} {g}{sfx}")
         return out
+
+    def _repetition_month_lines(self, months: set[str]) -> list[str]:
+        """월별 표 구간의 반복 구조 활성화 줄(2026-10-27, 채팅 후보 블록 패리티).
+
+        같은 글자 유입·반복 그룹 충을 달마다 한 줄씩 — 새 사건이 아니라 구조의 기간 활성화다.
+        서술 전용(점수·선별 불변). 해당 달이 없으면 빈 목록.
+        """
+        rows: list[str] = []
+        for m in sorted(months):
+            gj = self._ganji_by_label.get(m, "")
+            for act in repetition_activations(self.result, "month", m, gj):
+                rows.append(f"{m} {gj}: {activation_line(act)}")
+        if not rows:
+            return []
+        return [
+            "[반복 구조 활성화(월) — 원국 반복 그룹·자형이 이 달에 두드러지는 표지. "
+            "새 사건이 아니며 관계 쌍 수만큼 사건을 세지 말 것. 유불리는 반복 글자의 "
+            "십성·용희기구한이 정한다]",
+            *rows,
+        ]
 
     def _love_note_lines(self, cands: list[EventCandidate]) -> list[str]:
         """관계 후보 기간별 연애 운의 결 — 라벨은 기간마다, 구절은 범례에 한 번(2026-10-27).

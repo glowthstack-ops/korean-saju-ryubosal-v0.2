@@ -492,7 +492,12 @@ def test_remedy_question_has_no_secondary_blocks() -> None:
     assert "[같은 기간 다른 영역 신호 — " not in p
 
 
-def test_token_guard_drops_secondary_blocks_first(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(("fail_times", "fam_max"), [(1, 4), (2, 3)])
+def test_token_guard_keeps_secondary_signals(
+    monkeypatch: pytest.MonkeyPatch, fail_times: int, fam_max: int,
+) -> None:
+    # 2026-10-27 데굴님: 확실한 다른 영역 신호를 토큰 때문에 버리면 풀이 문제 — Tier 0 은 두 블록을
+    # 건드리지 않고, Tier 1(본문 축소)에서만 같은 영역 후보를 3건으로 줄인다. 다른 영역 줄은 유지.
     from saju_api.services import chat_service
     from saju_engines import context_reducer as cr
     from saju_engines.llm_guard import TokenBudgetExceeded
@@ -500,10 +505,10 @@ def test_token_guard_drops_secondary_blocks_first(monkeypatch: pytest.MonkeyPatc
     birth = BirthInput(
         birth_date="1992-07-21", birth_time="08:00", birth_place_name="서울", gender="female",
     )
-    res = chat_service.chat(birth, "2027년 2월에 새로운 인연이 생길까?", date(2026, 10, 27), True)
+    res = chat_service.chat(birth, "내 취업운은 어때?", date(2026, 10, 27), True)
     assert res.postprocess is not None
     payload = res.postprocess.payload
-    assert payload.period_other_signals and len(payload.family_candidates) >= 2
+    assert payload.period_other_signals and len(payload.family_candidates) == 4
     calls = {"n": 0}
 
     class _Guard:
@@ -511,16 +516,24 @@ def test_token_guard_drops_secondary_blocks_first(monkeypatch: pytest.MonkeyPatc
 
         def check_input(self, text: str, reserve_tokens: int = 0) -> int:
             calls["n"] += 1
-            if calls["n"] == 1:
+            if calls["n"] <= fail_times:
                 raise TokenBudgetExceeded("over")
             return 1
 
     monkeypatch.setattr(cr, "LLMCallGuard", _Guard)
     text, _ = cr.serialize_with_guard(payload, "chat_single")
-    assert "[같은 기간 다른 영역 신호 — " not in text
-    fam = text[text.index("[같은 영역 다른 사건 후보 — "):]
-    assert fam.count(" @ 2027-02(") == 1  # 같은 영역 후보는 1건만 남는다
-    assert "[이벤트 후보" in text  # 질문 사건 블록은 유지
+    assert "[같은 기간 다른 영역 신호 — " in text
+    start = text.index("[같은 영역 다른 사건 후보 — ")
+    fam = text[start:text.index("[같은 기간 다른 영역 신호 — ")]
+    import re
+
+    assert len(re.findall(r"^\S.* @ \d{4}", fam, flags=re.M)) == fam_max
+
+
+def test_chat_single_limit_raised() -> None:
+    from saju_engines.llm_guard import CALL_LIMITS
+
+    assert CALL_LIMITS["chat_single"].max_input_tokens == 38_000
 
 
 def test_love_notes_not_repeated_across_candidates() -> None:
@@ -663,10 +676,12 @@ def test_family_verdict_directive_states_both_strengths() -> None:
     line = family_verdict_directive(payload)
     head = "[첫 판정 재료 — 엔진 확정] 질문하신 '새 인연' 자체: 뚜렷한 신호는 없습니다"
     assert line.startswith(head)
-    assert "혼인 구체화 신호가 매우 강합니다" in line
+    assert "혼인 구체화(2027-02) 신호가 매우 강합니다" in line  # 기간 표기
+    assert "두 경우를 반드시 둘 다 쓸 것" in line  # 교제 상태 미입력
     assert "만나는 분이 있다면" in line  # 교제 상태 미입력 — 두 경우 예시
     single = family_verdict_directive(payload.model_copy(update={"relationship_status": "single"}))
     assert "새로운 만남 자체의 신호는 약한 편이지만" in single
+    assert "두 경우를 반드시 둘 다 쓸 것" not in single  # 상태가 있으면 그 상태로만
 
 
 def test_family_verdict_directive_counter_examples() -> None:
@@ -680,3 +695,19 @@ def test_family_verdict_directive_counter_examples() -> None:
         update={"event_key": EventKeyV2.NEW_RELATIONSHIP, "score": 80},
     )
     assert family_verdict_directive(payload.model_copy(update={"event_candidates": [strong]})) == ""
+
+
+def test_period_other_directive_present_and_absent() -> None:
+    from saju_engines.context_reducer import period_other_directive
+
+    payload = _love_payload()
+    line = period_other_directive(payload)
+    assert line.startswith("[같은 기간 다른 영역 신호 — 엔진 확정] ")
+    assert "한 문장으로 반드시 짚을 것" in line
+    # 反例: 다른 영역 신호가 없으면 지시 없음.
+    assert period_other_directive(payload.model_copy(update={"period_other_signals": []})) == ""
+
+
+def test_chat_trailing_carries_other_domain_directive() -> None:
+    p = _love_prompt("2027년 2월에 새로운 인연이 생길까?")
+    assert "[같은 기간 다른 영역 신호 — 엔진 확정]" in p

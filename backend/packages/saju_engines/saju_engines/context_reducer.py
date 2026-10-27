@@ -1344,7 +1344,8 @@ def family_verdict_directive(payload: LlmInput) -> str:
     asked_ko = event_ko(asked)
     asked_tone = tone_for_score(max(asked_scores)) if asked_scores else "뚜렷한 신호는 없습니다"
     fam = " · ".join(
-        f"{c.event_ko} {tone_for_score(c.score)}" for c in payload.family_candidates[:2]
+        f"{c.event_ko}({c.period}) {tone_for_score(c.score)}"
+        for c in payload.family_candidates[:2]
     )
     line = (
         f"[첫 판정 재료 — 엔진 확정] 질문하신 '{asked_ko}' 자체: {asked_tone} / 같은 영역의 다른 "
@@ -1357,8 +1358,35 @@ def family_verdict_directive(payload: LlmInput) -> str:
         example = _REL_VERDICT_EXAMPLE.get(
             payload.relationship_status, _REL_VERDICT_EXAMPLE_UNKNOWN
         )
+        if payload.relationship_status not in _REL_VERDICT_EXAMPLE:
+            # 교제 상태 미입력 — 한쪽만 쓰면 사용자를 혼자(또는 교제 중)로 단정하는 셈이다
+            # (실답 확인).
+            line += (
+                " 교제 상태가 입력되지 않았으므로 첫 문단에 '만나는 분이 있다면 ~ / 아직 없다면 ~' "
+                "두 경우를 반드시 둘 다 쓸 것 — 한 경우만 쓰지 말 것."
+            )
         line += f" 예) '{example}'"
     return line
+
+
+def period_other_directive(payload: LlmInput) -> str:
+    """다른 영역 강신호 언급 지시(2026-10-27, 채팅 말미) — 블록만으로는 실답에서 빠졌다.
+
+    질문 영역 밖 '가능성이 높습니다' 이상 신호를 답변에서 한 문장으로 반드시 짚게 한다(주 서사 승격
+    금지). 데굴님: 확실한 다른 영역 신호를 무시하면 풀이 문제 — 엔진 값을 말미에 고정한다.
+
+    Returns:
+        지시문 한 줄(신호 없으면 빈 문자열).
+    """
+    if not payload.period_other_signals:
+        return ""
+    sig = " / ".join(payload.period_other_signals[:2])
+    return (
+        f"[같은 기간 다른 영역 신호 — 엔진 확정] {sig}. 답변 본문(마지막 질문 앞)에 이 신호를 "
+        "한 문장으로 반드시 짚을 것 — 예) '같은 시기에는 ○○ 신호도 매우 강하게 들어와 있어요.' "
+        "질문 영역의 "
+        "서사를 이 신호로 바꾸거나 길게 풀지는 말 것."
+    )
 
 
 def _relationship_family_frame(status: str) -> str:
@@ -3950,13 +3978,9 @@ def serialize_with_guard(
         ln.startswith("[민속 흉방 — ") for ln in no_sinsal.folk_taboo_context
     ):
         no_sinsal = no_sinsal.model_copy(update={"folk_taboo_context": []})
-    # 같은 기간 다른 영역 신호·같은 영역 다른 사건 후보(2026-10-27)도 보조층 — 다른 영역 줄은
-    # 버리고 같은 영역 후보는 1건만 남긴다(질문 사건 후보가 0일 때 그 영역의 근거를 잃지 않게).
-    if no_sinsal.period_other_signals or len(no_sinsal.family_candidates) > 1:
-        no_sinsal = no_sinsal.model_copy(update={
-            "period_other_signals": [],
-            "family_candidates": no_sinsal.family_candidates[:1],
-        })
+    # 같은 기간 다른 영역 신호·같은 영역 다른 사건 후보(2026-10-27)는 보조층이 아니다 — 엔진이
+    # '가능성이 높다'고 판정한 사건이라 Tier 0 에서 버리지 않는다(데굴님 "다른 영역 신호가 확실한데
+    # 토큰 때문에 무시하는 건 풀이에 문제" — 풀이 품질 최우선). 본문 축소(Tier 1)에서만 줄인다.
     text = serialize_llm_input(no_sinsal)
     try:
         return text, guard.check_input(text, reserve_tokens=reserve_tokens)
@@ -3967,6 +3991,8 @@ def serialize_with_guard(
     shrunk = no_sinsal.model_copy(
         update={
             "event_candidates": no_sinsal.event_candidates[:3],
+            # 같은 영역 후보는 질문 후보처럼 3건까지(다른 영역 줄은 짧아 그대로 둔다).
+            "family_candidates": no_sinsal.family_candidates[:3],
             "evidence": [
                 e.model_copy(update={"readable_paths": e.readable_paths[:1]})
                 for e in no_sinsal.evidence[:3]

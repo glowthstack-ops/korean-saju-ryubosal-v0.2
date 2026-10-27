@@ -105,11 +105,10 @@ def test_full_pipeline(question: str, expected_type: str, route: str) -> None:
         assert res.prompt_preview is not None
         for section in ("[원국·명식 구조", "[이벤트 후보", "[지시]"):
             assert section in res.prompt_preview, f"{question}: {section} 누락"
-        # 대화형 단건 입력 **회귀 예산** = 25,000 (2026-10-23 데굴님: 20,000에서 5,000 상향).
-        # 실제 코드 가드(llm_guard CALL_LIMITS chat_single)는 28,000(2026-09-21) — 이 단언은
-        # 가드보다
-        # 3,000 아래의 e2e 기준선이며, 공망 서술층 추가 뒤 19,948까지 붙었던 여유를 되살린다.
-        assert res.input_tokens is not None and res.input_tokens <= 25_000
+        # 대화형 단건 입력 **회귀 예산** = 가드 − 3,000(후행 지시문·시스템 예약분) 규칙(2026-10-23).
+        # 2026-10-27 데굴님 결정(품질 최우선)으로 가드 28,000→38,000 이 되어 예산도 25,000→35,000.
+        # 같은 영역 후보·다른 영역 신호·반복 구조 블록이 더해져 timing_search 가 25,769 까지 붙었다.
+        assert res.input_tokens is not None and res.input_tokens <= 35_000
 
 
 def test_all_nine_types_covered() -> None:

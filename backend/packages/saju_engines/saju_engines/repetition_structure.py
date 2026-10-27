@@ -196,7 +196,8 @@ def repetition_activations(
                 kind="period_new", char=luck_char, luck_char=luck_char, layer=layer,
                 natal_positions=same, is_self_punishment=True,
             ))
-        elif not same:
+        elif not same and self_p:
+            # 운끼리 반복은 자형 글자만 기록한다(천간·일반 지지의 층간 반복은 노이즈 — 실답 검토).
             idx = 0 if kind == "stem" else 1
             layers = [lv for lv, st, br in upper if (st, br)[idx] == luck_char]
             if layers:
