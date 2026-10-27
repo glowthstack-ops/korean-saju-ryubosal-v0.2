@@ -64,6 +64,7 @@ from saju_engines.context_reducer import (
     build_llm_input,
     build_monthly_overview,
     event_ko,
+    family_verdict_directive,
     first_sentence,
     serialize_with_guard,
 )
@@ -100,6 +101,7 @@ from saju_engines.horizon import (
     resolve_horizon,
 )
 from saju_engines.ilju_mention_audit import audit_ilju_mention
+from saju_engines.impossible_relation_audit import strip_impossible_relation_claims
 from saju_engines.intent_event_filter import IntentEventFilter
 from saju_engines.job_separation import is_job_separation
 from saju_engines.layer_label_audit import audit_layer_labels
@@ -2174,6 +2176,14 @@ def finalize_answer_text(answer: str, thread_id: str | None = None) -> str:
         _logger.warning(
             "policy_echo_stripped count=%d matched=%s thread=%s",
             _removed, [e.matched for e in _echoes], thread_id,
+        )
+    # 성립 불가 간지 관계 주장(2026-10-27) — '戊토와 壬수가 합'처럼 표에 없는 관계를 쓴 문장은
+    # 재호출 없이 지운다(모든 생성 경로 공통, 사실 오류 fail-open 금지).
+    answer, _bad_rel = strip_impossible_relation_claims(answer)
+    if _bad_rel:
+        _logger.warning(
+            "impossible_relation_stripped count=%d pairs=%s thread=%s",
+            len(_bad_rel), [f"{c.pair}{c.relation}" for c in _bad_rel], thread_id,
         )
     answer, _changes = rewrite_false_contrast(answer)
     if _changes:
@@ -6682,6 +6692,8 @@ def chat(
         ),
     )
     call_type = "chat_compare" if plan.per_subject else "chat_single"
+    # 교제 상태(2단계 프로필) — 같은 영역 관계 후보 해석 분기용(2026-10-27). 미입력이면 빈 값.
+    payload.relationship_status = relationship_status or ""
 
     # P1-6 §12 — 관계 벡터 shadow 최종화(reducer 이후 단일 지점): production Top-N
     # (payload.event_candidates)이 확정된 지금, 상세 Draft에만 legacy audit/rank를
@@ -6917,6 +6929,10 @@ def chat(
         )
         if _prior_slots:
             trailing.append(_prior_slots)
+    # 첫 판정 재료(2026-10-27) — 질문 사건이 약하고 같은 영역 사건이 강할 때 두 강도를 말미에 고정.
+    _fam_verdict = family_verdict_directive(payload)
+    if _fam_verdict:
+        trailing.append(_fam_verdict)
     # 개인 이력 반복 수치 서술(회사명 없음) — 동반 신호에 라벨이 실린 후보가 있을 때만.
     if _personal_repeat_present(list(payload.event_candidates)):
         trailing.append(_PERSONAL_REPEAT_DIRECTIVE)

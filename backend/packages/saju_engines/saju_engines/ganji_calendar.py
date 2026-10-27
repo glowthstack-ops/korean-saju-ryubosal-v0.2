@@ -209,7 +209,13 @@ def relation_hits(
         구조화된 관계 적중 목록(인식 불가 항목은 제외).
     """
     hits: list[RelationHit] = []
-    for raw in [*relations_to_chart, *gongmang_activation]:
+    raws = [*relations_to_chart, *gongmang_activation]
+    from . import period_v2_config  # 지역 import — 설정 모듈 순환 회피
+
+    if period_v2_config.RELATION_HIT_DEDUP_ENABLED:
+        # 같은 문자열은 같은 관계다 — 원국 자리는 natal_refs 가 전부 담으므로 한 번만 해석한다.
+        raws = list(dict.fromkeys(raws))
+    for raw in raws:
         hit = _relation_hit(raw, level, stem, branch, pillars)
         if hit is not None:
             hits.append(hit)

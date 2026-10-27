@@ -138,6 +138,16 @@ DOMAIN_FAMILY_SCOPE_ENABLED: bool = (
     os.environ.get("SAJU_DOMAIN_FAMILY_SCOPE_ENABLED", "true").strip().lower()
     in ("1", "true", "yes")
 )
+# 관계 적중 중복 제거(2026-10-27) — 원국에 같은 글자가 둘 이상이면 만세력 엔진이 관계 문자열을
+# 자리마다 한 번씩 내고(`충:巳-亥` ×2), 해석기는 문자열마다 그 글자의 모든 원국 자리를 붙여 발동이
+# N×N 로 불어났다(천간합·해 등 점수 부풀림). 'true'면 같은 문자열을 한 번만 해석한다(자리는
+# natal_refs 가 이미 전부 담는다). 측정(2026-10-27, 동일 셸): 사례집 85사례 지표 전부 불변, 입퇴사
+# 이력 운영 기준 trigger95 정밀도 6.3%→6.5%(표지 111→107달·적중 7 유지), trigger70 적중 15→14 —
+# 운영 지표가 나빠지지 않아 기본 ON. 'false'로 되돌릴 수 있다.
+RELATION_HIT_DEDUP_ENABLED: bool = (
+    os.environ.get("SAJU_RELATION_HIT_DEDUP_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
+)
 # 같은 기간 다른 영역 강신호(2026-10-27) — 질문 영역 밖 후보 중 '가능성이 높습니다'(70) 이상을
 # 짧은 줄로 함께 싣는다(주 서사 승격 금지). 'false'면 미노출.
 PERIOD_OTHER_SIGNALS_ENABLED: bool = (
@@ -268,6 +278,7 @@ def active_versions() -> dict[str, str | bool]:
         "sewoon_daewoon_context_enabled": SEWOON_DAEWOON_CONTEXT_ENABLED,
         "transit_hidden_stem_enabled": TRANSIT_HIDDEN_STEM_ENABLED,
         "domain_family_scope_enabled": DOMAIN_FAMILY_SCOPE_ENABLED,
+        "relation_hit_dedup_enabled": RELATION_HIT_DEDUP_ENABLED,
         "period_other_signals_enabled": PERIOD_OTHER_SIGNALS_ENABLED,
         # LLM 재호출은 설계상 존재하지 않는다(요청당 1회 고정) — 계측 계약으로 못박는다.
         "llm_retry_policy": "none",

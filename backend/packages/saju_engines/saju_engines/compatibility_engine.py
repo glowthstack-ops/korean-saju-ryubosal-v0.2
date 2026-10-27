@@ -189,6 +189,11 @@ def _weak_resource_signals(
     for taker, giver, taker_label, giver_label in pairs:
         if taker.pillars is None or giver.pillars is None or taker.force_analysis is None:
             continue
+        # 시주 미상으로 신강약 밴드가 후보마다 갈리면(미확정) 신약 전제를 쓰지 않는다
+        # (2026-10-27 재검토).
+        hu = taker.hour_unknown
+        if hu is not None and hu.is_unconfirmed("strength_band"):
+            continue
         band = taker.force_analysis.strength.band
         if band not in _WEAK_BANDS:
             continue

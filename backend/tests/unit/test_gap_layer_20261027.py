@@ -363,7 +363,9 @@ def test_love_question_shows_family_candidates_and_month_labels() -> None:
     p = _love_prompt("2027년 2월에 새로운 인연이 생길까?")
     fam = p[p.index("[같은 영역 다른 사건 후보 — "):p.index("[같은 기간 다른 영역 신호 — ")]
     assert "혼인 구체화 @ 2027-02" in fam  # 결혼 신호(방향 라벨) — 같은 영역 강신호
-    assert "[같은 영역 다른 사건 후보]가 있으니" in p  # '후보 없음'은 질문 사건에 한정
+    # '후보 없음'은 질문 사건에 한정.
+    assert "질문하신 사건 자체의 후보는 이 기간에 약하거나 없다" in p
+    assert "'해당 기간에는 뚜렷한 신호가 없습니다'로 정직하게" not in p
     assert "- 취업·합격 @ 2027-02(壬寅)" in p  # 다른 영역은 별도 줄로만
     assert "연애 운의 결(그럴 수 있다는 경향" in p
     yearly = _love_prompt("내년에 연애운 어때? 언제쯤 인연이 생길까?")
@@ -400,3 +402,281 @@ def test_entry_slot_question_keeps_asked_candidates() -> None:
     keys = {str(c.event_key) for c in res.postprocess.payload.event_candidates}
     assert keys <= {"new_relationship"}
     assert res.postprocess.payload.family_candidates
+
+
+# ── 3차(재검토, 2026-10-27): 중복 제거·동점 처리·리포트 연애 운의 결 ──────────────────
+
+
+def test_family_extra_dedupes_same_key_and_period() -> None:
+    cands = [_cand("marriage_signal", 96), _cand("marriage_signal", 90), _cand("childbirth", 80)]
+    extra = family_extra_candidates(cands, [EventKeyV2.NEW_RELATIONSHIP], "2027-02", "2027-02")
+    assert [(str(c.event_key), c.score) for c in extra] == [
+        ("marriage_signal", 96), ("childbirth", 80),
+    ]
+
+
+def test_period_other_signal_prefers_month_on_tie() -> None:
+    cands = [_cand("job_gain", 90, "2027"), _cand("job_gain", 90, "2027-02")]
+    lines = period_other_signal_lines(
+        cands, [EventKeyV2.NEW_RELATIONSHIP], "2027-01", "2027-12", {},
+    )
+    assert lines == ["취업·합격 @ 2027-02 — 신호가 매우 강합니다"]
+
+
+def _report_contexts(topic: str):
+    from saju_api.services import report_service
+    from saju_shared_types.intent import SubjectKind, SubjectRef
+    from saju_shared_types.report import ReportPeriod, ReportSpec
+
+    birth = BirthInput(
+        birth_date="1992-07-21", birth_time="08:00", birth_place_name="서울", gender="female",
+    )
+    spec = ReportSpec(
+        product_code="RPT_FOCUS", topic=topic,
+        subjects=[SubjectRef(kind=SubjectKind.SELF, label="본인")],
+        period=ReportPeriod(start="2027-01-01", end="2027-12-31"),
+    )
+    return report_service.plan_report(birth, spec, date(2026, 10, 27))
+
+
+def test_report_relationship_month_pages_carry_love_notes() -> None:
+    by_id = {c.section_id: c.body_prompt for c in _report_contexts("relationship")}
+    page = by_id["R-05-Y2027"]
+    block = page[page.index("[연애 운의 결(후보 기간)"):]
+    assert "2027-02 壬寅: " in block
+    assert "  · 좋은 운의 인연: " in block  # 범례 1회
+    assert block.count("  · 좋은 운의 인연: ") == 1
+
+
+def test_report_non_relationship_theme_has_no_love_notes() -> None:
+    # 反例: 재물 테마에는 연애 운의 결을 싣지 않는다.
+    assert all("[연애 운의 결" not in c.body_prompt for c in _report_contexts("wealth"))
+
+
+# ── 4차(독립 리뷰 지적 반영, 2026-10-27) ─────────────────────────────────────────
+
+
+def test_granularity_blocks_coarse_periods() -> None:
+    cands = [_cand("job_gain", 95, "2027"), _cand("job_gain", 90, "2027-02")]
+    scope = [EventKeyV2.NEW_RELATIONSHIP]
+    # 월 질문 — 연 단위 후보는 '같은 기간'이 아니다.
+    assert period_other_signal_lines(cands, scope, "2027-02", "2027-02", {}) == [
+        "취업·합격 @ 2027-02 — 신호가 매우 강합니다",
+    ]
+    # 일 질문 — 보조 블록 자체를 싣지 않는다.
+    assert period_other_signal_lines(cands, scope, "2027-02-11", "2027-02-11", {}) == []
+    fam = [_cand("marriage_signal", 96, "2027")]
+    assert family_extra_candidates(fam, scope, "2027-02", "2027-02") == []
+    # 反例: 연 질문은 연·월 후보 모두 허용.
+    assert len(period_other_signal_lines(cands, scope, "2027", "2027", {})) == 1
+
+
+def test_same_event_domain_is_not_other_domain() -> None:
+    # 직업 질문의 법적 갈등(EVENT_DOMAIN=career)은 '다른 영역' 줄에 올리지 않는다.
+    cands = [_cand("legal_conflict", 95, "2027-01"), _cand("marriage_signal", 90, "2027-01")]
+    lines = period_other_signal_lines(cands, [EventKeyV2.CAREER_CHANGE], "2027", "2027", {})
+    assert len(lines) == 1 and "@ 2027-01" in lines[0]  # 결혼 신호만(관계 영역)
+    assert all("법적" not in ln for ln in lines)
+
+
+def test_family_only_turn_keeps_reading_rules() -> None:
+    p = _love_prompt("2027년 2월에 새로운 인연이 생길까?")
+    assert "사건명은 동반 신호 매트릭스" in p  # 질문 사건 후보 0 + 같은 영역 후보만 있어도
+    assert "'새 인연' 자체 신호의 강도" in p and "이 영역의 강한 신호를 함께 밝힐 것" in p
+    assert "질문 사건의 확정으로 바꿔 말하지 말 것" in p
+
+
+def test_remedy_question_has_no_secondary_blocks() -> None:
+    p = _love_prompt("연애운 높이는 개운법 알려줘")
+    assert "[같은 영역 다른 사건 후보 — " not in p
+    assert "[같은 기간 다른 영역 신호 — " not in p
+
+
+def test_token_guard_drops_secondary_blocks_first(monkeypatch: pytest.MonkeyPatch) -> None:
+    from saju_api.services import chat_service
+    from saju_engines import context_reducer as cr
+    from saju_engines.llm_guard import TokenBudgetExceeded
+
+    birth = BirthInput(
+        birth_date="1992-07-21", birth_time="08:00", birth_place_name="서울", gender="female",
+    )
+    res = chat_service.chat(birth, "2027년 2월에 새로운 인연이 생길까?", date(2026, 10, 27), True)
+    assert res.postprocess is not None
+    payload = res.postprocess.payload
+    assert payload.period_other_signals and len(payload.family_candidates) >= 2
+    calls = {"n": 0}
+
+    class _Guard:
+        def __init__(self, _call_type: str) -> None: ...
+
+        def check_input(self, text: str, reserve_tokens: int = 0) -> int:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise TokenBudgetExceeded("over")
+            return 1
+
+    monkeypatch.setattr(cr, "LLMCallGuard", _Guard)
+    text, _ = cr.serialize_with_guard(payload, "chat_single")
+    assert "[같은 기간 다른 영역 신호 — " not in text
+    fam = text[text.index("[같은 영역 다른 사건 후보 — "):]
+    assert fam.count(" @ 2027-02(") == 1  # 같은 영역 후보는 1건만 남는다
+    assert "[이벤트 후보" in text  # 질문 사건 블록은 유지
+
+
+def test_love_notes_not_repeated_across_candidates() -> None:
+    p = _love_prompt("2027년 2월에 새로운 인연이 생길까?")
+    fam = p[p.index("[같은 영역 다른 사건 후보 — "):p.index("[같은 기간 다른 영역 신호 — ")]
+    note = "이때 만난 인연은 처음부터 확신이 서지 않고"
+    assert fam.count(note) == 1  # 같은 달 두 후보(결혼 신호·관계 변화)에 한 번만
+    assert "연애 운의 결: 앞 후보와 같음" in fam
+
+
+def test_month_labels_absent_for_date_selection() -> None:
+    p = _love_prompt("내년에 결혼하기 좋은 날 언제야?")
+    assert "└ 연애 운의 결:" not in p
+
+
+def test_weak_resource_skips_unconfirmed_strength_band() -> None:
+    weak_unknown = calculate(BirthInput(
+        birth_date="1981-08-03", birth_time_unknown=True, birth_place_name="서울", gender="female",
+    ))
+    hu = weak_unknown.hour_unknown
+    assert hu is not None and hu.is_unconfirmed("strength_band")
+    partner = _chart("1976-03-06", "12:00", "male")
+    sigs = _weak_resource_signals(weak_unknown, partner, self_label="본인", partner_label="상대")
+    assert all("본인(" not in s.detail for s in sigs)  # 미확정 밴드로 신약 전제를 쓰지 않음
+
+
+def test_first_arrival_excludes_daewoon() -> None:
+    r = _with_visible(_chart("1980-11-22", "09:08", "male"),
+                      {"木": 30.0, "火": 0.0, "土": 30.0, "金": 20.0, "水": 20.0})
+    assert first_arrival_note(r, "丙午", "daewoon", {"火": "용신"}) == ""
+    assert first_arrival_note(r, "丙午", "year", {"火": "용신"}) != ""
+
+
+def test_report_non_romantic_pair_has_no_love_notes() -> None:
+    from saju_api.services.report_service import (
+        _expand_report_plans,
+        _ReportData,
+        build_section_context,
+    )
+    from saju_engines.report_plan import build_section_plans
+    from saju_shared_types.intent import InlineBirth, SubjectKind, SubjectRef
+    from saju_shared_types.report import ReportPeriod, ReportSpec
+
+    me = BirthInput(
+        birth_date="1992-07-21", birth_time="08:00", birth_place_name="서울", gender="female",
+    )
+    mother = BirthInput(
+        birth_date="1965-03-08", birth_time="10:00", birth_place_name="서울", gender="female",
+    )
+
+    def prompts(relation: str | None) -> list[str]:
+        spec = ReportSpec(
+            product_code="RPT_FOCUS", topic="relationship",
+            subjects=[
+                SubjectRef(kind=SubjectKind.SELF, label="본인"),
+                SubjectRef(
+                    kind=SubjectKind.INLINE_TEMP, label="상대",
+                    inline_birth=InlineBirth(date="1965-03-08", time="10:00", gender="F"),
+                    relation_type=relation,
+                ),
+            ],
+            period=ReportPeriod(start="2026-07", end="2028-12"),
+        )
+        data = _ReportData(me, spec, date(2026, 10, 27), owner_id=None, subject_id=None,
+                           partner_birth=mother)
+        plans = _expand_report_plans(build_section_plans(spec), data)  # 연도별 상세 페이지 포함
+        return [build_section_context(p, spec, data).body_prompt
+                for p in plans if p.section_id.startswith("RP-06")]
+
+    assert all("[연애 운의 결" not in b for b in prompts("mother"))
+    assert any("[연애 운의 결" in b for b in prompts(None))  # 反例: 연애 상대면 붙는다
+
+
+def test_report_month_slice_labels_only_strong_months() -> None:
+    by_id = {c.section_id: c.body_prompt for c in _report_contexts("relationship")}
+    block = by_id["R-05-Y2027"].split("[연애 운의 결(후보 기간)", 1)[1]
+    rows = [ln for ln in block.splitlines() if ln.startswith("2027-")]
+    assert 0 < len(rows) < 12
+
+
+
+# ── 5차(권장안: 같은 영역 관계 후보 해석 틀, 2026-10-27) ─────────────────────────────
+
+
+def _love_prompt_status(question: str, status: str | None) -> str:
+    from saju_api.services import chat_service
+
+    birth = BirthInput(
+        birth_date="1992-07-21", birth_time="08:00", birth_place_name="서울", gender="female",
+    )
+    res = chat_service.chat(
+        birth, question, date(2026, 10, 27), dry_run=True, relationship_status=status,
+    )
+    assert res.prompt_preview is not None
+    return res.prompt_preview
+
+
+@pytest.mark.parametrize(
+    ("status", "needle"),
+    [
+        ("dating", "교제 중으로 입력됨 — 이 영역의 강한 신호는 지금 관계의 진전·공식화로"),
+        ("single", "교제 상대 없음으로 입력됨 — 새 만남 자체 신호가 약하다는 점과 함께"),
+        ("married", "기혼으로 입력됨 — 이 영역의 강한 신호는 새 인연이 아니라"),
+        (None, "교제 상태 미입력 — 두 경우를 한 문장씩 나눠 쓸 것"),
+    ],
+)
+def test_relationship_family_frame_by_status(status: str | None, needle: str) -> None:
+    p = _love_prompt_status("2027년 2월에 새로운 인연이 생길까?", status)
+    assert "(관계 영역 해석 틀) " + needle in p
+    assert p.count("(관계 영역 해석 틀)") == 1
+
+
+def test_relationship_family_frame_absent_for_career_question() -> None:
+    # 反例: 직업 질문의 같은 영역 블록에는 관계 해석 틀을 싣지 않는다.
+    from saju_api.services import chat_service
+
+    birth = BirthInput(
+        birth_date="1992-07-21", birth_time="08:00", birth_place_name="서울", gender="female",
+    )
+    p = chat_service.chat(birth, "2027년 2월에 취업할 수 있을까?", date(2026, 10, 27), True)
+    assert p.prompt_preview is not None
+    assert "(관계 영역 해석 틀)" not in p.prompt_preview
+
+
+def _love_payload():
+    from saju_api.services import chat_service
+
+    birth = BirthInput(
+        birth_date="1992-07-21", birth_time="08:00", birth_place_name="서울", gender="female",
+    )
+    res = chat_service.chat(birth, "2027년 2월에 새로운 인연이 생길까?", date(2026, 10, 27), True)
+    assert res.postprocess is not None
+    return res.postprocess.payload
+
+
+def test_family_verdict_directive_states_both_strengths() -> None:
+    from saju_engines.context_reducer import family_verdict_directive
+
+    payload = _love_payload()
+    line = family_verdict_directive(payload)
+    head = "[첫 판정 재료 — 엔진 확정] 질문하신 '새 인연' 자체: 뚜렷한 신호는 없습니다"
+    assert line.startswith(head)
+    assert "혼인 구체화 신호가 매우 강합니다" in line
+    assert "만나는 분이 있다면" in line  # 교제 상태 미입력 — 두 경우 예시
+    single = family_verdict_directive(payload.model_copy(update={"relationship_status": "single"}))
+    assert "새로운 만남 자체의 신호는 약한 편이지만" in single
+
+
+def test_family_verdict_directive_counter_examples() -> None:
+    from saju_engines.context_reducer import family_verdict_directive
+
+    payload = _love_payload()
+    # 反例 1: 같은 영역 후보가 없으면 지시 없음.
+    assert family_verdict_directive(payload.model_copy(update={"family_candidates": []})) == ""
+    # 反例 2: 질문 사건도 강하면(70+) 충돌이 없어 지시 없음.
+    strong = payload.family_candidates[0].model_copy(
+        update={"event_key": EventKeyV2.NEW_RELATIONSHIP, "score": 80},
+    )
+    assert family_verdict_directive(payload.model_copy(update={"event_candidates": [strong]})) == ""

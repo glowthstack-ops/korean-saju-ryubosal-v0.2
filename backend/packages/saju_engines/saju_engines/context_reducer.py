@@ -100,7 +100,7 @@ from .layer_evidence_scope import (
     normalize_layers,
 )
 from .llm_guard import CALL_LIMITS, LLMCallGuard, TokenBudgetExceeded, estimate_tokens
-from .love_period_notes import love_period_note_items, love_period_notes
+from .love_period_notes import LOVE_NOTE_EVENT_KEYS, love_period_note_items, love_period_notes
 from .manifestation_branch import branch_summary
 from .marriage_output_guard import (
     compute_marriage_output_guard,
@@ -1257,6 +1257,23 @@ def _key_value(key: object) -> str:
     return str(getattr(key, "value", key))
 
 
+#: 사건 키(값 문자열) → 이벤트 도메인(event_taxonomy_v2) — '다른 영역' 판정의 기준.
+_EVENT_DOMAIN_BY_KEY: dict[str, str] = {str(k): v for k, v in EVENT_DOMAIN.items()}
+
+
+def _granularity_ok(period: str, period_start: str | None) -> bool:
+    """후보 기간이 질문 단위보다 거칠지 않은가(2026-10-27 재검토).
+
+    겹침 판정(`in_question_range`)만 쓰면 '오늘'·'이번 주' 질문에 연 단위 후보가 '같은 기간'으로
+    잡혔다. 질문이 일·주 단위(시작 라벨이 월보다 정밀)면 보조 블록을 싣지 않고, 월 질문에는 월
+    후보만, 연 질문에는 연·월 후보를 허용한다.
+    """
+    n = len(period_start or "")
+    if n > 7:
+        return False
+    return len(period) >= n
+
+
 def domain_family_keys(graph_scope: Iterable[object]) -> set[str]:
     """질문 사건 키들의 같은 영역 계열 키 전체(`_DOMAIN_EVENT_KEYS` 기준, 값 문자열).
 
@@ -1268,6 +1285,85 @@ def domain_family_keys(graph_scope: Iterable[object]) -> set[str]:
         if asked & keys:
             family |= keys
     return family
+
+
+#: 같은 영역 관계 후보 해석 틀 — 교제 상태별(2026-10-27 데굴님 '권장대로 진행'). 새 인연 자체
+#: 점수는 일지 궁위 가산이 없어 관계 진전 신호보다 낮게 잡히는 사각이 있어(부록 A-3 #2, 미측정),
+#: 새 인연 점수 하나로 첫 판정을 내리지 않게 관계 진전 신호를 교제 상태에 맞춰 읽게 한다.
+_REL_FAMILY_FRAME: dict[str, str] = {
+    "dating": "교제 중으로 입력됨 — 이 영역의 강한 신호는 지금 관계의 진전·공식화로 풀 것.",
+    "single": (
+        "교제 상대 없음으로 입력됨 — 새 만남 자체 신호가 약하다는 점과 함께, 이 시기에 닿는 "
+        "만남이 진지한 관계로 이어질 수 있다는 가능성으로 풀 것."
+    ),
+    "married": (
+        "기혼으로 입력됨 — 이 영역의 강한 신호는 새 인연이 아니라 지금 부부 관계의 흐름으로 풀 것."
+    ),
+}
+_REL_FAMILY_FRAME_UNKNOWN = (
+    "교제 상태 미입력 — 두 경우를 한 문장씩 나눠 쓸 것: 만나는 사람이 있다면 관계 진전·공식화, "
+    "없다면 이 시기 만남이 진지한 관계로 이어질 가능성. 어느 쪽인지 단정하지 말 것."
+)
+
+
+#: 첫 판정 예시 문장 — 교제 상태별(관계 영역, 질문 사건 약함 + 같은 영역 강함일 때만).
+_REL_VERDICT_EXAMPLE: dict[str, str] = {
+    "dating": "새로운 만남보다는 지금 관계가 진지하게 진전되는 신호가 매우 강한 달이에요.",
+    "single": "새로운 만남 자체의 신호는 약한 편이지만, 이 무렵 닿는 만남이 진지한 관계로 이어질 "
+    "신호는 매우 강해요.",
+    "married": "새로운 인연보다는 지금 부부 관계에 변화와 진전의 흐름이 강한 달이에요.",
+}
+_REL_VERDICT_EXAMPLE_UNKNOWN = (
+    "새로운 만남 자체의 신호는 약하지만, 관계가 진지하게 진전되는 신호는 매우 강한 달이에요. "
+    "만나는 분이 있다면 관계가 한 단계 깊어지고, 아직 없다면 이 무렵 닿는 만남이 진지한 관계로 "
+    "이어질 수 있어요."
+)
+
+
+def family_verdict_directive(payload: LlmInput) -> str:
+    """첫 판정 재료(엔진 확정) — 질문 사건이 약하고 같은 영역 사건이 강할 때만(2026-10-27).
+
+    같은 영역 블록 머리말 지시만으로는 LLM 이 같은 영역 강신호를 질문 사건의 강신호로 바꿔
+    첫 문장을 썼다(실답 2건). 프롬프트 말미에 두 강도를 엔진 값으로 나란히 주고, 관계 질문은
+    교제 상태별 예시 문장을 붙인다. 질문 사건도 강하면(70+) 충돌이 없어 빈 문자열.
+
+    Returns:
+        지시문 한 줄, 해당 없으면 빈 문자열.
+    """
+    if not payload.family_candidates:
+        return ""
+    asked = payload.resolved_intent.event_key
+    if asked is None:
+        return ""
+    asked_v = _key_value(asked)
+    asked_scores = [
+        c.score for c in payload.event_candidates if _key_value(c.event_key) == asked_v
+    ]
+    if asked_scores and max(asked_scores) >= ASKED_EVENT_STRONG_MIN:
+        return ""
+    asked_ko = event_ko(asked)
+    asked_tone = tone_for_score(max(asked_scores)) if asked_scores else "뚜렷한 신호는 없습니다"
+    fam = " · ".join(
+        f"{c.event_ko} {tone_for_score(c.score)}" for c in payload.family_candidates[:2]
+    )
+    line = (
+        f"[첫 판정 재료 — 엔진 확정] 질문하신 '{asked_ko}' 자체: {asked_tone} / 같은 영역의 다른 "
+        f"사건: {fam}. 첫 문장에 이 두 사실을 함께 담을 것 — '{asked_ko}' 가능성이 높다고 "
+        "쓰지 말고, 같은 영역 신호를 지우지도 말 것. 표현은 바꿔도 되지만 두 사실은 모두 남길 것."
+    )
+    if asked_v in _DOMAIN_EVENT_KEYS["relationship"] and any(
+        _key_value(c.event_key) in LOVE_NOTE_EVENT_KEYS for c in payload.family_candidates
+    ):
+        example = _REL_VERDICT_EXAMPLE.get(
+            payload.relationship_status, _REL_VERDICT_EXAMPLE_UNKNOWN
+        )
+        line += f" 예) '{example}'"
+    return line
+
+
+def _relationship_family_frame(status: str) -> str:
+    """같은 영역 관계 후보의 해석 틀 한 줄 — 교제 상태(single/dating/married, 미입력 '')별."""
+    return f"(관계 영역 해석 틀) {_REL_FAMILY_FRAME.get(status, _REL_FAMILY_FRAME_UNKNOWN)}"
 
 
 def family_extra_candidates(
@@ -1294,14 +1390,24 @@ def family_extra_candidates(
     extra_keys = domain_family_keys(graph_scope) - asked
     if not extra_keys:
         return []
-    picked = [
-        c for c in candidates
-        if _key_value(c.event_key) in extra_keys
-        and c.score >= PERIOD_OTHER_SIGNAL_MIN
-        and in_question_range(c.period, period_start, period_end, month_bounds)
-    ]
-    picked.sort(key=lambda c: (-c.score, -getattr(c, "raw_total", 0.0), c.period,
-                               _key_value(c.event_key)))
+    best: dict[tuple[str, str], EventCandidate] = {}
+    for c in candidates:
+        key = _key_value(c.event_key)
+        if key not in extra_keys or c.score < PERIOD_OTHER_SIGNAL_MIN:
+            continue
+        if not _granularity_ok(str(c.period), period_start):
+            continue
+        if not in_question_range(c.period, period_start, period_end, month_bounds):
+            continue
+        slot = (key, str(c.period))  # 같은 사건·같은 기간은 최고 1건(중복 블록 방지)
+        cur = best.get(slot)
+        if cur is None or (c.score, getattr(c, "raw_total", 0.0)) > (
+            cur.score, getattr(cur, "raw_total", 0.0)
+        ):
+            best[slot] = c
+    picked = sorted(best.values(), key=lambda c: (
+        -c.score, -getattr(c, "raw_total", 0.0), c.period, _key_value(c.event_key),
+    ))
     return picked[:cap]
 
 
@@ -1322,15 +1428,25 @@ def period_other_signal_lines(
         점수순 상위 `PERIOD_OTHER_SIGNAL_CAP`.
     """
     family = domain_family_keys(graph_scope)
+    # 같은 이벤트 도메인(예: 직업 질문의 법적 갈등·결과물)은 '다른 영역'이 아니다
+    # (2026-10-27 재검토).
+    asked_domains = {
+        d for k in graph_scope if (d := _EVENT_DOMAIN_BY_KEY.get(_key_value(k)))
+    }
     best: dict[str, EventCandidate] = {}
     for c in candidates:
         key = _key_value(c.event_key)
         if key in family or c.score < PERIOD_OTHER_SIGNAL_MIN:
             continue
+        if _EVENT_DOMAIN_BY_KEY.get(key) in asked_domains:
+            continue
+        if not _granularity_ok(str(c.period), period_start):
+            continue
         if not in_question_range(c.period, period_start, period_end, month_bounds):
             continue
         cur = best.get(key)
-        if cur is None or (c.score, -len(c.period)) > (cur.score, -len(cur.period)):
+        # 점수가 같으면 더 구체적인 기간(월 > 연)을 남긴다.
+        if cur is None or (c.score, len(c.period)) > (cur.score, len(cur.period)):
             best[key] = c
     picked = sorted(best.values(), key=lambda c: (-c.score, c.period, _key_value(c.event_key)))
     lines: list[str] = []
@@ -1768,7 +1884,25 @@ def _to_llm_candidate(
         process_types=process_types,
         opportunity_notes=opportunity_notes,
         love_notes=love_period_notes(result, period_ganji, str(c.event_key), fav_map),
+        repetition_notes=_candidate_repetition_notes(result, c.period, period_ganji),
     )
+
+
+def _candidate_repetition_notes(
+    result: ManseV2Result | None, period: str, period_ganji: str,
+) -> list[str]:
+    """후보 기간 간지의 반복 구조 활성화 줄(2026-10-27) — 연('YYYY')·월('YYYY-MM') 후보만."""
+    if result is None or len(period_ganji) < 2:
+        return []
+    layer = {4: "year", 7: "month"}.get(len(period))
+    if layer is None:
+        return []
+    from .repetition_structure import activation_line, repetition_activations
+
+    return [
+        activation_line(a)
+        for a in repetition_activations(result, layer, period, period_ganji)
+    ]
 
 
 def _luck_pillar_for(result: ManseV2Result, period: str) -> LuckPillar | None:
@@ -2047,8 +2181,8 @@ def build_monthly_overview(
             _love_items = (
                 love_period_note_items(result, ganji.get(period, ""), fav_map)
                 if any(
-                    _key_value(c.event_key) in _DOMAIN_EVENT_KEYS["relationship"]
-                    and c.score >= SCORE_FLOOR
+                    _key_value(c.event_key) in LOVE_NOTE_EVENT_KEYS
+                    and c.score >= PERIOD_OTHER_SIGNAL_MIN
                     for c in by_month.get(period, [])
                 )
                 else []
@@ -2347,7 +2481,7 @@ def build_llm_input(
         not overview_mode
         and bool(graph_scope)
         and bool(period_start or period_end)
-        and intent.query_type is not QueryType.DATE_RECOMMENDATION
+        and intent.query_type not in (QueryType.DATE_RECOMMENDATION, QueryType.REMEDY)
     )
     family_extra: list[LlmEventCandidate] = []
     if _specific and period_v2_config.DOMAIN_FAMILY_SCOPE_ENABLED:
@@ -2626,7 +2760,10 @@ def build_llm_input(
     # 시주 미상·용희신 미확정 — 후보 극성(길흉)을 '보류'로 바꿔 LLM 이 길흉을 단정하지 못하게 한다.
     # 점수·선별은 그대로다(엔진 내부 판정 불변 — LLM 입력 계층의 노출 제한).
     if _ug_unconfirmed:
-        for _c in (*payload.event_candidates, *payload.out_of_range_candidates):
+        for _c in (
+            *payload.event_candidates, *payload.family_candidates,
+            *payload.out_of_range_candidates,
+        ):
             _c.polarity = "unconfirmed"
     return payload
 
@@ -3037,6 +3174,10 @@ def serialize_llm_input(payload: LlmInput) -> str:
         """사건 유형 줄이 하나라도 있으면 범례 1줄(플래그 OFF면 빈 목록이라 byte 불변)."""
         return [process_type_legend()] if any(c.process_types for c in cands) else []
 
+    _seen_love_notes: set[str] = set()  # 연애 운의 결 — 후보 간 같은 구절 반복 방지(2026-10-27)
+    # 반복 구조 — 같은 기간 사실이라 후보 간 첫 출현만(2026-10-27).
+    _seen_rep_notes: set[str] = set()
+
     def candidate_block(c: LlmEventCandidate, with_notes: bool = True) -> list[str]:
         block = [candidate_line(c)]
         if with_notes and c.favorability_ko:
@@ -3077,11 +3218,25 @@ def serialize_llm_input(payload: LlmInput) -> str:
             # 관계 단계(MT) — 결혼 확정이 아니라 단계로 표현. 관계 도메인 질문에만(토큰 절약).
             block.append(f"  관계 단계: {c.marriage_stage}(결혼 확정 아님)")
         if with_notes and _rel_focus and c.love_notes:
-            # 연애 운 결(2026-10-27) — 그럴 수 있다는 경향. 이별·운명 단정 금지.
-            block.append(
-                "  연애 운의 결(그럴 수 있다는 경향 — '반드시'·'운명'·'끝난다' 단정 금지): "
-                + " / ".join(c.love_notes)
-            )
+            # 연애 운 결(2026-10-27) — 그럴 수 있다는 경향. 이별·운명 단정 금지. 앞 후보에 이미 실린
+            # 구절은 되풀이하지 않는다(같은 달 관계 변화·결혼 신호가 같은 간지라 구절이 같다).
+            _fresh = [n for n in c.love_notes if n not in _seen_love_notes]
+            _seen_love_notes.update(c.love_notes)
+            if _fresh:
+                _repeat = len(c.love_notes) - len(_fresh)
+                block.append(
+                    "  연애 운의 결(그럴 수 있다는 경향 — '반드시'·'운명'·'끝난다' 단정 금지): "
+                    + " / ".join(_fresh)
+                    + (f" (그 밖 {_repeat}개는 앞 후보와 같음)" if _repeat else "")
+                )
+            else:
+                block.append("  연애 운의 결: 앞 후보와 같음")
+        _rep_fresh = [n for n in c.repetition_notes if n not in _seen_rep_notes]
+        if with_notes and _rep_fresh:
+            # 반복 구조 활성화(2026-10-27) — 새 사건이 아니라 구조의 기간 활성화. 쌍마다 사건을
+            # 세지 말 것. 같은 기간의 다른 후보에는 되풀이하지 않는다.
+            _seen_rep_notes.update(_rep_fresh)
+            block.append("  반복 구조(새 사건 아님): " + " / ".join(_rep_fresh))
         if with_notes and c.recurrence_note:
             # 총운형 집계 — 같은 계열 신호의 보조 기간·반복 횟수(대표만 남긴 것이 아님).
             block.append(f"  {c.recurrence_note}")
@@ -3166,13 +3321,13 @@ def serialize_llm_input(payload: LlmInput) -> str:
         _cand_out += process_type_legend_lines(payload.event_candidates)
         if payload.no_candidates_in_period:
             _cand_out.append(
-                "질문 기간 내 해당 도메인 후보 없음 — '해당 기간에는 뚜렷한 신호가 "
-                "없습니다'로 정직하게 안내할 것(추측 금지)."
-                + (
-                    " 단 이 말은 질문하신 사건 자체에 한정된다 — 아래 [같은 영역 다른 사건 후보]가 "
-                    "있으니 그 사건으로 이 영역의 흐름을 설명하고 '신호가 없다'로 끝내지 말 것."
+                (
+                    "질문하신 사건 자체의 후보는 이 기간에 약하거나 없다 — 그 점을 정직하게 "
+                    "밝히되, 아래 [같은 영역 다른 사건 후보]와 함께 첫 판정을 세울 것"
+                    "(이 영역 전체를 '신호 없음'으로 쓰지 말 것)."
                     if payload.family_candidates
-                    else ""
+                    else "질문 기간 내 해당 도메인 후보 없음 — '해당 기간에는 뚜렷한 신호가 "
+                    "없습니다'로 정직하게 안내할 것(추측 금지)."
                 )
                 + (
                     " 아래 [같은 기간 다른 영역 신호]도 있으니 기간 전체를 '조용하다'·'아무 일도 "
@@ -3207,7 +3362,12 @@ def serialize_llm_input(payload: LlmInput) -> str:
             )
         # 결혼 출력 가드(Step 3·4) — 관계 도메인 질문 + MT 단계가 있을 때만 코드 결정 지시문 주입.
         # risk 코드(충·쟁합·기신)면 관계 변화·갈등 가능성 병기 강제(Step 4 분기).
-        _mt_cands = [c for c in payload.event_candidates if c.marriage_stage]
+        # 결혼 출력 가드는 같은 영역 다른 사건 후보의 관계 단계도 본다(2026-10-27 재검토) —
+        # 텔레메트리는 기존대로 질문 사건 후보만 센다.
+        _mt_cands = [
+            c for c in (*payload.event_candidates, *payload.family_candidates)
+            if c.marriage_stage
+        ]
         if _mt_cands:
             # 텔레메트리(debug-only·PII 없음·토큰 무관)는 도메인 무관 집계(오픈 후 calibration용).
             emit_marriage_telemetry(
@@ -3234,12 +3394,20 @@ def serialize_llm_input(payload: LlmInput) -> str:
                 )
     # 같은 영역 다른 사건 후보(2026-10-27) — 질문 사건과 같은 영역, '가능성이 높습니다' 이상.
     if payload.family_candidates:
+        _asked_key = payload.resolved_intent.event_key
+        _asked_ko = event_ko(_asked_key) if _asked_key is not None else "질문하신 사건"
         _cand_out.append("")
         _cand_out.append(
-            "[같은 영역 다른 사건 후보 — 질문하신 사건은 아니지만 같은 영역에서 발생 가능성이 높은 "
-            "사건(엔진 판정). 질문 사건과 구분해 '같은 영역에서는 ~ 신호가 강하다'로 서술하고, "
-            "질문 사건이 일어난다고 바꿔 말하지 말 것]"
+            f"[같은 영역 다른 사건 후보 — 질문하신 '{_asked_ko}'와(과) 같은 영역에서 발생 가능성이 "
+            f"높은 다른 사건(엔진 판정). 첫 판정 문장에는 '{_asked_ko}' 자체 신호의 강도(위 "
+            "[이벤트 후보], 없으면 약함)와 이 영역의 강한 신호를 함께 밝힐 것. 한쪽만 보고 "
+            "'아무 일 없다'고 하거나, 이 블록 사건을 질문 사건의 확정으로 바꿔 말하지 말 것 — 두 "
+            "신호가 어떻게 이어질 수 있는지는 '~로 이어질 수 있다' 수준으로 쓸 것]"
         )
+        if _key_value(_asked_key) in _DOMAIN_EVENT_KEYS["relationship"] and any(
+            _key_value(c.event_key) in LOVE_NOTE_EVENT_KEYS for c in payload.family_candidates
+        ):
+            _cand_out.append(_relationship_family_frame(payload.relationship_status))
         for c in payload.family_candidates:
             _cand_out += candidate_block(c)
     # 같은 기간 다른 영역 강신호(2026-10-27) — 질문 영역 밖, '가능성이 높습니다' 이상만.
@@ -3315,6 +3483,10 @@ def serialize_llm_input(payload: LlmInput) -> str:
         has_grade = False
         has_mitigated = False
         _love_legend: dict[str, str] = {}
+        # 택일·명식 분석 질문의 월별 표에는 연애 운의 결을 달지 않는다(답이 날짜·성향이라 무관).
+        _month_love_ok = payload.resolved_intent.query_type not in (
+            QueryType.DATE_RECOMMENDATION, QueryType.CHART_ANALYSIS,
+        )
         for row in payload.monthly_overview:
             row_cmp = cur_month[: len(row.period)] if cur_month else ""
             past_mark = " · 지남(과거형으로만)" if row_cmp and row.period < row_cmp else ""
@@ -3349,7 +3521,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
                     f"→ {tone_for_score(row.score)}"
                     f"{rank_mark}{tr_mark}{past_mark}"
                 )
-                if _rel_focus and row.love_note_labels:
+                if _rel_focus and _month_love_ok and row.love_note_labels:
                     # 연애 운의 결(2026-10-27) — 라벨만 행에, 구절은 표 아래 범례에 1회.
                     lines.append("  └ 연애 운의 결: " + " · ".join(row.love_note_labels))
                     for _lb in row.love_note_labels:
@@ -3691,11 +3863,14 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(FOLK_TABOO_INSTRUCTION)
     if payload.profile_facts:
         lines.append(_PROFILE_FACTS_INSTRUCTION)
-    if payload.event_candidates:
+    if payload.event_candidates or payload.family_candidates:
+        # 같은 영역 다른 사건 후보만 있는 턴도 같은 읽기 규칙이 필요하다(2026-10-27 재검토).
         lines.append(_MATRIX_INSTRUCTION)
         lines.append(_SCOPE_INSTRUCTION)
         lines.append(_HIERARCHY_INSTRUCTION)
-        if any(c.sinsal_modifiers for c in payload.event_candidates):
+        if any(
+            c.sinsal_modifiers for c in (*payload.event_candidates, *payload.family_candidates)
+        ):
             lines.append(_SINSAL_MODIFIER_INSTRUCTION)
     if payload.reference is not None:
         lines.append(_REFERENCE_INSTRUCTION)
@@ -3775,6 +3950,13 @@ def serialize_with_guard(
         ln.startswith("[민속 흉방 — ") for ln in no_sinsal.folk_taboo_context
     ):
         no_sinsal = no_sinsal.model_copy(update={"folk_taboo_context": []})
+    # 같은 기간 다른 영역 신호·같은 영역 다른 사건 후보(2026-10-27)도 보조층 — 다른 영역 줄은
+    # 버리고 같은 영역 후보는 1건만 남긴다(질문 사건 후보가 0일 때 그 영역의 근거를 잃지 않게).
+    if no_sinsal.period_other_signals or len(no_sinsal.family_candidates) > 1:
+        no_sinsal = no_sinsal.model_copy(update={
+            "period_other_signals": [],
+            "family_candidates": no_sinsal.family_candidates[:1],
+        })
     text = serialize_llm_input(no_sinsal)
     try:
         return text, guard.check_input(text, reserve_tokens=reserve_tokens)

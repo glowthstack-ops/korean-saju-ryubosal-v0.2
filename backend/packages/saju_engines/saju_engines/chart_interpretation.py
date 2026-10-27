@@ -361,6 +361,15 @@ def build_luck_grounding(
         [luck_stem] if luck_stem else None,
         [luck_branch] if luck_branch else None,
     ))
+    # 반복 구조 활성화(2026-10-27) — 같은 글자 유입·반복 그룹 충. 새 사건이 아니라 구조의
+    # 기간 활성화.
+    from .repetition_structure import activation_line, repetition_activations
+
+    for _act in repetition_activations(
+        result, getattr(luck_pillar, "period_type", ""), str(getattr(luck_pillar, "label", "")),
+        ganji,
+    ):
+        rel_lines.append(f"반복 구조(서술 전용): {activation_line(_act)}")
 
     # 운 신살은 들어온 운 레벨이 곧 시기·작용력 — 대운=장기 배경, 세운=올해, 월/일=단기.
     level_ko = _LUCK_LEVEL_KO.get(getattr(luck_pillar, "period_type", ""), "운")
@@ -426,15 +435,16 @@ def build_luck_grounding(
     }
 
 
-#: 처음 들어오는 용·희신 기운 — 대운·세운만(월·일운은 짧아 적응 서술이 맞지 않는다).
-_FIRST_ARRIVAL_LEVELS = frozenset({"daewoon", "year"})
+#: 처음 들어오는 용·희신 기운 — 세운만(월·일운은 짧아 적응 서술이 맞지 않고, 대운 기둥은
+#: `build_luck_grounding` 호출 경로가 없다 — 2026-10-27 재검토에서 대운 분기는 사문이라 뺐다).
+_FIRST_ARRIVAL_LEVELS = frozenset({"year"})
 _FIRST_ARRIVAL_ROLES = ("용신", "희신")
 
 
 def first_arrival_note(
     result: ManseV2Result, ganji: str, period_type: str, fav: dict[str, str],
 ) -> str:
-    """원국 표면에 없던 용·희신 오행이 대운·세운으로 들어올 때의 체감 서술 1구절(2026-10-27).
+    """원국 표면에 없던 용·희신 오행이 세운으로 들어올 때의 체감 서술 1구절(2026-10-27).
 
     필요한 기운이라도 처음 들어올 때는 바로 편해지기보다 낯섦·내면의 조정이 먼저 올 수 있다는
     서술 전용 줄이다. 용신 판정(부재해도 필요는 유지 — 결정 D)과 점수는 바꾸지 않는다.
@@ -442,7 +452,7 @@ def first_arrival_note(
     Args:
         result: 원국 결과(`force_analysis.five_elements.visible_percent` 사용).
         ganji: 운 간지 2글자.
-        period_type: LuckPillar.period_type(daewoon/year/month/day).
+        period_type: LuckPillar.period_type(year 만 대상 — daewoon/month/day 는 빈 문자열).
         fav: {오행 한자: 역할} — `event_scoring.favorability_map`.
 
     Returns:
@@ -754,6 +764,7 @@ def build_chart_interpretation(result: ManseV2Result) -> ChartInterpretation | N
         pillars.day, ten_god_names, relation_ids, pillars=pillars,
         palace_pairs=_relation_palace_pairs(result),
     )
+    excerpts += _repetition_excerpts(result)
     excerpts += _sinsal_excerpts(result)
     excerpts += _favorability_excerpts(result)
     excerpts += _spouse_palace_excerpts(pillars.day.branch)
@@ -766,6 +777,33 @@ def build_chart_interpretation(result: ManseV2Result) -> ChartInterpretation | N
         excerpts=excerpts,
         yongsin_operational_summary=build_yongsin_operational_summary(result),
     )
+
+
+def _repetition_excerpts(result: ManseV2Result) -> list[InterpretationExcerpt]:
+    """원국 반복 구조 발췌(2026-10-27) — 천간·지지 반복·자형·같은 간지 기둥, 그룹당 1줄.
+
+    판정·문구는 `repetition_structure` 가 맡고 여기서는 싣기만 한다. 첫 줄에 사용 원칙(사건·흉살
+    단정 금지, 유불리는 십성·역할, 그룹 단위)을 붙인다. 점수·오행 세력 비개입.
+    """
+    from .event_scoring import favorability_map
+    from .repetition_structure import (  # 지역 import — 순환 회피
+        detect_repetition_groups,
+        group_line,
+        load_repetition_text,
+    )
+
+    groups = detect_repetition_groups(result, favorability_map(result))
+    if not groups:
+        return []
+    pr = load_repetition_text()["principles"]
+    rule = f" ※ {pr['no_event']} {pr['no_fixed_fortune']} {pr['group_not_pairs']}"
+    out: list[InterpretationExcerpt] = []
+    for i, g in enumerate(groups):
+        out.append(InterpretationExcerpt(
+            kind="repetition", key=f"반복 구조 {g.char}",
+            text=group_line(g) + (rule if i == 0 else ""),
+        ))
+    return out
 
 
 _MAX_AMHAP_LINES = 3  # 원국 암합 보조 표기 상한(항목 9)

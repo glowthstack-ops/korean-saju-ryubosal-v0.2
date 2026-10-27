@@ -605,6 +605,44 @@ class LoveTypesFile(_AliasModel):
     items: list[LoveTypeItem] = Field(min_length=5, max_length=5)
 
 
+class RepetitionStemItem(_AliasModel):
+    """천간 반복 해석 후보 1건(interpretations/repetition_text.json, 2026-10-27)."""
+
+    char: Literal["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
+    base: str = Field(min_length=4)
+    excess: str = Field(min_length=4)
+    reviewed: bool
+
+
+class RepetitionBranchItem(_AliasModel):
+    """지지 반복 해석 후보 1건."""
+
+    char: Literal["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
+    base: str = Field(min_length=4)
+    reviewed: bool
+
+
+class SelfPunishmentItem(_AliasModel):
+    """자형 1건 — 辰·午·酉·亥 만."""
+
+    char: Literal["辰", "午", "酉", "亥"]
+    center: str = Field(min_length=4)
+    positive: str = Field(min_length=4)
+    negative: str = Field(min_length=4)
+    reviewed: bool
+
+
+class RepetitionTextFile(_AliasModel):
+    """반복 구조 해석 사전 — 판정은 saju_engines.repetition_structure, 문구는 서술 전용."""
+
+    version: str
+    note: str | None = None
+    principles: dict[str, str]
+    stems: list[RepetitionStemItem] = Field(min_length=10, max_length=10)
+    branches: list[RepetitionBranchItem] = Field(min_length=12, max_length=12)
+    self_punishment: list[SelfPunishmentItem] = Field(min_length=4, max_length=4)
+
+
 class TenGodGroupTraitItem(_AliasModel):
     """십성다자 성향 1건 (interpretations/ten_god_group_traits.json, 2026-10-27).
 
@@ -2723,6 +2761,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/ten_god_relations.json": TenGodRelationsFile,
     "interpretations/love_types.json": LoveTypesFile,
     "interpretations/ten_god_group_traits.json": TenGodGroupTraitsFile,
+    "interpretations/repetition_text.json": RepetitionTextFile,
     "interpretations/stems_branches_text.json": StemsBranchesTextFile,
     "interpretations/favorability_text.json": FavorabilityTextFile,
     "interpretations/relocation_ten_gods.json": RelocationTenGodsFile,
@@ -3303,6 +3342,28 @@ def _lint_love_types(file: LoveTypesFile) -> list[str]:
         for w in _LOVE_TYPE_BANNED:
             if w in text:
                 errors.append(f"{head}: {i.group} 문구에 금지 어휘 '{w}'")
+    return errors
+
+
+def _lint_repetition_text(file: RepetitionTextFile) -> list[str]:
+    """repetition_text.json — 글자 정확 커버리지·필수 원칙·단정 어휘 금지."""
+    errors: list[str] = []
+    head = "interpretations/repetition_text.json"
+    if sorted(i.char for i in file.stems) != sorted(_STEMS_ORDER):
+        errors.append(f"{head}: 천간 10종 각 1건이어야 한다")
+    if sorted(i.char for i in file.branches) != sorted(_BRANCHES_ORDER):
+        errors.append(f"{head}: 지지 12종 각 1건이어야 한다")
+    if sorted(i.char for i in file.self_punishment) != sorted("辰午酉亥"):
+        errors.append(f"{head}: 자형은 辰·午·酉·亥 4종이어야 한다")
+    for key in ("no_event", "no_fixed_fortune", "group_not_pairs", "luck_activation"):
+        if key not in file.principles:
+            errors.append(f"{head}: principles.{key} 필수")
+    texts = [i.base for i in file.stems] + [i.excess for i in file.stems]
+    texts += [i.base for i in file.branches]
+    texts += [t for i in file.self_punishment for t in (i.center, i.positive, i.negative)]
+    for w in _LOVE_TYPE_BANNED:
+        if any(w in t for t in texts):
+            errors.append(f"{head}: 금지 어휘 '{w}'")
     return errors
 
 
@@ -4002,6 +4063,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_love_types(parsed))
         elif isinstance(parsed, TenGodGroupTraitsFile):
             errors.extend(_lint_ten_god_group_traits(parsed))
+        elif isinstance(parsed, RepetitionTextFile):
+            errors.extend(_lint_repetition_text(parsed))
         elif isinstance(parsed, TenGodsTextFile):
             errors.extend(_lint_ten_gods_text(parsed))
         elif isinstance(parsed, TwelveStagesTextFile):

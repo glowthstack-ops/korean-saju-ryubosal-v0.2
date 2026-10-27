@@ -33,6 +33,7 @@ from saju_engines.context_reducer import (
     _DOMAIN_EVENT_KEYS,
     _PROFILE_FACTS_INSTRUCTION,
     _STRUCTURE_PATTERN_INSTRUCTION,
+    PERIOD_OTHER_SIGNAL_MIN,
     PERSONAL_REPEAT_DIRECTIVE,
     build_birth_summary,
     event_ko,
@@ -73,6 +74,7 @@ from saju_engines.gongmang_state import same_xun_line, transit_state, transit_su
 from saju_engines.hap_lines import luck_hap_mode_lines
 from saju_engines.health_vulnerability import analyze_health_vulnerability
 from saju_engines.horizon import ENTRY_WINDOW_DIRECTIVE
+from saju_engines.impossible_relation_audit import strip_impossible_relation_claims
 from saju_engines.intent_event_filter import IntentEventFilter
 from saju_engines.lifetime_scan import (
     PER_CLUSTER_CAP,
@@ -82,6 +84,7 @@ from saju_engines.lifetime_scan import (
     select_lifetime_years,
 )
 from saju_engines.llm_guard import TokenBudgetExceeded
+from saju_engines.love_period_notes import LOVE_NOTE_EVENT_KEYS, love_period_note_items
 from saju_engines.love_type import age_from_result
 from saju_engines.manifestation_branch import branch_summary
 from saju_engines.marriage_resource import analyze_marriage_resource
@@ -835,6 +838,9 @@ _SAMJAE_SECTIONS: dict[str, str] = {
     "W-06": "forecast", "J-05": "forecast", "R-05": "forecast", "RL-06": "forecast",
     "C-03": "forecast",
 }
+
+#: 관계 도메인이지만 연애 운의 결을 싣지 않는 섹션 — 자녀(출산 신호) 섹션(2026-10-27 재검토).
+_NO_LOVE_NOTE_SECTIONS = frozenset({"F-17c"})
 
 # 도메인 섹션 → 생애 도메인 변곡 행(장기 연동) 매핑 — 모든 도메인 섹션이 근접 5년만
 # 반복하던 결함 교정(2026-08-13). 값=(도메인, 사건 키 필터, 헤더 라벨).
@@ -1835,12 +1841,22 @@ class _ReportData:
             if best
             else ""
         )
-        return [
+        block = [
             f"[월별 흐름 — {scope_label}. 아래 각 달을 하나도 빠뜨리지 말고 서술할 것 — "
             "좋은 달·주의할 달의 1차 기준은 사건 밀도가 아니라 운 품질 등급〈…〉"
             f"(길흉=용신/기신).{callout}]",
             *overview,
         ]
+        if domain == "relationship" and not self.non_romantic_pair:
+            # 연애 운의 결(2026-10-27, 채팅 월별 표 패리티) — 관계 사건이 '가능성이 높습니다'(70)
+            # 이상인 달만(하한 40은 관계 변화가 거의 매달 넘어 12달 전부가 붙었다 — 재검토).
+            _love = self._love_note_lines([
+                c for c in self.scored
+                if str(c.period) in months and c.score >= PERIOD_OTHER_SIGNAL_MIN
+            ])
+            if _love:
+                block += ["", *_love]
+        return block
 
     # ── 상대 운 표(궁합 모드, 2026-10-15) — 본인 표와 같은 형식, 머리줄로 주체를 명시 ──
     def pair_subject_header(self, partner: bool) -> str:
@@ -2471,9 +2487,38 @@ class _ReportData:
                 out.append(f"{'세운' if len(p) == 4 else '월운'} {p} {g}{sfx}")
         return out
 
+    def _love_note_lines(self, cands: list[EventCandidate]) -> list[str]:
+        """관계 후보 기간별 연애 운의 결 — 라벨은 기간마다, 구절은 범례에 한 번(2026-10-27).
+
+        채팅 후보 블록·월별 표와 같은 `love_period_note_items` 를 쓴다. 서술 전용(점수·선별 불변).
+        """
+        periods = sorted({
+            str(c.period) for c in cands
+            if str(c.event_key) in LOVE_NOTE_EVENT_KEYS and len(str(c.period)) in (4, 7)
+        })
+        rows: list[str] = []
+        legend: dict[str, str] = {}
+        for p in periods:
+            gj = self._ganji_by_label.get(p, "")
+            items = love_period_note_items(self.result, gj, self.fav_map)
+            if not items:
+                continue
+            rows.append(f"{p} {gj}: " + " · ".join(label for label, _t in items))
+            for label, text in items:
+                legend.setdefault(label, text)
+        if not rows:
+            return []
+        return [
+            "[연애 운의 결(후보 기간) — '그럴 수 있다'는 경향이다. "
+            "'반드시'·'운명'·'끝난다' 단정 금지]",
+            *rows,
+            *(f"  · {label}: {text}" for label, text in legend.items()),
+        ]
+
     def luck_block(
         self, candidates: list[EventCandidate] | None = None, *, daewoon_only: bool = False,
         include_event_candidates: bool = True, domain: str | None = None,
+        love_notes: bool = True,
     ) -> list[str]:
         """[대운표]+[이벤트 후보] — 운 관련 섹션의 데이터 블록.
 
@@ -2558,6 +2603,13 @@ class _ReportData:
                     "살아난 글자의 십성·용희기구한으로 별도 판정]"
                 )
                 lines += _gm_lines
+            # 연애 운의 결(2026-10-27, 채팅 패리티) — 관계 섹션 후보 기간에만, 라벨 + 범례 1회.
+            # 비연애 관계(부모·자녀 등) 짝 리포트와 자녀 섹션은 제외(2026-10-27 재검토).
+            if domain == "relationship" and love_notes and not self.non_romantic_pair:
+                _love = self._love_note_lines(cands)
+                if _love:
+                    lines.append("")
+                    lines += _love
             # 이동 주체 미상(2026-10-15 데굴님 지시, 채팅과 동일) — 이 섹션 후보에 직장·역할 이동이
             # 있으면 자발·타의 단정 금지 지시를 같이 싣는다.
             if has_mobility_candidate(cands):
@@ -3924,7 +3976,8 @@ def build_section_context(
         # 후보 상세 — 도메인 스코프면 자기 도메인 후보(길·흉 포함), 아니면 전역 top 후보.
         elif section_domain is not None:
             lines += data.luck_block(
-                data.domain_candidates(section_domain), domain=section_domain
+                data.domain_candidates(section_domain), domain=section_domain,
+                love_notes=sid not in _NO_LOVE_NOTE_SECTIONS,
             )
         else:
             # 2부 과거·메타 섹션은 [대운표]만 — 미래 이벤트 후보가 섞이는 시간범위 불일치 차단.
@@ -4653,6 +4706,13 @@ def generate_report(
                         reduction_level,
                     )
                 text = _tighten(text)  # 지면 낭비 정규화(공백수정)
+                # 성립 불가 간지 관계 주장 제거(2026-10-27, 채팅과 동일 — 재호출 없음).
+                text, _bad_rel = strip_impossible_relation_claims(text)
+                if _bad_rel:
+                    _logger.warning(
+                        "impossible_relation_stripped surface=report section=%s pairs=%s",
+                        plan.section_id, [f"{c.pair}{c.relation}" for c in _bad_rel],
+                    )
                 # 겉/속 거짓 역접 재작성(2026-10-01) — 채팅과 같은 결정론 후처리(재호출 없음).
                 text, _fc = rewrite_false_contrast(text)
                 if _fc:

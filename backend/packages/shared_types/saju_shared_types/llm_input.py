@@ -215,6 +215,9 @@ class LlmEventCandidate(BaseModel):
     # 연애 운 결(2026-10-27) — 관계 사건 후보 기간의 일지 충·운 역할·약한 오행·십성 구절.
     # '그럴 수 있다' 수준의 서술 전용(점수·판정 비개입). 관계 도메인 질문에만 렌더.
     love_notes: list[str] = Field(default_factory=list)
+    # 반복 구조 활성화(2026-10-27) — 후보 기간 간지가 원국 반복 그룹을 건드린 기록. 새 사건이 아니라
+    # 구조의 기간 활성화(서술 전용, 점수·판정 비개입).
+    repetition_notes: list[str] = Field(default_factory=list)
     # 운 암합(보조 자료) — 점수 미반영, 물밑·비공식 뉘앙스 참고용(2026-06-12 자료).
     amhap_notes: list[str] = Field(default_factory=list)
     # 유불리 주의(후보별 사실) — 천간 흉신 시기: 발생해도 계약·결실 불리(우호 단정 방지).
@@ -537,6 +540,10 @@ class LlmInput(BaseModel):
     #: 같은 영역 다른 사건 후보(2026-10-27) — 질문 사건 키가 아닌 같은 영역 계열 사건 중 70점 이상.
     #: 진입 시기·상담 결론 판정이 읽는 `event_candidates` 와 분리한다(별도 블록 렌더).
     family_candidates: list[LlmEventCandidate] = Field(default_factory=list)
+    #: 대상의 교제 상태(2단계 프로필 marital → single|dating|married, 미입력 "").
+    #: 같은 영역 관계 후보의 해석 분기 전용(2026-10-27) — 점수·선별 비개입, 미입력이어도
+    #: 기능을 막지 않는다(원칙 11).
+    relationship_status: str = ""
     #: 같은 기간 다른 영역 강신호(2026-10-27) — 질문 영역 밖 '가능성이 높습니다' 이상 후보 요약 줄.
     #: 질문 영역 후보가 없을 때 '아무 일도 없다'로 덮는 것을 막는다(주 서사 승격 금지).
     period_other_signals: list[str] = Field(default_factory=list)
