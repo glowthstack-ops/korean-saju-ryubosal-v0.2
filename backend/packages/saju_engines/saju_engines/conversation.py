@@ -80,6 +80,18 @@ _POLICY_QTYPES = frozenset({
 })
 # 본인 복귀(A8).
 _SELF_RETURN_RE = re.compile(r"본인\s*사주로|내\s*사주로\s*봐")
+# 1인칭 주어·소유 표지(A0 3단계 보강, 2026-10-28) — 동반자 지칭이 전혀 없을 때 직전 대상 상속
+# 대신 본인으로 확정한다. 앞글자 한글 금지('하나는'·'안내가' 오매칭 차단), '난'은 뒤가 공백·
+# 문장 끝·부호일 때만('난리' 제외).
+_FIRST_PERSON_SUBJECT_RE = re.compile(
+    r"(?<![가-힣])(?:내가|나는|나도|나만|나의|제가|저는|저도|저의)(?![가-힣])"
+    r"|(?<![가-힣])(?:내|제)\s*(?:사주|명식)"
+    r"|(?<![가-힣])난(?=\s|$|[,.!?])"
+)
+# 1인칭 관점 표현 — 대상 지정이 아니다('내가 보기엔 성실해' = 동반자 스레드의 되물음 답).
+_FIRST_PERSON_VIEW_RE = re.compile(
+    r"(?:내가|제가)\s*(?:보기|알기|듣기|느끼기|생각하기)|(?:내|제)\s*생각(?:엔|에는|으로)"
+)
 # 생시 미상(A13).
 _TIME_UNKNOWN_RE = re.compile(r"태어난\s*시간[은는]?\s*몰라|시간\s*모름")
 # 누적 참조(F4) — "앞서 물어본 2명까지 포함".
@@ -413,6 +425,10 @@ class ConversationEngine:
                 # 되물음("업무량 때문인지 관계 때문인지?")에 사용자가 상황을 서술해 답하면, 그
                 # 서술은 새 분석 질문이 아니라 직전 시점 탐색의 재료다. 분야 어휘('업무')가 있어도
                 # 시점 탐색 유형과 개방형 시점을 이어받는다. 자체 사건·시점을 새로 들면 미승계.
+                # 위 약한 후속 규칙이 유형(TIMING_SEARCH)만 먼저 승계한 경우도 개방형 시점은 여기서
+                # 잇는다(2026-10-28 실로그: "아니 새롭게 하고싶은건 없고 그냥 일 적당히 있었으면
+                # 좋겠어"가 유형만 받고 시점은 비어 '언제 줄어들까'의 개방형 창을 놓쳤다 — 일반 시점
+                # 승계는 시작일 없는 open_when 을 잇지 않는다).
                 if (
                     state.last_offer
                     and prev.query_type is QueryType.TIMING_SEARCH
@@ -420,6 +436,7 @@ class ConversationEngine:
                     and (intent.time_range is None or not intent.time_range.start)
                     and intent.query_type in (
                         QueryType.FORTUNE_OVERVIEW, QueryType.DOMAIN_ANALYSIS,
+                        QueryType.TIMING_SEARCH,
                     )
                 ):
                     intent.query_type = QueryType.TIMING_SEARCH
@@ -738,6 +755,17 @@ class ConversationEngine:
 
         if not subjects and not unresolved and kin_axis_self:
             # 미등록 육친 운 — 직전 대상을 잇지 않고 본인 명식(육친 축)으로 확정.
+            subjects = [SubjectRef(kind=SubjectKind.SELF, label="본인")]
+        if (
+            not subjects and not unresolved
+            and _FIRST_PERSON_SUBJECT_RE.search(scan_text)
+            and not _FIRST_PERSON_VIEW_RE.search(scan_text)
+            and not INCLUSIVE_WE_RE.search(scan_text)
+        ):
+            # 1인칭 주어·소유 표지('내가/나는/난/제가/내 사주') + 동반자 지칭 없음 → 본인 복귀
+            # (A0 3단계, 2026-10-28 실로그: "남편과의 2027년 관계" 뒤 "2027년 내가 이직을 하게
+            # 된다면 …"이 직전 동반자(남편)를 상속해 남편 풀이로 나갔다). 관점 표현('내가 보기엔')
+            # 과 1인칭 복수('우리가')는 대상 지정이 아니라 제외. SELF 는 스레드 기준 명식이다.
             subjects = [SubjectRef(kind=SubjectKind.SELF, label="본인")]
         if not subjects and not unresolved:
             # 직전 턴 subject 상속, 그것도 없으면 self (A0 4순위).

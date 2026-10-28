@@ -751,6 +751,11 @@ _FUTURE_WHEN_RE = re.compile(
 # _PAST_KEYWORDS의 '았을까' 부분 문자열에 안 걸린다(2026-07-21 데굴님 실로그: '2025년 몇월에
 # 취직에 성공했을까?'가 미래 시제로 서술되던 결함). 종성 ㅆ을 유니코드 분해로 일반 판정한다.
 _CONTRACTED_PAST_TAILS = ("을까", "을지", "을 때", "던")
+# 소원·조건형 '~았/었/했으면' — 과거가 아니라 바람·가정이다(2026-10-28 실로그: "그냥 일 적당히
+# 있었으면 좋겠어"의 '있었'이 _PAST_KEYWORDS에 걸려 회고 모드가 되고 2022~2024년을 되짚었다).
+# 과거 표지·축약 과거형 검사 전에 이 구간을 가린다. 반사실 회고('갔었으면 어땠을까')는 뒤의
+# '어땠'이 남아 그대로 회고다.
+_WISH_CONDITIONAL_RE = re.compile(r"[가-힣]{1,6}(?:았|었|였|했|갔|왔|됐)으면")
 
 
 def _has_contracted_past(question: str) -> bool:
@@ -810,6 +815,8 @@ def _question_time_direction(
     # 앞으로다(2026-10-13) — 회고 모드로 뒤집으면 미래 조언이 금지된다.
     if intent.dialogue_act == "reported_event":
         return False
+    # 소원·조건형('있었으면 좋겠어')은 과거 표지가 아니다 — 문구 검사 전에 가린다.
+    question = _WISH_CONDITIONAL_RE.sub(" ", question)
     if (
         intent.query_type is QueryType.EVENT_EXPLANATION
         or any(k in question for k in _PAST_KEYWORDS)
