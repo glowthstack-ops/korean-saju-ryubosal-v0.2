@@ -77,6 +77,28 @@ python scripts/build_intent_onnx.py        # → compiled/intent_onnx/model_quan
 생성물 무결성은 `compiled/intent_onnx/model_quantized.onnx.sha256` 로 검증한다. 배포 시 이 모델
 아티팩트를 함께 배치(또는 빌드 단계에서 생성)하면 분류기가 자동 활성화된다.
 
+### (선택) 질문 이해 층 로컬 소형 모델 — Ollama
+
+채팅 질문의 의도를 읽어 룰 파서가 Q1 총운으로 흘려보낸 생활 질문(색·방향·음식·장소·행동 가부)을 보정하는
+층(docs/03 B6). 로컬 Ollama 의 소형 모델(`backend/config/llm_config.json` → `question_frame.model`,
+현재 `gemma4:e2b`)을 1회 호출한다. **Ollama 가 없어도 서버는 정상 기동**하며 이 보정만 비활성된다(룰만 동작).
+
+`./scripts/dev.sh` 와 `./scripts/restart_backend.sh` 는 백엔드를 띄우기 전에 `./scripts/ensure_ollama.sh` 를
+호출해 서버 응답·모델 존재를 확인하고, 없으면 사용자 레벨 `ollama serve` 기동과 `ollama pull` 까지 한다(실패해도
+백엔드 기동은 계속). 처음 한 번은 바이너리를 설치해 둔다.
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh        # 1회
+# .env
+SAJU_OLLAMA_BASE_URL=http://127.0.0.1:11500           # WSL2: 11434 는 Windows 예약 포트 범위일 수 있다 → 다른 포트
+SAJU_QUESTION_FRAME_SHADOW=1                          # 관측 로그(var/question_frame_shadow.jsonl)
+SAJU_QUESTION_FRAME_GATE=1                            # Q1 폴백 턴 보정 ON
+```
+
+재부팅 후에도 자동으로 뜨게 하려면 systemd 유닛 포트를 맞춘다(sudo):
+`sudo systemctl edit ollama` → `[Service]` 아래 `Environment=OLLAMA_HOST=127.0.0.1:11500`.
+측정 재현은 `cd backend && python scripts/measure_question_frame.py --db`.
+
 ## 핵심 원칙
 
 1. LLM은 사주를 계산하지 않는다 — 모든 계산은 결정론적 엔진에서.

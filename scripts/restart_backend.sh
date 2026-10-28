@@ -49,6 +49,9 @@ except Exception as exc:  # noqa: BLE001
     sys.exit(1)
 PY
 
+# ── 2b. 질문 이해 층 로컬 모델(Ollama) 보장 — 플래그 ON 일 때만, 실패해도 기동은 계속(docs/03 B6) ──
+"$ROOT/scripts/ensure_ollama.sh" || true
+
 # ── 3. graceful stop ────────────────────────────────────────────────────────
 PIDS="$(pgrep -f "$PATTERN" || true)"
 if [ -n "$PIDS" ]; then

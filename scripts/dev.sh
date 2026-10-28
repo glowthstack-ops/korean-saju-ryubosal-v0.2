@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 개발 서버 동시 실행: 백엔드(FastAPI:8000) + 프론트(Next:3000).
+# 개발 서버 동시 실행: (질문 이해 층 Ollama 보장) + 백엔드(FastAPI:8000) + 프론트(Next:3000).
 # 사용: ./scripts/dev.sh   (Ctrl+C 로 둘 다 종료)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -34,6 +34,9 @@ if [ ! -d "$ROOT/frontend/node_modules" ]; then
   echo "[setup] frontend npm install…"
   (cd "$ROOT/frontend" && npm install)
 fi
+
+# 질문 이해 층 로컬 모델(Ollama) — 플래그 ON 일 때만 기동·모델 확인, 실패해도 백엔드는 뜬다(docs/03 B6).
+"$ROOT/scripts/ensure_ollama.sh" || true
 
 echo "[run] backend  → http://localhost:$API_PORT"
 "$VENV/uvicorn" saju_api.main:app --reload --port "$API_PORT" &

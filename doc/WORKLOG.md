@@ -12949,3 +12949,14 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
   ('익숙한 메뉴·편안한 음식'), 완곡형('어떨까요'), 메뉴 없이 기운만. `ACTIVITY_JUDGMENT_DIRECTIVE` 도 같은 결(3문장 이내, '해도 돼요 /
   가볍게 조절해서 하면 돼요 / 오늘은 미루는 게 좋아요' 확정형 판정 → 이유 → 조절 권고). 답 마무리 규칙은 건드리지 않음(소유자 한 곳 계약).
 - 회귀: 지시문 문구 단언 2건 추가. docs/08 D-3 5번 음식 답 형태 추가.
+
+## 2026-10-28 — 서버 기동 절차에 Ollama 보장 단계 추가 (데굴님 "서버 시작 과정에 실행과정을 포함해놔줘")
+
+- 답: 백엔드는 Ollama 없이도 정상 기동한다(프레임 호출 실패 = 관측 1건, 룰만 동작). 다만 색·방향·음식·장소·행동 가부의 Q1 폴백 보정이 멈추므로
+  기동 절차에 포함한다.
+- `scripts/ensure_ollama.sh`(신규, 멱등): .env 로드 → SHADOW/GATE 둘 다 OFF 면 no-op → `SAJU_OLLAMA_BASE_URL`(기본 11434) 응답 확인 → 없으면
+  사용자 레벨 `OLLAMA_HOST=<host:port> ollama serve`(nohup setsid, var/ollama.log) 기동·60s 대기 → llm_config `question_frame.model` 없으면 `ollama pull`.
+  어느 단계가 실패해도 exit 0(백엔드 기동 차단 금지). systemd 유닛이 살아 있는데 응답이 없으면 포트 불일치/bind 실패 루프 안내(WSL2 예약 포트).
+- `scripts/dev.sh`·`scripts/restart_backend.sh` 가 백엔드 기동 직전에 호출(`|| true`). README '(선택) 질문 이해 층 로컬 소형 모델 — Ollama' 절 추가
+  (설치·.env 3줄·systemd 영구화·측정 재현). docs/03 B6 기동 절차 줄.
+- 검증: 서버 살아 있을 때 '응답 확인·모델 준비됨', 프로세스를 죽인 뒤 실행하면 사용자 레벨 재기동 후 응답 확인(콜드 경로).
