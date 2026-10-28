@@ -408,6 +408,27 @@ LLM 입력 직전 최종 필터. 규칙:
 
 ---
 
+### B7. 2026-10-28 실답 교정 — 이직 완료 사실·되물음 답·사실 단언형 이의·'몇 년도' 지평·설명 요청·해외 근무 층 (데굴님 승인)
+
+실로그 두 스레드(web-mvrpyw6m·web-mvrq8ocg)에서 '이직'이라는 단어만으로 완료형·부정형 발화까지 앞으로의 이직
+사건(`career_change`)으로 잡혀 2027년 진입 창 서술로 흐른 결함과, 해외 근무·설명 요청·'몇 년도' 질문의 경로 부재를
+한 묶음으로 교정했다. 규칙 기반이며 LLM 판정은 없다(절대원칙 1).
+
+| 항목 | 규칙 | SSOT |
+|---|---|---|
+| 완료형 이직 보고 | 한 절 안의 이직 어휘(이직·전직·입사·회사/직장 옮기-·새 직장 들어가-)+완료형 어미. 가정('이직하면')·소원('했으면')·부정('안 했')·제3자('남편이 이직') 제외. 파서는 보고 구간을 뺀 잔여 텍스트로 사건을 감지하고(`IntentJson.job_changed_reported`), '또/다시 이직'을 물으면 새 이직 사건 유지 | `saju_engines.job_change_report` |
+| 사실 원장 `job_changed` | 단수 supersede 슬롯. 블록 주석: "이직은 이미 일어났다 — 앞으로의 이직·채용 제안·면접·스카우트 시기 서술 금지, 현 직장 적응·업무 부담·안정 시기 흐름으로" | `user_facts._FACT_RULES` |
+| 채팅 | 이번 턴 보고 또는 원장 확정 사실이 있고 새 이직을 묻지 않으면: 의도의 이직·입사 사건 키 제거(지평·진입 두 칸 차단) + 후보에서 `career_change`·`job_gain` 제외 + 말미 `[이직 완료 …]` 지시 | `chat_service._JOB_CHANGED_DIRECTIVE` |
+| 되물음 답 링크 | offer-slot/offer-answer 의 도메인 판정은 보고 구간을 뺀 잔여 텍스트로. 잔여에 분야 어휘('업무')가 남아도 직전 도메인이 GENERAL 이거나 같은 분야면 되물음 답으로 잇는다 | `conversation.link_question` |
+| 되물음 답 → 시점 탐색 승계 | 직전이 TIMING_SEARCH('언제쯤 안정될까')이고 되물음(last_offer)이 있으며 이번 턴이 사건·자체 시점 없이 총운/분야 분석으로 떨어지면 TIMING_SEARCH 와 개방형 시점을 이어받는다 | `conversation.process_turn` |
+| 사실 단언형 이의 | '아니/아뇨/아니요' 머리 + (1인칭·이미·벌써) + 완료형 + 강조 종결(다니까/라니까/다고/거든/잖아/니까), 또는 '이미/벌써 … 완료형+강조 종결'. 1인칭이어도 이의. 강조 종결 없는 '아니 이직했어'는 보고(사실 원장) | `challenge_detect.ASSERTED_FACT_REBUTTAL_RE` |
+| '몇 년도' 지평 | `YEAR_WHEN_RE`(몇 년도/몇 년에/어느 해) → Q3 + `open_when`(YEAR). horizon `year_when` = 향후 5년 연 단위(월 상세 0, 진입 두 칸 없음). 지시: 첫 문장 "향후 5년을 기준으로 보면", 창 밖 서술 금지, 끝 한 줄 "이후 기간은 연도 범위를 지정해 달라(예: 2032년부터 2036년까지)" | `time_parser.YEAR_WHEN_RE`·`horizon.YEAR_WHEN_SPAN_YEARS` |
+| 이후 기간 지정 | '2032년부터 2036년까지는?'·'2032~2036년은?'(연도 범위만) → TIME_SHIFT(길이 무관). '2032년 이후는?' → 2032~2036 절대 창(종전 C8c 가 오늘+2032년으로 오파싱). '그 이후 5년은?'·'그 다음은?' → 직전 창 끝 다음 해부터 N년(기본 5; 직전이 개방형이면 올해부터 5년을 직전 창으로). 주제(query_type·사건·해외 근무 유형) 승계 | `conversation._YEAR_RANGE_ONLY_RE`·`_AFTER_WINDOW_RE`·`_inherit_after_window` |
+| 설명 요청 | 요청 표지(쉽게/풀어서/자세히 설명·무슨 뜻) + 참조어('위의 내용') 또는 요청 문장 앞 인용 본문 15자 이상 → `dialogue_act="explain_request"`, `explain_target`=인용 본문. 인용 문장을 질문 조각으로 쪼개지 않고, 시점·사건을 비운다. 링크 DRILL_DOWN, 직전 유형·시점 미승계. 채팅: 후보·월별 표·지평 없음, too_broad 면제, `[설명 요청 …] [인용] …` 지시(여섯 문장 이내, 새 기간·삼재 금지) | `query_parser.detect_explain_request`·`chat_service._EXPLAIN_REQUEST_DIRECTIVE` |
+| 해외 근무 층 | 유형 감지(주재원·발령/파견·출장/해외 취업/이민/미지정) → 도메인 직업(이민=이동), 주 사건 `relocation`, 동반 사건=유형별 직업 키. 채팅 말미 `[해외 근무 신호]` 연도표(이동 후보 최고점 × 직업 후보 최고점 → 강/중/이동만/직업만/없음 + 세운 십성 힌트) + 해석 규칙 6조. 설계 SSOT: `doc/v2_2/OVERSEAS_WORK_LAYER.md` | `saju_engines.overseas_work` |
+
+회귀: `tests/unit/test_job_change_overseas_explain_20261028.py`(엔진 36건 + 채팅 dry-run 4건).
+
 ## C. 분야별 Graph 조회 범위 (graphScope 기본값)
 
 | domain | 조회 노드 |

@@ -104,6 +104,7 @@ from saju_engines.horizon import (
 from saju_engines.ilju_mention_audit import audit_ilju_mention
 from saju_engines.impossible_relation_audit import strip_impossible_relation_claims
 from saju_engines.intent_event_filter import IntentEventFilter
+from saju_engines.job_change_report import asks_new_job_change
 from saju_engines.job_separation import is_job_separation
 from saju_engines.layer_label_audit import audit_layer_labels
 from saju_engines.life_event_followup import followup_candidates
@@ -135,6 +136,11 @@ from saju_engines.month_coverage_audit import (
 )
 from saju_engines.movement_timing_shadow import detect_movement_timing_shadow
 from saju_engines.output_wealth_term import fix_wealth_generation_term
+from saju_engines.overseas_work import (
+    OVERSEAS_DIRECTIVE,
+    overseas_year_signals,
+    render_overseas_block,
+)
 from saju_engines.period_fortune_signals import (
     annotate_period_fortune,
     select_period_candidates,
@@ -839,6 +845,28 @@ _REPORTED_EVENT_DIRECTIVE = (
 _REPORTED_JOB_SEPARATION_TAIL = (
     " 해고·퇴사 통보·권고사직은 같은 계열(직장을 떠나게 된 사건)로 다루고, "
     "재직 중이라는 전제로 쓰지 말 것."
+)
+# 이직 완료 사실(2026-10-28 데굴님 승인) — 실로그 2건: "이직을 했는데 업무의 양이 많아"·"아니 난
+# 이직을 했다니까!"에 2027년 이직 제안·면접·스카우트 시기를 서술했다. 사용자가 이미 이직했다고
+# 알린 스레드에서는 이직·입사 후보를 빼고(아래 _JOB_ENTRY_EVENT_KEYS) 말미에 이 지시를 고정한다.
+# 새 이직을 명시해 물은 턴('또 이직할까')은 제외. 판정 SSOT = saju_engines.job_change_report.
+_JOB_CHANGED_DIRECTIVE = (
+    "[이직 완료 — 사용자가 이미 이직했다고 알렸다] 이직은 이미 일어난 사실이다. 앞으로의 이직·"
+    "채용 제안·면접·스카우트·입사 시기를 서술하지 말고, 그런 달을 '움직이는 달'로 이름 붙이지도 "
+    "말 것. 답은 현 직장에서의 적응·업무 부담·관계 압박의 흐름과 그 부담이 누그러지는 시기, "
+    "그리고 지금 취할 태도로 구성하라. 사용자가 직접 밝힌 상황(업무량 등)은 사실로 받아 그 위에서 "
+    "풀이하고 되묻지 말 것."
+)
+_JOB_ENTRY_EVENT_KEYS: frozenset[EventKey] = frozenset({EventKey.CAREER_CHANGE, EventKey.JOB_GAIN})
+# 설명 요청(2026-10-28 데굴님 승인) — 실로그: 직전 답의 '서쪽 申·酉 방위 활용' 문장을 붙여
+# "위의 내용 쉽게 설명해줘"라고 했는데 방위 설명 뒤에 2028~2031년 연운·삼재 서술이 붙었다.
+# 사건 후보·지평을 비우고 인용 본문만 쉬운 말로 풀이한다.
+_EXPLAIN_REQUEST_DIRECTIVE = (
+    "[설명 요청 — 사용자가 앞선 답의 한 부분(아래 인용)을 쉽게 설명해 달라고 했다] "
+    "인용된 내용만 일상어로 다시 풀어라: 무엇을 뜻하는지 → 왜 그렇게 말했는지(근거 한두 가지) "
+    "→ 실제로 어떻게 하면 "
+    "되는지, 여섯 문장 이내. 새 기간·연도·월별 흐름·사건 후보·삼재 같은 다른 주제를 덧붙이지 말고, "
+    "인용에 없는 간지·연도를 새로 만들지 말 것. 되묻는 질문도 붙이지 말 것."
 )
 # 이동 주체 미상(2026-10-15 데굴님 승인) — 라이브 실측: 이동 후보 문구는 '자의·타의 모두·단정
 # 금지'이고 극성도 '조건부'였는데, 답이 "강한 용신운"을 근거로 "외부 강요가 아니라 자발적 성격이
@@ -5553,6 +5581,31 @@ def chat(
     if nonregular and career_presupposed and EventKey.JOB_GAIN not in intent.event_keys:
         intent = intent.model_copy(update={"event_keys": [*intent.event_keys, EventKey.JOB_GAIN]})
 
+    # 이직 완료 사실(2026-10-28) — 이번 턴 보고 또는 원장의 확정 사실. 활성이면 의도의 이직·입사
+    # 사건 키를 비워 지평(진입 두 칸)·후보 선별이 이직 전망으로 가지 않게 한다. 새 이직을 명시해
+    # 물으면('또 이직할까') 사용자가 전망을 원하는 것이므로 유지.
+    _job_changed_active = (
+        intent.job_changed_reported
+        or (
+            state is not None
+            and any(
+                f.key == "job_changed" and f.status == "confirmed" for f in state.user_facts
+            )
+        )
+    ) and not asks_new_job_change(question)
+    if _job_changed_active and (
+        intent.event_key in _JOB_ENTRY_EVENT_KEYS
+        or any(k in _JOB_ENTRY_EVENT_KEYS for k in intent.event_keys)
+    ):
+        intent = intent.model_copy(update={
+            "event_key": (
+                None if intent.event_key in _JOB_ENTRY_EVENT_KEYS else intent.event_key
+            ),
+            "event_keys": [k for k in intent.event_keys if k not in _JOB_ENTRY_EVENT_KEYS],
+        })
+        if state is not None:
+            state = state.model_copy(update={"last_intent": intent})
+
     # 명식 기둥 주장('시주가 경인인데?') — 엔진 계산값과 대조해 결정론 즉답(2026-09-11).
     # 정책 라우트(FEEDBACK_CORRECTION canned)보다 먼저 본다 — 간지 대조는 이력 맥락이 필요 없다.
     pillar_answer = _pillar_claim_answer(question, birth, today)
@@ -5645,7 +5698,8 @@ def chat(
     # 의도를 상속했으므로 broad 안내로 빠뜨리지 않는다(스레드 단절 방지 — 2026-06-16).
     assessment = assess(intent, question, last_intent=prior_intent)
     if assessment.status in ("too_broad", "need_subject") and not (
-        is_followup_turn and assessment.status == "too_broad"
+        assessment.status == "too_broad"
+        and (is_followup_turn or intent.dialogue_act == "explain_request")
     ):
         suggestion_text = " / ".join(s.label for s in assessment.rewrite_suggestions)
         answer = (
@@ -5956,6 +6010,7 @@ def chat(
     # 입도(달/날짜) 명시 질문도 제외(gran_no_period) — 연 나열은 질문 입도와 어긋난다.
     vague_future = (
         period_fortune is None
+        and intent.dialogue_act != "explain_request"  # 설명 요청은 새 기간 서술 재료를 주지 않는다
         and not is_structural
         and not is_retro
         and not relo_decided
@@ -6683,6 +6738,17 @@ def chat(
         candidates = _get_intent_filter().filter(
             candidates, str(intent.domain), _event_filter_context,
         )
+    # 이직 완료 사실(2026-10-28) — 이직·입사 후보를 뺀다. 지시문만으로는 후보가 실리면 서술이
+    # 따라갔다(실답 2건: 후보의 2027년 2~4월이 '움직이는 달'로 이름 붙어 나감).
+    if _job_changed_active:
+        candidates = [c for c in candidates if c.event_key not in _JOB_ENTRY_EVENT_KEYS]
+    # 설명 요청(2026-10-28) — 인용 본문만 풀이한다. 사건 후보·월별 표가 실리면 서술이 따라갔다
+    # (실답).
+    if intent.dialogue_act == "explain_request":
+        candidates = []
+        overview = None
+        period_fortune = None
+        extra_period_fortunes = []
     # 후속 확인 후보(LIFE_EVENT_INFERENCE §4.1 ③) — 최종 후보 목록에서 아직 지나지 않은 기간만.
     _followup_meta = [
         c.model_dump(mode="json")
@@ -6910,11 +6976,49 @@ def chat(
     # P4 — 결론 요약 모드: 새 월별 분석 대신 직전 분석 압축 결론(1문장 결론→확실성→근거→조건).
     if intent.dialogue_act == "conclusion_summary":
         trailing.append(_CONCLUSION_SUMMARY_DIRECTIVE)
+    # 설명 요청(2026-10-28) — 인용 본문만 쉬운 말로. 본문은 지시 바로 뒤에 붙여 참조를 고정한다.
+    if intent.dialogue_act == "explain_request":
+        trailing.append(
+            _EXPLAIN_REQUEST_DIRECTIVE
+            + (f" [인용] {intent.explain_target}" if intent.explain_target else "")
+        )
     # 사건 보고형(2026-10-13) — 이미 겪은 사건을 전제로 앞으로의 흐름·대응을 답한다.
     if intent.dialogue_act == "reported_event":
         trailing.append(
             _REPORTED_EVENT_DIRECTIVE
             + (_REPORTED_JOB_SEPARATION_TAIL if is_job_separation(question) else "")
+        )
+    # 이직 완료 사실(2026-10-28) — 사용자가 이미 이직했다고 알렸다: 앞으로의 이직 시기 서술 금지.
+    if _job_changed_active:
+        trailing.append(_JOB_CHANGED_DIRECTIVE)
+    # 해외 근무 질문(2026-10-28) — 연도별 이동×직업 동시 활성화 표 + 해석 규칙(참고 체계 번역층).
+    if intent.overseas_work:
+        _ow_span = tr_year_span(intent.time_range)
+        if _ow_span is not None:
+            _ow_years = [str(y) for y in range(_ow_span[0], _ow_span[1] + 1)]
+        elif horizon is not None and horizon.years_span:
+            _ow_years = [str(y) for y in range(today.year, today.year + horizon.years_span)]
+        else:
+            _ow_years = [str(y) for y in range(today.year, today.year + 5)]
+        # 후보 풀은 도메인 필터 전(all_scored) — 이동 후보(relocation)는 직업 도메인 필터에서
+        # 빠진다.
+        # 세운 기둥은 기본 창(result)과 확장 창(result_for_llm·year_result)을 합친다.
+        _ow_pillars: dict[str, object] = {}
+        for _ow_r in (result, result_for_llm, year_result):
+            _ow_lc = getattr(_ow_r, "luck_cycles", None)
+            if _ow_lc is not None:
+                for _pl in _ow_lc.yearly_luck:
+                    _ow_pillars.setdefault(_pl.label, _pl)
+        _ow_signals = overseas_year_signals(
+            list(all_scored) + [c for c in year_scored if c not in all_scored],
+            list(_ow_pillars.values()),  # type: ignore[arg-type]
+            _ow_years, intent.overseas_work,
+        )
+        trailing.extend(render_overseas_block(_ow_signals, intent.overseas_work))
+        trailing.append(OVERSEAS_DIRECTIVE)
+        _logger.info(
+            "overseas_work kind=%s years=%s tiers=%s thread=%s",
+            intent.overseas_work, _ow_years, [(s.year, s.tier) for s in _ow_signals], thread_id,
         )
     # 이동 주체 미상(2026-10-15) — 이동 후보가 실리거나 질문이 주체(자발·타의)를 물으면 단정 금지.
     if _mobility_agency_directive_needed(question, payload.event_candidates):

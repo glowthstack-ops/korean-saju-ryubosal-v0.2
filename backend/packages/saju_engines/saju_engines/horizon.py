@@ -26,6 +26,11 @@ from saju_shared_types.intent import IntentJson, QueryType, TimeScope
 
 from .job_separation import is_job_separation
 from .rewriter import DEFAULT_PERIOD_MONTHS
+from .time_parser import YEAR_WHEN_RE
+
+#: '몇 년도' 질문의 연 단위 지평(년) — 2026-10-28 데굴님: "향후 5년을 기준으로 봤을 때는 이러하다"로
+#: 서술하고, 그 이후는 기간을 지정해 달라고 안내한다. 지정된 기간은 다음 턴의 절대 창이 된다.
+YEAR_WHEN_SPAN_YEARS = 5
 
 # 유형 감지(우선순위: 장기/개방형시기 제외 > 구조 결정 > 즉시 > 시도·전망 > 분야 기본).
 _LONG_TERM_RE = re.compile(r"대운|인생\s*전체|인생\s*흐름|평생|장기적|10년|노후|말년")
@@ -83,7 +88,7 @@ def resolve_horizon(question: str, intent: IntentJson) -> HorizonPolicy | None:
     policy = _resolve_horizon_kind(question, intent)
     if (
         policy is not None
-        and policy.kind not in ("structural", "date_window")
+        and policy.kind not in ("structural", "date_window", "year_when")  # 연 단위엔 달 두 칸 없음
         and intent.event_key in _ENTRY_EVENT_KEYS
     ):
         return replace(policy, entry_window=True)
@@ -107,6 +112,21 @@ def _resolve_horizon_kind(question: str, intent: IntentJson) -> HorizonPolicy | 
         TimeScope.DAEWOON_UNIT,
     ):
         return None
+    # '몇 년도에/어느 해에'(연 단위 시점 탐색, 2026-10-28) — 향후 5년 연 단위. '언제'보다 먼저 본다
+    # (사건 키 유무와 무관하게 연 입도가 명시됐다). 월 상세 창은 두지 않는다(months_detail=0).
+    if YEAR_WHEN_RE.search(question) or (
+        intent.time_range is not None
+        and intent.time_range.type == "open_when"
+        and intent.time_range.granularity.value == "year"
+        and intent.time_scope is not TimeScope.PAST
+    ):
+        return HorizonPolicy(
+            kind="year_when",
+            months_detail=0,
+            years_span=YEAR_WHEN_SPAN_YEARS,
+            natal_fit=False,
+            label=f"향후 {YEAR_WHEN_SPAN_YEARS}년(연 단위)",
+        )
     if _OPEN_WHEN_RE.search(question):
         # 개방형 시기 탐색. 사건 키가 잡힌 거래형 생활 사건(매도·계약·이사·취업 등)은 3년 전망 지평
         # (2026-10-14 데굴님 승인 — '부동산은 언제쯤 팔릴까'가 10년 digest 로 2034년까지 서술).
@@ -182,6 +202,14 @@ def horizon_directive(policy: HorizonPolicy) -> str:
             "줄만 쓰고, 탐색 창 밖의 달·해(내년 용신운 "
             "등)는 서술하지 말 것. 회피일은 표에 적힌 날짜를 그대로 나열하고, 추천일이 끼는 구간"
             "('○일부터 ○일까지')으로 묶지 말 것."
+        )
+    elif policy.kind == "year_when":
+        parts.append(
+            f"사용자는 '몇 년도'를 물었다 — 첫 문장을 '향후 {policy.years_span}년을 기준으로 "
+            "보면'으로 시작해 올해부터 연(세운) 단위로 짚고, 유력한 해 1~2개를 들되 특정 해를 "
+            "단정하지 말 것. "
+            "월별 나열은 하지 말고, 이 창 밖의 해는 본문에 쓰지 말 것. 마지막 한 줄은 '그 이후 "
+            "기간이 궁금하면 연도 범위를 지정해 달라(예: 2032년부터 2036년까지)'는 안내로 맺을 것."
         )
     elif policy.kind == "transactional_when":
         parts.append(
