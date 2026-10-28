@@ -146,7 +146,7 @@ from saju_engines.planner import build_execution_plan
 from saju_engines.policy_echo_audit import detect_policy_echo, strip_policy_echo
 from saju_engines.precompute import CompositeBuilder
 from saju_engines.prediction import PredictionEngines
-from saju_engines.profile_engine import profile_context_for
+from saju_engines.profile_engine import profile_context_for, profile_event_signals
 from saju_engines.query_parser import (
     ACCIDENT_SAGO_RE,
     AFFIRMATION_RE,
@@ -5701,6 +5701,13 @@ def chat(
         # personalization은 등록 동반자일 때만 그 subject_id로(즉석/미등록은 무개인화).
         subject_id = _primary if (companion_births and _primary in companion_births) else None
         partner_birth = None  # 동반자가 primary — 본인 기준 궁합 오버레이·상대 그룹핑 비활성
+        # 2단계 프로필 신호(고용 형태·재직·교제 상태·직업 분류)는 라우터가 기준 사주로 읽어 온
+        # 값이라 primary 동반자 것으로 다시 읽는다(2026-10-28 감수 — 동반자 답에 사용자 본인
+        # 교제 상태가 '기혼으로 입력됨'으로 실렸다). 미등록 동반자면 None×4(규칙11). 위에서 이미
+        # planner 범위에 반영된 `nonregular`(비정직원 취업 보강)는 기준 사주 값 그대로다.
+        employment_form, occupation_status, relationship_status, occupation_category = (
+            profile_event_signals(subject_id)
+        )
 
     # ── P2-3a 요청 스코프 진행 사실 컨텍스트 ────────────────────────────────
     # subject_id 확정 직후 · 후보 축소 전에 만든다. 저장소 조회와 발화 파싱은 요청당

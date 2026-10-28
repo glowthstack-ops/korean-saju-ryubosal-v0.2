@@ -12832,3 +12832,10 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 말미 지시: 첫 판정 재료에 기간 표기·미입력 두 경우 필수, `period_other_directive` 신설. 실답 재확인 2건 — 두 경우 서술·다른 영역 한 문장 모두 반영.
 - 리포트 월별 표 반복 구조 활성화 블록(`_repetition_month_lines`), 운끼리 반복은 자형 글자만.
 - 회귀: test_gap_layer_20261027.py 59건, test_repetition_structure.py 25건(리포트 반례 포함). 기대값 갱신: e2e 회귀 예산 25,000→35,000(가드 − 3,000 규칙), 예약분 테스트가 한도 상수를 읽게 수정.
+
+## 2026-10-28 — 10-27 작업 전수 감수 후속: 교제 상태 divorced 프레임 · 동반자 질문 프로필 신호 재조회 (데굴님 "좋아 이제 모두 진행해줘")
+
+- 감수 범위: b255df5~dbd03ba 4커밋(48파일) 전체 diff + WORKLOG 1~7차 대조. 정적 게이트 통과(lint·production mypy·maintained scripts). 결함 2건 수정, 나머지는 기록.
+- 결함 1: `profile_engine.derive_relationship_status` 가 별거·이혼을 `divorced` 로 내는데 `_REL_FAMILY_FRAME`·`_REL_VERDICT_EXAMPLE` 에 키가 없어 '미입력' 프레임 + 말미 "교제 상태가 입력되지 않았으므로" 거짓 전제가 붙었다 → divorced 키 추가(기존 엔진과 같게 '상대 없음' 군). docs/06 갱신, 회귀 parametrize 1건 + 입력된 상태엔 '미입력' 문구 금지 검사.
+- 결함 2(확장 누락): 라우터가 기준 사주(`req.subject_id`)로 읽은 `relationship_status`·`occupation_status`·`employment_form`·`occupation_category` 가 companion_only 전환 뒤에도 그대로라, 동반자 답의 관계 해석 틀·배우자 지시·개인화 점수에 사용자 본인 상태가 실렸다 → 전환 분기에서 `profile_event_signals(primary subject_id)` 로 재조회(미등록 → None×4). 전환 전에 planner 범위에 반영된 `nonregular`(비정직원 취업 보강)는 기준 사주 값 그대로(범위 밖, 기록). 회귀 `test_companion_coread_p2b.py` 2건(재조회·본인 질문 반례, DB 환경 한정).
+- 기록만(미수정): `_NO_LOVE_NOTE_SECTIONS` 는 `luck_block` 만 막고 `month_slice_block` 은 도메인만 본다(현재 F-17c 월별 페이지가 없어 실영향 없음) / `SAJU_RELATION_HIT_DEDUP_ENABLED` 는 docs 미기재(period_v2_config 주석·WORKLOG만) / `impossible_relation_stripped` 가 첫 문장(판정 선언)을 지우면 첫 문단 계약이 빌 수 있어 로그에서 문장 인덱스 0 비율 관찰 권고.
