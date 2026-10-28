@@ -91,3 +91,38 @@ def test_pairwise_text_reads_both_not_companion_only() -> None:
     assert "[분석 대상]" not in txt  # companion_only 아님(본인 대체 아님)
     # 본인 일주(己亥)가 prefix 원국에 유지 — base가 엄마로 안 바뀜.
     assert "己亥" in txt.split("[기준 시점]")[0]
+
+
+def test_companion_only_refetches_profile_signals(monkeypatch: pytest.MonkeyPatch) -> None:
+    """동반자 단독 질문은 2단계 프로필 신호를 primary 동반자(mom1)로 다시 읽는다(2026-10-28 감수).
+
+    라우터가 기준 사주(self1)로 읽어 온 교제 상태가 그대로 남아 동반자 답에 '기혼으로 입력됨'이
+    실리던 결함의 회귀. 등록 동반자면 그 subject_id로 조회해야 한다.
+    """
+    calls: list[str | None] = []
+
+    def _fake(subject_id: str | None) -> tuple[None, None, str | None, None]:
+        calls.append(subject_id)
+        return None, None, ("married" if subject_id == "mom1" else None), None
+
+    monkeypatch.setattr(chat_service, "profile_event_signals", _fake)
+    r = chat_service.chat(
+        _SELF, "엄마 올해 건강운 봐줘", today=_TODAY, dry_run=True,
+        thread_id=f"t-{uuid.uuid4().hex[:8]}", subject_id="self1", subject_label="데굴",
+        relationship_status="dating",  # 라우터가 기준 사주(self1)로 읽어 온 값
+        companion_alias_index=_alias_index(), companion_births={"mom1": _MOM},
+    )
+    assert r.status == "dry_run"
+    assert calls == ["mom1"]
+
+
+def test_self_only_keeps_router_profile_signals(monkeypatch: pytest.MonkeyPatch) -> None:
+    """反例: 본인 질문은 다시 읽지 않는다 — 라우터 값(1회 조회)이 그대로다."""
+    calls: list[str | None] = []
+    monkeypatch.setattr(
+        chat_service, "profile_event_signals",
+        lambda sid: (calls.append(sid), (None, None, None, None))[1],
+    )
+    r = _dry("내 올해 건강운 봐줘")
+    assert r.status == "dry_run"
+    assert calls == []

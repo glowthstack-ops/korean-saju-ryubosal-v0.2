@@ -380,6 +380,32 @@ LLM 입력 직전 최종 필터. 규칙:
 4. **이벤트 후보**: Top N (기본 3~5) + score 임계값
 5. **모든 이벤트 후보에는 해당 간지와 대운 맥락을 반드시 포함** — LLM은 간지를 계산할 수 없다
 
+### B6. Question Frame — 질문 이해 층 (소형 로컬 LLM, 2026-10-28 데굴님 승인)
+
+질문 처리를 두 영역으로 나눈다.
+
+| 영역 | 담당 | 구현 | 산출 |
+|---|---|---|---|
+| **결정론 영역** | 어휘·형태소 → 슬롯(대상·도메인·사건·시점·플래그) → planner → 엔진 → Graph RAG → Context Reduction | `query_parser` + 임베딩 보조기(rules-first) | IntentJson — **점수·간지·시점·판정의 유일한 출처**(절대 원칙 1·9) |
+| **질문 이해 영역** | 질문 전체의 의도(무엇을·어떤 형태로 답해야 하는가) | 소형 로컬 LLM 1회 호출(`llm_config.question_frame`, Ollama `gemma4:e2b`, think=false, temperature 0) | `QuestionFrame` — enum 닫힌 집합만 |
+
+**QuestionFrame 스키마**(`saju_shared_types/question_frame.py`): `ask_kind`(recommendation/judgment/timing/explanation/comparison/venting/meta/unknown) · `lifestyle_item`(food/color/clothing/direction/place/activity/grooming/none) · `answer_shape`(short_pick/analysis/compare_table/timeline/empathy_first/policy) · `brevity`(short/normal) · `topic_object`(≤20자 명사구). 간지·점수·날짜·판정 필드는 없다. **라우팅 필드 `lifestyle_item`이 집합 밖이면 프레임 전체를 버린다**; 형태 전용 필드(ask_kind·answer_shape·brevity)는 집합 밖 값을 기본값(unknown/analysis/normal)으로 정규화한다 — 소형 모델이 키 간 후보를 섞는 실측('침대헤드방향은?' → ask_kind "none") 때문이며, 이 셋은 지시문에만 쓰여 라우팅·점수에 닿지 않는다(2026-10-28).
+
+**쓰임 두 가지만**: ①답 형태 지시문(`answer_shape`·`topic_object`) ②**룰이 Q1 FORTUNE_OVERVIEW + GENERAL 폴백으로 떨어진 턴**의 라우팅 보정(`is_rule_fallback`). 룰이 확정한 유형·도메인은 프레임이 덮어쓰지 않는다(데굴님 동의, 2026-10-28).
+
+**도입 순서(필수)**: shadow(백그라운드 스레드, 로그 전용 — `question_frame_service.observe_async`, 답변·라우팅·지연 영향 0, `SAJU_QUESTION_FRAME_SHADOW=1`) → `scripts/measure_question_frame.py`로 불일치율·지연 측정(모집단 = `tests/fixtures/intent_eval.jsonl` + docs/08 예시 + 저장 채팅 발화) → 불일치 표본(`lifestyle_on_overview_fallback` 전수, 그 외 라벨 5건) 데굴님 검수 → 게이트 ON 은 별도 승인. 서버 부재·타임아웃·파싱 실패는 관측 실패 1건으로만 남고 기능을 막지 않는다(절대 원칙 11).
+
+**게이트 ON(2026-10-28 데굴님 "우선 켜고")** — `SAJU_QUESTION_FRAME_GATE=1`, `question_frame_service.correct_if_fallback`: 룰 보강(임베딩 도메인·시점·비교 모드)까지 끝난 intent 가 `is_rule_fallback`이면 **동기** 호출(p50 ≈0.3~0.7s) 후 `apply_frame_correction` — `GATE_ITEMS` = color→Q10+`color_question`(+지목 색) / direction→Q10+`direction_question`(목적 전체 방향판) / food→Q10+`food_question`(+지목 음식) / place→RELOCATION 분야 분석. 보정 턴은 shadow 기록에 `applied:<item>` 라벨을 더한다. 폴백 턴이 아니면 동기 호출 자체를 하지 않고 shadow 로만 넘어간다(룰 확정 불변).
+- **activity/clothing/grooming(A안, 2026-10-28 데굴님 "권장대로")** — 검색(1차·확장) 결과 셋 다 통용 명리 기준이 없다: 오행↔옷 대응은 **색**만 반복 확인(소재·패턴은 개인 블로그 수준), 이발·손톱 택일(통서 제두·정수족갑)은 현대 자료 없음, 행동 가부는 건제12신·황도흑도 같은 **택일 체계**만 존재. 그래서 새 사전을 만들지 않는다: `clothing` → 색 층(Q10 + `color_question`), `activity`·`grooming` → Q10 + `activity_question`(+`activity_topic`) 로 **답 형태 지시만**(`ACTIVITY_JUDGMENT_DIRECTIVE` — 그날 일운 길흉으로 '무난/조절/권하지 않음' 판정, 영역별 총운 금지, 기신이어도 '하지 말라' 단정 금지, 의료 조언 아님). 시점이 없으면('운동 계속 해도 돼?') too_broad 면제 대상이 아니라 B3 판정표대로 되묻는다. 건제12신·황도는 택일 엔진 확장으로 따로 다룬다(미착수).
+- 동반 교정: B3 판정표에서 **오행 생활화 Q10(색·방향·음식 표지)은 시점·분야 없이도 too_broad 가 아니다**(원국 용희기구한 기준, 방향판·색/음식 표가 곧 답 — docs/19 §6-1). 이전엔 '어떤 방향이 좋을까'·'저녁 메뉴 추천해줘'·'커튼 색 추천해줘'가 전부 좁혀볼까요로 바운스됐다.
+- 예열: 4.6GB 모델 콜드 로드는 3초 타임아웃 안에 끝나지 않고, 끊긴 연결은 Ollama 가 적재를 중단해 다음 호출도 콜드 로드가 된다. 앱 lifespan 에서 `warm_up()`(180초, 백그라운드) 1회 + 프로파일 `keep_alive: 24h`.
+- 기동 절차: `scripts/ensure_ollama.sh`(멱등 — 플래그 OFF 면 no-op, 서버 응답 확인 → 없으면 사용자 레벨 `ollama serve` 기동 → 모델 없으면 pull, 실패해도 exit 0)를 `scripts/dev.sh`·`scripts/restart_backend.sh` 가 백엔드 기동 전에 호출한다. Ollama 부재 시 백엔드는 룰만으로 정상 기동(절대 원칙 11). 영구화는 systemd 유닛 `OLLAMA_HOST` 포트 지정(sudo, README).
+- 측정 재현: `python scripts/measure_question_frame.py --db` — 2026-10-28 v2: 531건, 프레임 OK 515, p50 312ms/p95 394ms, `lifestyle_on_overview_fallback` 15(검수 13 진짜 결함 ≈87%). venting/meta/timing 라벨은 룰이 더 정확해 보정에 쓰지 않는다.
+
+**운용 메모(실측 2026-10-28, RTX 4060 8GB)**: `think=false` 필수(켜면 추론 토큰이 출력을 비움) · Ollama `format`(JSON 스키마 grammar)은 쓰지 않는다(325ms → 2.8~15s, 결과 동일 — `parse_frame`이 검증) · 11434 는 WSL2 에서 Windows 예약 포트 범위라 `SAJU_OLLAMA_BASE_URL`로 포트를 지정한다.
+
+배경: 룰 파서 1,490줄·임베딩 보조기 4종으로도 "오늘 점심은 뭘 먹는게 좋을까"가 Q1 폴백 → '오늘' 하나로 일운 총운이 되었다(2026-10-28 실로그). 어휘 추가는 사례 하나를 고치고 같은 계열('오늘 옷·머리·운동·약속')을 남긴다 — 그 계열을 질문 이해 층이 맡는다. docs/07 T3.1(경량 LLM 1차 + 룰 폴백)의 원설계를 "룰 1차 + 프레임 보정"으로 뒤집어 복원한 것이다.
+
 ---
 
 ## C. 분야별 Graph 조회 범위 (graphScope 기본값)

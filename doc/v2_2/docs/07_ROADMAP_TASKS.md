@@ -49,6 +49,7 @@
 ## Phase 3. 오케스트레이터 코어 (3~5일)
 
 - [ ] T3.1 Query Parser — 자연어 → IntentJson (경량 LLM 1회 호출, JSON 강제, 실패 시 룰 기반 폴백)
+  - 2026-10-28 개정: 룰 파서가 1차(운영), 경량 LLM 은 **질문 이해 층 Question Frame**(docs/03 B6, 로컬 Ollama gemma4:e2b)으로 분리 — shadow 측정 후 Q1/GENERAL 폴백 턴 한정 보정 게이트
 - [ ] T3.2 Broad Query Rewriter (too_broad 판정 + 선택지 생성)
 - [ ] T3.3 Execution Planner — queryType별 고정 템플릿 (docs/03 B4)
 - [ ] T3.4 Context Reduction Engine

@@ -637,6 +637,8 @@ def _love_prompt_status(question: str, status: str | None) -> str:
         ("dating", "교제 중으로 입력됨 — 이 영역의 강한 신호는 지금 관계의 진전·공식화로"),
         ("single", "교제 상대 없음으로 입력됨 — 새 만남 자체 신호가 약하다는 점과 함께"),
         ("married", "기혼으로 입력됨 — 이 영역의 강한 신호는 새 인연이 아니라"),
+        # 이혼·별거(derive_relationship_status → divorced)는 '미입력'이 아니다(2026-10-28 감수).
+        ("divorced", "이혼·별거로 입력됨(상대 없음과 같게 본다)"),
         (None, "교제 상태 미입력 — 두 경우를 한 문장씩 나눠 쓸 것"),
     ],
 )
@@ -644,6 +646,10 @@ def test_relationship_family_frame_by_status(status: str | None, needle: str) ->
     p = _love_prompt_status("2027년 2월에 새로운 인연이 생길까?", status)
     assert "(관계 영역 해석 틀) " + needle in p
     assert p.count("(관계 영역 해석 틀)") == 1
+    if status is not None:
+        # 입력된 상태에 '미입력' 전제가 붙으면 거짓 — 말미 첫 판정 재료까지 포함해 검사.
+        assert "교제 상태 미입력" not in p
+        assert "교제 상태가 입력되지 않았으므로" not in p
 
 
 def test_relationship_family_frame_absent_for_career_question() -> None:

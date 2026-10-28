@@ -12832,3 +12832,131 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 말미 지시: 첫 판정 재료에 기간 표기·미입력 두 경우 필수, `period_other_directive` 신설. 실답 재확인 2건 — 두 경우 서술·다른 영역 한 문장 모두 반영.
 - 리포트 월별 표 반복 구조 활성화 블록(`_repetition_month_lines`), 운끼리 반복은 자형 글자만.
 - 회귀: test_gap_layer_20261027.py 59건, test_repetition_structure.py 25건(리포트 반례 포함). 기대값 갱신: e2e 회귀 예산 25,000→35,000(가드 − 3,000 규칙), 예약분 테스트가 한도 상수를 읽게 수정.
+
+## 2026-10-28 — 10-27 작업 전수 감수 후속: 교제 상태 divorced 프레임 · 동반자 질문 프로필 신호 재조회 (데굴님 "좋아 이제 모두 진행해줘")
+
+- 감수 범위: b255df5~dbd03ba 4커밋(48파일) 전체 diff + WORKLOG 1~7차 대조. 정적 게이트 통과(lint·production mypy·maintained scripts). 결함 2건 수정, 나머지는 기록.
+- 결함 1: `profile_engine.derive_relationship_status` 가 별거·이혼을 `divorced` 로 내는데 `_REL_FAMILY_FRAME`·`_REL_VERDICT_EXAMPLE` 에 키가 없어 '미입력' 프레임 + 말미 "교제 상태가 입력되지 않았으므로" 거짓 전제가 붙었다 → divorced 키 추가(기존 엔진과 같게 '상대 없음' 군). docs/06 갱신, 회귀 parametrize 1건 + 입력된 상태엔 '미입력' 문구 금지 검사.
+- 결함 2(확장 누락): 라우터가 기준 사주(`req.subject_id`)로 읽은 `relationship_status`·`occupation_status`·`employment_form`·`occupation_category` 가 companion_only 전환 뒤에도 그대로라, 동반자 답의 관계 해석 틀·배우자 지시·개인화 점수에 사용자 본인 상태가 실렸다 → 전환 분기에서 `profile_event_signals(primary subject_id)` 로 재조회(미등록 → None×4). 전환 전에 planner 범위에 반영된 `nonregular`(비정직원 취업 보강)는 기준 사주 값 그대로(범위 밖, 기록). 회귀 `test_companion_coread_p2b.py` 2건(재조회·본인 질문 반례, DB 환경 한정).
+- 기록만(미수정): `_NO_LOVE_NOTE_SECTIONS` 는 `luck_block` 만 막고 `month_slice_block` 은 도메인만 본다(현재 F-17c 월별 페이지가 없어 실영향 없음) / `SAJU_RELATION_HIT_DEDUP_ENABLED` 는 docs 미기재(period_v2_config 주석·WORKLOG만) / `impossible_relation_stripped` 가 첫 문장(판정 선언)을 지우면 첫 문단 계약이 빌 수 있어 로그에서 문장 인덱스 0 비율 관찰 권고.
+
+## 2026-10-28 — 끼니·음식 질문 오행 생활화 층(P0): "오늘 점심은 뭘 먹는게 좋을까"가 일운 5영역 총운으로 답하던 결함 (데굴님 "통설 사용 · 권장내용 대로 · 동의 · 진행해")
+
+- **실로그**: 질문 "오늘 점심은 뭘 먹는게 좋을까" → 답은 일·재물·관계·건강 일운 총운, 점심·음식 언급 0.
+  경로: `_detect_domains` 음식 어휘 없음 → `_detect_query_type` 폴백 Q1 FORTUNE_OVERVIEW → '오늘' → daily 총운.
+  임베딩 보조기(`_augment_domain_by_similarity`)도 시드 코퍼스에 음식·생활 라벨이 없어 무개입.
+- **설계 대비 빈칸**: docs/03 Q10 예시 "맞는 음식"·docs/08 D2-4 "음식/생활 보완 → 오행 보완 → 생활 항목 매핑 사전"·
+  docs/02 remedy 5번 분기 "오행 생활화(색·방향·음식)" — 색(2026-10-01)·방향(2026-09-22)만 구현, 음식 층 부재.
+- **구현(색 층과 같은 모델)**:
+  - 사전 `dictionaries/calendar/food_rules.json` v1.0.0 — 오행 × 五味(木酸·火苦·土甘·金辛·水鹹)·색·식재료·끼니 예시,
+    통설 초안(reviewed:false, 데굴님 '통설 사용'). 복합 요리(김치찌개·김밥·불고기 등)·1글자 어휘는 별칭 제외, 보류 큐.
+  - `saju_engines/yongsin_food.py` — `is_food_question`(일정 '점심 약속'·복약 '약 먹'·생계 '해먹고 살'·비유 '나이 먹' 제외),
+    `detect_asked_foods`(긴 어휘 우선), `build_yongsin_food_note`(용신·희신·한신·기신·구신 전 역할 후보 + 지목 음식 역할 + 미등재 보류),
+    `format_yongsin_food_lines`, `YONGSIN_FOOD_INSTRUCTION`(상생 연쇄 금지·기신 완화 '주식으로 몰아 먹지는 말기'·인과 단정 금지·
+    영양/의료 조언 아님·희신 1차 대안), `YONGSIN_FOOD_CLOSING_DIRECTIVE`(말미 고정 — 메뉴 2~3개+이유 한 문장+그날 운 한 줄, 영역별 총운 금지).
+  - 타입: `IntentJson.food_question/foods_asked`, `YongsinFoodEntry/YongsinFoodNote`(sinsal_direction.py), `LlmInput.yongsin_food`.
+  - 파서 후처리: 음식 표지 → 플래그; **룰이 Q1 FORTUNE_OVERVIEW 로 폴백한 경우에만 Q10 REMEDY 승격**(룰 확정 유형 불변, 데굴님 동의 3).
+    '맞는/안 맞는 음식'의 '잘 맞·안 맞·어울리'(`_FIT_WORDS`)만으로 잡힌 관계 도메인은 되돌림(다른 관계어 있으면 유지).
+  - reducer: `yongsin_food` 블록(색 블록 뒤) + 지침; 승격 턴은 `no_candidates_in_period` 면책을 끈다(택일과 같은 이유 — 메뉴 답이
+    '뚜렷한 신호가 없습니다'로 시작하는 모순).
+  - chat_service: 승격 턴 `_food_remedy` = 구조 모드(`is_structural`, 방향 질문과 동일 — 사건 후보·기간 외 흐름·이동 주체 지시 제거),
+    총운용 구조 블록(횡재 그릇·재물 준비기·부귀·배우자성·결혼자산·연애유형·혼기·궁위·인상) 제외(`_lifestyle_lean`), 건강 취약·토픽 신호 제외,
+    말미 지시 부착. 날짜 일운 사실([질문한 날짜의 일운]·[해당 일 일운])은 구조 모드와 무관하게 남아 '그날 운 한 줄' 재료가 된다.
+  - 실측: 점심 질문 프롬프트 19,183 → 9,833 토큰. 남은 블록 = 원국·공망·지장간·해석자료·작동역할·간지달력·일운·구조패턴·음식 표.
+- **오늘 일진 오행 반영 규칙은 넣지 않음**(데굴님 권장안 채택 — 문서에 없는 명리 규칙). 용희신 기준 + 그날 운 한 줄만.
+- 회귀: `tests/unit/test_yongsin_food.py`(표지·제외·사전·후보표·파서 승격/비승격/색 비회귀), `tests/integration/test_food_lifestyle_wiring.py`
+  (dry_run 프롬프트 — 음식 표·말미 지시·일운 사실 有, 총운 구조 블록·건강 취약·이벤트 후보·이동 주체 無 / 총운·색 질문 불변).
+- 문서: docs/05 사전 목록 `food_rules.json`, docs/08 D-3 5번 음식 규격.
+- **같은 계열 관찰(미수정, 결정 대기)**: 시점·도메인 없는 색 질문('커튼 색 추천해줘')은 Q1 폴백 → `too_broad` 바운스(색 층은 라우팅 불변
+  규격). 음식과 같은 'Q1 폴백 시 Q10 승격'을 색에도 적용할지 데굴님 결정 필요. '오늘 옷 뭐 입을까'·'오늘 머리 자를까'·'오늘 운동해도 돼' 등
+  생활 선택 질문은 여전히 '오늘' 하나로 일운 총운 — 룰 어휘 추가가 아니라 질문 이해 층(소형 LLM `QuestionFrame`, shadow 측정 후 게이트)이 담당
+  하기로 함(별도 단위, Ollama + gemma4 e2b 1차 후보).
+
+## 2026-10-28 — 질문 이해 층(Question Frame, docs/03 B6) shadow 구축·측정: 소형 로컬 LLM(Ollama gemma4:e2b) (데굴님 "Ollama 설치 후 한 번에 진행하자" · "wsl에 설치했어")
+
+- **배경**: 룰 파서 1,490줄 + 임베딩 보조기 4종으로도 생활 선택 질문('오늘 점심/옷/머리/운동')이 Q1 폴백 → '오늘' 하나로 일운 총운.
+  어휘 추가(P0 음식 층)는 사례 하나를 고치고 계열을 남긴다 → 질문 전체 의도를 읽는 층을 분리(데굴님 제안 = docs/07 T3.1 원설계의 복원).
+- **환경**: WSL Ollama 0.40.12. 11434 가 Windows 예약 포트 범위(11368–11467)라 systemd 유닛은 bind 실패 루프(`activating`) —
+  사용자 레벨 `ollama serve`(OLLAMA_HOST=127.0.0.1:11500, 래퍼 scratchpad/run_ollama.sh, 로그 var/ollama.log)로 기동, RTX 4060 8GB CUDA 인식.
+  영구화는 `sudo systemctl edit ollama` 에 `Environment=OLLAMA_HOST=127.0.0.1:11500`(데굴님 작업). `.env` 에 `SAJU_OLLAMA_BASE_URL`·`SAJU_QUESTION_FRAME_SHADOW=1` 추가.
+- **구현**:
+  - 타입 `saju_shared_types/question_frame.py` — `QuestionFrame`(ask_kind 8·lifestyle_item 8·answer_shape 6·brevity 2·topic_object≤20자, 전부 enum, 간지·점수·날짜 없음),
+    `QuestionFrameShadow`(룰 결정·프레임·불일치·지연). 집합 밖 값 = 프레임 전체 폐기.
+  - 엔진 `saju_engines/question_frame.py` — 분류 프롬프트(예시 5, 필드 혼용 금지 규칙)·`parse_frame`·`frame_disagreements`(8라벨)·`is_rule_fallback`(Q1+GENERAL).
+  - `llm_client` — `ollama` 공급자(`/api/chat`, think/format 은 profile 로), `call_role_raw(role…)`(메인·폴백 체계 밖 보조 호출, query_parser 가드 2k),
+    `MODEL_ROLES` 에 `question_frame` 추가(가격표 gemma4:e2b 0.0 등재 — 커버리지 게이트 범위 유지), 로컬 공급자는 키 미설정 판정 제외.
+  - `llm_config.json` `question_frame` 역할(provider ollama · gemma4:e2b · think=false · base_url_env), `options.question_frame_timeout_seconds=3`.
+  - 서비스 `question_frame_service.py` — `observe_sync`(예외 없음)·`observe_async`(ThreadPoolExecutor, 플래그 게이트, 로그 1줄 + var/question_frame_shadow.jsonl).
+    chat_service `parse_message`→보강 직후 `observe_async` 1줄(답변·라우팅·지연 영향 0).
+  - 측정 `scripts/measure_question_frame.py`(maintained allowlist 편입) — 모집단 = intent_eval.jsonl 40 + docs/08 따옴표 예시(표 조각 제외) + 저장 채팅 사용자 발화 300.
+  - 회귀 `tests/unit/test_question_frame.py` 14건(검증·대조·공급자 monkeypatch·서비스 무예외·플래그 게이트), `test_model_price_coverage` 역할 4종.
+- **실측 결정 2건**: ① `think=false` 필수 — 켜면 추론 토큰이 출력을 비움(content ''). ② Ollama `format`(JSON 스키마 grammar) 미사용 —
+  325ms → 2.8~15s 로 요동, 결과 동일(`parse_frame` 검증으로 충분).
+- **측정(v2, var/question_frame_measure_20261028_v2.txt)**: 모집단 531 · 프레임 OK 515 · 파싱 실패 16(3.0%, 필드 값 혼용 '감사합니다~'류 짧은 발화) ·
+  지연 p50 312ms · p95 394ms · max 832ms. 불일치 61/515.
+  - `lifestyle_on_overview_fallback` 15 — 검수: 13건 진짜 결함(색 3: '커텐 색'·'좋은 색상'·'붉은색은 좀 그래' / 방향 6: '방 방향'·'침대헤드방향'·'북쪽은 안돼'·'서북서'… /
+    장소 3: '보금자리 옮기는'·'다른 동네로'·'목기운 강한 지역'·'절 추천' / 행동 1: '운동 계속 해도 돼'), 2건 경계('이번달 뭘 하면'·직업 변화 장문). **정밀도 ≈ 87%**.
+    색 2건은 현재 Q1 폴백 → too_broad 바운스(10-28 P0 기록 건)와 같은 결함.
+  - `timing_vs_rule` 103→12(시점 창 있는 턴 제외로 정제) — 남은 건 '괜찮은 때야?'·'몇월쯤이 적합할까'류 룰 미탐 + 스레드 없는 단답 슬롯.
+  - `venting_vs_rule_analysis` 11 — '왜 그랬을까'류를 프레임이 venting 으로 읽음(룰의 Q5/Q8 회고가 맞다) → 게이트 대상 아님.
+  - `meta_vs_rule` 4 — 정정 발화를 meta 로 읽음(룰 Q12 가 맞다) → 게이트 대상 아님. 로또 번호는 룰 out_of_scope 유지.
+- **라우팅 변경 없음(shadow)**. 게이트 ON 범위 제안(결정 대기): `is_rule_fallback` ∧ lifestyle_item ∈ {color→Q10+색 블록, direction→Q10 방향, food→Q10 음식, place→RELOCATION 분석}.
+  activity/clothing/grooming 은 엔진 층이 없어 답 형태 지시만 가능 — 별도 결정. venting/meta/timing 라벨은 보정에 쓰지 않는다(룰이 더 정확).
+
+## 2026-10-28 — 질문 이해 층 게이트 ON(색·방향·음식·장소) · 오행 생활화 Q10 too_broad 면제 · 모델 예열 (데굴님 "우선 켜고 activity/clothing/grooming 부분은 검색을 통해 보충 후 추가하자")
+
+- **게이트**: `SAJU_QUESTION_FRAME_GATE=1`(.env). `question_frame_service.correct_if_fallback` — 룰 보강(임베딩 도메인·시점·비교 모드) 뒤 intent 가
+  Q1 FORTUNE_OVERVIEW + GENERAL 폴백일 때만 소형 모델 **동기** 호출 → `apply_frame_correction`(`GATE_ITEMS` color/direction/food/place).
+  색·방향·음식 = Q10 REMEDY + 해당 표지(지목 색·음식 사전 감지 포함), 장소 = RELOCATION 분야 분석. 보정 턴은 shadow JSONL 에 `applied:<item>`.
+  룰 확정 턴은 동기 호출 자체를 하지 않는다(shadow 만). activity/clothing/grooming 은 엔진 층 부재 → 미보정(검색 보충 후 추가, 데굴님 지시).
+- **동반 결함 교정(기존)**: B3 `assess` — Q10 REMEDY 에 direction/color/food 표지가 있으면 시점·분야 없이도 `ok`. 이전엔 '어떤 방향이 좋을까'(방향
+  층 2026-09-22)·'저녁 메뉴 추천해줘'(오늘 P0)·'커튼 색 추천해줘'(색 층 2026-10-01)가 전부 too_broad '좁혀볼까요' 바운스 — 생활화 층 3종이
+  시점어 없이는 도달 불가였다.
+- **파싱 정책 개정**: 라우팅 필드 `lifestyle_item` 만 엄격(집합 밖 → 프레임 폐기), 형태 필드(ask_kind·answer_shape·brevity)는 기본값으로 정규화.
+  실측: '침대헤드방향은?' → ask_kind "none", '보금자리 옮길까' → answer_shape "judgment" 인데 lifestyle_item 은 맞아 전체 폐기가 보정을 잃었다.
+  측정 파싱 실패 16건(3.0%)의 대부분이 이 유형. docs/03 B6·shared_types docstring 갱신.
+- **예열**: 콜드 로드(4.6GB)는 3초 타임아웃 안에 안 끝나고, 끊긴 연결에 Ollama 가 적재를 중단("client connection closed before llama-server
+  finished loading")해 다음 호출도 콜드 → 연속 ReadTimeout 실측. `warm_up()`(180s, 백그라운드) 을 FastAPI lifespan 에 추가, 프로파일 `keep_alive: 24h`.
+- **라이브 dry_run(실모델)**: '커텐 색 추천해줘'→[오행 보완 색] · '침대헤드방향은?'·'우리 가족에게 좋은 방 방향'→[오행 보완 방향]+[방위 활용] ·
+  '이 사주에게 좋은 색상'→색 블록 · '보금자리 옮기는'·'전세 빼서 다른 동네'→거주 분석(임베딩 도메인 보강이 먼저 잡음, 게이트 미개입) ·
+  '운동 계속 해도 돼?'→activity 는 미보정이라 too_broad 유지 · '올해 재물운'→룰 확정, 동기 호출 0. 보정 턴 소요 0.5~2.3s(첫 호출 포함).
+- 회귀: `tests/integration/test_question_frame_gate.py` 6건(색·방향·장소 보정, 룰 확정 불변, 미지원 항목 불변, 게이트 OFF=shadow 만),
+  `test_question_frame.py` +3(보정 함수·too_broad 면제·파싱 정책). 응답 `intents` 는 파서 원본이라 보정 검증은 프롬프트·assessment 로 한다.
+- 다음: activity(운동·외출·약속 가부)/clothing(옷·복장)/grooming(머리·미용) 의 명리 통설을 검색으로 보충 → 사전·블록 설계안 제시 후 승인 → GATE_ITEMS 확장.
+
+## 2026-10-28 — 질문 이해 층 A안: clothing=색 층 · activity/grooming=행동 가부 지시(새 사전 없음) (데굴님 "그래 권장대로 진행하자")
+
+- **검색 보충 결과(1차 표준 + 2차 확장)**: ① 옷 — 오행 대응은 색만 반복 확인(초록/빨강/노랑/흰·금속/검정), 소재·패턴(면·실크·니트·금속·쉬폰) 대응은
+  개인 블로그·스레드 수준으로 공통 기준 없음. ② 이발·손톱 — 통서 제두(剃頭)·정수족갑 항목의 현대 자료 없음, 검색되는 건 이사·혼례용 손없는날·황도일.
+  ③ 운동·외출·약속 — 일진 십성 기반 활동 권고 자료 없음, 건제12신(建除十二神)·황도흑도 택일 체계만. → 원칙 10(문서에 없는 명리 규칙 임의 도입 금지)에 따라
+  새 사전 없이 기존 층으로 처리(A안, 데굴님 승인).
+- **구현**: `GATE_ITEMS` += clothing/activity/grooming. `apply_frame_correction`: clothing → 색 보정과 동일(Q10 + color_question + 지목 색);
+  activity/grooming → Q10 + `IntentJson.activity_question`/`activity_topic`(프레임 topic_object, grooming 기본 '머리·미용').
+  chat: `_lifestyle_lean`·구조 모드에 activity 포함(총운 블록·사건 후보 제거, 그날 일운 사실 유지), 말미 `ACTIVITY_JUDGMENT_DIRECTIVE`(무난/조절/권하지 않음
+  3진 판정·영역별 총운 금지·기신이어도 '하지 말라' 단정 금지·의료 조언 아님). reducer `no_candidates_in_period` 면제에 activity 포함.
+  시점 없는 행동 가부('운동 계속 해도 돼?')는 too_broad 면제 대상이 아니라 되묻기 유지(데굴님 결정).
+- 회귀: `test_question_frame_gate.py` +4(옷→색 블록, 오늘 운동→가부 지시+일운 사실·총운 블록 無, 시점 없음→too_broad, 오늘 머리→가부 지시),
+  `test_question_frame.py` 보정 함수 확장. docs/03 B6·docs/08 D-3 갱신.
+- 미착수(별도 Phase): 건제12신·황도흑도 택일 사전 — 날짜 추천(Q4) 엔진 확장으로 다룬다.
+
+## 2026-10-28 — 끼니·행동 가부 답 형태 교정: 확정형·구체 예시·간단 (데굴님 실답 "너무 과도하고 메뉴 선정이 두리뭉실")
+
+- **실답 원인 1(운영)**: 데굴님이 본 답은 아침에 띄운 백엔드(새 코드 미반영, `--reload` 없음)가 낸 것 — 파서는 이미 Q10 음식 경로. 백엔드를
+  래퍼(scratchpad/run_backend.sh: .env 로드 + uvicorn)로 재기동, 기동 로그에 `question_frame warm-up ok 481ms`.
+- **실답 원인 2(지시문)**: 기존 지시가 '메뉴 2~3개 + 이유'였지만 확정형·구체 예시 형태를 못박지 않아 LLM 이 '익숙한 메뉴로 숨을 돌려보는 것이
+  어떨까요'로 빠질 여지가 있었다. `YONGSIN_FOOD_CLOSING_DIRECTIVE` 개정: 전체 4문장 이내, ①확정형 추천 1문장(표의 메뉴 이름 2개 + 계열 묘사,
+  예 '육개장이나 토마토 파스타 같은 붉은빛 나는 따뜻한 요리가 좋아요') ②이유 1문장 ③그날 운 1줄 ④의료 조언 아님 한 구절; 금지 = 비구체 표현
+  ('익숙한 메뉴·편안한 음식'), 완곡형('어떨까요'), 메뉴 없이 기운만. `ACTIVITY_JUDGMENT_DIRECTIVE` 도 같은 결(3문장 이내, '해도 돼요 /
+  가볍게 조절해서 하면 돼요 / 오늘은 미루는 게 좋아요' 확정형 판정 → 이유 → 조절 권고). 답 마무리 규칙은 건드리지 않음(소유자 한 곳 계약).
+- 회귀: 지시문 문구 단언 2건 추가. docs/08 D-3 5번 음식 답 형태 추가.
+
+## 2026-10-28 — 서버 기동 절차에 Ollama 보장 단계 추가 (데굴님 "서버 시작 과정에 실행과정을 포함해놔줘")
+
+- 답: 백엔드는 Ollama 없이도 정상 기동한다(프레임 호출 실패 = 관측 1건, 룰만 동작). 다만 색·방향·음식·장소·행동 가부의 Q1 폴백 보정이 멈추므로
+  기동 절차에 포함한다.
+- `scripts/ensure_ollama.sh`(신규, 멱등): .env 로드 → SHADOW/GATE 둘 다 OFF 면 no-op → `SAJU_OLLAMA_BASE_URL`(기본 11434) 응답 확인 → 없으면
+  사용자 레벨 `OLLAMA_HOST=<host:port> ollama serve`(nohup setsid, var/ollama.log) 기동·60s 대기 → llm_config `question_frame.model` 없으면 `ollama pull`.
+  어느 단계가 실패해도 exit 0(백엔드 기동 차단 금지). systemd 유닛이 살아 있는데 응답이 없으면 포트 불일치/bind 실패 루프 안내(WSL2 예약 포트).
+- `scripts/dev.sh`·`scripts/restart_backend.sh` 가 백엔드 기동 직전에 호출(`|| true`). README '(선택) 질문 이해 층 로컬 소형 모델 — Ollama' 절 추가
+  (설치·.env 3줄·systemd 영구화·측정 재현). docs/03 B6 기동 절차 줄.
+- 검증: 서버 살아 있을 때 '응답 확인·모델 준비됨', 프로세스를 죽인 뒤 실행하면 사용자 레벨 재기동 후 응답 확인(콜드 경로).

@@ -30,8 +30,19 @@
       }
     }
   },
+  "question_frame": {
+    "provider": "ollama",
+    "model": "gemma4:e2b",
+    "base_url_env": "SAJU_OLLAMA_BASE_URL",
+    "keep_alive": "24h",
+    "generation_extras": {
+      "think": false
+    },
+    "note": "질문 이해 층(docs/03 B6, 2026-10-28) — 로컬 Ollama 소형 모델 1회 호출, 닫힌 JSON(QuestionFrame). think=false 필수(켜면 추론 토큰이 출력을 비움). format(JSON 스키마 grammar)은 쓰지 않는다 — 실측 325ms→2.8~15s 로 느려지고 결과는 같다(parse_frame 이 검증). shadow 단계: SAJU_QUESTION_FRAME_SHADOW=1 이면 로그 전용 관측, 라우팅 영향 0."
+  },
   "options": {
     "timeout_seconds": 90,
+    "question_frame_timeout_seconds": 3,
     "primary_attempts": 1,
     "retry_backoff_seconds": 1.5,
     "provider_cooldown_seconds": 900,

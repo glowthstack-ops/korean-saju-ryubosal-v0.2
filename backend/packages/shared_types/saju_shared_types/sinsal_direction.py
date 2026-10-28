@@ -527,3 +527,29 @@ class YongsinColorNote(BaseModel):
     source: Literal["engine", "confirmed"] = "engine"
     asked_entries: list[YongsinColorEntry] = Field(default_factory=list)  # 지목 색의 오행·역할
     unmapped_colors: list[str] = Field(default_factory=list)  # 사전에 없는 지목 색
+
+
+class YongsinFoodEntry(BaseModel):
+    """용희기구한 역할 1개의 오행 보완 음식 줄 — `calendar/food_rules.json`(五味·식재료) 기준."""
+
+    role: str  # 용신/희신/한신/기신/구신
+    element: str  # 오행(한자)
+    taste: str = ""  # 五味 라벨('신맛(酸)' …) — 지목 음식 줄에서는 비울 수 있다
+    foods: list[str] = Field(default_factory=list)  # 식재료·음식 한글
+    menus: list[str] = Field(default_factory=list)  # 끼니 예시(사전 menus)
+    tone: str  # 보완 음식·우선 / 보완 음식·보조 / 무난 / 보완 효과 없음
+
+
+class YongsinFoodNote(BaseModel):
+    """오행 보완 음식 첨언 블록(2026-10-28 데굴님 승인) — 오행 보완 색과 같은 모델의 음식 판.
+
+    사용자가 음식·끼니를 물은 턴에만 실린다. 엔진이 역할별 음식 후보(五味·식재료·끼니 예시)를
+    모두 제시해 LLM이 상생 연쇄로 후보를 늘리는 것을 막는다. 지목한 음식은 사전에서 오행을 찾아
+    역할·톤을 함께 적고, 사전에 없는 음식·복합 요리는 '오행 배정 보류'로 표기한다(임의 배정 금지).
+    서술 전용(점수·판정 불변). 영양·의료 조언이 아니다.
+    """
+
+    entries: list[YongsinFoodEntry] = Field(default_factory=list)
+    source: Literal["engine", "confirmed"] = "engine"
+    asked_entries: list[YongsinFoodEntry] = Field(default_factory=list)  # 지목 음식의 오행·역할
+    unmapped_foods: list[str] = Field(default_factory=list)  # 사전에 없는·복합 지목 음식

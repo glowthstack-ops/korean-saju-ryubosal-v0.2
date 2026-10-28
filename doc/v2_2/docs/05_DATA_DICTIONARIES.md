@@ -47,6 +47,7 @@ src/dictionaries/
     son_eomneun_nal.json    # 손없는 날 규칙 (음력 9·0일)
     direction_rules.json    # 방위 규칙
     color_rules.json        # 오행 정색·계열(木靑·火赤·土黃·金白·水黑 + 계열, 2026-10-01) — 오행 보완 색 첨언 전용. 보라·파랑은 배정 보류(검수 큐)
+    food_rules.json         # 오행 × 五味(木酸·火苦·土甘·金辛·水鹹)·식재료·끼니 예시(통설 초안, 2026-10-28) — 오행 보완 음식 첨언 전용. 복합 요리(김치찌개 등)는 배정 보류(검수 큐)
     avoid_days.json         # 금기일/회피일
     holidays.json
   purpose_profiles.json     # 택일 목적별 가중치

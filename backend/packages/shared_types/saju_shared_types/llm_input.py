@@ -17,7 +17,12 @@ from .intent import IntentJson
 from .luck_hierarchy import LuckHierarchy
 from .relation_semantics import RelationSemantics
 from .sinsal import LlmSinsalModifier
-from .sinsal_direction import SinsalDirectionBlock, YongsinColorNote, YongsinDirectionNote
+from .sinsal_direction import (
+    SinsalDirectionBlock,
+    YongsinColorNote,
+    YongsinDirectionNote,
+    YongsinFoodNote,
+)
 from .structure_patterns import DetectedPattern
 
 
@@ -598,6 +603,9 @@ class LlmInput(BaseModel):
     # 오행 보완 색 첨언(용희기구한 × 오행 정색, 2026-10-01) — 색 질문 턴에만. 방향 첨언과 같은 모델:
     # 엔진이 허용·보류 후보를 주고 LLM은 상생 연쇄로 후보를 늘리지 않는다. 서술 전용.
     yongsin_color: YongsinColorNote | None = None
+    # 오행 보완 음식 첨언(용희기구한 × 五味·식재료, 2026-10-28) — 음식·끼니 질문 턴에만. 색 첨언과
+    # 같은 모델(엔진이 후보·보류를 주고 LLM은 상생 연쇄로 늘리지 않는다). 서술 전용.
+    yongsin_food: YongsinFoodNote | None = None
     evidence: list[LlmEvidence] = Field(default_factory=list)
     past_validation: PastValidationSummary | None = None
     style_rules: LlmStyleRules = Field(default_factory=LlmStyleRules)

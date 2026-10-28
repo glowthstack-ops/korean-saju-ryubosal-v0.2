@@ -146,7 +146,7 @@ from saju_engines.planner import build_execution_plan
 from saju_engines.policy_echo_audit import detect_policy_echo, strip_policy_echo
 from saju_engines.precompute import CompositeBuilder
 from saju_engines.prediction import PredictionEngines
-from saju_engines.profile_engine import profile_context_for
+from saju_engines.profile_engine import profile_context_for, profile_event_signals
 from saju_engines.query_parser import (
     ACCIDENT_SAGO_RE,
     AFFIRMATION_RE,
@@ -158,6 +158,7 @@ from saju_engines.query_parser import (
     parse_message,
     parse_pillar_claim,
 )
+from saju_engines.question_frame import ACTIVITY_JUDGMENT_DIRECTIVE
 from saju_engines.relation_claim_audit import (
     audit_relation_claims,
     dedupe_canonical_claims,
@@ -228,6 +229,7 @@ from saju_engines.yearly_environment import (
     build_yearly_environment,
     render_yearly_environment,
 )
+from saju_engines.yongsin_food import YONGSIN_FOOD_CLOSING_DIRECTIVE
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.career_transition import CareerQueryResolution, CareerTransitionKind
@@ -274,6 +276,7 @@ from saju_shared_types.topic_context import PeriodSpec
 
 from . import (
     llm_client,
+    question_frame_service,
     relationship_legacy_comparison,
     relationship_shadow,
     relationship_vector_sidecar,
@@ -4397,7 +4400,15 @@ def _structural_context(
     from saju_engines.wealth_status_lean import analyze_wealth_status_lean
 
     domain = intent.domain
-    general = domain is Domain.GENERAL  # 확정 intent 아님 → 총운(모든 구조 블록)
+    # 음식·끼니 질문의 오행 생활화 승격(REMEDY, 2026-10-28)은 도메인이 비어 있어도 총운이 아니다 —
+    # 횡재 그릇·배우자성·연애 유형·궁위 관계망 같은 총운용 구조 블록은 끼니 답과 무관한 재료라 뺀다
+    # (실측: 점심 질문 프롬프트 19k 중 대부분이 이 블록들). 원국·용희기구한·일운 사실은 그대로.
+    _lifestyle_lean = (
+        bool(intent.food_question or intent.activity_question)
+        and intent.query_type is QueryType.REMEDY
+    )
+    # 확정 intent 아님 → 총운(모든 구조 블록)
+    general = domain is Domain.GENERAL and not _lifestyle_lean
     out: list[str] = []
     if general:
         # 시대 기운 먼저(개인 앞 사회 맥락) — 기준 연도는 질문의 단일 연(내년·YYYY년) 우선.
@@ -4442,7 +4453,10 @@ def _structural_context(
             out.append(LOVE_MARRIAGE_UNIFIED_DIRECTIVE)
     # 방향 질문(숙면→health 도메인)에는 건강 취약 구조를 싣지 않는다 — 방향 답과 무관(docs/19 §6).
     _direction_remedy = bool(intent.direction_question) and intent.query_type is QueryType.REMEDY
-    if (general or domain is Domain.HEALTH) and not _direction_remedy:
+    # 음식·끼니 질문(오행 생활화 승격, 2026-10-28)도 같다 — 건강 취약 구조가 실리면 끼니 답이
+    # 건강 강의로 번진다. 건강 도메인 음식 질문은 룰이 HEALTH 분석으로 확정하므로 그대로 유지.
+    _food_remedy = bool(intent.food_question) and intent.query_type is QueryType.REMEDY
+    if (general or domain is Domain.HEALTH) and not _direction_remedy and not _food_remedy:
         hv = analyze_health_vulnerability(result, favorability_map(result))
         out += health_lines(result, hv, today.year)
     # 외적 인상·매력 신호 — 자체 allowlist·gender·band 게이트(미해당 시 무언급). 외모 직접질문은
@@ -4452,7 +4466,7 @@ def _structural_context(
     if spouse_image_directive:
         out.append(spouse_image_directive)
         out.append(PARTNER_APPEARANCE_REFERENT_DIRECTIVE)
-    else:
+    elif not _lifestyle_lean:  # 끼니 질문엔 인상·매력 블록도 무관(2026-10-28)
         out += external_impression_lines(analyze_external_impression(result), intent, question)
     # 도화 구조(2026-10-13) — 진도화 성립·월담·사정지 구분, 자체 게이트(관계·명식분석·직접질문).
     # 해석 문구는 검수 전(reviewed:false)이어도 싣는다 — 검수는 실제 답변을 보고서만 가능하므로
@@ -5452,6 +5466,15 @@ def chat(
     intent = _extend_current_month_near_boundary(intent, today, luck_month)
     # 규칙이 비교 mode를 못 잡은 완곡·변형 표현만 유사도로 보강(P3d-2, strict gated·rules-first).
     intent = _augment_companion_mode_by_similarity(intent, question)
+    # 질문 이해 층(docs/03 B6, 2026-10-28). 게이트 ON + 룰이 Q1/GENERAL 폴백으로 떨어진 턴만 소형
+    # 로컬 LLM 을 동기 호출해 색·방향·음식·장소 생활 질문을 각자의 룰 경로(Q10·거주 분석)로 보정한다
+    # (데굴님 "우선 켜고", 측정 정밀도 ≈87%·p50 312ms). 그 외 턴은 백그라운드 shadow 로그만
+    # (답변·라우팅·지연 영향 0). 룰이 확정한 유형·도메인은 어느 경우에도 덮어쓰지 않는다.
+    intent, _qf_observed = question_frame_service.correct_if_fallback(
+        question, intent, thread_id=thread_id,
+    )
+    if not _qf_observed:
+        question_frame_service.observe_async(question, intent, thread_id=thread_id)
 
     # P2 불변식(2026-07-14) — 배제 기간은 엔진 창이 될 수 없다: 승계·임베딩 시점 보강이
     # 배제 연도를 시점으로 합성하면 시점 미확정으로 되돌린다(명시적 재요청 승격은 대화
@@ -5701,6 +5724,13 @@ def chat(
         # personalization은 등록 동반자일 때만 그 subject_id로(즉석/미등록은 무개인화).
         subject_id = _primary if (companion_births and _primary in companion_births) else None
         partner_birth = None  # 동반자가 primary — 본인 기준 궁합 오버레이·상대 그룹핑 비활성
+        # 2단계 프로필 신호(고용 형태·재직·교제 상태·직업 분류)는 라우터가 기준 사주로 읽어 온
+        # 값이라 primary 동반자 것으로 다시 읽는다(2026-10-28 감수 — 동반자 답에 사용자 본인
+        # 교제 상태가 '기혼으로 입력됨'으로 실렸다). 미등록 동반자면 None×4(규칙11). 위에서 이미
+        # planner 범위에 반영된 `nonregular`(비정직원 취업 보강)는 기준 사주 값 그대로다.
+        employment_form, occupation_status, relationship_status, occupation_category = (
+            profile_event_signals(subject_id)
+        )
 
     # ── P2-3a 요청 스코프 진행 사실 컨텍스트 ────────────────────────────────
     # subject_id 확정 직후 · 후보 축소 전에 만든다. 저장소 조회와 발화 파싱은 요청당
@@ -5861,7 +5891,15 @@ def chat(
     # 답이 월별 흐름으로 새는 직접 원인이라 구조 질문과 같이 시점·이벤트 재료를 뺀다. 이사·여행
     # 방향은 REMEDY 가 아니라 기존 이사 방위·택일 경로 유지.
     _direction_remedy = bool(intent.direction_question) and intent.query_type is QueryType.REMEDY
-    if _direction_remedy:
+    # 음식·끼니 질문의 오행 생활화 승격(2026-10-28)도 같다 — 사건 후보·기간 외 흐름·이동 주체 지시가
+    # 끼니 답을 총운으로 끌어간다. 날짜 일운 사실([질문한 날짜의 일운]·[해당 일 일운])은 구조
+    # 모드와 무관하게 실리므로 '그날 운 한 줄'은 남는다.
+    # 행동 가부 질문(activity_question, 2026-10-28 A안)도 같다 — 그날 일운 사실 + 말미 가부 지시만.
+    _food_remedy = (
+        bool(intent.food_question or intent.activity_question)
+        and intent.query_type is QueryType.REMEDY
+    )
+    if _direction_remedy or _food_remedy:
         is_structural = True
     # 시점 없는 중립 과거 회고('그때 왜 그랬을까' — 2026-09-06 데굴님): 사용자가 이미 특정
     # 시점을 마음에 둔 후회·평가 질문이라 흐름표를 펼칠 대상이 아니다. 후속 턴이면 대화 상태가
@@ -6443,7 +6481,10 @@ def chat(
     # 토픽 질문(직업·재물·건강·시험·연애)은 해당 Topic Builder 모듈을 실행해 확정 신호·정책 톤
     # 주입(옵션1 채팅 배선, 2026-06-26). relocation은 위 지역/이사 경로가 담당.
     # 방향 질문은 도메인 토픽 신호(M11 건강 등)도 뺀다 — 방향 답과 무관한 보조 재료(docs/19 §6).
-    if structural is not None and not _is_relocation_intent(intent) and not _direction_remedy:
+    if (
+        structural is not None and not _is_relocation_intent(intent)
+        and not _direction_remedy and not _food_remedy
+    ):
         # 미래지향 질문(비회고)은 토픽 참고 신호도 현재 달부터 — 지난 달 노출 차단(시점 정합).
         _floor = current_month if (not is_retro and current_month) else None
         structural = structural + _topic_module_context(birth, intent, today, _floor, question)
@@ -7012,6 +7053,16 @@ def chat(
     # 개운/보완 질문 — 결핍·기신은 극복 아니라 관리 프레임(상담 사례 파생 P0-4).
     if intent.query_type is QueryType.REMEDY or is_behavior_pattern or intent.chart_caution:
         trailing.append(MANAGE_NOT_OVERCOME_DIRECTIVE)
+    # 음식·끼니 질문(오행 생활화 승격, 2026-10-28) — 답 형태를 말미에 고정한다. 중간 블록의 음식
+    # 지침만으로는 '그 날의 길흉·행동을 풀 것' 같은 일운 지시에 밀려 총운으로 새기 쉽다(실로그).
+    if intent.food_question and intent.query_type is QueryType.REMEDY:
+        trailing.append(YONGSIN_FOOD_CLOSING_DIRECTIVE)
+    # 행동 가부 질문(질문 이해 층 보정, 2026-10-28 A안) — 새 명리 규칙 없이 그날 일운 길흉으로
+    # 가부를 짧게 판정하라는 답 형태 지시만 말미에 고정한다.
+    if intent.activity_question and intent.query_type is QueryType.REMEDY:
+        trailing.append(
+            ACTIVITY_JUDGMENT_DIRECTIVE.format(topic=intent.activity_topic or "그 행동")
+        )
     # 오행 과다 개운(2026-10-27) — 개운·명식 주의점 질문에만. 과다 판정은 엔진(excessive_elements),
     # 문구는 remedy_action_map.json element_excess_actions 에서 고르기만 한다(서술 전용).
     if (intent.query_type is QueryType.REMEDY or intent.chart_caution) and (
