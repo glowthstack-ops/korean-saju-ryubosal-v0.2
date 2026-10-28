@@ -247,6 +247,12 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
     beta_preflight()
 
+    with contextlib.suppress(Exception):
+        # 질문 이해 층(docs/03 B6) 로컬 소형 모델 예열 — 플래그 OFF 면 no-op. 백그라운드 스레드.
+        from .services.question_frame_service import warm_up
+
+        warm_up()
+
     pregen_task: asyncio.Task[None] | None = None
     if os.getenv("SAJU_DAILY_FORTUNE_PREGEN") == "1":
         if beta_enabled():

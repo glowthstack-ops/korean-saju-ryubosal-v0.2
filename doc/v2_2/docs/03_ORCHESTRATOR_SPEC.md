@@ -389,11 +389,16 @@ LLM 입력 직전 최종 필터. 규칙:
 | **결정론 영역** | 어휘·형태소 → 슬롯(대상·도메인·사건·시점·플래그) → planner → 엔진 → Graph RAG → Context Reduction | `query_parser` + 임베딩 보조기(rules-first) | IntentJson — **점수·간지·시점·판정의 유일한 출처**(절대 원칙 1·9) |
 | **질문 이해 영역** | 질문 전체의 의도(무엇을·어떤 형태로 답해야 하는가) | 소형 로컬 LLM 1회 호출(`llm_config.question_frame`, Ollama `gemma4:e2b`, think=false, temperature 0) | `QuestionFrame` — enum 닫힌 집합만 |
 
-**QuestionFrame 스키마**(`saju_shared_types/question_frame.py`): `ask_kind`(recommendation/judgment/timing/explanation/comparison/venting/meta/unknown) · `lifestyle_item`(food/color/clothing/direction/place/activity/grooming/none) · `answer_shape`(short_pick/analysis/compare_table/timeline/empathy_first/policy) · `brevity`(short/normal) · `topic_object`(≤20자 명사구). 간지·점수·날짜·판정 필드는 없다. 집합 밖 값이면 프레임 전체를 버린다(부분 채택 금지).
+**QuestionFrame 스키마**(`saju_shared_types/question_frame.py`): `ask_kind`(recommendation/judgment/timing/explanation/comparison/venting/meta/unknown) · `lifestyle_item`(food/color/clothing/direction/place/activity/grooming/none) · `answer_shape`(short_pick/analysis/compare_table/timeline/empathy_first/policy) · `brevity`(short/normal) · `topic_object`(≤20자 명사구). 간지·점수·날짜·판정 필드는 없다. **라우팅 필드 `lifestyle_item`이 집합 밖이면 프레임 전체를 버린다**; 형태 전용 필드(ask_kind·answer_shape·brevity)는 집합 밖 값을 기본값(unknown/analysis/normal)으로 정규화한다 — 소형 모델이 키 간 후보를 섞는 실측('침대헤드방향은?' → ask_kind "none") 때문이며, 이 셋은 지시문에만 쓰여 라우팅·점수에 닿지 않는다(2026-10-28).
 
 **쓰임 두 가지만**: ①답 형태 지시문(`answer_shape`·`topic_object`) ②**룰이 Q1 FORTUNE_OVERVIEW + GENERAL 폴백으로 떨어진 턴**의 라우팅 보정(`is_rule_fallback`). 룰이 확정한 유형·도메인은 프레임이 덮어쓰지 않는다(데굴님 동의, 2026-10-28).
 
 **도입 순서(필수)**: shadow(백그라운드 스레드, 로그 전용 — `question_frame_service.observe_async`, 답변·라우팅·지연 영향 0, `SAJU_QUESTION_FRAME_SHADOW=1`) → `scripts/measure_question_frame.py`로 불일치율·지연 측정(모집단 = `tests/fixtures/intent_eval.jsonl` + docs/08 예시 + 저장 채팅 발화) → 불일치 표본(`lifestyle_on_overview_fallback` 전수, 그 외 라벨 5건) 데굴님 검수 → 게이트 ON 은 별도 승인. 서버 부재·타임아웃·파싱 실패는 관측 실패 1건으로만 남고 기능을 막지 않는다(절대 원칙 11).
+
+**게이트 ON(2026-10-28 데굴님 "우선 켜고")** — `SAJU_QUESTION_FRAME_GATE=1`, `question_frame_service.correct_if_fallback`: 룰 보강(임베딩 도메인·시점·비교 모드)까지 끝난 intent 가 `is_rule_fallback`이면 **동기** 호출(p50 ≈0.3~0.7s) 후 `apply_frame_correction` — `GATE_ITEMS` = color→Q10+`color_question`(+지목 색) / direction→Q10+`direction_question`(목적 전체 방향판) / food→Q10+`food_question`(+지목 음식) / place→RELOCATION 분야 분석. 보정 턴은 shadow 기록에 `applied:<item>` 라벨을 더한다. **activity/clothing/grooming 은 받는 엔진 층(사전·블록)이 없어 보정하지 않는다** — 검색 보충 후 사전·블록을 갖추고 추가(데굴님 지시). 폴백 턴이 아니면 동기 호출 자체를 하지 않고 shadow 로만 넘어간다(룰 확정 불변).
+- 동반 교정: B3 판정표에서 **오행 생활화 Q10(색·방향·음식 표지)은 시점·분야 없이도 too_broad 가 아니다**(원국 용희기구한 기준, 방향판·색/음식 표가 곧 답 — docs/19 §6-1). 이전엔 '어떤 방향이 좋을까'·'저녁 메뉴 추천해줘'·'커튼 색 추천해줘'가 전부 좁혀볼까요로 바운스됐다.
+- 예열: 4.6GB 모델 콜드 로드는 3초 타임아웃 안에 끝나지 않고, 끊긴 연결은 Ollama 가 적재를 중단해 다음 호출도 콜드 로드가 된다. 앱 lifespan 에서 `warm_up()`(180초, 백그라운드) 1회 + 프로파일 `keep_alive: 24h`.
+- 측정 재현: `python scripts/measure_question_frame.py --db` — 2026-10-28 v2: 531건, 프레임 OK 515, p50 312ms/p95 394ms, `lifestyle_on_overview_fallback` 15(검수 13 진짜 결함 ≈87%). venting/meta/timing 라벨은 룰이 더 정확해 보정에 쓰지 않는다.
 
 **운용 메모(실측 2026-10-28, RTX 4060 8GB)**: `think=false` 필수(켜면 추론 토큰이 출력을 비움) · Ollama `format`(JSON 스키마 grammar)은 쓰지 않는다(325ms → 2.8~15s, 결과 동일 — `parse_frame`이 검증) · 11434 는 WSL2 에서 Windows 예약 포트 범위라 `SAJU_OLLAMA_BASE_URL`로 포트를 지정한다.
 

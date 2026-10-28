@@ -40,12 +40,20 @@ def test_parse_frame_accepts_fenced_and_mixed_case() -> None:
     assert f.answer_shape is AnswerShape.SHORT_PICK and f.topic_object == "점심 메뉴"
 
 
-def test_parse_frame_rejects_out_of_set_values_whole() -> None:
-    # 집합 밖 값이면 부분 채택 없이 프레임 전체를 버린다
+def test_parse_frame_strict_on_routing_field_lenient_on_shape_fields() -> None:
+    # 라우팅 필드(lifestyle_item)가 집합 밖이면 프레임 전체를 버린다
     assert parse_frame(_LUNCH.replace("food", "snack")) is None
+    assert parse_frame(_LUNCH.replace('"lifestyle_item":"food",', "")) is None
     assert parse_frame("오늘은 음식 질문입니다") is None
     assert parse_frame("") is None
     assert parse_frame("[1,2]") is None
+    # 형태 전용 필드의 혼용 값은 기본값으로 정규화(실측: ask_kind "none"·answer_shape "judgment")
+    f = parse_frame(_LUNCH.replace('"ask_kind":"recommendation"', '"ask_kind":"none"')
+                    .replace('"answer_shape":"short_pick"', '"answer_shape":"judgment"')
+                    .replace('"brevity":"short"', '"brevity":"brief"'))
+    assert f is not None and f.lifestyle_item is LifestyleItem.FOOD
+    assert f.ask_kind is AskKind.UNKNOWN and f.answer_shape is AnswerShape.ANALYSIS
+    assert f.brevity.value == "normal"
 
 
 def test_parse_frame_trims_topic_and_ignores_extra_keys() -> None:
@@ -215,3 +223,62 @@ def test_observe_async_is_flag_gated(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(question_frame_service._EXECUTOR, "submit", lambda fn: submitted.append(fn))
     assert question_frame_service.observe_async("올해 이직운 어때?", intent) is True
     assert len(submitted) == 1
+
+
+# ── 게이트 보정(2026-10-28 데굴님 "우선 켜고") ─────────────────────────
+
+
+def test_apply_frame_correction_only_on_fallback_and_gate_items() -> None:
+    from saju_engines.question_frame import GATE_ITEMS, apply_frame_correction
+    from saju_shared_types.intent import Domain, QueryType
+
+    # 색 어휘가 없는 순수 폴백 발화 — 파서 자체 색 표지(is_color_question)와 분리해 본다.
+    fallback = parse_message("뭘 하면 좋을까", _TODAY).intents[0]
+    assert is_rule_fallback(fallback)
+    new, label = apply_frame_correction(
+        fallback, QuestionFrame(lifestyle_item=LifestyleItem.COLOR), "뭘 하면 좋을까",
+    )
+    assert label == "applied:color" and new.query_type is QueryType.REMEDY
+    assert new.color_question is True and fallback.color_question is False  # 원본 불변
+    new_d, _ = apply_frame_correction(
+        fallback, QuestionFrame(lifestyle_item=LifestyleItem.DIRECTION), "침대헤드방향은?",
+    )
+    assert new_d.direction_question is True and new_d.query_type is QueryType.REMEDY
+    new_f, _ = apply_frame_correction(
+        fallback, QuestionFrame(lifestyle_item=LifestyleItem.FOOD), "저녁 뭐 먹지",
+    )
+    assert new_f.food_question is True and new_f.query_type is QueryType.REMEDY
+    new_p, _ = apply_frame_correction(
+        fallback, QuestionFrame(lifestyle_item=LifestyleItem.PLACE), "보금자리 옮길까",
+    )
+    assert new_p.domain is Domain.RELOCATION and new_p.query_type is QueryType.DOMAIN_ANALYSIS
+    # 게이트 밖 항목·none 은 그대로
+    for item in (LifestyleItem.CLOTHING, LifestyleItem.GROOMING, LifestyleItem.ACTIVITY,
+                 LifestyleItem.NONE):
+        assert item not in GATE_ITEMS or item is LifestyleItem.NONE
+        same, lbl = apply_frame_correction(fallback, QuestionFrame(lifestyle_item=item), "q")
+        assert same is fallback and lbl is None
+    # 룰이 확정한 턴은 어떤 항목도 덮어쓰지 않는다
+    wealth = parse_message("올해 재물운 어때?", _TODAY).intents[0]
+    same, lbl = apply_frame_correction(
+        wealth, QuestionFrame(lifestyle_item=LifestyleItem.COLOR), "올해 재물운 어때?",
+    )
+    assert same is wealth and lbl is None
+
+
+def test_lifestyle_remedy_is_not_too_broad() -> None:
+    """오행 생활화(색·방향·음식)는 원국 용희신 기준이라 시점·분야 없이도 되묻지 않는다."""
+    from saju_engines.rewriter import assess
+
+    for q in ("어떤 방향이 좋을까", "저녁 메뉴 추천해줘"):
+        intent = parse_message(q, _TODAY).intents[0]
+        assert assess(intent, q).status == "ok", q
+    # 보정으로 색 표지가 켜진 폴백 턴도 같다
+    from saju_engines.question_frame import apply_frame_correction
+
+    fallback = parse_message("커텐 색 추천해줘", _TODAY).intents[0]
+    assert assess(fallback, "커텐 색 추천해줘").status == "too_broad"
+    fixed, _ = apply_frame_correction(
+        fallback, QuestionFrame(lifestyle_item=LifestyleItem.COLOR), "커텐 색 추천해줘",
+    )
+    assert assess(fixed, "커텐 색 추천해줘").status == "ok"

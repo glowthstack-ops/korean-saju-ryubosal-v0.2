@@ -34,6 +34,7 @@
     "provider": "ollama",
     "model": "gemma4:e2b",
     "base_url_env": "SAJU_OLLAMA_BASE_URL",
+    "keep_alive": "24h",
     "generation_extras": {
       "think": false
     },

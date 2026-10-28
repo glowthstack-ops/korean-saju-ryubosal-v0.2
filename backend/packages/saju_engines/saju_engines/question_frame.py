@@ -81,8 +81,19 @@ def frame_json_schema() -> dict:
 _FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE | re.MULTILINE)
 
 
+_ASK_VALUES = frozenset(e.value for e in AskKind)
+_SHAPE_VALUES = frozenset(e.value for e in AnswerShape)
+_ITEM_VALUES = frozenset(e.value for e in LifestyleItem)
+
+
 def parse_frame(text: str) -> QuestionFrame | None:
-    """모델 출력 → QuestionFrame. JSON 이 아니거나 집합 밖 값이면 None(부분 채택 금지)."""
+    """모델 출력 → QuestionFrame. JSON 이 아니거나 라우팅 필드(lifestyle_item)가 집합 밖이면 None.
+
+    형태 전용 필드(ask_kind·answer_shape·brevity)는 소형 모델이 다른 키의 후보를 섞어 쓰는 일이
+    잦다(실측 2026-10-28: '침대헤드방향은?' → ask_kind "none", '보금자리 옮길까' → answer_shape
+    "judgment" — lifestyle_item 은 둘 다 맞았다). 이 셋은 집합 밖이면 기본값(unknown/analysis/
+    normal)으로 정규화하고, 라우팅에 쓰이는 lifestyle_item 만 엄격하게 본다(집합 밖 → 폐기).
+    """
     if not text or not text.strip():
         return None
     body = _FENCE_RE.sub("", text.strip()).strip()
@@ -97,6 +108,14 @@ def parse_frame(text: str) -> QuestionFrame | None:
         return None
     lowered = {k: (v.strip().lower() if isinstance(v, str) and k != "topic_object" else v)
                for k, v in raw.items()}
+    if lowered.get("lifestyle_item") not in _ITEM_VALUES:
+        return None
+    if lowered.get("ask_kind") not in _ASK_VALUES:
+        lowered["ask_kind"] = AskKind.UNKNOWN.value
+    if lowered.get("answer_shape") not in _SHAPE_VALUES:
+        lowered["answer_shape"] = AnswerShape.ANALYSIS.value
+    if lowered.get("brevity") not in ("short", "normal"):
+        lowered["brevity"] = "normal"
     try:
         return QuestionFrame.model_validate(lowered)
     except ValueError:
@@ -112,6 +131,50 @@ _COMPARE_RULE = frozenset({QueryType.COMPARISON, QueryType.DECISION_SUPPORT})
 def is_rule_fallback(intent: IntentJson) -> bool:
     """룰이 아무 규칙에도 걸리지 않아 Q1 총운 + GENERAL 로 떨어진 턴 — 프레임 보정 허용 범위."""
     return intent.query_type is QueryType.FORTUNE_OVERVIEW and intent.domain is Domain.GENERAL
+
+
+# 게이트 보정 대상(2026-10-28 데굴님 "우선 켜고") — 받는 엔진 층이 있는 항목만. activity/clothing/
+# grooming 은 엔진 층(사전·블록)이 아직 없어 보정하지 않는다(검색 보충 후 추가 예정).
+GATE_ITEMS: frozenset[LifestyleItem] = frozenset({
+    LifestyleItem.COLOR, LifestyleItem.DIRECTION, LifestyleItem.FOOD, LifestyleItem.PLACE,
+})
+
+
+def apply_frame_correction(
+    intent: IntentJson, frame: QuestionFrame, question: str
+) -> tuple[IntentJson, str | None]:
+    """룰 Q1/GENERAL 폴백 턴에 프레임 생활 항목을 적용한다 → (보정 intent, 적용 라벨|None).
+
+    룰이 확정한 턴(`is_rule_fallback` False)·게이트 밖 항목이면 원본 그대로 None. 보정은 각 항목이
+    이미 가진 룰 경로를 **그대로 켜는 것**이다 — 색/방향/음식은 Q10 REMEDY + 해당 표지, 장소는 거주·
+    지역 분야 분석. 점수·시점·간지·판정에는 손대지 않는다.
+    """
+    if not is_rule_fallback(intent) or frame.lifestyle_item not in GATE_ITEMS:
+        return intent, None
+    item = frame.lifestyle_item
+    if item is LifestyleItem.COLOR:
+        from .yongsin_color import detect_asked_colors
+
+        new = intent.model_copy(update={
+            "query_type": QueryType.REMEDY, "color_question": True,
+            "colors_asked": detect_asked_colors(question),
+        })
+    elif item is LifestyleItem.DIRECTION:
+        new = intent.model_copy(update={
+            "query_type": QueryType.REMEDY, "direction_question": True,
+        })
+    elif item is LifestyleItem.FOOD:
+        from .yongsin_food import detect_asked_foods
+
+        new = intent.model_copy(update={
+            "query_type": QueryType.REMEDY, "food_question": True,
+            "foods_asked": detect_asked_foods(question),
+        })
+    else:  # PLACE — 거주·지역 추천형(docs/08 D2-1·D2-3)은 거주 도메인 분야 분석 경로
+        new = intent.model_copy(update={
+            "query_type": QueryType.DOMAIN_ANALYSIS, "domain": Domain.RELOCATION,
+        })
+    return new, f"applied:{item.value}"
 
 
 def frame_disagreements(frame: QuestionFrame, intent: IntentJson) -> list[str]:

@@ -188,6 +188,13 @@ def assess(
         QueryType.COMPARISON,
     ):
         return QueryAssessment(status="ok")
+    # 오행 생활화 Q10(색·방향·음식 표지)은 원국 용희기구한 기준이라 시점·분야가 본질적으로 불요 —
+    # '어떤 방향이 좋을까'·'저녁 메뉴 추천해줘'·'커튼 색 추천해줘'가 too_broad 로 바운스되던 결함
+    # (2026-10-28, 질문 이해 층 게이트와 함께). 방향판·색/음식 표가 곧 답이다(docs/19 §6-1).
+    if intent.query_type is QueryType.REMEDY and (
+        intent.direction_question or intent.color_question or intent.food_question
+    ):
+        return QueryAssessment(status="ok")
 
     if not has_time and not has_domain:
         # 사건 서술(고민 상담)형은 되묻지 않고 실행한다(B3 예외, 2026-08-11) —

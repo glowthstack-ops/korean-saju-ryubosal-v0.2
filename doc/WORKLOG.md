@@ -12902,3 +12902,24 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
   - `meta_vs_rule` 4 — 정정 발화를 meta 로 읽음(룰 Q12 가 맞다) → 게이트 대상 아님. 로또 번호는 룰 out_of_scope 유지.
 - **라우팅 변경 없음(shadow)**. 게이트 ON 범위 제안(결정 대기): `is_rule_fallback` ∧ lifestyle_item ∈ {color→Q10+색 블록, direction→Q10 방향, food→Q10 음식, place→RELOCATION 분석}.
   activity/clothing/grooming 은 엔진 층이 없어 답 형태 지시만 가능 — 별도 결정. venting/meta/timing 라벨은 보정에 쓰지 않는다(룰이 더 정확).
+
+## 2026-10-28 — 질문 이해 층 게이트 ON(색·방향·음식·장소) · 오행 생활화 Q10 too_broad 면제 · 모델 예열 (데굴님 "우선 켜고 activity/clothing/grooming 부분은 검색을 통해 보충 후 추가하자")
+
+- **게이트**: `SAJU_QUESTION_FRAME_GATE=1`(.env). `question_frame_service.correct_if_fallback` — 룰 보강(임베딩 도메인·시점·비교 모드) 뒤 intent 가
+  Q1 FORTUNE_OVERVIEW + GENERAL 폴백일 때만 소형 모델 **동기** 호출 → `apply_frame_correction`(`GATE_ITEMS` color/direction/food/place).
+  색·방향·음식 = Q10 REMEDY + 해당 표지(지목 색·음식 사전 감지 포함), 장소 = RELOCATION 분야 분석. 보정 턴은 shadow JSONL 에 `applied:<item>`.
+  룰 확정 턴은 동기 호출 자체를 하지 않는다(shadow 만). activity/clothing/grooming 은 엔진 층 부재 → 미보정(검색 보충 후 추가, 데굴님 지시).
+- **동반 결함 교정(기존)**: B3 `assess` — Q10 REMEDY 에 direction/color/food 표지가 있으면 시점·분야 없이도 `ok`. 이전엔 '어떤 방향이 좋을까'(방향
+  층 2026-09-22)·'저녁 메뉴 추천해줘'(오늘 P0)·'커튼 색 추천해줘'(색 층 2026-10-01)가 전부 too_broad '좁혀볼까요' 바운스 — 생활화 층 3종이
+  시점어 없이는 도달 불가였다.
+- **파싱 정책 개정**: 라우팅 필드 `lifestyle_item` 만 엄격(집합 밖 → 프레임 폐기), 형태 필드(ask_kind·answer_shape·brevity)는 기본값으로 정규화.
+  실측: '침대헤드방향은?' → ask_kind "none", '보금자리 옮길까' → answer_shape "judgment" 인데 lifestyle_item 은 맞아 전체 폐기가 보정을 잃었다.
+  측정 파싱 실패 16건(3.0%)의 대부분이 이 유형. docs/03 B6·shared_types docstring 갱신.
+- **예열**: 콜드 로드(4.6GB)는 3초 타임아웃 안에 안 끝나고, 끊긴 연결에 Ollama 가 적재를 중단("client connection closed before llama-server
+  finished loading")해 다음 호출도 콜드 → 연속 ReadTimeout 실측. `warm_up()`(180s, 백그라운드) 을 FastAPI lifespan 에 추가, 프로파일 `keep_alive: 24h`.
+- **라이브 dry_run(실모델)**: '커텐 색 추천해줘'→[오행 보완 색] · '침대헤드방향은?'·'우리 가족에게 좋은 방 방향'→[오행 보완 방향]+[방위 활용] ·
+  '이 사주에게 좋은 색상'→색 블록 · '보금자리 옮기는'·'전세 빼서 다른 동네'→거주 분석(임베딩 도메인 보강이 먼저 잡음, 게이트 미개입) ·
+  '운동 계속 해도 돼?'→activity 는 미보정이라 too_broad 유지 · '올해 재물운'→룰 확정, 동기 호출 0. 보정 턴 소요 0.5~2.3s(첫 호출 포함).
+- 회귀: `tests/integration/test_question_frame_gate.py` 6건(색·방향·장소 보정, 룰 확정 불변, 미지원 항목 불변, 게이트 OFF=shadow 만),
+  `test_question_frame.py` +3(보정 함수·too_broad 면제·파싱 정책). 응답 `intents` 는 파서 원본이라 보정 검증은 프롬프트·assessment 로 한다.
+- 다음: activity(운동·외출·약속 가부)/clothing(옷·복장)/grooming(머리·미용) 의 명리 통설을 검색으로 보충 → 사전·블록 설계안 제시 후 승인 → GATE_ITEMS 확장.
