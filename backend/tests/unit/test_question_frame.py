@@ -252,12 +252,26 @@ def test_apply_frame_correction_only_on_fallback_and_gate_items() -> None:
         fallback, QuestionFrame(lifestyle_item=LifestyleItem.PLACE), "보금자리 옮길까",
     )
     assert new_p.domain is Domain.RELOCATION and new_p.query_type is QueryType.DOMAIN_ANALYSIS
-    # 게이트 밖 항목·none 은 그대로
-    for item in (LifestyleItem.CLOTHING, LifestyleItem.GROOMING, LifestyleItem.ACTIVITY,
-                 LifestyleItem.NONE):
-        assert item not in GATE_ITEMS or item is LifestyleItem.NONE
-        same, lbl = apply_frame_correction(fallback, QuestionFrame(lifestyle_item=item), "q")
-        assert same is fallback and lbl is None
+    # A안(2026-10-28): clothing=색 층, activity/grooming=행동 가부 지시(새 사전 없음)
+    new_c, lbl_c = apply_frame_correction(
+        fallback, QuestionFrame(lifestyle_item=LifestyleItem.CLOTHING), "오늘 옷 뭐 입을까",
+    )
+    assert lbl_c == "applied:clothing" and new_c.color_question is True
+    new_a, lbl_a = apply_frame_correction(
+        fallback, QuestionFrame(lifestyle_item=LifestyleItem.ACTIVITY, topic_object="오늘 운동"),
+        "오늘 운동해도 돼?",
+    )
+    assert lbl_a == "applied:activity" and new_a.activity_question is True
+    assert new_a.activity_topic == "오늘 운동" and new_a.query_type is QueryType.REMEDY
+    new_g, _ = apply_frame_correction(
+        fallback, QuestionFrame(lifestyle_item=LifestyleItem.GROOMING), "오늘 머리 자를까",
+    )
+    assert new_g.activity_question is True and new_g.activity_topic == "머리·미용"
+    assert LifestyleItem.NONE not in GATE_ITEMS
+    same, lbl = apply_frame_correction(
+        fallback, QuestionFrame(lifestyle_item=LifestyleItem.NONE), "q",
+    )
+    assert same is fallback and lbl is None
     # 룰이 확정한 턴은 어떤 항목도 덮어쓰지 않는다
     wealth = parse_message("올해 재물운 어때?", _TODAY).intents[0]
     same, lbl = apply_frame_correction(

@@ -158,6 +158,7 @@ from saju_engines.query_parser import (
     parse_message,
     parse_pillar_claim,
 )
+from saju_engines.question_frame import ACTIVITY_JUDGMENT_DIRECTIVE
 from saju_engines.relation_claim_audit import (
     audit_relation_claims,
     dedupe_canonical_claims,
@@ -4402,7 +4403,10 @@ def _structural_context(
     # 음식·끼니 질문의 오행 생활화 승격(REMEDY, 2026-10-28)은 도메인이 비어 있어도 총운이 아니다 —
     # 횡재 그릇·배우자성·연애 유형·궁위 관계망 같은 총운용 구조 블록은 끼니 답과 무관한 재료라 뺀다
     # (실측: 점심 질문 프롬프트 19k 중 대부분이 이 블록들). 원국·용희기구한·일운 사실은 그대로.
-    _lifestyle_lean = bool(intent.food_question) and intent.query_type is QueryType.REMEDY
+    _lifestyle_lean = (
+        bool(intent.food_question or intent.activity_question)
+        and intent.query_type is QueryType.REMEDY
+    )
     # 확정 intent 아님 → 총운(모든 구조 블록)
     general = domain is Domain.GENERAL and not _lifestyle_lean
     out: list[str] = []
@@ -5890,7 +5894,11 @@ def chat(
     # 음식·끼니 질문의 오행 생활화 승격(2026-10-28)도 같다 — 사건 후보·기간 외 흐름·이동 주체 지시가
     # 끼니 답을 총운으로 끌어간다. 날짜 일운 사실([질문한 날짜의 일운]·[해당 일 일운])은 구조
     # 모드와 무관하게 실리므로 '그날 운 한 줄'은 남는다.
-    _food_remedy = bool(intent.food_question) and intent.query_type is QueryType.REMEDY
+    # 행동 가부 질문(activity_question, 2026-10-28 A안)도 같다 — 그날 일운 사실 + 말미 가부 지시만.
+    _food_remedy = (
+        bool(intent.food_question or intent.activity_question)
+        and intent.query_type is QueryType.REMEDY
+    )
     if _direction_remedy or _food_remedy:
         is_structural = True
     # 시점 없는 중립 과거 회고('그때 왜 그랬을까' — 2026-09-06 데굴님): 사용자가 이미 특정
@@ -7049,6 +7057,12 @@ def chat(
     # 지침만으로는 '그 날의 길흉·행동을 풀 것' 같은 일운 지시에 밀려 총운으로 새기 쉽다(실로그).
     if intent.food_question and intent.query_type is QueryType.REMEDY:
         trailing.append(YONGSIN_FOOD_CLOSING_DIRECTIVE)
+    # 행동 가부 질문(질문 이해 층 보정, 2026-10-28 A안) — 새 명리 규칙 없이 그날 일운 길흉으로
+    # 가부를 짧게 판정하라는 답 형태 지시만 말미에 고정한다.
+    if intent.activity_question and intent.query_type is QueryType.REMEDY:
+        trailing.append(
+            ACTIVITY_JUDGMENT_DIRECTIVE.format(topic=intent.activity_topic or "그 행동")
+        )
     # 오행 과다 개운(2026-10-27) — 개운·명식 주의점 질문에만. 과다 판정은 엔진(excessive_elements),
     # 문구는 remedy_action_map.json element_excess_actions 에서 고르기만 한다(서술 전용).
     if (intent.query_type is QueryType.REMEDY or intent.chart_caution) and (

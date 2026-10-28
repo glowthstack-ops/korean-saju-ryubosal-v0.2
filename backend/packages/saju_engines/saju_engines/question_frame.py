@@ -133,11 +133,24 @@ def is_rule_fallback(intent: IntentJson) -> bool:
     return intent.query_type is QueryType.FORTUNE_OVERVIEW and intent.domain is Domain.GENERAL
 
 
-# 게이트 보정 대상(2026-10-28 데굴님 "우선 켜고") — 받는 엔진 층이 있는 항목만. activity/clothing/
-# grooming 은 엔진 층(사전·블록)이 아직 없어 보정하지 않는다(검색 보충 후 추가 예정).
+# 게이트 보정 대상(2026-10-28 데굴님 "우선 켜고" → 같은 날 "권장대로" A안으로 확장).
+# clothing 은 색 층으로 본다(검색 결과 오행↔옷 대응은 색만 통용, 소재·패턴 기준 없음).
+# activity/grooming 은 새 사전 없이 **답 형태 지시**만(그날 일운 길흉으로 가부 판정) — 시점이 없으면
+# B3 판정표대로 되묻는다(too_broad 면제 대상 아님).
 GATE_ITEMS: frozenset[LifestyleItem] = frozenset({
-    LifestyleItem.COLOR, LifestyleItem.DIRECTION, LifestyleItem.FOOD, LifestyleItem.PLACE,
+    LifestyleItem.COLOR, LifestyleItem.CLOTHING, LifestyleItem.DIRECTION, LifestyleItem.FOOD,
+    LifestyleItem.PLACE, LifestyleItem.ACTIVITY, LifestyleItem.GROOMING,
 })
+
+ACTIVITY_JUDGMENT_DIRECTIVE = (
+    "[행동 가부 질문 — 말미 고정] 이 턴은 '{topic}'을(를) 해도 되는지 묻는 질문이다. 첫 문장에서 "
+    "질문한 날의 일운 길흉([질문한 날짜의 일운]·[해당 일 일운])을 근거로 '무난하다 / 조절하면 "
+    "된다 / 권하지 않는다' 중 하나를 쉬운 말로 판정하고(첫 문장엔 한자·오행 원어 금지), 이유는 "
+    "한 문장. 일·재물·관계·건강 영역별 총운, 사건·시기 나열, 성격 서사는 쓰지 말 것. 일운이 "
+    "기신이어도 '하지 말라'로 단정하지 말고 강도·시간대·동반자 조절 권고로 말할 것. 건강·안전에 "
+    "닿는 행동(운동·시술 등)은 의료 조언이 아님을 한 구절로 밝힐 것. 질문(해도 되나)에 답하지 "
+    "않고 그날 운세로 바꿔 답하는 것은 금지."
+)
 
 
 def apply_frame_correction(
@@ -152,12 +165,18 @@ def apply_frame_correction(
     if not is_rule_fallback(intent) or frame.lifestyle_item not in GATE_ITEMS:
         return intent, None
     item = frame.lifestyle_item
-    if item is LifestyleItem.COLOR:
+    if item in (LifestyleItem.COLOR, LifestyleItem.CLOTHING):
         from .yongsin_color import detect_asked_colors
 
         new = intent.model_copy(update={
             "query_type": QueryType.REMEDY, "color_question": True,
             "colors_asked": detect_asked_colors(question),
+        })
+    elif item in (LifestyleItem.ACTIVITY, LifestyleItem.GROOMING):
+        new = intent.model_copy(update={
+            "query_type": QueryType.REMEDY, "activity_question": True,
+            "activity_topic": frame.topic_object or ("머리·미용" if item is LifestyleItem.GROOMING
+                                                     else "그 행동"),
         })
     elif item is LifestyleItem.DIRECTION:
         new = intent.model_copy(update={

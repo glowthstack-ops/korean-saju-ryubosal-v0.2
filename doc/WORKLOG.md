@@ -12923,3 +12923,18 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 회귀: `tests/integration/test_question_frame_gate.py` 6건(색·방향·장소 보정, 룰 확정 불변, 미지원 항목 불변, 게이트 OFF=shadow 만),
   `test_question_frame.py` +3(보정 함수·too_broad 면제·파싱 정책). 응답 `intents` 는 파서 원본이라 보정 검증은 프롬프트·assessment 로 한다.
 - 다음: activity(운동·외출·약속 가부)/clothing(옷·복장)/grooming(머리·미용) 의 명리 통설을 검색으로 보충 → 사전·블록 설계안 제시 후 승인 → GATE_ITEMS 확장.
+
+## 2026-10-28 — 질문 이해 층 A안: clothing=색 층 · activity/grooming=행동 가부 지시(새 사전 없음) (데굴님 "그래 권장대로 진행하자")
+
+- **검색 보충 결과(1차 표준 + 2차 확장)**: ① 옷 — 오행 대응은 색만 반복 확인(초록/빨강/노랑/흰·금속/검정), 소재·패턴(면·실크·니트·금속·쉬폰) 대응은
+  개인 블로그·스레드 수준으로 공통 기준 없음. ② 이발·손톱 — 통서 제두(剃頭)·정수족갑 항목의 현대 자료 없음, 검색되는 건 이사·혼례용 손없는날·황도일.
+  ③ 운동·외출·약속 — 일진 십성 기반 활동 권고 자료 없음, 건제12신(建除十二神)·황도흑도 택일 체계만. → 원칙 10(문서에 없는 명리 규칙 임의 도입 금지)에 따라
+  새 사전 없이 기존 층으로 처리(A안, 데굴님 승인).
+- **구현**: `GATE_ITEMS` += clothing/activity/grooming. `apply_frame_correction`: clothing → 색 보정과 동일(Q10 + color_question + 지목 색);
+  activity/grooming → Q10 + `IntentJson.activity_question`/`activity_topic`(프레임 topic_object, grooming 기본 '머리·미용').
+  chat: `_lifestyle_lean`·구조 모드에 activity 포함(총운 블록·사건 후보 제거, 그날 일운 사실 유지), 말미 `ACTIVITY_JUDGMENT_DIRECTIVE`(무난/조절/권하지 않음
+  3진 판정·영역별 총운 금지·기신이어도 '하지 말라' 단정 금지·의료 조언 아님). reducer `no_candidates_in_period` 면제에 activity 포함.
+  시점 없는 행동 가부('운동 계속 해도 돼?')는 too_broad 면제 대상이 아니라 되묻기 유지(데굴님 결정).
+- 회귀: `test_question_frame_gate.py` +4(옷→색 블록, 오늘 운동→가부 지시+일운 사실·총운 블록 無, 시점 없음→too_broad, 오늘 머리→가부 지시),
+  `test_question_frame.py` 보정 함수 확장. docs/03 B6·docs/08 D-3 갱신.
+- 미착수(별도 Phase): 건제12신·황도흑도 택일 사전 — 날짜 추천(Q4) 엔진 확장으로 다룬다.

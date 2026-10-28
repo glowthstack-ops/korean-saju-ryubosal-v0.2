@@ -330,6 +330,11 @@ class IntentJson(BaseModel):
     # foods_asked = 사용자가 지목한 음식 어휘(사전 키).
     food_question: bool = False
     foods_asked: list[str] = Field(default_factory=list)
+    # 행동 가부 질문('오늘 운동해도 돼?', '오늘 머리 자를까' — 2026-10-28 A안). 질문 이해 층이 룰
+    # Q1 폴백 턴에서 activity/grooming 을 읽으면 켠다. 새 명리 규칙은 없다 — 그날 일운 길흉(엔진
+    # 사실)으로 가부를 짧게 판정하라는 **답 형태 지시**만 붙는다. activity_topic = 질문한 행동.
+    activity_question: bool = False
+    activity_topic: str = ""
 
     constraints: Constraints = Field(default_factory=Constraints)
     output: OutputStyle = Field(default_factory=OutputStyle)

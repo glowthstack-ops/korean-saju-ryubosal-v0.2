@@ -97,3 +97,50 @@ def test_gate_off_keeps_shadow_only(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     res = chat_service.chat(_BIRTH, "커텐 색 추천해줘", _TODAY, dry_run=True)
     assert res.status == "too_broad" and called == []
+
+
+# ── A안(2026-10-28 "권장대로"): clothing=색 층, activity/grooming=답 형태 지시만 ───────────
+
+
+def test_clothing_fallback_uses_color_layer(gate_on: dict[str, Any]) -> None:
+    gate_on["reply"] = _frame("clothing")
+    res = chat_service.chat(_BIRTH, "오늘 옷 뭐 입을까", _TODAY, dry_run=True)
+    assert res.status == "dry_run", res.answer
+    assert res.prompt_preview is not None
+    assert "[오행 보완 색 — 용희기구한 기준" in res.prompt_preview  # 옷=색(소재 사전 없음)
+
+
+def test_activity_with_day_gets_judgment_directive_not_overview(gate_on: dict[str, Any]) -> None:
+    gate_on["reply"] = (
+        '{"ask_kind":"judgment","lifestyle_item":"activity","answer_shape":"short_pick",'
+        '"brevity":"short","topic_object":"오늘 운동"}'
+    )
+    res = chat_service.chat(_BIRTH, "오늘 운동해도 돼?", _TODAY, dry_run=True)
+    assert res.status == "dry_run", res.answer
+    p = res.prompt_preview or ""
+    assert "[행동 가부 질문 — 말미 고정] 이 턴은 '오늘 운동'을(를)" in p
+    assert "[질문한 날짜의 일운 — 엔진 확정 사실] 2026-10-28" in p
+    for banned in (
+        "[이벤트 후보 — ", "[원국 횡재 그릇", "[연애 유형 — ", "질문 기간 내 해당 도메인 후보 없음",
+    ):
+        assert banned not in p, banned
+
+
+def test_activity_without_time_still_asks_to_narrow(gate_on: dict[str, Any]) -> None:
+    gate_on["reply"] = (
+        '{"ask_kind":"judgment","lifestyle_item":"activity","answer_shape":"short_pick",'
+        '"brevity":"short","topic_object":"운동 지속"}'
+    )
+    res = chat_service.chat(_BIRTH, "운동 계속 해도 돼?", _TODAY, dry_run=True)
+    assert res.status == "too_broad"  # 시점 없음 — 데굴님 결정: 지금처럼 되묻기
+
+
+def test_grooming_with_day_is_activity_judgment(gate_on: dict[str, Any]) -> None:
+    gate_on["reply"] = (
+        '{"ask_kind":"judgment","lifestyle_item":"grooming","answer_shape":"short_pick",'
+        '"brevity":"short","topic_object":"오늘 머리 자르기"}'
+    )
+    res = chat_service.chat(_BIRTH, "오늘 머리 자를까", _TODAY, dry_run=True)
+    assert res.status == "dry_run", res.answer
+    p = res.prompt_preview or ""
+    assert "[행동 가부 질문 — 말미 고정] 이 턴은 '오늘 머리 자르기'을(를)" in p

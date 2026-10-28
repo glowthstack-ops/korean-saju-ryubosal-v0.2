@@ -2754,7 +2754,10 @@ def build_llm_input(
             and intent.query_type is not QueryType.DATE_RECOMMENDATION
             # 음식·끼니 질문의 오행 생활화 턴(2026-10-28)도 사건 점수 공집합이 답과 무관하다 —
             # 메뉴 추천 답이 '뚜렷한 신호가 없습니다'로 시작하는 모순 차단(택일과 같은 이유).
-            and not (_yongsin_food is not None and intent.query_type is QueryType.REMEDY)
+            and not (
+                (_yongsin_food is not None or intent.activity_question)
+                and intent.query_type is QueryType.REMEDY
+            )
         ),
         reference=(
             build_reference_frame(today, intent, result, current_month_label, current_month_detail)
