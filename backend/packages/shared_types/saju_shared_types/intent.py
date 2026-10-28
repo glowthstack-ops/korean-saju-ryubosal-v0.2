@@ -324,6 +324,12 @@ class IntentJson(BaseModel):
     # 흐름 유지) [오행 보완 색] 블록만 더한다. colors_asked = 사용자가 지목한 색 어휘(사전 키).
     color_question: bool = False
     colors_asked: list[str] = Field(default_factory=list)
+    # 오행 생활화 — 음식·끼니 질문 표지('점심 뭐 먹을까', '맞는 음식', 2026-10-28). 색과 같은 모델로
+    # [오행 보완 음식] 블록을 더한다. 색과 달리 룰이 Q1 총운으로 폴백한 경우에만 Q10 으로 승격한다
+    # (도메인어가 없는 끼니 질문이 '오늘' 하나로 일운 총운이 되던 결함).
+    # foods_asked = 사용자가 지목한 음식 어휘(사전 키).
+    food_question: bool = False
+    foods_asked: list[str] = Field(default_factory=list)
 
     constraints: Constraints = Field(default_factory=Constraints)
     output: OutputStyle = Field(default_factory=OutputStyle)

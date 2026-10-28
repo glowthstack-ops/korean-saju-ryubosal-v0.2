@@ -43,6 +43,10 @@ from .challenge_detect import is_challenge
 from .job_separation import is_job_separation
 from .time_parser import WEEK_FRAME_SUN_SAT, parse_time_with_constraints
 from .yongsin_color import detect_asked_colors, is_color_question
+from .yongsin_food import detect_asked_foods, is_food_question
+
+# 궁합형 '잘 맞아/어울려' 어휘 — 음식 질문('맞는 음식')에서는 관계 신호가 아니다(2026-10-28).
+_FIT_WORDS = frozenset({"잘 맞", "안 맞", "어울리"})
 
 # ── 어휘 사전 (실로그 기반 — docs/08 D) ──────────────────────────
 
@@ -1444,6 +1448,27 @@ def parse_message(
         if is_color_question(piece):
             _last.color_question = True
             _last.colors_asked = detect_asked_colors(piece)
+        # 오행 생활화 — 음식·끼니 질문 표지(2026-10-28). 색과 같은 모델로 [오행 보완 음식] 블록을
+        # 더한다. 단 도메인어가 없는 끼니 질문('오늘 점심은 뭘 먹는게 좋을까')은 어느 규칙에도
+        # 안 걸려 Q1 총운으로 폴백하고 '오늘' 하나가 일운 5영역 총운을 만들었다(실로그) —
+        # **Q1 폴백일 때만** Q10 REMEDY(오행 생활화)로 승격한다. 룰이 확정한 유형(건강 분석·
+        # 택일·비교 등)은 불변.
+        if is_food_question(piece):
+            _last.food_question = True
+            _last.foods_asked = detect_asked_foods(piece)
+            if _last.query_type is QueryType.FORTUNE_OVERVIEW:
+                _last.query_type = QueryType.REMEDY
+            # '맞는 음식·안 맞는 음식'의 '잘 맞/안 맞'은 궁합 어휘가 아니다 — 그 어휘만으로 관계
+            # 도메인이 잡혔으면 되돌린다(다른 관계어가 있으면 유지).
+            _fit_only = not any(
+                _domain_word_position(piece, w) >= 0
+                for w in _DOMAIN_WORDS[Domain.RELATIONSHIP]
+                if w not in _FIT_WORDS
+            )
+            if _fit_only:
+                if _last.domain is Domain.RELATIONSHIP:
+                    _last.domain = _last.domains.pop(0) if _last.domains else Domain.GENERAL
+                _last.domains = [d for d in _last.domains if d is not Domain.RELATIONSHIP]
         # 육친 운 — 원국 육친 축 질문. 관계어가 대상으로 잡혔어도 미해소면 본인 명식으로 본다
         # (등록 동반자 해소는 스레드 엔진이 subjects를 덮어쓴다).
         if detect_kin_axis(piece) is not None:

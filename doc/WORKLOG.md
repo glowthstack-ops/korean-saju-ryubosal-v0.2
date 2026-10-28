@@ -12839,3 +12839,35 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 결함 1: `profile_engine.derive_relationship_status` 가 별거·이혼을 `divorced` 로 내는데 `_REL_FAMILY_FRAME`·`_REL_VERDICT_EXAMPLE` 에 키가 없어 '미입력' 프레임 + 말미 "교제 상태가 입력되지 않았으므로" 거짓 전제가 붙었다 → divorced 키 추가(기존 엔진과 같게 '상대 없음' 군). docs/06 갱신, 회귀 parametrize 1건 + 입력된 상태엔 '미입력' 문구 금지 검사.
 - 결함 2(확장 누락): 라우터가 기준 사주(`req.subject_id`)로 읽은 `relationship_status`·`occupation_status`·`employment_form`·`occupation_category` 가 companion_only 전환 뒤에도 그대로라, 동반자 답의 관계 해석 틀·배우자 지시·개인화 점수에 사용자 본인 상태가 실렸다 → 전환 분기에서 `profile_event_signals(primary subject_id)` 로 재조회(미등록 → None×4). 전환 전에 planner 범위에 반영된 `nonregular`(비정직원 취업 보강)는 기준 사주 값 그대로(범위 밖, 기록). 회귀 `test_companion_coread_p2b.py` 2건(재조회·본인 질문 반례, DB 환경 한정).
 - 기록만(미수정): `_NO_LOVE_NOTE_SECTIONS` 는 `luck_block` 만 막고 `month_slice_block` 은 도메인만 본다(현재 F-17c 월별 페이지가 없어 실영향 없음) / `SAJU_RELATION_HIT_DEDUP_ENABLED` 는 docs 미기재(period_v2_config 주석·WORKLOG만) / `impossible_relation_stripped` 가 첫 문장(판정 선언)을 지우면 첫 문단 계약이 빌 수 있어 로그에서 문장 인덱스 0 비율 관찰 권고.
+
+## 2026-10-28 — 끼니·음식 질문 오행 생활화 층(P0): "오늘 점심은 뭘 먹는게 좋을까"가 일운 5영역 총운으로 답하던 결함 (데굴님 "통설 사용 · 권장내용 대로 · 동의 · 진행해")
+
+- **실로그**: 질문 "오늘 점심은 뭘 먹는게 좋을까" → 답은 일·재물·관계·건강 일운 총운, 점심·음식 언급 0.
+  경로: `_detect_domains` 음식 어휘 없음 → `_detect_query_type` 폴백 Q1 FORTUNE_OVERVIEW → '오늘' → daily 총운.
+  임베딩 보조기(`_augment_domain_by_similarity`)도 시드 코퍼스에 음식·생활 라벨이 없어 무개입.
+- **설계 대비 빈칸**: docs/03 Q10 예시 "맞는 음식"·docs/08 D2-4 "음식/생활 보완 → 오행 보완 → 생활 항목 매핑 사전"·
+  docs/02 remedy 5번 분기 "오행 생활화(색·방향·음식)" — 색(2026-10-01)·방향(2026-09-22)만 구현, 음식 층 부재.
+- **구현(색 층과 같은 모델)**:
+  - 사전 `dictionaries/calendar/food_rules.json` v1.0.0 — 오행 × 五味(木酸·火苦·土甘·金辛·水鹹)·색·식재료·끼니 예시,
+    통설 초안(reviewed:false, 데굴님 '통설 사용'). 복합 요리(김치찌개·김밥·불고기 등)·1글자 어휘는 별칭 제외, 보류 큐.
+  - `saju_engines/yongsin_food.py` — `is_food_question`(일정 '점심 약속'·복약 '약 먹'·생계 '해먹고 살'·비유 '나이 먹' 제외),
+    `detect_asked_foods`(긴 어휘 우선), `build_yongsin_food_note`(용신·희신·한신·기신·구신 전 역할 후보 + 지목 음식 역할 + 미등재 보류),
+    `format_yongsin_food_lines`, `YONGSIN_FOOD_INSTRUCTION`(상생 연쇄 금지·기신 완화 '주식으로 몰아 먹지는 말기'·인과 단정 금지·
+    영양/의료 조언 아님·희신 1차 대안), `YONGSIN_FOOD_CLOSING_DIRECTIVE`(말미 고정 — 메뉴 2~3개+이유 한 문장+그날 운 한 줄, 영역별 총운 금지).
+  - 타입: `IntentJson.food_question/foods_asked`, `YongsinFoodEntry/YongsinFoodNote`(sinsal_direction.py), `LlmInput.yongsin_food`.
+  - 파서 후처리: 음식 표지 → 플래그; **룰이 Q1 FORTUNE_OVERVIEW 로 폴백한 경우에만 Q10 REMEDY 승격**(룰 확정 유형 불변, 데굴님 동의 3).
+    '맞는/안 맞는 음식'의 '잘 맞·안 맞·어울리'(`_FIT_WORDS`)만으로 잡힌 관계 도메인은 되돌림(다른 관계어 있으면 유지).
+  - reducer: `yongsin_food` 블록(색 블록 뒤) + 지침; 승격 턴은 `no_candidates_in_period` 면책을 끈다(택일과 같은 이유 — 메뉴 답이
+    '뚜렷한 신호가 없습니다'로 시작하는 모순).
+  - chat_service: 승격 턴 `_food_remedy` = 구조 모드(`is_structural`, 방향 질문과 동일 — 사건 후보·기간 외 흐름·이동 주체 지시 제거),
+    총운용 구조 블록(횡재 그릇·재물 준비기·부귀·배우자성·결혼자산·연애유형·혼기·궁위·인상) 제외(`_lifestyle_lean`), 건강 취약·토픽 신호 제외,
+    말미 지시 부착. 날짜 일운 사실([질문한 날짜의 일운]·[해당 일 일운])은 구조 모드와 무관하게 남아 '그날 운 한 줄' 재료가 된다.
+  - 실측: 점심 질문 프롬프트 19,183 → 9,833 토큰. 남은 블록 = 원국·공망·지장간·해석자료·작동역할·간지달력·일운·구조패턴·음식 표.
+- **오늘 일진 오행 반영 규칙은 넣지 않음**(데굴님 권장안 채택 — 문서에 없는 명리 규칙). 용희신 기준 + 그날 운 한 줄만.
+- 회귀: `tests/unit/test_yongsin_food.py`(표지·제외·사전·후보표·파서 승격/비승격/색 비회귀), `tests/integration/test_food_lifestyle_wiring.py`
+  (dry_run 프롬프트 — 음식 표·말미 지시·일운 사실 有, 총운 구조 블록·건강 취약·이벤트 후보·이동 주체 無 / 총운·색 질문 불변).
+- 문서: docs/05 사전 목록 `food_rules.json`, docs/08 D-3 5번 음식 규격.
+- **같은 계열 관찰(미수정, 결정 대기)**: 시점·도메인 없는 색 질문('커튼 색 추천해줘')은 Q1 폴백 → `too_broad` 바운스(색 층은 라우팅 불변
+  규격). 음식과 같은 'Q1 폴백 시 Q10 승격'을 색에도 적용할지 데굴님 결정 필요. '오늘 옷 뭐 입을까'·'오늘 머리 자를까'·'오늘 운동해도 돼' 등
+  생활 선택 질문은 여전히 '오늘' 하나로 일운 총운 — 룰 어휘 추가가 아니라 질문 이해 층(소형 LLM `QuestionFrame`, shadow 측정 후 게이트)이 담당
+  하기로 함(별도 단위, Ollama + gemma4 e2b 1차 후보).

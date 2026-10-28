@@ -136,6 +136,11 @@ from .yongsin_direction import (
     build_yongsin_direction_note,
     format_yongsin_direction_lines,
 )
+from .yongsin_food import (
+    YONGSIN_FOOD_INSTRUCTION,
+    build_yongsin_food_note,
+    format_yongsin_food_lines,
+)
 
 TOP_N_CANDIDATES = 5  # 기본 Top N (docs/03 B5 — 3~5)
 SCORE_FLOOR = 40  # docs/06 톤 표: <40은 언급 생략 구간 → LLM 미전달
@@ -2700,6 +2705,16 @@ def build_llm_input(
         if intent.color_question and not _ug_unconfirmed
         else None
     )
+    # 오행 보완 음식 첨언(2026-10-28 데굴님 승인) — 음식·끼니 질문 턴에만. 색과 같은 모델: 엔진이
+    # 역할별 五味·식재료·끼니 예시를 모두 제시하고 LLM 은 표 밖 후보를 만들지 않는다.
+    _yongsin_food = (
+        build_yongsin_food_note(
+            favorability if favorability is not None else favorability_map(result),
+            intent.foods_asked, confirmed=favorability_confirmed,
+        )
+        if intent.food_question and not _ug_unconfirmed
+        else None
+    )
     # 오행 보완 방향 첨언(2026-09-22 데굴님 승인) — 사용자가 직접 방향을 물은 턴(수동 블록)에만.
     # 12신살 활용 방향과 별개 층(docs/18 §1-5 분리 병기), 합산 금지. 능동·택일·이사 경로 미노출.
     _yongsin_direction = (
@@ -2737,6 +2752,9 @@ def build_llm_input(
             and not llm_candidates
             and date_selection is None
             and intent.query_type is not QueryType.DATE_RECOMMENDATION
+            # 음식·끼니 질문의 오행 생활화 턴(2026-10-28)도 사건 점수 공집합이 답과 무관하다 —
+            # 메뉴 추천 답이 '뚜렷한 신호가 없습니다'로 시작하는 모순 차단(택일과 같은 이유).
+            and not (_yongsin_food is not None and intent.query_type is QueryType.REMEDY)
         ),
         reference=(
             build_reference_frame(today, intent, result, current_month_label, current_month_detail)
@@ -2754,6 +2772,7 @@ def build_llm_input(
         folk_taboo_context=_folk_lines,
         yongsin_direction=_yongsin_direction,
         yongsin_color=_yongsin_color,
+        yongsin_food=_yongsin_food,
         is_followup_turn=is_followup_turn,
         prior_claims=prior_claims or [],
         prior_statements=prior_statements or [],
@@ -3841,6 +3860,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
     lines += format_yongsin_direction_lines(payload.yongsin_direction)
     # 오행 보완 색 첨언 — 색 질문 턴 전용(같은 층 모델, 2026-10-01).
     lines += format_yongsin_color_lines(payload.yongsin_color)
+    # 오행 보완 음식 첨언 — 음식·끼니 질문 턴 전용(같은 층 모델, 2026-10-28).
+    lines += format_yongsin_food_lines(payload.yongsin_food)
     lines += payload.samjae_context
     lines += payload.folk_taboo_context
     if payload.evidence:  # 근거 경로 — 후보·증거 있을 때만(구조 질문 등 빈 헤더 방지).
@@ -3896,6 +3917,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(YONGSIN_DIRECTION_INSTRUCTION)
     if payload.yongsin_color is not None:
         lines.append(YONGSIN_COLOR_INSTRUCTION)
+    if payload.yongsin_food is not None:
+        lines.append(YONGSIN_FOOD_INSTRUCTION)
     if payload.samjae_context:
         lines.append(SAMJAE_INSTRUCTION)
     if payload.folk_taboo_context:
