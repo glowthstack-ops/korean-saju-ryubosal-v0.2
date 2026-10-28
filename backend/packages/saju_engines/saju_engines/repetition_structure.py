@@ -44,6 +44,12 @@ DISTANCE_WEIGHT: dict[int, float] = {1: 1.0, 2: 0.7, 3: 0.5}
 _SELF_PUNISH_CHARS = frozenset(str(b) for b in SELF_PUNISHMENT)
 _BRANCHES = frozenset("子丑寅卯辰巳午未申酉戌亥")
 _LAYER_KO = {"daewoon": "대운", "year": "세운", "month": "월운", "day": "일운"}
+#: 궁위 라벨(활성화 줄의 궁위별 가능성 영역 안내용, 2026-10-28). 사전 `palace` 항목의
+#: palace_ko 가 있으면 그쪽이 우선.
+_PALACE_KO = {
+    "year": "연지(조상·사회 배경)", "month": "월지(사회·직장)",
+    "day": "일지(배우자·몸)", "hour": "시지(자녀·지향·투자)",
+}
 _DICT_PATH = (
     Path(__file__).resolve().parents[3]
     / "dictionaries" / "interpretations" / "repetition_text.json"
@@ -263,8 +269,39 @@ def group_line(group: RepetitionGroup) -> str:
     return head
 
 
+def _palace_suffix(act: RepetitionActivation, text: dict | None = None) -> str:
+    """활성화 줄 뒤의 가능성 영역 안내(2026-10-28, 서술 전용) — 자형 글자의 공통 활성화 문구 +
+    원국 기둥별 궁위 문구. 사전에 해당 글자·궁위 항목이 없으면 빈 문자열(공통 문구 폴백).
+
+    단정이 아니라 '거론될 수 있는 영역'이다 — 같은 영역의 독립 사건 후보가 있으면 그 판정이 우선.
+    """
+    if act.relation != "same" or act.char not in _BRANCHES:
+        return ""
+    text = text or load_repetition_text()
+    parts: list[str] = []
+    if act.is_self_punishment:
+        entry = next((x for x in text.get("self_punishment", []) if x["char"] == act.char), None)
+        if entry and entry.get("activation"):
+            parts.append(f"활성화 결: {entry['activation']}")
+    by_palace = {
+        (x["char"], x["palace"]): x for x in text.get("palace", []) if x.get("text")
+    }
+    for pos in act.natal_positions:
+        item = by_palace.get((act.char, pos))
+        if item is None:
+            continue
+        label = item.get("palace_ko") or _PALACE_KO.get(pos, pos)
+        parts.append(f"궁위 가능성 영역 — {label}: {item['text']}")
+    if not parts:
+        return ""
+    return (
+        " · " + " / ".join(parts)
+        + " (가능성 안내 — 사건 확정 아님, 같은 영역 사건 후보가 있으면 그 판정 우선)"
+    )
+
+
 def activation_line(act: RepetitionActivation) -> str:
-    """운 활성화 한 줄 — 새 사건이 아니라 구조의 기간 활성화."""
+    """운 활성화 한 줄 — 구조의 기간 활성화(+ 사전에 있으면 궁위별 가능성 영역)."""
     lv = _LAYER_KO.get(act.layer, act.layer)
     seat = "지" if act.char in _BRANCHES else "간"
     where = "·".join(f"{_POS_KO[p]}{seat}" for p in act.natal_positions)
@@ -272,12 +309,12 @@ def activation_line(act: RepetitionActivation) -> str:
     if act.kind == "natal_group_active":
         return (
             f"{lv} {act.luck_char} 유입 — 원국 {act.char} 반복 그룹({where}){sp}의 기간 활성화"
-            "(새 사건이 아니라 기존 구조가 이 기간 두드러짐)"
+            "(새 사건이 아니라 기존 구조가 이 기간 두드러짐)" + _palace_suffix(act)
         )
     if act.kind == "period_new":
         return (
             f"{lv} {act.luck_char} 유입 — 원국 {act.char}({where})와 기간 한정{sp} 성립"
-            "(이 기간에만)"
+            "(이 기간에만)" + _palace_suffix(act)
         )
     if act.kind == "luck_luck":
         ups = "·".join(_LAYER_KO.get(x, x) for x in act.luck_layers)

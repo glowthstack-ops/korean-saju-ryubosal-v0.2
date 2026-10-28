@@ -623,12 +623,23 @@ class RepetitionBranchItem(_AliasModel):
 
 
 class SelfPunishmentItem(_AliasModel):
-    """자형 1건 — 辰·午·酉·亥 만."""
+    """자형 1건 — 辰·午·酉·亥 만. activation 은 운 활성화 공통 결(가능성 서술, 2026-10-28)."""
 
     char: Literal["辰", "午", "酉", "亥"]
     center: str = Field(min_length=4)
     positive: str = Field(min_length=4)
     negative: str = Field(min_length=4)
+    activation: str | None = Field(default=None, min_length=10)
+    reviewed: bool
+
+
+class RepetitionPalaceItem(_AliasModel):
+    """자형 글자 × 원국 궁위별 가능성 영역 1건(2026-10-28) — 어느 기둥의 글자와 자형을 이루느냐."""
+
+    char: Literal["辰", "午", "酉", "亥"]
+    palace: Literal["year", "month", "day", "hour"]
+    palace_ko: str = Field(alias="palace_ko", min_length=2)
+    text: str = Field(min_length=10)
     reviewed: bool
 
 
@@ -641,6 +652,8 @@ class RepetitionTextFile(_AliasModel):
     stems: list[RepetitionStemItem] = Field(min_length=10, max_length=10)
     branches: list[RepetitionBranchItem] = Field(min_length=12, max_length=12)
     self_punishment: list[SelfPunishmentItem] = Field(min_length=4, max_length=4)
+    # 궁위별 가능성 영역(선택) — 감수 전 글자는 비워 두고 공통 문구로 폴백한다.
+    palace: list[RepetitionPalaceItem] = Field(default_factory=list)
 
 
 class TenGodGroupTraitItem(_AliasModel):
@@ -3361,9 +3374,20 @@ def _lint_repetition_text(file: RepetitionTextFile) -> list[str]:
     texts = [i.base for i in file.stems] + [i.excess for i in file.stems]
     texts += [i.base for i in file.branches]
     texts += [t for i in file.self_punishment for t in (i.center, i.positive, i.negative)]
+    texts += [i.activation for i in file.self_punishment if i.activation]
+    texts += [i.text for i in file.palace]
     for w in _LOVE_TYPE_BANNED:
         if any(w in t for t in texts):
             errors.append(f"{head}: 금지 어휘 '{w}'")
+    # 궁위 항목: (글자, 궁위) 중복 금지, 있으면 원칙 palace_possibility 필수(가능성≠단정 규약).
+    seen: set[tuple[str, str]] = set()
+    for i in file.palace:
+        pk = (str(i.char), str(i.palace))
+        if pk in seen:
+            errors.append(f"{head}: 궁위 항목 중복 {pk}")
+        seen.add(pk)
+    if file.palace and "palace_possibility" not in file.principles:
+        errors.append(f"{head}: palace 항목이 있으면 principles.palace_possibility 필수")
     return errors
 
 
