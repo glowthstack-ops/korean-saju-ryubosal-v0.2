@@ -72,6 +72,7 @@ class SubjectResolution(BaseModel):
     alias_updates: dict[str, str] = Field(default_factory=dict)  # 별칭 → companion_id 학습
     correction: bool = False  # A10 대상 혼동 정정 → 동일 intent 재실행 신호
     time_unknown: bool = False  # A13 생시 미상 → 3주 모드 + 신뢰도 하향
+    inherited: bool = False  # A0 4순위 — 지칭 없음으로 직전 턴 대상을 상속했다(shadow 대조용)
 
 
 class ResultSummaryRef(BaseModel):

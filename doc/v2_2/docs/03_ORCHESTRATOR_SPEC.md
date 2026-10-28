@@ -405,6 +405,13 @@ LLM 입력 직전 최종 필터. 규칙:
 - 기동 절차: `scripts/ensure_ollama.sh`(멱등 — 플래그 OFF 면 no-op, 서버 응답 확인 → 없으면 사용자 레벨 `ollama serve` 기동 → 모델 없으면 pull, 실패해도 exit 0)를 `scripts/dev.sh`·`scripts/restart_backend.sh` 가 백엔드 기동 전에 호출한다. Ollama 부재 시 백엔드는 룰만으로 정상 기동(절대 원칙 11). 영구화는 systemd 유닛 `OLLAMA_HOST` 포트 지정(sudo, README).
 - 측정 재현: `python scripts/measure_question_frame.py --db` — 2026-10-28 v2: 531건, 프레임 OK 515, p50 312ms/p95 394ms, `lifestyle_on_overview_fallback` 15(검수 13 진짜 결함 ≈87%). venting/meta/timing 라벨은 룰이 더 정확해 보정에 쓰지 않는다.
 
+**시제·대상 shadow 필드(2026-10-28 데굴님 "분류 모델 병행 쪽은 우선 제외하고 진행")** — 같은 날 실답 두 건(소원형 '있었으면'이 회고 모드로, 동반자 스레드 뒤 '내가'가 남편 상속으로)에서 룰이 형태소 하나에 기대는 지점이 드러나, 프레임에 세 키를 더해 **shadow 로만** 관측한다. 라우팅·시점·대상 확정에는 쓰지 않으며 게이트는 측정·표본 검수 후 별도 승인.
+- `time_direction`: past / future / wish(바람 — 과거형 어미여도 과거 아님) / counterfactual(반사실) / none. 룰 대조값 = 채팅 회고 판정(`_question_time_direction`, shadow 레코드 `rule_time_direction`). 라벨 `time_rule_past_vs_frame_{wish|future}`(소원형 오판 후보)·`time_rule_future_vs_frame_{past|counterfactual}`. 룰 판정 근거(`_question_time_direction_reason`: window_past/window_future/reported_event/event_explanation/past_phrase/future_phrase/inherited/none)를 함께 기록하고, **창 구조 판정(window_*)은 `time_window_*` 로 따로 센다** — 오늘 날짜를 모르는 프레임이 '5월은 어때?'(10월 기준 과거 창)를 future 로 읽어도 룰이 맞으므로 게이트 후보군이 아니다(v3 측정 24건 중 다수).
+- `subject_frame`: self_explicit / companion_single / companions_only(본인 제외 둘 이상) / self_with_companions / all / unspecified. **ID·별칭 매핑은 하지 않는다**(레지스트리=룰). 룰 대조값 = `rule_subject_frame(intent)`(self / companion_single / companions_only / self_with_companions, 모양만) + `SubjectResolution.inherited`(A0 4순위 상속 여부). 라벨 `subject_frame_self_vs_rule_<룰>` + 상속 턴이면 `subject_self_on_inherited`(본인 복귀 놓침 후보 — 게이트 1순위 검토군), `subject_frame_<군>_vs_rule_self`(미등록 지칭 후보 — 게이트가 열려도 확인 질문 트리거로만), 본인 포함/제외 모양 불일치.
+- `mentioned_people`: 질문 속 사람 지칭 원문(≤5개·각 ≤10자). 검수·향후 미등록 지칭 확인 질문용.
+- 구 형식 출력·집합 밖 값은 기본값(none/unspecified/[])으로 정규화 — 라우팅 필드가 아니므로 프레임을 버리지 않는다. 출력 토큰 상한 120→200. 측정은 `measure_question_frame.py`(단일턴 — 시제 대조만, 대상 상속 대조는 운영 shadow JSONL 에서), 표본은 `time_*`·`subject_*` 라벨 각 10건.
+- 분류 모델(소형 한국어 인코더) 병행은 추가 연구 항목으로 보류(데굴님).
+
 **운용 메모(실측 2026-10-28, RTX 4060 8GB)**: `think=false` 필수(켜면 추론 토큰이 출력을 비움) · Ollama `format`(JSON 스키마 grammar)은 쓰지 않는다(325ms → 2.8~15s, 결과 동일 — `parse_frame`이 검증) · 11434 는 WSL2 에서 Windows 예약 포트 범위라 `SAJU_OLLAMA_BASE_URL`로 포트를 지정한다.
 
 배경: 룰 파서 1,490줄·임베딩 보조기 4종으로도 "오늘 점심은 뭘 먹는게 좋을까"가 Q1 폴백 → '오늘' 하나로 일운 총운이 되었다(2026-10-28 실로그). 어휘 추가는 사례 하나를 고치고 같은 계열('오늘 옷·머리·운동·약속')을 남긴다 — 그 계열을 질문 이해 층이 맡는다. docs/07 T3.1(경량 LLM 1차 + 룰 폴백)의 원설계를 "룰 1차 + 프레임 보정"으로 뒤집어 복원한 것이다.

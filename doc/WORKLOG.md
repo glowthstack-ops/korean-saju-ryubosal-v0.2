@@ -12995,3 +12995,20 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
   남편 명식이 기준인 스레드의 '내가'는 영향 없음.
 - dry-run: A3 = 회고 해제·open_when 승계·`[이직 완료]` 유지 / B3 = 본인(프롬프트 '남편' 0회) / "내가 남편한테 어떻게 해주면" = 남편 유지.
 - 회귀: `tests/unit/test_wish_retro_first_person_self_20261028.py` 21건(반례: 반사실 회고·'하나는'·'난리'·관점 표현·우리가). docs/03 A0·B7, docs/08 A1.
+
+## 2026-10-28 — 질문 이해 층 shadow 확장: 시제(time_direction)·대상 틀(subject_frame)·지칭 목록 (데굴님 "분류모델 병행 쪽은 우선 제외하고 진행할께")
+
+- 배경: 같은 날 실답 두 건이 룰의 형태소 의존 지점을 드러냄(소원형 '있었으면'→회고 모드, 동반자 스레드 뒤 '내가'→남편 상속). 로컬 LLM(gemma4:e2b)
+  프레임에 세 키를 더해 **shadow 로만** 관측 — 라우팅·시점·대상 확정 불변, 게이트는 측정·표본 검수 후 별도 승인. 분류 모델 병행은 보류.
+- `saju_shared_types.question_frame`: `TimeDirection`(past/future/wish/counterfactual/none)·`SubjectFrame`(self_explicit/companion_single/
+  companions_only/self_with_companions/all/unspecified)·`mentioned_people`(≤5·각 ≤10자), shadow 레코드에 `rule_time_direction`·
+  `rule_subject_frame`·`rule_subject_inherited`. `SubjectResolution.inherited`(A0 4순위 상속 여부) 신설.
+- `saju_engines.question_frame`: 프롬프트 키·규칙('내가 보기엔'은 대상 아님)·예시 4건 추가, 파서는 집합 밖·누락을 기본값으로(프레임 폐기 없음),
+  `rule_subject_frame(intent)`(모양만, ID 매핑 없음), `frame_disagreements(rule_retro=, rule_subject_inherited=)` 라벨 `time_rule_past_vs_frame_*`·
+  `time_rule_future_vs_frame_*`·`subject_frame_self_vs_rule_*`·`subject_self_on_inherited`·`subject_frame_<군>_vs_rule_self`·모양 불일치.
+- 배선: chat_service 는 회고 판정(순수 함수)을 프레임 호출 전에 미리 계산해 넘기고, 멀티턴이면 `resolution.inherited` 도 넘긴다. 출력 토큰 120→200.
+- v3 측정(533건, OK 532, p50 472ms)에서 `time_rule_past_vs_frame_future` 24건 대부분이 창 구조 판정('5월은 어때?' = 10월 기준 과거 창)이라 룰이
+  맞는 잡음 → `_question_time_direction_reason`(판정+근거 라벨) 신설, 구조 판정은 `time_window_*` 로 분리해 게이트 후보군(`time_rule_*`)만 남긴다.
+  진짜 후보 예: '몸이 예전 같지 않은데 괜찮아질까?'(룰 '예전'→회고, 프레임 future).
+- 측정: `measure_question_frame.py` 가 시제 대조값을 함께 넘기고 `time_*`/`subject_*` 표본 10건씩 출력(대상 상속 대조는 운영 JSONL 전용).
+- 회귀: `test_question_frame.py` +6건(기본값·정규화·시제/대상 라벨·상속 플래그·관측 대조값). docs/03 B6.

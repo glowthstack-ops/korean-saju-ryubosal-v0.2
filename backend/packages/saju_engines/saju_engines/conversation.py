@@ -767,8 +767,10 @@ class ConversationEngine:
             # 된다면 …"이 직전 동반자(남편)를 상속해 남편 풀이로 나갔다). 관점 표현('내가 보기엔')
             # 과 1인칭 복수('우리가')는 대상 지정이 아니라 제외. SELF 는 스레드 기준 명식이다.
             subjects = [SubjectRef(kind=SubjectKind.SELF, label="본인")]
+        inherited_flag = False
         if not subjects and not unresolved:
             # 직전 턴 subject 상속, 그것도 없으면 self (A0 4순위).
+            inherited_flag = bool(state.active_subjects)
             inherited = state.active_subjects or [
                 SubjectRef(kind=SubjectKind.SELF, label="본인")
             ]
@@ -781,6 +783,7 @@ class ConversationEngine:
             unresolved=unresolved,
             correction=correction,
             time_unknown=time_unknown,
+            inherited=inherited_flag,
         )
 
     def _match_aliases(self, text: str) -> list[tuple[str, list[AliasEntry]]]:

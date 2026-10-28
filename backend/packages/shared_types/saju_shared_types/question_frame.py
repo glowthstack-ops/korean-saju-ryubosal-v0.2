@@ -62,6 +62,33 @@ class Brevity(StrEnum):
     NORMAL = "normal"
 
 
+class TimeDirection(StrEnum):
+    """질문의 시간 방향(shadow, 2026-10-28) — 룰의 회고 판정과 대조만 한다.
+
+    대조 상대는 `chat_service._question_time_direction`. 날짜·창은 만들지 않는다.
+    """
+
+    PAST = "past"  # 이미 지난 일을 묻는다('작년에 왜 힘들었을까')
+    FUTURE = "future"  # 앞으로를 묻는다('내년 이직운')
+    WISH = "wish"  # 바람·소원('일 적당히 있었으면 좋겠어') — 과거형 어미여도 과거가 아니다
+    COUNTERFACTUAL = "counterfactual"  # 반사실('그때 갔었으면 어땠을까')
+    NONE = "none"  # 시간 방향 없음(성향·구조·정책)
+
+
+class SubjectFrame(StrEnum):
+    """질문이 가리키는 대상의 틀(shadow, 2026-10-28) — 누구의 사주인지 **ID 매핑은 하지 않는다**
+    (별칭 레지스트리=룰). 룰이 직전 대상을 상속한 턴과 대조해 본인 복귀·확인 질문 신호로만 쓴다."""
+
+    SELF_EXPLICIT = "self_explicit"  # 1인칭 명시('내가', '나는', '내 사주')
+    COMPANION_SINGLE = "companion_single"  # 제3자 한 명('남편의 재물운')
+    COMPANIONS_ONLY = "companions_only"  # 본인 제외 둘 이상('남편이랑 아들 둘만 비교')
+    SELF_WITH_COMPANIONS = "self_with_companions"  # 본인 포함('남편이랑 내 궁합', '우리 둘')
+    ALL = "all"  # 등록 전체('우리 가족 모두')
+    UNSPECIFIED = "unspecified"  # 대상 언급 없음(직전 대상 상속 대상)
+
+
+MENTIONED_PEOPLE_MAX = 5
+MENTIONED_PERSON_MAX_CHARS = 10
 TOPIC_OBJECT_MAX_CHARS = 20
 
 
@@ -76,6 +103,27 @@ class QuestionFrame(BaseModel):
     brevity: Brevity = Brevity.NORMAL
     # 질문이 실제로 묻는 대상(한국어 명사구). 지시문에만 쓰이며 20자로 자른다.
     topic_object: str = Field(default="", max_length=TOPIC_OBJECT_MAX_CHARS)
+    # shadow 전용(2026-10-28 데굴님 "분류 모델 병행은 제외하고 진행") — 룰 대조·측정만, 라우팅·시점·
+    # 대상 확정에는 쓰지 않는다. 게이트는 측정 후 별도 승인.
+    time_direction: TimeDirection = TimeDirection.NONE
+    subject_frame: SubjectFrame = SubjectFrame.UNSPECIFIED
+    # 질문에 등장한 사람 지칭(호칭·이름 원문, 최대 5개·각 10자). 레지스트리 매핑은 룰이 한다.
+    mentioned_people: list[str] = Field(default_factory=list, max_length=MENTIONED_PEOPLE_MAX)
+
+    @field_validator("mentioned_people", mode="before")
+    @classmethod
+    def _trim_people(cls, v: object) -> list[str]:
+        """문자열 목록만 받는다 — 길이 상한·개수 상한으로 자르고, 빈 값·중복은 버린다."""
+        if not isinstance(v, list):
+            return []
+        out: list[str] = []
+        for item in v:
+            if not isinstance(item, str):
+                continue
+            tok = item.strip().replace("\n", " ")[:MENTIONED_PERSON_MAX_CHARS]
+            if tok and tok not in out:
+                out.append(tok)
+        return out[:MENTIONED_PEOPLE_MAX]
 
     @field_validator("topic_object", mode="before")
     @classmethod
@@ -99,3 +147,9 @@ class QuestionFrameShadow(BaseModel):
     model: str = ""
     disagreements: list[str] = Field(default_factory=list)
     thread_id: str | None = None
+    # 룰 쪽 대조값(shadow, 2026-10-28): 회고 판정('past'/'future')·대상 틀·직전 대상 상속 여부.
+    rule_time_direction: str | None = None
+    # 판정 근거(window_past/past_phrase/…) — 창 구조 판정은 대조에서 따로 센다.
+    rule_time_reason: str | None = None
+    rule_subject_frame: str | None = None
+    rule_subject_inherited: bool | None = None

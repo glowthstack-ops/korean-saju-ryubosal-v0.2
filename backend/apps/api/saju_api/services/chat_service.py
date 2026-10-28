@@ -780,7 +780,23 @@ def _question_time_direction(
     today: date,
     current_month_label: str | None = None,
 ) -> bool:
-    """질문의 시간 방향 판정 — True=과거 회고(retro).
+    """질문의 시간 방향 판정 — True=과거 회고(retro). 근거는 `_question_time_direction_reason`."""
+    return _question_time_direction_reason(question, intent, state, today, current_month_label)[0]
+
+
+def _question_time_direction_reason(
+    question: str,
+    intent: IntentJson,
+    state: ConversationState | None,
+    today: date,
+    current_month_label: str | None = None,
+) -> tuple[bool, str]:
+    """질문의 시간 방향 판정 — (True=과거 회고(retro), 근거 라벨).
+
+    근거 라벨(질문 이해 층 shadow 대조용, 2026-10-28): window_past(창 전체 과거) ·
+    window_future(창 전체 미래) · reported_event · event_explanation · past_phrase(과거 문구·축약
+    과거형) · future_phrase · inherited(open_when 직전 방향 승계) · none. 구조 판정(window_*)은
+    오늘 날짜를 모르는 프레임과 어긋나도 룰이 맞으므로 대조에서 따로 센다.
 
     우선순위: ①창 전체가 오늘 이전인 절대창(구조 신호 — 문구와 무관, 2026-07-21 실로그:
     '2025년 몇월에 성공했을까'가 문구 매칭 실패로 미래 모드가 되던 결함) ②과거 문구
@@ -799,7 +815,7 @@ def _question_time_direction(
         if end:
             end_m = end[:7] if len(end) >= 7 else f"{end}-12"
             if end_m < cur_month:
-                return True
+                return True, "window_past"
         # ①b 창 전체가 오늘 이후인 절대창 — 준비 완료 사실 나열('이미 계약도 끝냈고 잔금만
         # 남았는데')의 축약 과거형이 회고로 뒤집히지 않게 한다(2026-07-22 실로그: 9/30 명시
         # 미래 창 후속이 과거형 서술로 빠짐). 구조 신호가 문구 신호보다 우선(①과 대칭).
@@ -810,25 +826,23 @@ def _question_time_direction(
                 else start[:7] > cur_month
             )
             if starts_future:
-                return False
+                return False, "window_future"
     # 사건 보고형('오늘 해고통보를 받았어. 앞으로 어떻게…')은 과거형 어미가 있어도 묻는 것은
     # 앞으로다(2026-10-13) — 회고 모드로 뒤집으면 미래 조언이 금지된다.
     if intent.dialogue_act == "reported_event":
-        return False
+        return False, "reported_event"
     # 소원·조건형('있었으면 좋겠어')은 과거 표지가 아니다 — 문구 검사 전에 가린다.
     question = _WISH_CONDITIONAL_RE.sub(" ", question)
-    if (
-        intent.query_type is QueryType.EVENT_EXPLANATION
-        or any(k in question for k in _PAST_KEYWORDS)
-        or _has_contracted_past(question)
-    ):
-        return True
+    if intent.query_type is QueryType.EVENT_EXPLANATION:
+        return True, "event_explanation"
+    if any(k in question for k in _PAST_KEYWORDS) or _has_contracted_past(question):
+        return True, "past_phrase"
     if _FUTURE_WHEN_RE.search(question):
-        return False
+        return False, "future_phrase"
     if tr is not None and tr.type == "open_when":
         # 자체 방향 신호 없는 open_when(상속/단답) → 직전 방향 승계(기본 미래).
-        return bool(state is not None and state.last_retro)
-    return False
+        return bool(state is not None and state.last_retro), "inherited"
+    return False, "none"
 
 
 # 사건 보고형 답변 계약(2026-10-13 데굴님 지시) — 실로그: "오늘 해고통보를 받았어. 앞으로
@@ -5425,6 +5439,7 @@ def chat(
     _prev_question_norm = ""
     repeated = False
     is_followup_turn = False
+    _qf_subject_inherited: bool | None = None  # 질문 이해 층 shadow 대조값(멀티턴에서만 확정)
     _is_challenge_turn = False  # 이의·인용 반문 턴(CHALLENGE 링크) — 정정 답 계약·원장 주입 근거.
     prior_intent = None  # 직전 턴 intent — 활성 스레드 맥락 기반 broad 제안용.
     if thread_id is not None:
@@ -5472,6 +5487,7 @@ def chat(
         # 첨부(없으면 None)로 갱신 — 프론트 첨부/해제가 곧 서버 상태가 된다.
         state.partner = partner_ref
         repeated = state.repeat_count >= 2
+        _qf_subject_inherited = bool(resolution.inherited)
         if resolution.unresolved:
             store.save(state)
             return ChatResponse(
@@ -5505,11 +5521,20 @@ def chat(
     # 로컬 LLM 을 동기 호출해 색·방향·음식·장소 생활 질문을 각자의 룰 경로(Q10·거주 분석)로 보정한다
     # (데굴님 "우선 켜고", 측정 정밀도 ≈87%·p50 312ms). 그 외 턴은 백그라운드 shadow 로그만
     # (답변·라우팅·지연 영향 0). 룰이 확정한 유형·도메인은 어느 경우에도 덮어쓰지 않는다.
+    # 시제·대상 shadow 대조값(2026-10-28): 회고 판정은 순수 함수라 여기서 미리 계산해 넘긴다(뒤의
+    # 본 판정과 같은 입력·같은 결과). 대상 상속 여부는 대화 엔진 해소 결과(단일턴이면 None).
+    _qf_rule_retro, _qf_time_reason = _question_time_direction_reason(
+        question, intent, state, today, luck_month,
+    )
     intent, _qf_observed = question_frame_service.correct_if_fallback(
-        question, intent, thread_id=thread_id,
+        question, intent, thread_id=thread_id, rule_retro=_qf_rule_retro,
+        rule_time_reason=_qf_time_reason, rule_subject_inherited=_qf_subject_inherited,
     )
     if not _qf_observed:
-        question_frame_service.observe_async(question, intent, thread_id=thread_id)
+        question_frame_service.observe_async(
+            question, intent, thread_id=thread_id, rule_retro=_qf_rule_retro,
+            rule_time_reason=_qf_time_reason, rule_subject_inherited=_qf_subject_inherited,
+        )
 
     # P2 불변식(2026-07-14) — 배제 기간은 엔진 창이 될 수 없다: 승계·임베딩 시점 보강이
     # 배제 연도를 시점으로 합성하면 시점 미확정으로 되돌린다(명시적 재요청 승격은 대화
