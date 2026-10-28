@@ -20,6 +20,11 @@
     "claude-haiku-4-5": {
       "input": 1.0,
       "output": 5.0
+    },
+    "gemma4:e2b": {
+      "input": 0.0,
+      "output": 0.0,
+      "note": "로컬 Ollama(질문 이해 층) — 비용 0, 가격표 커버리지 게이트용 등재(2026-10-28)"
     }
   }
 }

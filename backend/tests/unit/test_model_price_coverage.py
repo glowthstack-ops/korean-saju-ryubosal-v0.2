@@ -37,7 +37,7 @@ def test_configured_models_are_sorted_and_deduplicated() -> None:
 
 def test_roles_cover_primary_fallback_parser() -> None:
     """역할이 늘거나 줄면 커버리지 범위가 조용히 달라진다."""
-    assert llm_client.MODEL_ROLES == ("primary", "fallback", "parser")
+    assert llm_client.MODEL_ROLES == ("primary", "fallback", "parser", "question_frame")
 
 
 # ── 계약 경계 ────────────────────────────────────────────────────────────

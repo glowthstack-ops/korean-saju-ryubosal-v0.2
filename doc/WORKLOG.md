@@ -12871,3 +12871,34 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
   규격). 음식과 같은 'Q1 폴백 시 Q10 승격'을 색에도 적용할지 데굴님 결정 필요. '오늘 옷 뭐 입을까'·'오늘 머리 자를까'·'오늘 운동해도 돼' 등
   생활 선택 질문은 여전히 '오늘' 하나로 일운 총운 — 룰 어휘 추가가 아니라 질문 이해 층(소형 LLM `QuestionFrame`, shadow 측정 후 게이트)이 담당
   하기로 함(별도 단위, Ollama + gemma4 e2b 1차 후보).
+
+## 2026-10-28 — 질문 이해 층(Question Frame, docs/03 B6) shadow 구축·측정: 소형 로컬 LLM(Ollama gemma4:e2b) (데굴님 "Ollama 설치 후 한 번에 진행하자" · "wsl에 설치했어")
+
+- **배경**: 룰 파서 1,490줄 + 임베딩 보조기 4종으로도 생활 선택 질문('오늘 점심/옷/머리/운동')이 Q1 폴백 → '오늘' 하나로 일운 총운.
+  어휘 추가(P0 음식 층)는 사례 하나를 고치고 계열을 남긴다 → 질문 전체 의도를 읽는 층을 분리(데굴님 제안 = docs/07 T3.1 원설계의 복원).
+- **환경**: WSL Ollama 0.40.12. 11434 가 Windows 예약 포트 범위(11368–11467)라 systemd 유닛은 bind 실패 루프(`activating`) —
+  사용자 레벨 `ollama serve`(OLLAMA_HOST=127.0.0.1:11500, 래퍼 scratchpad/run_ollama.sh, 로그 var/ollama.log)로 기동, RTX 4060 8GB CUDA 인식.
+  영구화는 `sudo systemctl edit ollama` 에 `Environment=OLLAMA_HOST=127.0.0.1:11500`(데굴님 작업). `.env` 에 `SAJU_OLLAMA_BASE_URL`·`SAJU_QUESTION_FRAME_SHADOW=1` 추가.
+- **구현**:
+  - 타입 `saju_shared_types/question_frame.py` — `QuestionFrame`(ask_kind 8·lifestyle_item 8·answer_shape 6·brevity 2·topic_object≤20자, 전부 enum, 간지·점수·날짜 없음),
+    `QuestionFrameShadow`(룰 결정·프레임·불일치·지연). 집합 밖 값 = 프레임 전체 폐기.
+  - 엔진 `saju_engines/question_frame.py` — 분류 프롬프트(예시 5, 필드 혼용 금지 규칙)·`parse_frame`·`frame_disagreements`(8라벨)·`is_rule_fallback`(Q1+GENERAL).
+  - `llm_client` — `ollama` 공급자(`/api/chat`, think/format 은 profile 로), `call_role_raw(role…)`(메인·폴백 체계 밖 보조 호출, query_parser 가드 2k),
+    `MODEL_ROLES` 에 `question_frame` 추가(가격표 gemma4:e2b 0.0 등재 — 커버리지 게이트 범위 유지), 로컬 공급자는 키 미설정 판정 제외.
+  - `llm_config.json` `question_frame` 역할(provider ollama · gemma4:e2b · think=false · base_url_env), `options.question_frame_timeout_seconds=3`.
+  - 서비스 `question_frame_service.py` — `observe_sync`(예외 없음)·`observe_async`(ThreadPoolExecutor, 플래그 게이트, 로그 1줄 + var/question_frame_shadow.jsonl).
+    chat_service `parse_message`→보강 직후 `observe_async` 1줄(답변·라우팅·지연 영향 0).
+  - 측정 `scripts/measure_question_frame.py`(maintained allowlist 편입) — 모집단 = intent_eval.jsonl 40 + docs/08 따옴표 예시(표 조각 제외) + 저장 채팅 사용자 발화 300.
+  - 회귀 `tests/unit/test_question_frame.py` 14건(검증·대조·공급자 monkeypatch·서비스 무예외·플래그 게이트), `test_model_price_coverage` 역할 4종.
+- **실측 결정 2건**: ① `think=false` 필수 — 켜면 추론 토큰이 출력을 비움(content ''). ② Ollama `format`(JSON 스키마 grammar) 미사용 —
+  325ms → 2.8~15s 로 요동, 결과 동일(`parse_frame` 검증으로 충분).
+- **측정(v2, var/question_frame_measure_20261028_v2.txt)**: 모집단 531 · 프레임 OK 515 · 파싱 실패 16(3.0%, 필드 값 혼용 '감사합니다~'류 짧은 발화) ·
+  지연 p50 312ms · p95 394ms · max 832ms. 불일치 61/515.
+  - `lifestyle_on_overview_fallback` 15 — 검수: 13건 진짜 결함(색 3: '커텐 색'·'좋은 색상'·'붉은색은 좀 그래' / 방향 6: '방 방향'·'침대헤드방향'·'북쪽은 안돼'·'서북서'… /
+    장소 3: '보금자리 옮기는'·'다른 동네로'·'목기운 강한 지역'·'절 추천' / 행동 1: '운동 계속 해도 돼'), 2건 경계('이번달 뭘 하면'·직업 변화 장문). **정밀도 ≈ 87%**.
+    색 2건은 현재 Q1 폴백 → too_broad 바운스(10-28 P0 기록 건)와 같은 결함.
+  - `timing_vs_rule` 103→12(시점 창 있는 턴 제외로 정제) — 남은 건 '괜찮은 때야?'·'몇월쯤이 적합할까'류 룰 미탐 + 스레드 없는 단답 슬롯.
+  - `venting_vs_rule_analysis` 11 — '왜 그랬을까'류를 프레임이 venting 으로 읽음(룰의 Q5/Q8 회고가 맞다) → 게이트 대상 아님.
+  - `meta_vs_rule` 4 — 정정 발화를 meta 로 읽음(룰 Q12 가 맞다) → 게이트 대상 아님. 로또 번호는 룰 out_of_scope 유지.
+- **라우팅 변경 없음(shadow)**. 게이트 ON 범위 제안(결정 대기): `is_rule_fallback` ∧ lifestyle_item ∈ {color→Q10+색 블록, direction→Q10 방향, food→Q10 음식, place→RELOCATION 분석}.
+  activity/clothing/grooming 은 엔진 층이 없어 답 형태 지시만 가능 — 별도 결정. venting/meta/timing 라벨은 보정에 쓰지 않는다(룰이 더 정확).

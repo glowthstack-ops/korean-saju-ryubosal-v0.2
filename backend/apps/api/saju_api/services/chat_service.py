@@ -275,6 +275,7 @@ from saju_shared_types.topic_context import PeriodSpec
 
 from . import (
     llm_client,
+    question_frame_service,
     relationship_legacy_comparison,
     relationship_shadow,
     relationship_vector_sidecar,
@@ -5461,6 +5462,9 @@ def chat(
     intent = _extend_current_month_near_boundary(intent, today, luck_month)
     # 규칙이 비교 mode를 못 잡은 완곡·변형 표현만 유사도로 보강(P3d-2, strict gated·rules-first).
     intent = _augment_companion_mode_by_similarity(intent, question)
+    # 질문 이해 층 shadow(docs/03 B6, 2026-10-28) — 소형 로컬 LLM 분류를 백그라운드에서 로그로만
+    # 남긴다(답변·라우팅·지연 영향 0). 룰 결정과의 불일치 측정이 끝나기 전에는 결과를 쓰지 않는다.
+    question_frame_service.observe_async(question, intent, thread_id=thread_id)
 
     # P2 불변식(2026-07-14) — 배제 기간은 엔진 창이 될 수 없다: 승계·임베딩 시점 보강이
     # 배제 연도를 시점으로 합성하면 시점 미확정으로 되돌린다(명시적 재요청 승격은 대화

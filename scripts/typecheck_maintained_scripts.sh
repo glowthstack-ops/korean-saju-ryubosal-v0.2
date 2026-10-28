@@ -38,6 +38,8 @@ MAINTAINED=(
     scripts/build_sinsal_direction_snapshot.py
     # v2 funnel 상설 감사 — 카탈로그·가중 수정 전후를 같은 모집단으로 재측정(§22-4·§22-5)
     scripts/audit_daily_v2_funnel.py
+    # 질문 이해 층 shadow 측정 — 모델·프롬프트 변경 전후를 같은 모집단으로 재측정(docs/03 B6)
+    scripts/measure_question_frame.py
     # 진입 두 칸 배정 모드 정밀도 — 입사 이력이 쌓일 때마다 임계값 재측정(EMPLOYMENT §4-7)
     scripts/measure_entry_slot_modes.py
     # 이벤트 채점 층별 ablation 상설 감사 — 채점 규칙 변경 전후 같은 코퍼스 재측정(EVENT_SCORING_3LAYER_PROPOSAL P0)

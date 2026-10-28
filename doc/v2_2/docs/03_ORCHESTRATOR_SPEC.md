@@ -380,6 +380,25 @@ LLM 입력 직전 최종 필터. 규칙:
 4. **이벤트 후보**: Top N (기본 3~5) + score 임계값
 5. **모든 이벤트 후보에는 해당 간지와 대운 맥락을 반드시 포함** — LLM은 간지를 계산할 수 없다
 
+### B6. Question Frame — 질문 이해 층 (소형 로컬 LLM, 2026-10-28 데굴님 승인)
+
+질문 처리를 두 영역으로 나눈다.
+
+| 영역 | 담당 | 구현 | 산출 |
+|---|---|---|---|
+| **결정론 영역** | 어휘·형태소 → 슬롯(대상·도메인·사건·시점·플래그) → planner → 엔진 → Graph RAG → Context Reduction | `query_parser` + 임베딩 보조기(rules-first) | IntentJson — **점수·간지·시점·판정의 유일한 출처**(절대 원칙 1·9) |
+| **질문 이해 영역** | 질문 전체의 의도(무엇을·어떤 형태로 답해야 하는가) | 소형 로컬 LLM 1회 호출(`llm_config.question_frame`, Ollama `gemma4:e2b`, think=false, temperature 0) | `QuestionFrame` — enum 닫힌 집합만 |
+
+**QuestionFrame 스키마**(`saju_shared_types/question_frame.py`): `ask_kind`(recommendation/judgment/timing/explanation/comparison/venting/meta/unknown) · `lifestyle_item`(food/color/clothing/direction/place/activity/grooming/none) · `answer_shape`(short_pick/analysis/compare_table/timeline/empathy_first/policy) · `brevity`(short/normal) · `topic_object`(≤20자 명사구). 간지·점수·날짜·판정 필드는 없다. 집합 밖 값이면 프레임 전체를 버린다(부분 채택 금지).
+
+**쓰임 두 가지만**: ①답 형태 지시문(`answer_shape`·`topic_object`) ②**룰이 Q1 FORTUNE_OVERVIEW + GENERAL 폴백으로 떨어진 턴**의 라우팅 보정(`is_rule_fallback`). 룰이 확정한 유형·도메인은 프레임이 덮어쓰지 않는다(데굴님 동의, 2026-10-28).
+
+**도입 순서(필수)**: shadow(백그라운드 스레드, 로그 전용 — `question_frame_service.observe_async`, 답변·라우팅·지연 영향 0, `SAJU_QUESTION_FRAME_SHADOW=1`) → `scripts/measure_question_frame.py`로 불일치율·지연 측정(모집단 = `tests/fixtures/intent_eval.jsonl` + docs/08 예시 + 저장 채팅 발화) → 불일치 표본(`lifestyle_on_overview_fallback` 전수, 그 외 라벨 5건) 데굴님 검수 → 게이트 ON 은 별도 승인. 서버 부재·타임아웃·파싱 실패는 관측 실패 1건으로만 남고 기능을 막지 않는다(절대 원칙 11).
+
+**운용 메모(실측 2026-10-28, RTX 4060 8GB)**: `think=false` 필수(켜면 추론 토큰이 출력을 비움) · Ollama `format`(JSON 스키마 grammar)은 쓰지 않는다(325ms → 2.8~15s, 결과 동일 — `parse_frame`이 검증) · 11434 는 WSL2 에서 Windows 예약 포트 범위라 `SAJU_OLLAMA_BASE_URL`로 포트를 지정한다.
+
+배경: 룰 파서 1,490줄·임베딩 보조기 4종으로도 "오늘 점심은 뭘 먹는게 좋을까"가 Q1 폴백 → '오늘' 하나로 일운 총운이 되었다(2026-10-28 실로그). 어휘 추가는 사례 하나를 고치고 같은 계열('오늘 옷·머리·운동·약속')을 남긴다 — 그 계열을 질문 이해 층이 맡는다. docs/07 T3.1(경량 LLM 1차 + 룰 폴백)의 원설계를 "룰 1차 + 프레임 보정"으로 뒤집어 복원한 것이다.
+
 ---
 
 ## C. 분야별 Graph 조회 범위 (graphScope 기본값)

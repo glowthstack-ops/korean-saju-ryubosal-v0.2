@@ -138,7 +138,9 @@ def load_config(force: bool = False) -> dict:
 #: (절대원칙 9, v2.2.1) 설정에는 유효한 모델이 있다. 지금은 primary 와 같은 값이라
 #: 결과가 같지만, 나중에 갈라진 뒤 parser 만 재활성화되면 활성 경로만 보는 검사는
 #: 가격 누락을 배포 전에 잡지 못한다. 그래서 '구성된 역할' 전체를 검사한다.
-MODEL_ROLES: tuple[str, ...] = ("primary", "fallback", "parser")
+#: question_frame(2026-10-28) = 질문 이해 층 소형 로컬 모델(Ollama) — 비용 0 이지만 같은 이유로
+#: 가격표(0.0 등재)·커버리지 검사 범위에 둔다.
+MODEL_ROLES: tuple[str, ...] = ("primary", "fallback", "parser", "question_frame")
 
 
 def configured_models() -> list[str]:
@@ -170,6 +172,9 @@ def missing_price_models() -> list[str]:
 
 def _api_key(profile: dict) -> str | None:
     _load_env_files()
+    if profile.get("provider") == "ollama":
+        # 로컬 Ollama 는 키가 없다 — 가용성 판정에서 '키 미설정'으로 걸러지지 않게 상수 반환.
+        return "local"
     return os.environ.get(profile["api_key_env"]) or None
 
 
@@ -353,7 +358,78 @@ def _call_openai(
     )
 
 
-_PROVIDERS = {"gemini": _call_gemini, "openai": _call_openai}
+def _ollama_base_url(profile: dict) -> str:
+    """Ollama 서버 주소 — `base_url_env`(기본 SAJU_OLLAMA_BASE_URL) → `base_url` → 11434 순."""
+    _load_env_files()
+    env_name = str(profile.get("base_url_env") or "SAJU_OLLAMA_BASE_URL")
+    return (
+        os.environ.get(env_name) or str(profile.get("base_url") or "http://127.0.0.1:11434")
+    ).rstrip("/")
+
+
+def _call_ollama(
+    profile: dict, system: str, prompt: str, max_tokens: int, timeout: float
+) -> tuple[str, int, int, int]:
+    """로컬 Ollama `/api/chat` 호출(질문 이해 층 전용 소형 모델) — (텍스트, 입력, 출력, 0) 토큰.
+
+    구조화 출력은 호출자가 `profile["format"]`(JSON 스키마 dict 또는 "json")로 넘긴다.
+    `generation_extras` 는 본문 최상위에 병합한다(예: {"think": false}). 비용 0, 캐시 적중 0.
+    """
+    body: dict[str, Any] = {
+        "model": profile["model"],
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": prompt},
+        ],
+        "stream": False,
+        "keep_alive": profile.get("keep_alive", "30m"),
+        "options": {"temperature": 0, "num_predict": max_tokens, **profile.get("options", {})},
+        **profile.get("generation_extras", {}),
+    }
+    if profile.get("format") is not None:
+        body["format"] = profile["format"]
+    res = httpx.post(f"{_ollama_base_url(profile)}/api/chat", json=body, timeout=timeout)
+    if res.status_code >= 400:
+        raise RuntimeError(f"ollama {res.status_code}: {res.text[:300]}")
+    data = res.json()
+    text = str((data.get("message") or {}).get("content") or "")
+    return text, int(data.get("prompt_eval_count", 0)), int(data.get("eval_count", 0)), 0
+
+
+_PROVIDERS = {"gemini": _call_gemini, "openai": _call_openai, "ollama": _call_ollama}
+
+
+def call_role_raw(
+    role: str,
+    system: str,
+    prompt: str,
+    *,
+    max_tokens: int,
+    timeout: float,
+    format_schema: dict | str | None = None,
+    surface: str = "question_frame",
+    ref_id: str | None = None,
+) -> tuple[str, int, int]:
+    """설정 역할 1개를 직접 호출한다(메인→폴백 체계·중단 상태 밖) — 질문 이해 층 같은 보조 호출용.
+
+    가드는 `query_parser` 한도(입력 2,000tok)를 적용한다. 역할이 설정에 없으면 KeyError.
+
+    Returns:
+        (출력 텍스트, 입력 토큰, 출력 토큰). 사용량은 surface 로 영속 로그에 남긴다.
+    """
+    cfg = load_config()
+    profile = dict(cfg[role])
+    if format_schema is not None:
+        profile["format"] = format_schema
+    LLMCallGuard("query_parser").check_input(prompt, reserve_tokens=len(system) // 2)
+    text, in_tok, out_tok, cached = _call_profile(profile, system, prompt, max_tokens, timeout)
+    _emit_usage(
+        surface=surface, model=str(profile["model"]), provider=str(profile["provider"]),
+        is_fallback=False, input_tokens=in_tok, output_tokens=out_tok, cached_tokens=cached,
+        owner_id=None, product_code=f"{surface.upper()}:{profile['provider']}",
+        call_type="query_parser", ref_id=ref_id,
+    )
+    return text, in_tok, out_tok
 
 
 def _call_profile(
