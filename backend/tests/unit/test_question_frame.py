@@ -296,3 +296,12 @@ def test_lifestyle_remedy_is_not_too_broad() -> None:
         fallback, QuestionFrame(lifestyle_item=LifestyleItem.COLOR), "커텐 색 추천해줘",
     )
     assert assess(fixed, "커텐 색 추천해줘").status == "ok"
+
+
+def test_activity_directive_is_decisive_and_short() -> None:
+    from saju_engines.question_frame import ACTIVITY_JUDGMENT_DIRECTIVE
+
+    text = ACTIVITY_JUDGMENT_DIRECTIVE.format(topic="오늘 운동")
+    assert "'오늘 운동'을(를)" in text and "3문장" in text
+    assert "확정형 판정" in text and "완곡형 금지" in text
+    assert "해도 돼요 / 가볍게 조절해서 하면 돼요 / 오늘은 미루는 게 좋아요" in text

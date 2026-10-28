@@ -84,6 +84,12 @@ def test_instructions_fix_answer_shape_and_forbid_chain() -> None:
     assert "영양·의료 조언" in YONGSIN_FOOD_INSTRUCTION
     assert "메뉴 추천" in YONGSIN_FOOD_CLOSING_DIRECTIVE
     assert "영역별 총운" in YONGSIN_FOOD_CLOSING_DIRECTIVE
+    # 2026-10-28 데굴님: 두리뭉실 금지·확정형·간단 — 메뉴 이름 2개 + 계열 묘사 예시 형태, 4문장 이내
+    assert "확정형 추천" in YONGSIN_FOOD_CLOSING_DIRECTIVE
+    assert "같은 붉은빛 나는 따뜻한 요리가 좋아요" in YONGSIN_FOOD_CLOSING_DIRECTIVE
+    assert "4문장 이내" in YONGSIN_FOOD_CLOSING_DIRECTIVE
+    assert "익숙한 메뉴" in YONGSIN_FOOD_CLOSING_DIRECTIVE
+    assert "완곡형" in YONGSIN_FOOD_CLOSING_DIRECTIVE
 
 
 # ── 파서 승격 규칙 ────────────────────────────────────────────────
