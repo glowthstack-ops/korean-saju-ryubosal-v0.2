@@ -204,7 +204,7 @@ def test_jeonggwan_rule_requires_jeonggwan_present():
 def test_render_block_header_and_narration():
     lines = render_career_field_lines(_facts(_BUSINESS_CASE))
     head = [x for x in lines if x.startswith("[간지론 관점")]
-    assert len(head) == 1 and "간지론에서는 ~로 본다" in head[0] and "단정 금지" in head[0]
+    assert len(head) == 1 and "간지론에서는 …로 본다" in head[0] and "단정 금지" in head[0]
     axis = [x for x in lines if x.startswith("- 직업 유형 축: 상업형")]
     assert len(axis) == 1 and "간지론에서는" in axis[0]
     assert any(x.startswith("- 사업 시기:") for x in lines)
@@ -222,7 +222,7 @@ def test_directives_mention_ganji_school():
     import saju_api.services.chat_service as cs
     import saju_api.services.report_service as rs
 
-    assert "간지론에서는 ~로 본다" in cs._CAREER_FIELD_DIRECTIVE
-    assert "간지론에서는 ~로 본다" in rs._CAREER_FIELD_REPORT_DIRECTIVE
+    assert "간지론에서는 …로 본다" in cs._CAREER_FIELD_DIRECTIVE
+    assert "간지론에서는 …로 본다" in rs._CAREER_FIELD_REPORT_DIRECTIVE
     assert "합산·상쇄" in cs._CAREER_FIELD_DIRECTIVE
     assert "합산·상쇄" in rs._CAREER_FIELD_REPORT_DIRECTIVE

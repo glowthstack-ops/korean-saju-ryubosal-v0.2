@@ -23,6 +23,7 @@
     "legal_conflict": {"yong": "규칙 정비·문제 정리", "gi": "분쟁·징계·제재"},
     "social_conflict": {"yong": "건강한 경쟁·관계 정리", "gi": "갈등·손재·평판 손상"},
     "preparation_delay": {"yong": "내실 다지는 준비기", "gi": "정체·보류·기회 지연"},
+    "career_leave": {"yong": "재충전·복귀를 전제로 한 계획된 쉼", "gi": "피로·번아웃·건강으로 밀려서 쉬게 됨"},
     "creative_output": {"yong": "성과물·작품 결실", "gi": "산만·미완·과로"},
     "public_exposure": {"yong": "좋은 홍보·발표 기회", "gi": "구설·노출 리스크"}
   }

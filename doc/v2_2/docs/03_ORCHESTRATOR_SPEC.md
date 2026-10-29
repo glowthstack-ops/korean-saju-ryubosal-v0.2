@@ -24,6 +24,9 @@
    - "누가/누구야??" + 후보 N명                          → ranking
 3. 전환/정정 발화
    - "본인 사주로 봐줘"                                  → subject=self 복귀
+   - 1인칭 주어·소유 표지("내가 …", "나는", "난", "제가", "내 사주") + 동반자 지칭 없음
+                                                          → subject=self 복귀(4순위 상속보다 우선, 2026-10-28).
+                                                            관점 표현("내가 보기엔")·1인칭 복수("우리가")는 제외
    - "등록했어", "지금 추가한 친구야"                     → 직전 UI 등록 이벤트와 결합, 미해결 시 확인 질문
    - "내 사주랑 아들사주를 헷갈렸어"                      → subject 교체 + 동일 intent 재실행 + 오류 인정
 4. 무엇도 없으면                                         → 직전 턴 subject 상속, 그것도 없으면 self
@@ -402,11 +405,41 @@ LLM 입력 직전 최종 필터. 규칙:
 - 기동 절차: `scripts/ensure_ollama.sh`(멱등 — 플래그 OFF 면 no-op, 서버 응답 확인 → 없으면 사용자 레벨 `ollama serve` 기동 → 모델 없으면 pull, 실패해도 exit 0)를 `scripts/dev.sh`·`scripts/restart_backend.sh` 가 백엔드 기동 전에 호출한다. Ollama 부재 시 백엔드는 룰만으로 정상 기동(절대 원칙 11). 영구화는 systemd 유닛 `OLLAMA_HOST` 포트 지정(sudo, README).
 - 측정 재현: `python scripts/measure_question_frame.py --db` — 2026-10-28 v2: 531건, 프레임 OK 515, p50 312ms/p95 394ms, `lifestyle_on_overview_fallback` 15(검수 13 진짜 결함 ≈87%). venting/meta/timing 라벨은 룰이 더 정확해 보정에 쓰지 않는다.
 
+**시제·대상 shadow 필드(2026-10-28 데굴님 "분류 모델 병행 쪽은 우선 제외하고 진행")** — 같은 날 실답 두 건(소원형 '있었으면'이 회고 모드로, 동반자 스레드 뒤 '내가'가 남편 상속으로)에서 룰이 형태소 하나에 기대는 지점이 드러나, 프레임에 세 키를 더해 **shadow 로만** 관측한다. 라우팅·시점·대상 확정에는 쓰지 않으며 게이트는 측정·표본 검수 후 별도 승인.
+- `time_direction`: past / future / wish(바람 — 과거형 어미여도 과거 아님) / counterfactual(반사실) / none. 룰 대조값 = 채팅 회고 판정(`_question_time_direction`, shadow 레코드 `rule_time_direction`). 라벨 `time_rule_past_vs_frame_{wish|future}`(소원형 오판 후보)·`time_rule_future_vs_frame_{past|counterfactual}`. 룰 판정 근거(`_question_time_direction_reason`: window_past/window_future/reported_event/event_explanation/past_phrase/future_phrase/inherited/none)를 함께 기록하고, **창 구조 판정(window_*)은 `time_window_*` 로 따로 센다** — 오늘 날짜를 모르는 프레임이 '5월은 어때?'(10월 기준 과거 창)를 future 로 읽어도 룰이 맞으므로 게이트 후보군이 아니다(v3 측정 24건 중 다수).
+- `subject_frame`: self_explicit / companion_single / companions_only(본인 제외 둘 이상) / self_with_companions / all / unspecified. **ID·별칭 매핑은 하지 않는다**(레지스트리=룰). 룰 대조값 = `rule_subject_frame(intent)`(self / companion_single / companions_only / self_with_companions, 모양만) + `SubjectResolution.inherited`(A0 4순위 상속 여부). 라벨 `subject_frame_self_vs_rule_<룰>` + 상속 턴이면 `subject_self_on_inherited`(본인 복귀 놓침 후보 — 게이트 1순위 검토군), `subject_frame_<군>_vs_rule_self`(미등록 지칭 후보 — 게이트가 열려도 확인 질문 트리거로만), 본인 포함/제외 모양 불일치.
+- `mentioned_people`: 질문 속 사람 지칭 원문(≤5개·각 ≤10자). 검수·향후 미등록 지칭 확인 질문용.
+- 구 형식 출력·집합 밖 값은 기본값(none/unspecified/[])으로 정규화 — 라우팅 필드가 아니므로 프레임을 버리지 않는다. 출력 토큰 상한 120→200. 측정은 `measure_question_frame.py`(단일턴 — 시제 대조만, 대상 상속 대조는 운영 shadow JSONL 에서), 표본은 `time_*`·`subject_*` 라벨 각 10건.
+- 분류 모델(소형 한국어 인코더) 병행은 추가 연구 항목으로 보류(데굴님).
+
 **운용 메모(실측 2026-10-28, RTX 4060 8GB)**: `think=false` 필수(켜면 추론 토큰이 출력을 비움) · Ollama `format`(JSON 스키마 grammar)은 쓰지 않는다(325ms → 2.8~15s, 결과 동일 — `parse_frame`이 검증) · 11434 는 WSL2 에서 Windows 예약 포트 범위라 `SAJU_OLLAMA_BASE_URL`로 포트를 지정한다.
 
 배경: 룰 파서 1,490줄·임베딩 보조기 4종으로도 "오늘 점심은 뭘 먹는게 좋을까"가 Q1 폴백 → '오늘' 하나로 일운 총운이 되었다(2026-10-28 실로그). 어휘 추가는 사례 하나를 고치고 같은 계열('오늘 옷·머리·운동·약속')을 남긴다 — 그 계열을 질문 이해 층이 맡는다. docs/07 T3.1(경량 LLM 1차 + 룰 폴백)의 원설계를 "룰 1차 + 프레임 보정"으로 뒤집어 복원한 것이다.
 
 ---
+
+### B7. 2026-10-28 실답 교정 — 이직 완료 사실·되물음 답·사실 단언형 이의·'몇 년도' 지평·설명 요청·해외 근무 층 (데굴님 승인)
+
+실로그 두 스레드(web-mvrpyw6m·web-mvrq8ocg)에서 '이직'이라는 단어만으로 완료형·부정형 발화까지 앞으로의 이직
+사건(`career_change`)으로 잡혀 2027년 진입 창 서술로 흐른 결함과, 해외 근무·설명 요청·'몇 년도' 질문의 경로 부재를
+한 묶음으로 교정했다. 규칙 기반이며 LLM 판정은 없다(절대원칙 1).
+
+| 항목 | 규칙 | SSOT |
+|---|---|---|
+| 완료형 이직 보고 | 한 절 안의 이직 어휘(이직·전직·입사·회사/직장 옮기-·새 직장 들어가-)+완료형 어미. 가정('이직하면')·소원('했으면')·부정('안 했')·제3자('남편이 이직') 제외. 파서는 보고 구간을 뺀 잔여 텍스트로 사건을 감지하고(`IntentJson.job_changed_reported`), '또/다시 이직'을 물으면 새 이직 사건 유지 | `saju_engines.job_change_report` |
+| 사실 원장 `job_changed` | 단수 supersede 슬롯. 블록 주석: "이직은 이미 일어났다 — 앞으로의 이직·채용 제안·면접·스카우트 시기 서술 금지, 현 직장 적응·업무 부담·안정 시기 흐름으로" | `user_facts._FACT_RULES` |
+| 채팅 | 이번 턴 보고 또는 원장 확정 사실이 있고 새 이직을 묻지 않으면: 의도의 이직·입사 사건 키 제거(지평·진입 두 칸 차단) + 후보에서 `career_change`·`job_gain` 제외 + 말미 `[이직 완료 …]` 지시 | `chat_service._JOB_CHANGED_DIRECTIVE` |
+| 되물음 답 링크 | offer-slot/offer-answer 의 도메인 판정은 보고 구간을 뺀 잔여 텍스트로. 잔여에 분야 어휘('업무')가 남아도 직전 도메인이 GENERAL 이거나 같은 분야면 되물음 답으로 잇는다 | `conversation.link_question` |
+| 되물음 답 → 시점 탐색 승계 | 직전이 TIMING_SEARCH('언제쯤 안정될까')이고 되물음(last_offer)이 있으며 이번 턴이 사건·자체 시점 없이 총운/분야 분석으로 떨어지거나 약한 후속 규칙으로 유형만 먼저 승계됐으면 TIMING_SEARCH 와 개방형 시점을 이어받는다(일반 시점 승계는 시작일 없는 open_when 을 잇지 않는다 — 2026-10-28 실로그 "그냥 일 적당히 있었으면 좋겠어") | `conversation.process_turn` |
+| 소원·조건형 회고 제외 | 채팅 방향 판정은 과거 표지·축약 과거형 검사 전에 '~았/었/했/갔/왔/됐으면' 구간을 가린다("있었으면 좋겠어"의 '있었'이 회고 모드를 켜 2022~2024년을 되짚던 결함). 반사실 회고('갔었으면 어땠을까')는 뒤의 '어땠'이 남아 그대로 회고 | `chat_service._WISH_CONDITIONAL_RE` |
+| 1인칭 본인 복귀 | A0 3단계 보강 — 별칭·관계어·인라인 출생정보가 없고 1인칭 표지(내가/나는/난/나도/나만/나의/제가/저는/저도/저의/내·제 사주·명식)가 있으면 직전 대상(동반자)을 상속하지 않고 본인으로 확정. 관점 표현('내가 보기엔'·'제 생각엔')·'우리/저희'는 제외. SELF 는 스레드 기준 명식 | `conversation._FIRST_PERSON_SUBJECT_RE` |
+| 사실 단언형 이의 | '아니/아뇨/아니요' 머리 + (1인칭·이미·벌써) + 완료형 + 강조 종결(다니까/라니까/다고/거든/잖아/니까), 또는 '이미/벌써 … 완료형+강조 종결'. 1인칭이어도 이의. 강조 종결 없는 '아니 이직했어'는 보고(사실 원장) | `challenge_detect.ASSERTED_FACT_REBUTTAL_RE` |
+| '몇 년도' 지평 | `YEAR_WHEN_RE`(몇 년도/몇 년에/어느 해) → Q3 + `open_when`(YEAR). horizon `year_when` = 향후 5년 연 단위(월 상세 0, 진입 두 칸 없음). 지시: 첫 문장 "향후 5년을 기준으로 보면", 창 밖 서술 금지, 끝 한 줄 "이후 기간은 연도 범위를 지정해 달라(예: 2032년부터 2036년까지)" | `time_parser.YEAR_WHEN_RE`·`horizon.YEAR_WHEN_SPAN_YEARS` |
+| 이후 기간 지정 | '2032년부터 2036년까지는?'·'2032~2036년은?'(연도 범위만) → TIME_SHIFT(길이 무관). '2032년 이후는?' → 2032~2036 절대 창(종전 C8c 가 오늘+2032년으로 오파싱). '그 이후 5년은?'·'그 다음은?' → 직전 창 끝 다음 해부터 N년(기본 5; 직전이 개방형이면 올해부터 5년을 직전 창으로). 주제(query_type·사건·해외 근무 유형) 승계 | `conversation._YEAR_RANGE_ONLY_RE`·`_AFTER_WINDOW_RE`·`_inherit_after_window` |
+| 설명 요청 | 요청 표지(쉽게/풀어서/자세히 설명·무슨 뜻) + 참조어('위의 내용') 또는 요청 문장 앞 인용 본문 15자 이상 → `dialogue_act="explain_request"`, `explain_target`=인용 본문. 인용 문장을 질문 조각으로 쪼개지 않고, 시점·사건을 비운다. 링크 DRILL_DOWN, 직전 유형·시점 미승계. 채팅: 후보·월별 표·지평 없음, too_broad 면제, `[설명 요청 …] [인용] …` 지시(여섯 문장 이내, 새 기간·삼재 금지) | `query_parser.detect_explain_request`·`chat_service._EXPLAIN_REQUEST_DIRECTIVE` |
+| 해외 근무 층 | 유형 감지(주재원·발령/파견·출장/해외 취업/이민/미지정) → 도메인 직업(이민=이동), 주 사건 `relocation`, 동반 사건=유형별 직업 키. 채팅 말미 `[해외 근무 신호]` 연도표(이동 후보 최고점 × 직업 후보 최고점 → 강/중/이동만/직업만/없음 + 세운 십성 힌트) + 해석 규칙 6조. 설계 SSOT: `doc/v2_2/OVERSEAS_WORK_LAYER.md` | `saju_engines.overseas_work` |
+
+회귀: `tests/unit/test_job_change_overseas_explain_20261028.py`(엔진 36건 + 채팅 dry-run 4건).
 
 ## C. 분야별 Graph 조회 범위 (graphScope 기본값)
 

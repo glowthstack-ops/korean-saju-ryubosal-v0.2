@@ -48,6 +48,7 @@ from saju_engines.daewoon_background import (
     background_evidence_block,
 )
 from saju_engines.daewoon_progression import resolve_all_daewoon_progressions
+from saju_engines.daewoon_turn import daewoon_turn_lines
 from saju_engines.dictionary_version import report_dict_version
 from saju_engines.direction_avoidance import annotate_avoidance, strong_avoid_lines
 from saju_engines.direction_suggestion import (
@@ -85,6 +86,7 @@ from saju_engines.lifetime_scan import (
 )
 from saju_engines.llm_guard import TokenBudgetExceeded
 from saju_engines.love_period_notes import LOVE_NOTE_EVENT_KEYS, love_period_note_items
+from saju_engines.love_separation import love_separation_natal_lines
 from saju_engines.love_type import age_from_result
 from saju_engines.manifestation_branch import branch_summary
 from saju_engines.marriage_resource import analyze_marriage_resource
@@ -108,6 +110,7 @@ from saju_engines.relationship_hints import (
     normalize_relation_type,
     relation_context_lines,
 )
+from saju_engines.relationship_tendency import relationship_tendency_lines
 from saju_engines.repetition_structure import activation_line, repetition_activations
 from saju_engines.report_builder import ReportBuilder
 from saju_engines.report_event_input import (
@@ -199,6 +202,7 @@ from saju_engines.ten_god_label_audit import audit_ten_god_labels, facts_from_pi
 from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
 from saju_engines.topic_builder import build_topic_context
 from saju_engines.wealth_capacity import analyze_wealth_capacity
+from saju_engines.wealth_lecture import daewoon_readiness_lines, wealth_vessel_lines
 from saju_engines.wealth_status_lean import analyze_wealth_status_lean
 from saju_engines.yearly_environment import (
     build_yearly_environment,
@@ -512,22 +516,24 @@ _SECTION_GUIDES: dict[str, str] = {
     "큰 흐름만 서술할 것.",
     "F-14": "아래 [생애 변곡점 연표]가 이 섹션의 골격이다 — 표의 연도를 시기 순으로 풀어 인생 "
     "전체의 변곡점을 조망할 것. 과거 연도는 '이런 흐름이 지나갔을 시기'로 회고하며 적중 확인을 "
-    "유도하고(단정 금지), 미래 연도는 사건 확정이 아니라 활성화 창(가능성·기류)으로 서술할 것. "
-    "표에 없는 해를 '아무 일 없는 해'로 단정하지 말 것. 월별 상세는 변곡 연도당 최대 1~2개 "
+    "유도하고(단정 금지), 미래 연도는 사건명을 그대로 쓰되 '…할 수 있는 해'로 서술할 것(확정 "
+    "어미만 금지). "
+    "표에 없는 해를 '아무 일 없는 해'로 단정하지 말 것. 월별 상세는 변곡 연도당 최대 1–2개 "
     "달만. [연도별 흐름] 표는 가까운 몇 해의 해상도 보강용 보조 자료다. 90세 이후는 '풀이는 "
     "90세까지를 기준으로 본다'고 한 줄로만 안내할 것.",
     "F-15": "직업 구조(관성·식상·재성)와 적합 분야·추구 방향을 서술하되 적합 분야는 [직업 분야 "
     "근거](십성 기능 표)와 [직업 분야 지침]을 따르고, [조직 규모 적합] 지침에 따라 어울리는 조직 "
-    "결(대기업/중견·중소/스타트업 등)을 짚을 것 — 합격·승진 단정 금지.",
+    "결(대기업/중견·중소/스타트업 등)을 짚을 것 — 합격·승진은 가능성형으로(확정 어미만 금지).",
     "F-17": "연애·결혼의 구조와 흐름(만남·결혼 신호·안정기)을 서술할 것 — 부모·자녀는 별도 "
-    "섹션 몫이므로 다루지 말 것. 결혼 단정·재촉·낙인 표현 금지.",
+    "섹션 몫이므로 다루지 말 것. 결혼은 가능성형으로('결혼이 거론될 수 있는 해'), 확정 어미·"
+    "재촉·낙인 표현 금지.",
     "F-17b": "부모·가족과의 관계 결, 부모의 건강을 챙기면 좋을 주의 시기(부모성=인성(모친)·"
     "편재(부친)와 부모궁(월주)을 운이 충·형으로 자극하는 신호, 위험 항목 가족 책임 부담)와 "
     "돌봄 방향을 서술할 것. 사망·사별 단정은 절대 금지 — '이별·상실 계열 신호가 강해지는 "
     "시기', '곁을 지키고 건강을 챙길 시기' 프레임만 쓰고, 수명 예측 표현을 쓰지 말 것.",
     "F-17c": "자녀 인연의 구조(시주·자녀성), 출생 가능성이 활성화되는 시기 후보, 자녀와의 "
-    "관계·양육 결을 서술할 것 — 임신·출산 단정 금지. 무자녀·미혼이면 가능성 서술로, 자녀 "
-    "정보가 입력돼 있으면 그 관계 중심으로.",
+    "관계·양육 결을 서술할 것 — 임신·출산은 가능성형으로(확정 어미만 금지). 무자녀·미혼이면 "
+    "가능성 서술로, 자녀 정보가 입력돼 있으면 그 관계 중심으로.",
     "F-20b": "아래 [방위 활용] 재료(연지 삼합 기준 12신살 방위판·목적 전체 표(피함 열)·강한 회피·"
     "민속 흉방·삼재 흐름)를 '나의 방향운' 형식으로 풀 것 — ①동·남·서·북 네 방향판(각 방향의 3신살 "
     "구간과 어울리는 활동)을 먼저 소개하고 ②공부·수면·만남·발표·영업·이사 등 목적별로 '어느 쪽을 "
@@ -546,7 +552,8 @@ _SECTION_GUIDES: dict[str, str] = {
     "마찰·적응→정리)를, 아니면 삼재 해가 아님을 한 문장으로만. 길흉 단정·공포 조장·절대흉방 금지, "
     "Y-11 용신 오행 방위와 합산 금지.",
     "F-18b": "생애에서 이동(이사·주거 변화) 신호가 강해지는 시기와 이동의 성격(주거/직장 동반 "
-    "등)을 서술할 것 — 이사 확정 단정 금지, 시기는 활성화 창으로. 지역 추천은 아래 거주지 "
+    "등)을 서술할 것 — 이사는 '이사가 거론될 수 있는 시기'처럼 가능성형으로(확정 어미만 금지), "
+    "신호 시기와 실제 이사 시기가 다를 수 있음은 한 문장으로만. 지역 추천은 아래 거주지 "
     "블록이 있을 때만 그 범위에서.",
     "F-22": "이 섹션 끝에는 대운(생애)·세운·월운 간지 달력표가 엔진 계산값으로 자동 첨부된다. "
     "본문에서 간지 표를 직접 만들지 말 것(간지를 지어내면 안 됨) — 그 표를 어떻게 읽는지 "
@@ -554,7 +561,7 @@ _SECTION_GUIDES: dict[str, str] = {
     "용어를 아래 [용어 사전] 기준으로 짧게 풀이하는 데 집중할 것. 용어 풀이는 산문으로 "
     "뭉치지 말고 **용어마다 줄을 바꿔** '- 용어: 설명' 마크다운 목록으로 작성할 것 — "
     "이 부록 섹션은 조밀한 산문 규칙의 예외다(한 줄에 용어 하나, 목록 항목 사이 빈 줄 금지).",
-    "C-01": "주제와 기간의 핵심 신호를 3~5줄로 요약할 것.",
+    "C-01": "주제와 기간의 핵심 신호를 3–5줄로 요약할 것.",
     "C-02": "주제와 관련된 원국 글자(십성·궁위·관계)만 골라 구조를 설명할 것.",
     "C-04": "이벤트 후보 표의 시기·점수·동반 신호를 타임라인으로 서술할 것.",
     "C-08": "점수표를 그대로 정리하고, 근거는 분류 용어 없이 일상어로 풀어 부록으로 제시할 것. "
@@ -576,13 +583,15 @@ _SECTION_GUIDES: dict[str, str] = {
     "J-04": "운에서 직업이 어떻게 움직이는지(이직·승진·창업·확장) 발현 형태만 — 발생≠결과.",
     "J-05": "향후 5년 직업 흐름을 시점 클러스터로 타임라인화할 것 — 같은 시점 사건은 묶어서.",
     "J-06": "주목할 달을 정밀 십성·관계로 풀되, 같은 원국 설명을 반복하지 말 것. 특정 달을 "
-    "취업·합격 등 결과와 묶어 단정하지 말고 '움직임이 강해지는 창'으로 표현할 것.",
-    "J-07": "행동 전략을 시기별로 — 이동/유지/준비/네트워킹/도전 보류 단위. 승진·합격 단정 금지.",
+    "취업·합격 등 결과와 묶어 확정하지 말고, 사건명은 그대로 둔 채 '면접·제안이 들어올 수 있는 "
+    "달'처럼 가능성형으로 표현할 것.",
+    "J-07": "행동 전략을 시기별로 — 이동/유지/준비/네트워킹/도전 보류 단위. 승진·합격은 "
+    "가능성형으로(확정 어미만 금지).",
     "J-08": _SCORE_TABLE_GUIDE,
     # ── 관계·애정운 테마 전용(R-01~R-08, 단독 모드 베이스) ──
     "R-01": "핵심만 5줄 이내로 — 어느 시점에 어떤 인연 에너지(만남/안정/갈등)가 활성인지.",
     "R-02": "명식에 드러나는 애정 성향(재성/관성·도화·표현 방식, 거리감/몰입)을 짧게 서술할 것.",
-    "R-03": "일지(배우자궁)·재성/관성·도화/홍염 등 배우자·인연 '구조'만. 단정·낙인 표현 금지.",
+    "R-03": "일지(배우자궁)·재성/관성·도화/홍염 등 배우자·인연 '구조'만. 확정 어미·낙인 표현 금지.",
     "R-04": "운에서 인연이 어떻게 움직이는지(만남·결혼 신호·갈등·정리) 발현 형태만 — 발생≠결과.",
     "R-05": "향후 5년 애정 흐름을 시점 클러스터로 타임라인화할 것 — 같은 시점 사건은 묶어서.",
     "R-06": "주목할 달을 정밀 십성·관계로 풀되, 같은 원국 설명을 반복하지 말 것.",
@@ -596,7 +605,7 @@ _SECTION_GUIDES: dict[str, str] = {
     "RP-01": "두 사람 관계를 5줄 이내로 — 어떤 결의 조합이고 어디에 강점/마찰이 있는지.",
     "RP-02": "본인의 애정 성향(재성/관성·도화·표현 방식)을 짧게 서술할 것.",
     "RP-03": "아래 상대 명식 블록만 근거로 상대가 어떤 사람인지 솔직하게 서술할 것 — "
-    "좋은 점·부담스러운 점을 균형 있게. 단정·낙인·외모/소득 추측 금지.",
+    "좋은 점·부담스러운 점을 균형 있게. 확정 어미·낙인·외모/소득 추측 금지.",
     "RP-04": "아래 궁합 신호(일주·십성·용신)를 근거로 두 사람의 구조적 결합을 설명할 것. "
     "신호의 방향(보완/마찰)을 그대로 반영하되 점수를 지어내지 말 것.",
     "RP-05": "궁합 신호를 강점과 마찰점으로 나눠 솔직하게 정리할 것 — 좋게 포장하지 말 것. "
@@ -616,13 +625,15 @@ _SECTION_GUIDES: dict[str, str] = {
     "원국 전체 재설명은 생략하고 핵심만.",
     "Y-03": "올해가 속한 대운의 성격과 그 안에서 이 해의 위치를 설명할 것 — 대운 전체사는 생략.",
     "Y-04": "이 해 세운 간지와 활성 신호(원국과의 합·충·십성 작용)를 풀 것 — 발생≠결과.",
-    "Y-05": "아래 [12개월 흐름]의 12개 달을 하나도 빠뜨리지 말고 각 달을 1~2문장으로 조밀하게 "
+    "Y-05": "아래 [12개월 흐름]의 12개 달을 하나도 빠뜨리지 말고 각 달을 1–2문장으로 조밀하게 "
     "짚을 것 — 한두 강신호만 반복 금지. ★주목 달은 더 자세히, 좋은 달과 주의할 달을 함께, "
     "각 달 기운의 활용·대비 방향도 곁들일 것.",
-    "Y-06": "이 해 직업·사업 흐름(이동·승진·확장·도전)을 발현 형태로 — 합격·승진 단정 금지.",
+    "Y-06": "이 해 직업·사업 흐름(이동·승진·확장·도전)을 발현 형태로 — 합격·승진은 가능성형으로"
+    "(확정 어미만 금지).",
     "Y-07": "이 해 재물 흐름(수입·지출·투자·계약)을 발현 형태로 — 당첨·복권 단정 금지(로또 거부).",
-    "Y-08": "이 해 관계·가정 흐름(만남·안정·갈등·정리)을 발현 형태로 — 단정·낙인 금지.",
-    "Y-09": "이 해 건강·주의 시기를 — 과로/사고/컨디션 저하 등 관리 관점으로. 질병 단정 금지.",
+    "Y-08": "이 해 관계·가정 흐름(만남·안정·갈등·정리)을 발현 형태로 — 확정 어미·낙인 금지.",
+    "Y-09": "이 해 건강·주의 시기를 — 과로/사고/컨디션 저하 등 관리 관점으로. 주의 부위·시술 "
+    "가능성은 가능성형으로 쓰되 특정 질병의 진단·확정은 금지.",
     "Y-10": "이 해 행동 전략을 분기·시기 단위로 구체화 — 시도/대기/준비/보류 단위.",
     "Y-11": "이 해 개운·보완 가이드를 용신 오행 기준으로 — 색·방위·생활 습관 등 실천 항목 중심.",
     "Y-12": "이 섹션 끝에는 이 해 12개월 간지 달력표가 엔진 계산값으로 자동 첨부된다. 본문에서 "
@@ -701,7 +712,8 @@ _SECTION_GUIDES_HOUR_UNKNOWN: dict[str, str] = {
     "단정은 금지.",
     "F-17c": "출생시간 미상이라 자녀궁(시주)은 산출되지 않았다 — 이 한계를 서두에 한 번 밝히고, "
     "다른 기둥의 자녀성(식상·관성 등 성별 기준 자녀성)과 운이 그 글자를 자극하는 시기만으로 자녀 "
-    "인연·양육 결을 제한해 서술할 것. 시주 궁위 추정·임신·출산 단정 금지. 무자녀·미혼이면 가능성 "
+    "인연·양육 결을 제한해 서술할 것. 시주 궁위 추정 금지, 임신·출산은 가능성형으로(확정 어미만 "
+    "금지). 무자녀·미혼이면 가능성 "
     "서술로, 자녀 정보가 입력돼 있으면 그 관계 중심으로.",
 }
 
@@ -762,14 +774,14 @@ _YEAR_SPECTRUM_SECTIONS = {"W-06", "J-05", "R-05", "RP-06", "RL-06", "C-03", "F-
 _CAREER_FIELD_SECTIONS = frozenset({"F-15", "J-04", "J-07"})
 _CAREER_FIELD_REPORT_DIRECTIVE = (
     "[직업 분야 지침 — 서술 전용] 위 [직업 분야 근거]의 두드러진 십성·배합을 근거로 어울리는 "
-    "직업군 2~3개를 이름으로 짚고, 각각 '어떤 기능과 방식으로 일하는가'(생산·표현·거래·관리·"
+    "직업군 2–3개를 이름으로 짚고, 각각 '어떤 기능과 방식으로 일하는가'(생산·표현·거래·관리·"
     "통제·탐구·전승)로 이유를 붙일 것. 원국 적성(어떤 일이 맞나)과 '제안·기회 통로'(현재 대운·"
     "세운 천간 십성 — 어떤 쪽에서 제안이 오기 쉬운가)를 구분해 쓰고, [조직 규모 적합]과 결합해 "
     "'어떤 직무를 어떤 규모의 조직에서'로 구체화할 것. 금지: '재성이 많으니 사업가'식 단정, 십성 "
     "유무로 적성 확정·부적합 단정, 'X격이면 Y직업' 고정, 근거에 없는 직업군 추가. 직업명은 여러 "
     "십성 기능이 겹치므로 일대일 고정을 피하고 조건(일간 감당력·용희신·배합)에 따른 강조점 차이를 "
     "짚을 것. 학파별 배속 차이가 있는 참고 해석임을 한 문장으로만 밝힐 것. [간지론 관점] 블록(직업 "
-    "유형 축·궁위 우선·관성 위치·업종·사업 시기)이 있으면 '간지론에서는 ~로 본다'는 학파 서술로 "
+    "유형 축·궁위 우선·관성 위치·업종·사업 시기)이 있으면 '간지론에서는 …로 본다'는 학파 서술로 "
     "한 문단 덧붙일 것 — 직장형/상업형은 판정이 아니라 '결이 맞는 방식'이며 억부 용신 풀이와 "
     "합산·상쇄하지 말고 나란히 둘 것. 2단계 프로필의 실제 직업·고용형태가 있으면 그것이 사실이다."
 )
@@ -794,10 +806,10 @@ _SPOUSE_MARRIED_DIRECTIVE = SPOUSE_MARRIED_DIRECTIVE
 # '10년 단위 페이지 분리' 채택). 동적 sid라 _SECTION_GUIDES 대신 접두 판정으로 적용.
 _DECADE_PAGE_GUIDE = (
     "이 페이지는 제목의 대운 10년만 다룬다. 아래 [십년 세운 흐름]의 각 해를 하나도 "
-    "빠뜨리지 말고 1~3문장씩 짚되, ★주목 해는 더 자세히. 이 대운의 천간·지지 십성이 "
+    "빠뜨리지 말고 1–3문장씩 짚되, ★주목 해는 더 자세히. 이 대운의 천간·지지 십성이 "
     "만드는 환경을 배경으로 깔고 그 위에서 각 해를 서술할 것. 과거 연도는 '이런 흐름이 "
-    "지나갔을 시기'로 회고하며 적중 확인을 유도(단정 금지), 미래 연도는 사건 확정이 "
-    "아니라 활성화 창(가능성·기류)으로. 다른 대운·다른 연도의 사건을 끌어오지 말고, "
+    "지나갔을 시기'로 회고하며 적중 확인을 유도(단정 금지), 미래 연도는 사건명을 그대로 "
+    "쓰되 '…할 수 있는 해'로(확정 어미만 금지). 다른 대운·다른 연도의 사건을 끌어오지 말고, "
     "이미 앞 페이지에서 다룬 해를 같은 문장으로 반복하지 말 것."
 )
 
@@ -805,7 +817,7 @@ _DECADE_PAGE_GUIDE = (
 # 문제의 구조 해소(2026-08-13 데굴님 확정: 상·하반기 분리).
 _HALF_YEAR_PAGE_GUIDE = (
     "이 페이지는 제목의 반기 6개 달만 다룬다. 아래 [월별 흐름]의 각 달을 하나도 빠뜨리지 "
-    "말고 2~4문장씩 짚을 것 — ★주목 달은 더 자세히, 좋은 달과 주의할 달을 함께, 각 달 "
+    "말고 2–4문장씩 짚을 것 — ★주목 달은 더 자세히, 좋은 달과 주의할 달을 함께, 각 달 "
     "기운의 활용·대비 방향을 곁들일 것. 단 좋은/주의 라벨은 표의 등급·마커가 실제로 있는 "
     "달에만 붙인다(없는 축은 만들어 넣지 말 것). 한두 강신호를 여러 달에 반복하지 말고, "
     "다른 반기의 달은 다루지 말 것."
@@ -814,8 +826,9 @@ _HALF_YEAR_PAGE_GUIDE = (
 # 않도록 예측 창 전 연도에 상세 지면을 배정(2026-08-13 데굴님 확정).
 _FOCUS_YEAR_PAGE_GUIDE = (
     "이 페이지는 제목의 한 해만 다룬다. [이 해 세운]을 배경으로 깔고, [월별 흐름]의 "
-    "12개 달을 하나도 빠뜨리지 말고 1~2문장씩 짚을 것 — ★주목 달은 더 자세히. 특정 "
-    "달을 결과와 묶어 단정하지 말고 '움직임이 강해지는 창'으로 표현할 것. 다른 해의 "
+    "12개 달을 하나도 빠뜨리지 말고 1–2문장씩 짚을 것 — ★주목 달은 더 자세히. 특정 "
+    "달을 결과와 묶어 확정하지 말고, 사건명은 그대로 둔 채 '면접·계약이 거론될 수 있는 달'처럼 "
+    "가능성형으로 표현할 것. 다른 해의 "
     "사건을 끌어오거나 앞 페이지에서 이미 다룬 해를 같은 문장으로 반복하지 말 것."
 )
 
@@ -1587,7 +1600,7 @@ class _ReportData:
             elif y > t.year:
                 lines.append(f"이 보고서가 다루는 {y}년은 올해보다 이후이므로 전체가 미래다.")
             else:
-                past = f"1~{t.month - 1}월은 이미 지난 과거" if t.month > 1 else "(지난 달 없음)"
+                past = f"1–{t.month - 1}월은 이미 지난 과거" if t.month > 1 else "(지난 달 없음)"
                 if t.month < 12:
                     future = f"{t.month + 1}~12월은 아직 오지 않은 미래"
                 else:
@@ -1726,7 +1739,7 @@ class _ReportData:
         if not rem:
             return []
         items = " · ".join(
-            f"{d.ganji}({d.start_age}~{d.start_age + 9}세)" for d in rem
+            f"{d.ganji}({d.start_age}–{d.start_age + 9}세)" for d in rem
         )
         return [
             "[잔여 대운 체크리스트 — 현재 대운부터 표 끝까지, 아래 대운을 하나도 빠뜨리지 "
@@ -1755,9 +1768,10 @@ class _ReportData:
                 f"[{domain}·{tone}] {event_ko(c.event_key)} {c.score}점"
             )
         return [
-            "[생애 변곡점 연표 — 출생~90세 연 단위 스캔에서 선별된 변곡 후보. 이 표가 이 "
+            "[생애 변곡점 연표 — 출생–90세 연 단위 스캔에서 선별된 변곡 후보. 이 표가 이 "
             "섹션의 골격이다. 과거 연도는 회고·적중 확인 유도(단정 금지), 미래 연도는 "
-            "활성화 창(가능성·기류)으로. 표에 없는 해를 '아무 일 없는 해'로 단정하지 말 것.]",
+            "사건명을 그대로 쓰되 '…할 수 있는 해'로(확정 어미만 금지). 표에 없는 해를 "
+            "'아무 일 없는 해'로 단정하지 말 것.]",
             *rows,
         ]
 
@@ -1956,17 +1970,23 @@ class _ReportData:
                     if dw.index == _cur
                     else (" [지남]" if dw.index < _cur else " [예정]")
                 )
+            # 대운 역할 라벨(2026-10-29 대운 강의 — '원국을 받쳐 주는 대운인가'가 핵심인데 채팅과
+            # 달리 이 페이지에만 빠져 있던 결함). 엔진 luck_label 그대로.
+            role = f" · 역할: {dw.luck_label}" if dw.luck_label else ""
             lines.append(
                 f"[이 페이지의 대운] {dw.ganji}(천간 {dw.stem}={dw.stem_ten_god}/지지 "
-                f"{dw.branch}={dw.branch_ten_god}) {y0}-{y1}년, {age}-{age + 9}세{tag}"
+                f"{dw.branch}={dw.branch_ten_god}) {y0}-{y1}년, {age}-{age + 9}세{role}{tag}"
             )
+            # 재성 대운 받을 준비 — 앞 대운 끝 해와 겹치지 않게 이 대운 안쪽 해(y0+1)로 고정.
+            lines += daewoon_readiness_lines(self.result, y0 + 1, y0 + 1)
+            lines += daewoon_turn_lines(self.result, y0, y1)  # 교운 방향(2026-10-29 길흉 강의)
         rows = year_spectrum_lines(
             self._lifetime_result, self.lifetime_pool, list(range(y0, y1 + 1))
         )
         if rows:
             lines += [
                 "",
-                f"[십년 세운 흐름 — {y0}~{y1}년. 아래 각 해를 하나도 빠뜨리지 말고 짚을 것"
+                f"[십년 세운 흐름 — {y0}–{y1}년. 아래 각 해를 하나도 빠뜨리지 말고 짚을 것"
                 "(좋은 해·주의할 해·평범한 해 모두). 좋은/주의 판단의 1차 기준은 운 품질 "
                 "등급〈…〉(길흉=용신/기신) — 등급이 없는 축의 해를 만들어 넣지 말 것]",
                 *rows,
@@ -1982,7 +2002,8 @@ class _ReportData:
         from saju_engines.event_scoring import favorability_map
 
         role = favorability_map(self.result).get(self.wealth_capacity.wealth_element)
-        return wealth_capacity_lines(self.wealth_capacity, role)
+        # 재물 강의 3편(2026-10-29) — 재물 그릇 4분류·부재 경로·관점(원국 분류 해설, 판정 아님).
+        return wealth_capacity_lines(self.wealth_capacity, role) + wealth_vessel_lines(self.result)
 
     def activity_remedy_block(self) -> list[str]:
         """[활동 키워드]+[개운 행동] — 용신·희신/기신·구신·원국 신살 기준 결정론 선별.
@@ -2022,8 +2043,12 @@ class _ReportData:
 
         MT6 혼기 static prior를 함께 첨부(활성 프로파일 off면 빈 줄 — 출력 불변).
         """
-        return marriage_resource_lines(self.marriage_resource) + marriage_age_prior_lines(
-            self.result
+        # 이별운 강의 원국 분류 해설(2026-10-29) — 무인성·정인 약함(판정 아님, 관계 섹션 전용 블록).
+        return (
+            marriage_resource_lines(self.marriage_resource)
+            + marriage_age_prior_lines(self.result)
+            + love_separation_natal_lines(self.result)
+            + relationship_tendency_lines(self.result)  # 관계 결(2026-10-29 관계 강의)
         )
 
     def selection_block(self, domain: str) -> list[str]:
@@ -2774,8 +2799,8 @@ class _ReportData:
         ]
         for d in lc.daewoon_table:
             out.append(
-                f"| {d.start_age}~{d.start_age + 9}세 | "
-                f"{d.approx_start_date.year}~{d.approx_end_date.year} | {_ganji_ko(d.ganji)} | "
+                f"| {d.start_age}–{d.start_age + 9}세 | "
+                f"{d.approx_start_date.year}–{d.approx_end_date.year} | {_ganji_ko(d.ganji)} | "
                 f"{d.stem} {d.stem_ten_god} | {d.branch} {d.branch_ten_god} |"
             )
         # 세운(향후 span년) — 생애 세운(daewoon.sewoon)에서 창에 드는 해만.
@@ -2846,7 +2871,7 @@ def _product_framing(spec: ReportSpec) -> str:
     """
     if spec.product_code == "RPT_FULL":
         return (
-            "[풀이 유형 — 인생총운] 출생~90세 생애 전체를 조망하는 풀이다(2026-08-13 생애 개편). "
+            "[풀이 유형 — 인생총운] 출생–90세 생애 전체를 조망하는 풀이다(2026-08-13 생애 개편). "
             "대운 단위의 큰 흐름과 생애 변곡점 연표가 골격이고, 월별 상세는 변곡 연도당 한두 달로 "
             "제한한다. 특정 한 달·한 신호를 여러 섹션에 반복하지 말 것. 각 섹션은 자기 주제(원국·"
             "성격·대운·직업·재물·연애결혼·부모·자녀·건강·이동 등)에 고유한 내용으로 채운다."
@@ -2863,7 +2888,7 @@ def _product_framing(spec: ReportSpec) -> str:
         )
     topic_ko = _TOPIC_KO.get(spec.topic or "", spec.topic or "주제")
     return (
-        f"[풀이 유형 — {topic_ko} 집중({spec.period.start}~{spec.period.end})] 이 주제에 집중하는 "
+        f"[풀이 유형 — {topic_ko} 집중({spec.period.start}–{spec.period.end})] 이 주제에 집중하는 "
         "풀이다. 주제와 무관한 일반론으로 분량을 채우지 말고, 이 도메인의 신호를 시점 클러스터로 "
         "묶어 해당 기간의 흐름 중심으로 서술한다. 좋은 시기와 주의 시기를 함께 짚되, 데이터에 "
         "실제로 있는 쪽만 짚는다 — 없는 주의/기회 시기를 균형을 위해 만들어 넣지 말 것."
@@ -3266,6 +3291,7 @@ _THEME_SECTION_VIEWS: dict[str, dict[str, frozenset[str]]] = {
         "contract_document": frozenset({"contract_document"}),
         "career_risk": frozenset({
             "legal_conflict", "social_conflict", "preparation_delay",
+            "career_leave",  # 2026-10-29 휴직(복귀 전제) — 이탈이 아니라 주의·쉼 신호로 묶는다
         }),
     },
     "relationship": {
@@ -3619,15 +3645,15 @@ def _expand_report_plans(plans: list[SectionPlan], data: _ReportData) -> list[Se
             # 절기 기준 반기(2026-10-08): 상반기 = y-02..y-07(寅~未), 하반기 = y-08..y-12 +
             # (y+1)-01(申~丑).
             halves = (
-                ("H1", "상반기(입춘 2월~7월)", [f"{y}-{m:02d}" for m in range(2, 8)]),
-                ("H2", "하반기(8월~다음해 1월)",
+                ("H1", "상반기(입춘 2월–7월)", [f"{y}-{m:02d}" for m in range(2, 8)]),
+                ("H2", "하반기(8월–다음해 1월)",
                  [f"{y}-{m:02d}" for m in range(8, 13)] + [f"{y + 1}-01"]),
             )
             for half, label, months in halves:
                 sid = f"Y-05-{half}"
                 data.month_page_windows[sid] = (
                     set(months),
-                    f"{y}년 {label}의 6개 달 — 절기(입춘~입춘) 기준",
+                    f"{y}년 {label}의 6개 달 — 절기(입춘–입춘) 기준",
                 )
                 out.append(
                     SectionPlan(
@@ -3716,7 +3742,7 @@ def _expand_report_plans(plans: list[SectionPlan], data: _ReportData) -> list[Se
                 SectionPlan(
                     section_id=sid,
                     title=f"십년 풀이 — {_ganji_ko(d.ganji)} 대운"
-                    f"({d.start_age}~{d.start_age + 9}세)",
+                    f"({d.start_age}–{d.start_age + 9}세)",
                     module_calls=[],
                     target_chars=TargetChars(min=900, max=2_900),
                     depends_on=["F-04"],
@@ -3765,11 +3791,12 @@ def build_section_context(
     lines += [
         "",
         f"[섹션 과제 — {sid}. {plan.title}]",
-        f"분량: {plan.target_chars.min}~{plan.target_chars.max}자(공백 포함).",
+        f"분량: {plan.target_chars.min}–{plan.target_chars.max}자(공백 포함).",
         guide,
-        "입력에 없는 간지·점수·연도를 만들지 말 것. 단정 표현 금지.",
+        "입력에 없는 간지·점수·연도를 만들지 말 것. 단정(결과를 확정하는 어미)만 금지 — 구체 "
+        "사건명에 '…할 수 있다'를 붙인 가능성형이 기본 서술이다.",
         "인사말·원국 전체 재설명은 생략하고(앞 섹션에서 1회면 충분) 이 섹션 과제에 바로 집중할 것.",
-        "첫 문장을 '○○님은 ~한 사주/일간/성향' 류 명식 공통 묘사로 시작하지 말 것 — 독자는 "
+        "첫 문장을 '○○님은 …한 사주/일간/성향' 류 명식 공통 묘사로 시작하지 말 것 — 독자는 "
         "앞 페이지에서 같은 소개를 이미 읽었다. 이 섹션 주제의 구체 내용으로 바로 시작하고, "
         "명식 근거는 본문 중간에 필요한 만큼만 인용한다.",
         "지면 절약: 문단은 빈 줄 하나로만 구분하고 연속 빈 줄을 넣지 말 것. 잔 소제목 남발과 "
@@ -4378,7 +4405,7 @@ _RISK_EXPOSED_SECTION_ID = "C-06"
 _RISK_SECTION_LAYER_DIRECTIVE = (
     "[위험 서술 프레임 — 3층 분리]\n"
     "riskEpisodes 서술 순서: ①전통 해석 — classicalInterpretation을 활용해 '전통적으로 "
-    "~로 해석하기도 합니다' 형으로, 감추거나 지나치게 완화하지 말고 전달 ②이번 명식에서 "
+    "…로 해석하기도 합니다' 형으로, 감추거나 지나치게 완화하지 말고 전달 ②이번 명식에서 "
     "확인된 근거 — 제공된 관계·시기 근거로만 ③현실 확인 항목 — exposureCheckItems를 "
     "확인 조건('실제로 해당 활동이 많다면 주의 수준을 높이라')으로 ④보호·반대 신호가 "
     "있으면 함께. 세 층을 한 문장에 섞지 않는다. suddenAdversitySummary가 있으면 "

@@ -107,7 +107,8 @@ def map_intent_to_exposure_question(
         if len(set(effective_domains)) != 1:
             return None
     # 감수 51차 §1-2 + 52차 §1: specific_event는 **해소된 target**이 있을
-    # 때만. event_key는 자유 문자열이 아니라 EventKey **enum**(사건형 21종
+    # 때만. event_key는 자유 문자열이 아니라 EventKey **enum**(사건형 22종 — 2026-10-29 career_leave
+    # 휴직 편입: 실제 사건이라 allowlist 불요, manifest 재생성
     # — 성향·개념·처방 항목이 없는 폐쇄 어휘)이므로 별도 allowlist 없이
     # enum 존재=eligible로 완료 처리(감수 52차 승인 조건). 파서 enum에
     # 비사건형 키가 추가되면 이 지점에 명시 allowlist를 도입해야 한다.

@@ -159,7 +159,7 @@ def test_frame_notes_lotto_round_and_label() -> None:
     )
     joined = "\n".join(notes)
     assert "'다음 주'" in joined
-    assert "2026-10-11(일) ~ 2026-10-17(토)" in joined
+    assert "2026-10-11(일) – 2026-10-17(토)" in joined
     assert "한 회차" in joined and "판매 마감 전" in joined
     assert "20시" not in joined  # 마감 시각은 명시하지 않는다(문구만 — 데굴님 확정)
 
@@ -284,7 +284,7 @@ def test_lotto_round_directive() -> None:
     (intent, _), = _turns(_SAT, "로또 내일 사도 돼?")
     text = _lotto_round_directive(intent, "로또 내일 사도 돼?", _SAT, None)
     assert text is not None
-    assert "2026-10-04(일) ~ 2026-10-10(토)" in text
+    assert "2026-10-04(일) – 2026-10-10(토)" in text
     assert "2026-10-11(일)부터는 다음 회차" in text
     assert "판매 마감 전" in text
     # 로또가 아니면 없음.

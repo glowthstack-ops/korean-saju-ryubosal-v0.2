@@ -33,7 +33,9 @@ import httpx
 
 from saju_engines.ai_tell_audit import build_style_directive
 from saju_engines.llm_guard import LLMCallGuard, LLMCostLedger
+from saju_engines.prompt_notation import normalize_range_tilde
 from saju_engines.report_builder import load_model_prices
+from saju_engines.structural_context import ASSERTION_POLICY
 from saju_shared_types.constants import BRANCH_KO, STEM_KO
 
 from . import llm_service_state as _svc
@@ -628,7 +630,9 @@ def generate_reading(
         raise LLMServiceSuspended(_svc.SUSPENDED_ERROR_MESSAGE)
 
     guard = LLMCallGuard(call_type, ledger=COST_LEDGER)
-    sys_text = system or _SYSTEM_PROMPT
+    # 데이터 조립 범위 라벨(YYYY~YYYY·날짜 구간)의 ~ → – (prompt_notation, 2026-10-29).
+    prompt_text = normalize_range_tilde(prompt_text)
+    sys_text = normalize_range_tilde(system or _SYSTEM_PROMPT)
     input_est = guard.check_input(prompt_text + sys_text)
     max_tokens = guard.request_params()["max_tokens"]
 
@@ -860,13 +864,14 @@ _SYSTEM_PROMPT = (
     "다른 사건으로 재해석하지 않는다.\n"
     "4. 신살은 보조 참고 자료다 — '이런 신살의 영향일 수도 있다' 정도로만 곁들이고 "
     "성향의 핵심 근거로 부각하거나 단독으로 길흉·사건을 단정하지 않는다.\n"
-    "5. 사건 발생이 아니라 '변화 에너지의 활성화'로 표현하고, "
+    "5. 사건은 구체 사건명으로 부르되 가능성형으로 쓴다. " + ASSERTION_POLICY + " "
     "촉발→진행→결과의 인과 흐름으로 설명하되 '촉발/진행/결과'를 단계 표제·소제목으로 달지 "
     "않고 자연스러운 문장으로 녹인다. 합·충 등 관계는 '무엇과 합/충하여 무엇으로 "
     "작용해 어떤 결과가 되는지'까지 인과를 끝맺는다.\n"
     "6. 점수·숫자를 답변에 노출하지 않는다 — 강도는 제공된 표현 문장으로만 전달한다.\n"
     "7. 출력은 마크다운 기호(#, *, |, ### 등) 없이 평문으로, 공백 포함 1,500자 이내로 "
-    "쓴다. 취소선(~~…~~)·자기수정 표기를 쓰지 말고, 고친 흔적 없이 최종 확정 내용만 쓴다.\n"
+    "쓴다. 취소선(물결표 두 개로 감싼 GFM 표기)·자기수정 표기를 쓰지 말고, 고친 흔적 없이 "
+    "최종 확정 내용만 쓴다.\n"
     "8. 답변 끝에 핵심을 한두 문장으로 정리하고(그 정리에 핵심 판정과 지금 취할 행동이 "
     "담기게 하라), 사용자가 이어서 생각해볼 만한 질문 "
     "1개를 자연스럽게 덧붙인다. 마무리는 이 한 번뿐이다 — 다른 지시가 말미 서술이나 "
@@ -908,15 +913,15 @@ _REPORT_SYSTEM_PROMPT = (
     "다른 사건으로 재해석하지 않는다.\n"
     "4. 신살은 보조 참고 자료다 — '이런 신살의 영향일 수도 있다' 정도로만 곁들이고 "
     "성향의 핵심 근거로 부각하거나 단독으로 길흉·사건을 단정하지 않는다.\n"
-    "5. 사건 발생이 아니라 '변화 에너지의 활성화'로 표현하고, "
+    "5. 사건은 구체 사건명으로 부르되 가능성형으로 쓴다. " + ASSERTION_POLICY + " "
     "촉발→진행→결과의 인과 흐름으로 설명하되 '촉발/진행/결과'를 단계 표제·소제목으로 달지 "
     "않고 자연스러운 문장으로 녹인다. 합·충 등 관계는 '무엇과 합/충하여 무엇으로 "
     "작용해 어떤 결과가 되는지'까지 인과를 끝맺는다.\n"
     "6. 점수·숫자를 답변에 노출하지 않는다 — 강도는 제공된 표현 문장으로만 전달한다.\n"
     "7. 출력은 마크다운 기호(#, *, |, ### 등) 없이 평문으로 쓰되, 분량은 섹션 과제의 목표를 "
     "따른다(대화의 1,500자 제한은 적용하지 않는다). 잔 소제목·연속 빈 줄로 지면을 낭비하지 "
-    "말고 여러 문장을 묶은 조밀한 문단으로 작성한다. 취소선(~~…~~)·자기수정 표기를 쓰지 말고, "
-    "고친 흔적 없이 최종 확정 내용만 쓴다.\n"
+    "말고 여러 문장을 묶은 조밀한 문단으로 작성한다. 취소선(물결표 두 개로 감싼 GFM 표기)·"
+    "자기수정 표기를 쓰지 말고, 고친 흔적 없이 최종 확정 내용만 쓴다.\n"
     "응답은 한국어로, 제공된 근거를 인용하며 서술한다."
 )
 REPORT_STYLE_BLOCK = build_style_directive("report")

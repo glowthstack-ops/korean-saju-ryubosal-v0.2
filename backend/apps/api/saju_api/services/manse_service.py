@@ -904,7 +904,7 @@ def _hour_unknown_analysis(
         notice += (" — 선택한 변형 기준으로 표시 중(확정 아님)."
                    if basis.startswith("variant:") else ".")
     if rng is not None:
-        notice += f" 대운수 {rng[0]}~{rng[1]}세(시각 범위)."
+        notice += f" 대운수 {rng[0]}–{rng[1]}세(시각 범위)."
     return HourUnknownAnalysis(
         candidates=cands, basis=basis, approx_band=birth.birth_time_approx,
         hint_branch=birth.hour_branch_hint,

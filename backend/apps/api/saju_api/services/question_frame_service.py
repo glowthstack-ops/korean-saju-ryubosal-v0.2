@@ -27,6 +27,7 @@ from saju_engines.question_frame import (
     frame_disagreements,
     is_rule_fallback,
     parse_frame,
+    rule_subject_frame,
 )
 from saju_shared_types.intent import IntentJson
 from saju_shared_types.question_frame import QuestionFrameShadow
@@ -40,7 +41,7 @@ ENV_FLAG = "SAJU_QUESTION_FRAME_SHADOW"
 GATE_FLAG = "SAJU_QUESTION_FRAME_GATE"  # 2026-10-28 데굴님 "우선 켜고" — 색·방향·음식·장소 보정
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 SHADOW_PATH = _REPO_ROOT / "var" / "question_frame_shadow.jsonl"
-_MAX_OUTPUT_TOKENS = 120
+_MAX_OUTPUT_TOKENS = 200  # 2026-10-28 시제·대상·지칭 목록 3키 추가(실측 출력 ≈110~150 토큰)
 
 _EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="qframe")
 
@@ -68,13 +69,24 @@ def observe_sync(
     *,
     thread_id: str | None = None,
     prev_summary: str | None = None,
+    rule_retro: bool | None = None,
+    rule_time_reason: str | None = None,
+    rule_subject_inherited: bool | None = None,
 ) -> QuestionFrameShadow:
-    """프레임 1회 호출 + 룰 대조 → 관측 1건(예외 없음). 측정 스크립트와 백그라운드 관측이 공용."""
+    """프레임 1회 호출 + 룰 대조 → 관측 1건(예외 없음). 측정 스크립트와 백그라운드 관측이 공용.
+
+    rule_retro·rule_subject_inherited 는 시제·대상 shadow 대조값(2026-10-28) — 없으면 그 축은
+    대조하지 않는다.
+    """
     shadow = QuestionFrameShadow(
         question=question,
         rule_query_type=intent.query_type.value,
         rule_domain=intent.domain.value,
         thread_id=thread_id,
+        rule_time_direction=(None if rule_retro is None else ("past" if rule_retro else "future")),
+        rule_time_reason=rule_time_reason,
+        rule_subject_frame=rule_subject_frame(intent),
+        rule_subject_inherited=rule_subject_inherited,
     )
     t0 = time.monotonic()
     try:
@@ -90,7 +102,10 @@ def observe_sync(
         else:
             shadow.frame = frame
             shadow.ok = True
-            shadow.disagreements = frame_disagreements(frame, intent)
+            shadow.disagreements = frame_disagreements(
+                frame, intent, rule_retro=rule_retro, rule_time_reason=rule_time_reason,
+                rule_subject_inherited=rule_subject_inherited,
+            )
     except Exception as exc:  # noqa: BLE001 — 로컬 모델 부재·타임아웃은 관측 실패 1건일 뿐
         shadow.error = f"{type(exc).__name__}: {str(exc)[:160]}"
     shadow.latency_ms = int((time.monotonic() - t0) * 1000)
@@ -125,6 +140,9 @@ def correct_if_fallback(
     intent: IntentJson,
     *,
     thread_id: str | None = None,
+    rule_retro: bool | None = None,
+    rule_time_reason: str | None = None,
+    rule_subject_inherited: bool | None = None,
 ) -> tuple[IntentJson, bool]:
     """게이트 ON + 룰 Q1/GENERAL 폴백 턴이면 프레임을 **동기** 호출해 보정 → (intent, 관측 여부).
 
@@ -135,7 +153,10 @@ def correct_if_fallback(
     """
     if not gate_enabled() or not is_rule_fallback(intent):
         return intent, False
-    shadow = observe_sync(question, intent, thread_id=thread_id)
+    shadow = observe_sync(
+        question, intent, thread_id=thread_id, rule_retro=rule_retro,
+        rule_time_reason=rule_time_reason, rule_subject_inherited=rule_subject_inherited,
+    )
     new_intent = intent
     if shadow.frame is not None:
         new_intent, label = apply_frame_correction(intent, shadow.frame, question)
@@ -186,6 +207,9 @@ def observe_async(
     *,
     thread_id: str | None = None,
     prev_summary: str | None = None,
+    rule_retro: bool | None = None,
+    rule_time_reason: str | None = None,
+    rule_subject_inherited: bool | None = None,
 ) -> bool:
     """플래그 ON 이면 백그라운드 관측을 제출하고 True. 호출자는 결과를 기다리지도 받지도 않는다."""
     if not enabled():
@@ -193,7 +217,11 @@ def observe_async(
     snapshot = intent.model_copy(deep=True)
 
     def _run() -> None:
-        _record(observe_sync(question, snapshot, thread_id=thread_id, prev_summary=prev_summary))
+        _record(observe_sync(
+            question, snapshot, thread_id=thread_id, prev_summary=prev_summary,
+            rule_retro=rule_retro, rule_time_reason=rule_time_reason,
+            rule_subject_inherited=rule_subject_inherited,
+        ))
 
     try:
         _EXECUTOR.submit(_run)

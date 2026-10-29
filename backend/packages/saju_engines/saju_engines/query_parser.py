@@ -40,8 +40,10 @@ from saju_shared_types.intent import (
 )
 
 from .challenge_detect import is_challenge
+from .job_change_report import asks_new_job_change, is_job_change_report, strip_job_change_report
 from .job_separation import is_job_separation
-from .time_parser import WEEK_FRAME_SUN_SAT, parse_time_with_constraints
+from .overseas_work import JOB_KEYS_BY_KIND, PRIMARY_EVENT, detect_overseas_work
+from .time_parser import WEEK_FRAME_SUN_SAT, YEAR_WHEN_RE, parse_time_with_constraints
 from .yongsin_color import detect_asked_colors, is_color_question
 from .yongsin_food import detect_asked_foods, is_food_question
 
@@ -1028,8 +1030,8 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
         text,
     ) or NEUTRAL_PAST_EXPLANATION_RE.search(text):
         return QueryType.EVENT_EXPLANATION
-    # Q3 — 시기 탐색.
-    if "언제" in text:
+    # Q3 — 시기 탐색. '몇 년도에/어느 해에'(연 단위 시점 탐색, 2026-10-28)도 같은 유형이다.
+    if "언제" in text or YEAR_WHEN_RE.search(text):
         return QueryType.TIMING_SEARCH
     # Q9 — 특정 인물 분석(관계어 동반)은 명식 구조보다 우선.
     person = (
@@ -1190,6 +1192,43 @@ def _merge_constraints(prev: Constraints, new: Constraints) -> Constraints:
     return merged
 
 
+# 설명 요청(2026-10-28 데굴님 승인) — 직전 답의 한 문장이나 붙여 넣은 문장을 '쉽게 설명해 달라'는
+# 발화. 실로그 web-mvrq8ocg: "해외 업무나 이동을 준비하신다면 서쪽인 申 방위나 酉 방위를 활용해
+# 보세요. 위의 내용 쉽게 설명해줘"가 career 분석으로 가 12신살 방위 설명 뒤에 2028~2031년 연운·
+# 삼재까지 붙었다.
+# 요청 표지 + (참조어('위의 내용') 또는 요청 문장 앞의 인용 본문 15자 이상)일 때만. 용어 교육(Q11,
+# '용신이 무슨 뜻이야')은 그 규칙이 먼저 잡는다.
+EXPLAIN_REQUEST_RE = re.compile(
+    r"(?:쉽게|쉬운\s*말로|풀어서|알기\s*쉽게|간단히|간단하게|자세히|다시\s*한\s*번|한\s*번\s*더)"
+    r"\s*(?:설명|말해|풀어|얘기|이야기|알려|정리)"
+    r"|설명\s*(?:해\s*줘|해\s*주세요|해\s*주실|좀|부탁|해\s*줄래|해\s*봐|해주라)"
+    r"|(?:무슨|어떤|뭔)\s*(?:뜻|말|의미|소리)(?:이야|인지|이에요|야|인가요|이지|이죠|임|인데|이냐)"
+)
+_EXPLAIN_REF_RE = re.compile(
+    r"(?:위|위의|위에|앞|앞의|앞에|아까|방금|이|그|저|요)\s*(?:내용|말|문장|답|답변|설명|부분|글|거|것|문구|표현)"
+)
+_EXPLAIN_SENT_SPLIT_RE = re.compile(r"(?<=[.!?\n])")
+
+
+def detect_explain_request(text: str) -> bool:
+    """직전 답·인용 문장에 대한 '쉽게 설명해 달라' 요청인가.
+
+    요청 표지가 있고, 참조어('위의 내용')가 있거나 요청 문장 앞에 인용 본문(15자 이상)이 있을 때.
+    """
+    if not EXPLAIN_REQUEST_RE.search(text or ""):
+        return False
+    if _EXPLAIN_REF_RE.search(text):
+        return True
+    return len(explain_target(text)) >= 15
+
+
+def explain_target(text: str) -> str:
+    """설명 요청 문장을 뺀 인용 본문(앞뒤 공백 제거). 요청 문장만 있으면 빈 문자열."""
+    parts = [s for s in _EXPLAIN_SENT_SPLIT_RE.split(text or "") if s.strip()]
+    kept = [s for s in parts if not EXPLAIN_REQUEST_RE.search(s)]
+    return " ".join(s.strip() for s in kept).strip()
+
+
 def _split_questions(text: str) -> list[str]:
     """다중 질문(B4) 분리 — 물음표 단위, 의문 없는 조각은 직전에 병합."""
     parts = [p.strip() for p in re.split(r"(?<=\?)", text) if p.strip()]
@@ -1344,14 +1383,26 @@ def parse_message(
                 inherited_from=prev_intent.intent_id,
             )
 
-    pieces = _split_questions(text)
+    # 설명 요청('…활용해 보세요. 위의 내용 쉽게 설명해줘')은 인용 본문을 질문 조각으로 쪼개지 않는다
+    # — 쪼개면 인용 문장이 독립 분석 질문이 된다(2026-10-28).
+    _explain = detect_explain_request(text)
+    pieces = [text] if _explain else _split_questions(text)
     subjects, mode = _detect_subjects(text, today)
     style = _detect_output_style(text)
     constraints = _detect_constraints(text)
 
     intents: list[IntentJson] = []
     for idx, piece in enumerate(pieces):
-        event_key = _detect_event(piece)
+        # 완료형 이직 보고('이직을 했는데 업무의 양이 많아', 2026-10-28) — 보고 절의 '이직'은 이미
+        # 일어난 사실이라 사건(career_change)으로 잡지 않는다. 사건 감지는 보고 절을 뺀 잔여
+        # 텍스트로.
+        # 단 '또/다시 이직'을 물으면 새 이직 사건이 맞다(asks_new_job_change).
+        _job_changed = is_job_change_report(piece)
+        _event_text = (
+            strip_job_change_report(piece)
+            if _job_changed and not asks_new_job_change(piece) else piece
+        )
+        event_key = _detect_event(_event_text)
         event_keys: list[EventKey] = []
         # '직장운'은 통상 재직 상태의 이직·입지·승진 문의 — 이직(주축)+승진(동반)으로 본다.
         # 무직·비정규일 때 '취업' 포함 여부는 프로필·맥락을 아는 상위 계층(chat_service)이 보강한다.
@@ -1405,6 +1456,35 @@ def parse_message(
         # 직업 분야 질문 — career 도메인이거나 강한 분야 어휘면 표시하고 도메인을 career 로 맞춘다.
         # 분야는 원국 십성 기능이 답의 축 — 자체 시점은 남기되 승계 대상에서 뺀다(conversation).
         _last = intents[-1]
+        _last.job_changed_reported = _job_changed
+        # 해외 근무(주재원·파견·해외 취업·이민, 2026-10-28) — 파서에 어휘가 없어 career 총운/임베딩
+        # 보강의 career_change 로 떨어지던 질문. 주 사건=이동(relocation), 동반=유형별 직업 키.
+        # 도메인은 직업
+        # (이민만 이동). 사용자가 이직·취업 사건을 명시했으면 그 사건은 동반 키로 보존한다.
+        _ow = detect_overseas_work(piece)
+        if _ow is not None:
+            _last.overseas_work = _ow
+            _job_keys = [k for k in JOB_KEYS_BY_KIND[_ow] if k is not PRIMARY_EVENT]
+            if _last.event_key is not None and _last.event_key is not PRIMARY_EVENT:
+                _job_keys = [_last.event_key, *[k for k in _job_keys if k is not _last.event_key]]
+            _last.event_key = PRIMARY_EVENT
+            _last.event_keys = _job_keys
+            if _last.domain is Domain.GENERAL:
+                _last.domain = Domain.RELOCATION if _ow == "emigration" else Domain.CAREER
+            elif _last.domain is Domain.RELOCATION and _ow != "emigration":
+                _last.domains = [d for d in _last.domains if d is not Domain.CAREER]
+                _last.domain = Domain.CAREER
+        # 설명 요청 — 인용된 내용만 쉬운 말로 풀이하는 대화 행위. 시점·사건은 비운다(새 기간·운 흐름
+        # 서술 재료를 주지 않는다). 도메인은 인용 본문의 것을 둔다(명식 맥락 유지).
+        if _explain and _last.query_type not in (
+            QueryType.TERMINOLOGY_EDUCATION, QueryType.FEEDBACK_CORRECTION, QueryType.OUT_OF_SCOPE,
+        ):
+            _last.dialogue_act = "explain_request"
+            _last.explain_target = explain_target(piece)
+            _last.time_range = None
+            _last.time_scope = TimeScope.TIMELESS
+            _last.event_key = None
+            _last.event_keys = []
         # 명식 범위 주의점('내 사주에서 주의할 점') — Q8 + chart_caution(시점·도메인 미승계).
         if (
             _last.query_type is QueryType.CHART_ANALYSIS

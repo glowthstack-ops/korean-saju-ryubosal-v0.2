@@ -35,7 +35,7 @@ def _sewoon_range(year: int) -> str:
     start = tbl.lichun_for_year(year).astimezone(_KST).date()
     nxt = tbl.lichun_for_year(year + 1).astimezone(_KST)
     end = (nxt - timedelta(days=1)).date()
-    return f"입춘 기준 {start.isoformat()} ~ {end.isoformat()}"
+    return f"입춘 기준 {start.isoformat()} – {end.isoformat()}"
 
 
 def _model_elements(m: YongsinCandidateModel) -> tuple[set[str], set[str]]:

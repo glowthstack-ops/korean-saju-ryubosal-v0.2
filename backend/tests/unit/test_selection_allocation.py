@@ -329,7 +329,7 @@ def test_format_block_policy_and_labels() -> None:
     assert "단정하지 말 것" in block and "확률 % 표시 금지" in block
     assert "분리해 서술하라" in block  # 선발 ≠ 희망 조건 배치
     assert "실제 실행" in block and "결과 변수가 크다" in block  # 추첨성 명시
-    assert "결론(1~2문장)" in block
+    assert "결론(1–2문장)" in block
     # 청약 어댑터는 같은 신호를 주거 언어로 번역한다(범용성 회귀 — 설계 §6).
     housing = analyze_selection_allocation(_chart(), domain="housing_subscription")
     hblock = format_selection_reading_block(housing)

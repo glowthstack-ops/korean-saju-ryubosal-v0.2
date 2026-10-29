@@ -15,6 +15,8 @@ import re
 
 from saju_shared_types.conversation import ConversationState, UserFact
 
+from .job_change_report import JOB_CHANGE_REPORT_RE, is_job_change_report
+
 # 슬롯별 추출 패턴 — 매칭된 '문장 절'을 인용(quote)으로 보존한다(정규화 값보다 오해석이
 # 적다). singleton=True인 키는 스레드에 1건만 유지하고 재진술 시 supersede(정정 이력).
 # 2026-07-22 커버리지 확대: 테스터 실문장 4종("이사가 결정되었어"·"계약서는 이미 다 썼고"·
@@ -88,6 +90,12 @@ _FACT_RULES: list[tuple[str, re.Pattern[str], bool]] = [
         ),
         True,
     ),
+    # 이직 완료 진술(2026-10-28 데굴님 승인) — "이직을 했는데", "회사 옮겼어", "아니 난 이직을
+    # 했다니까".
+    # 사용자가 직접 알린 **이미 일어난** 이직. 이후 턴에서 앞으로의 이직·채용 제안·면접 시기를 다시
+    # 전망하지 않게 남긴다(실로그: 두 스레드에서 '이직을 했다'를 알린 뒤에도 2027년 이직 창을 서술).
+    # 판정 SSOT 는 job_change_report(가정·부정·제3자 제외). (단수 supersede)
+    ("job_changed", JOB_CHANGE_REPORT_RE, True),
     # 혼인 상태 정정 — "기혼이라고 했는데 이혼했어" (단수 supersede)
     ("marital_correction", re.compile(r"이혼했|사별했|재혼했"), True),
     # 배제 조건(2026-10-01 실로그 커튼 색: "붉은색은 좀 그래. 다른색을 추천해줘" 뒤 두 턴 만에 다시
@@ -189,6 +197,9 @@ def extract_user_facts(text: str, turn: int) -> list[UserFact]:
                 or _JOB_THIRD_PARTY_RE.search(quote)
             ):
                 continue
+            # 이직 완료 슬롯 가드 — 가정·소원·부정·제3자 절 제외(job_change_report SSOT).
+            if key == "job_changed" and not is_job_change_report(quote):
+                continue
             seen.add((key, quote))
             # 관계 사실은 scope=global — 주제 전환(topic reset)이 배우자·연애 사실을
             # 지우면 안 된다(C-3 §10). 그 외 슬롯은 기존 topic scope 유지.
@@ -256,11 +267,16 @@ _KEY_KO = {
     "excluded_option": "배제 조건",
     "user_claim": "사용자 명리 해석",
     "job_separation": "직장 이탈(사용자 진술)",
+    "job_changed": "이직 완료(사용자 진술)",
 }
 # 라벨 뒤에 붙는 취급 주석 — 배제 조건은 대안 재제시 금지, 사용자 해석은 엔진 판정과 대조.
 _KEY_NOTE = {
     "job_separation": (
         "사용자가 직접 알린 사건(해고·퇴사 통보·권고사직 계열) — 재직 중이라는 전제로 답하지 말 것"
+    ),
+    "job_changed": (
+        "사용자가 직접 알린 사건 — 이직은 이미 일어났다. 앞으로의 이직·채용 제안·면접·"
+        "스카우트 시기를 서술하지 말고, 현 직장 적응·업무 부담·안정 시기의 흐름으로 답할 것"
     ),
     "excluded_option": "사용자가 거른 선택지 — 대안으로 다시 제시하지 말 것",
     "user_claim": (
@@ -284,7 +300,7 @@ def user_facts_block(facts: list[UserFact], cap: int = 10) -> str | None:
     lines = [
         "[사용자 제공 정보 — 대화에서 사용자가 직접 밝힌 사실. 아래 내용과 모순되게 "
         "서술하지 말고, 이미 밝힌 사실을 다시 묻지 말 것. 이 사실들은 사용자가 알려준 "
-        "정보이지 사주에서 읽어낸 것이 아니다 — '~로 보여요/읽혀요'처럼 점친 듯 되풀이하지 "
+        "정보이지 사주에서 읽어낸 것이 아니다 — '…로 보여요/읽혀요'처럼 점친 듯 되풀이하지 "
         "말고, 사실은 사실로 받아 그 위에서 풀이할 것]"
     ]
     for f in facts[-cap:]:

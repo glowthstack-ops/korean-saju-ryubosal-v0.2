@@ -248,7 +248,7 @@ def assemble_markdown(result: ReportResult) -> str:
         f"# {spec.product_code} 풀이 보고서",
         "",
         f"- 대상: {subjects}",
-        f"- 기간: {spec.period.start} ~ {spec.period.end}",
+        f"- 기간: {spec.period.start} – {spec.period.end}",
         f"- 사전 버전: {result.meta.get('dict_version')}",
         "",
         "## 목차",

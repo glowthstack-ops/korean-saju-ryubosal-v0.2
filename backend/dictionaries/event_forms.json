@@ -485,6 +485,32 @@
       "reviewed": false
     },
     {
+      "eventKey": "career_leave",
+      "forms": [
+        {
+          "name": "휴직(복귀 전제)",
+          "prob": 0.3
+        },
+        {
+          "name": "장기 휴가·안식",
+          "prob": 0.2
+        },
+        {
+          "name": "병가·요양",
+          "prob": 0.2
+        },
+        {
+          "name": "출산·육아 휴직",
+          "prob": 0.15
+        },
+        {
+          "name": "잠시 쉬고 싶은 마음(실제 휴직 없음)",
+          "prob": 0.15
+        }
+      ],
+      "reviewed": false
+    },
+    {
       "eventKey": "creative_output",
       "forms": [
         {

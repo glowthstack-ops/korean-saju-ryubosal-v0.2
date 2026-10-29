@@ -41,7 +41,7 @@ BRANCH_COMPASS: dict[str, tuple[str, int]] = {
 def compass_range(branch: str) -> str:
     """지지의 나침반 구간 문자열('345°~15°')."""
     center = BRANCH_COMPASS[branch][1]
-    return f"{(center - 15) % 360}°~{(center + 15) % 360}°"
+    return f"{(center - 15) % 360}°–{(center + 15) % 360}°"
 
 
 def branch_compass_label(branch: str) -> str:

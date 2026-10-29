@@ -305,9 +305,9 @@ def _recovery_signals(
         return []
     return [CounterfactualSignal(
         signal_id="RECOVERY_PRESSURE_EASED", stage="recovery", scope="after",
-        period=f"{after_years[0]}~{after_years[-1]}", confidence="medium",
+        period=f"{after_years[0]}–{after_years[-1]}", confidence="medium",
         detail=(
-            f"{after_years[0]}~{after_years[-1]} — 같은 자극 신호의 빈도가 낮아지고 "
+            f"{after_years[0]}–{after_years[-1]} — 같은 자극 신호의 빈도가 낮아지고 "
             "지원(용신) 연도 비율이 높아짐(엔진 비교값)"
         ),
     )]
@@ -407,13 +407,13 @@ def counterfactual_lines(ctx: CounterfactualContext) -> list[str]:
         return out
     if ctx.status == "BLOCKED":
         return [
-            f"[반사실 서술 한계 — 필수 준수] {ctx.period_from}~{ctx.period_to} 기간에 대해 "
+            f"[반사실 서술 한계 — 필수 준수] {ctx.period_from}–{ctx.period_to} 기간에 대해 "
             "질문 대상과 맞물린 부담 활성화 근거가 제공되지 않았다 — '그때 했으면 어려웠다/"
             "나았다' 양쪽 모두 단정하지 말고, 일반 회고 수준으로만 답할 것. " + _FORBIDDEN_LINE,
         ]
     header = (
         f"[반사실 맥락 — 서술 전용(점수·판정 불변) · 대상 {ctx.target or ctx.domain} · "
-        f"기간 {ctx.period_from}~{ctx.period_to}] 아래는 '그 시기에 실행됐다면 함께 "
+        f"기간 {ctx.period_from}–{ctx.period_to}] 아래는 '그 시기에 실행됐다면 함께 "
         "활성화됐을' 엔진 신호다. '부담이 더 컸을 가능성'까지만 말하고 실패 단정 금지. "
         "신호의 단계(시작/조율/유지/결실)에 맞춰 서술할 것 — 모든 신호를 '유지 어려움'으로 "
         "뭉뚱그리지 말 것."

@@ -112,7 +112,8 @@ def test_relations_fixed_pairs_match_engine_tables() -> None:
 
 
 def test_taxonomy_covers_event_keys_exactly() -> None:
-    """21키 taxonomy_v2(EVENT_KO)가 EventKeyV2 전체를 중복 없이 1:1 커버한다(Phase 7).
+    """taxonomy_v2(EVENT_KO)가 EventKeyV2 전체(21키 + 2026-10-29 career_leave = 22)를 중복 없이
+    1:1 커버한다(Phase 7).
 
     레거시 events/taxonomy.json은 구 25키 보존 아티팩트로 graph_builder가 21키로 리맵한다.
     """
@@ -120,7 +121,7 @@ def test_taxonomy_covers_event_keys_exactly() -> None:
     from saju_shared_types.event_taxonomy_v2 import EVENT_KO
 
     assert set(EVENT_KO) == set(EventKeyV2)
-    assert len(EVENT_KO) == 21
+    assert len(EVENT_KO) == 22
 
 
 def test_all_items_carry_reviewed_flag() -> None:

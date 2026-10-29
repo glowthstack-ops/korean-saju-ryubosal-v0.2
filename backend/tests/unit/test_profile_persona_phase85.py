@@ -295,7 +295,7 @@ def test_persona_block_is_template_substitution(persona_engine) -> None:
     assert block.startswith("[페르소나 — 필수 준수]")
     assert "40대 여성 사주 상담가" in block
     assert '"길동님"' in block
-    assert "해요체" in block and "~예요" in block
+    assert "해요체" in block and "…예요" in block
     assert "점수·날짜·간지·판정을 바꾸는 것" in block  # 문체 전용 고지(절대 원칙 12)
 
 

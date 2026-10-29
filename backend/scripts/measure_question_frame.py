@@ -7,8 +7,11 @@
     python scripts/measure_question_frame.py --out var/qf.jsonl
 
 출력: 관측 JSONL(질문·룰 결정·프레임·불일치·지연) + 요약(건수·파싱 실패·지연 p50/p95·불일치
-라벨 분포) + 검수용 표본(핵심 결함군 `lifestyle_on_overview_fallback` 전부, 그 외 라벨은 각 5건).
-라우팅은 바꾸지 않는다 — 측정 결과를 보고 게이트 ON 범위를 따로 결정한다.
+라벨 분포) + 검수용 표본(핵심 결함군 `lifestyle_on_overview_fallback` 전부, 시제·대상 shadow
+라벨(`time_*`·`subject_*`, 2026-10-28)은 각 10건, 그 외 라벨은 각 5건).
+라우팅은 바꾸지 않는다 — 측정 결과를 보고 게이트 ON 범위를 따로 결정한다. 대상 상속 대조
+(`subject_self_on_inherited`)는 멀티턴 상태가 필요해 이 단일턴 측정에는 안 나오고 운영 shadow
+JSONL(`var/question_frame_shadow.jsonl`)에서만 본다.
 """
 
 from __future__ import annotations
@@ -27,6 +30,7 @@ _BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_BACKEND / "apps" / "api"))
 
 from saju_api.services import question_frame_service  # noqa: E402
+from saju_api.services.chat_service import _question_time_direction_reason  # noqa: E402
 from saju_engines.query_parser import parse_message  # noqa: E402
 
 _EVAL = _BACKEND / "tests" / "fixtures" / "intent_eval.jsonl"
@@ -118,7 +122,11 @@ def main() -> int:
                 rows.append({"question": q, "rule_error": f"{type(exc).__name__}: {exc}"})
                 fh.write(json.dumps(rows[-1], ensure_ascii=False) + "\n")
                 continue
-            shadow = question_frame_service.observe_sync(q, intent)
+            # 시제 대조값 — 채팅과 같은 회고 판정(단일턴·상태 없음). 대상 상속은 단일턴이라 None.
+            rule_retro, reason = _question_time_direction_reason(q, intent, None, args.today)
+            shadow = question_frame_service.observe_sync(
+                q, intent, rule_retro=rule_retro, rule_time_reason=reason,
+            )
             row = shadow.model_dump(mode="json")
             rows.append(row)
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
@@ -148,7 +156,13 @@ def main() -> int:
     shown: Counter[str] = Counter()
     for r in ok:
         for lbl in r["disagreements"]:
-            cap = 10_000 if lbl == "lifestyle_on_overview_fallback" else 5
+            # 핵심 결함군 전수 + 시제·대상 shadow 라벨은 10건(2026-10-28), 그 외 5건.
+            if lbl == "lifestyle_on_overview_fallback":
+                cap = 10_000
+            elif lbl.startswith(("time_", "subject_")):
+                cap = 10
+            else:
+                cap = 5
             if shown[lbl] >= cap:
                 continue
             shown[lbl] += 1
@@ -156,7 +170,10 @@ def main() -> int:
             print(
                 f"[{lbl}] {r['question']!r} | rule={r['rule_query_type']}/{r['rule_domain']} "
                 f"| frame={f['ask_kind']}/{f['lifestyle_item']}/{f['answer_shape']} "
-                f"'{f['topic_object']}'"
+                f"'{f['topic_object']}' | time={r.get('rule_time_direction')}"
+                f"({r.get('rule_time_reason')})→"
+                f"{f.get('time_direction')} subj={r.get('rule_subject_frame')}→"
+                f"{f.get('subject_frame')} {f.get('mentioned_people')}"
             )
     print(f"\nJSONL → {args.out}")
     return 0

@@ -112,8 +112,8 @@ def test_plan_report_year_half_pages() -> None:
     assert ids.index("Y-04") < h1_pos < h2_pos < ids.index("Y-06")
     h1 = next(c for c in contexts if c.section_id == "Y-05-H1")
     h2 = next(c for c in contexts if c.section_id == "Y-05-H2")
-    assert "상반기(입춘 2월~7월)의 6개 달" in h1.body_prompt
-    assert "하반기(8월~다음해 1월)의 6개 달" in h2.body_prompt
+    assert "상반기(입춘 2월–7월)의 6개 달" in h1.body_prompt
+    assert "하반기(8월–다음해 1월)의 6개 달" in h2.body_prompt
     # 월별 흐름 표는 자기 반기의 달만 담는다(모듈 블록의 달 언급은 별개 — 표만 검사).
     h1_table = h1.body_prompt.split("[월별 흐름 — ")[1].split("\n\n")[0]
     h2_table = h2.body_prompt.split("[월별 흐름 — ")[1].split("\n\n")[0]
@@ -159,6 +159,7 @@ def test_plan_report_full_natal_sections() -> None:
     # 십년 페이지 — 그 대운 정보 + 십년 세운 흐름 표, 근접 5년 스펙트럼·전역 후보 미부착.
     d1 = decades[0]
     assert "[이 페이지의 대운]" in d1.body_prompt
+    assert "· 역할: " in d1.body_prompt  # 대운 역할 라벨(2026-10-29 대운 강의)
     assert "[십년 세운 흐름" in d1.body_prompt
     assert "[연도별 흐름" not in d1.body_prompt
     # F-14 바로 뒤에 연속 배치.

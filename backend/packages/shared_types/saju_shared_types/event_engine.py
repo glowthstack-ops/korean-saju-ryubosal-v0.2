@@ -12,7 +12,10 @@ from pydantic import BaseModel, Field
 
 
 class EventKeyV2(StrEnum):
-    """재설계 이벤트 키 (사양 event_keys, 21종)."""
+    """재설계 이벤트 키 (사양 event_keys 21종 + 2026-10-29 `career_leave` 신설 = 22종).
+
+    career_leave = 휴직·휴가·일시 중단(복귀 전제 — 완전 이탈인 career_change 와 구분, 데굴님 결정).
+    """
 
     CAREER_CHANGE = "career_change"
     JOB_GAIN = "job_gain"
@@ -35,6 +38,7 @@ class EventKeyV2(StrEnum):
     PREPARATION_DELAY = "preparation_delay"
     CREATIVE_OUTPUT = "creative_output"
     PUBLIC_EXPOSURE = "public_exposure"
+    CAREER_LEAVE = "career_leave"
 
 
 class TenGod(StrEnum):

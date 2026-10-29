@@ -39,6 +39,22 @@ _LIFE_STAGES = {
     "평생": "평생", "일생": "평생",
 }
 _YOUTH_STAGE_RE = re.compile(r"청년\s*(?:기|때|시절|에)")
+#: C14 대운 단위 — 지금·이번·다음 대운, 대운 교운·교체(2026-10-29: '지금 대운은 어때요?'가
+#: 시점 미파싱 → too_broad 로 반려되던 결함 — '지금·요즘' 추가, '대운이 언제 바뀌어요?' 포함).
+DAEWOON_UNIT_RE = re.compile(
+    r"(다음|이번|현재|지금|요즘)\s*(?:의\s*)?대운|대운\s*교운|대운\S{0,3}\s*(?:언제\s*)?(?:바뀌|교체)"
+)
+#: C14b '대운이 언제 들어오나요'·'좋은 대운은 언제' — 대운을 '좋은 운'으로 보고 시기를 묻는 질문
+#: (2026-10-29 대운 강의 대조). 월 단위 시기 탐색으로 빠지던 결함 → 평생 스캔(전 대운 역할 흐름)으로
+#: 보낸다. 이번·다음·지금 대운(C14)이 먼저 잡히므로 여기 오지 않는다.
+DAEWOON_WHEN_RE = re.compile(
+    r"(?:언제|좋은)\s*(?:쯤\s*)?대운|대운\S{0,3}\s*(?:언제|들어오|들어와|오나|와요|올까|오는)"
+)
+
+
+def is_daewoon_when_question(text: str) -> bool:
+    """대운을 '좋은 운'으로 보고 그 시기를 묻는 질문인가(이번·다음·지금 대운 단위 질문 제외)."""
+    return bool(DAEWOON_WHEN_RE.search(text)) and not DAEWOON_UNIT_RE.search(text)
 #: 단계별 (시작나이, 끝나이) — 근묘화실(연주=초년·월주=청년·일주=중년·시주=말년)
 #: 4분법을 100세 시대 기준으로 재조정한 현대 명리 통용 경계(2026-08-07 데굴님 확정).
 #: '평생'=출생~100세. chat의 전 생애 스캔 창·100세 상한이 이 표를 공유한다.
@@ -306,6 +322,12 @@ def parse_multi_day(
 
 #: 주 틀 식별자 — 일요일~토요일(로또 판매 회차·사용자 지정).
 WEEK_FRAME_SUN_SAT = "sun_sat"
+
+#: 개방형 '몇 년도' 시점 탐색(2026-10-28) — "몇년도에 있어?", "어느 해에", "몇 년쯤". '몇 년' 단독
+#: ("몇 년 걸릴까")은 기간이라 제외한다. 파서(Q3)·horizon(5년 창)·시점 파서가 공유한다.
+YEAR_WHEN_RE = re.compile(
+    r"몇\s*년도|몇\s*년(?:에|쯤|도에|이|인지|일지)|어느\s*(?:해|연도|년도)|어떤\s*해"
+)
 _SUNDAY = 6  # Python weekday()
 # 로또 — 일요일~토요일 저녁 판매분을 토요일 저녁에 추첨한다. 주 단위 표현은 이 회차 단위로 읽는다.
 # 연금복권 등 다른 복권은 추첨 요일이 달라 대상이 아니다.
@@ -623,10 +645,23 @@ def parse_time(
         ), TimeScope.LIFE_STAGE
 
     # C14 대운 단위.
-    if re.search(r"(다음|이번|현재)\s*대운|대운\s*교운", text):
+    if DAEWOON_UNIT_RE.search(text):
         return TimeRange(
             type="relative", granularity=Granularity.DAEWOON, urgency=urgency,
         ), TimeScope.DAEWOON_UNIT
+
+    # C14b 대운 시기 질문('언제쯤 대운이 들어오나요'·'좋은 대운은 언제') → 평생 창
+    # (전 대운 역할 흐름).
+    if is_daewoon_when_question(text):
+        lo_age, hi_age = LIFE_STAGE_AGE_RANGES["평생"]
+        start = end = None
+        if birth_year is not None:
+            start = str(birth_year + lo_age)
+            end = str(birth_year + hi_age)
+        return TimeRange(
+            type="relative", granularity=Granularity.DAEWOON,
+            life_stage="평생", start=start, end=end, urgency=urgency,
+        ), TimeScope.LIFE_STAGE
 
     # C15 과거 개방형(역검증) — "언제인지 맞춰봐", "왜 힘들었을까".
     if re.search(r"맞춰\s*봐|왜\s*힘들었|언제인지\s*맞", text):
@@ -664,6 +699,17 @@ def parse_time(
             start=this_month,
             end=shift_month_label(this_month, months - 1), urgency=urgency,
         ), (TimeScope.LONG_TERM if months > 24 else TimeScope.MID_TERM)
+
+    # C6c 절대 연도 '이후'(2026-10-28) — "2032년 이후는?"의 2032는 N년이 아니라 연도다. C8c 의
+    # '(\d+)년 이후' 가 먼저 잡으면 오늘+2032년(4058)으로 튀었다. 그 해부터 5년 창(연 단위)으로
+    # 잡는다 — '몇 년도' 답의 "그 이후 기간은 연도 범위를 지정해 달라" 안내에 대한 지정 형식.
+    m = re.search(r"(?<!\d)(20\d{2})\s*년\s*(?:이후|부터)(?!\s*(?:20\d{2}|\d{1,2}\s*월))", text)
+    if m:
+        y0 = int(m.group(1))
+        return TimeRange(
+            type="absolute", granularity=Granularity.YEAR,
+            start=str(y0), end=str(y0 + 4), urgency=urgency,
+        ), (TimeScope.LONG_TERM if y0 - today.year >= 3 else TimeScope.MID_TERM)
 
     # C8c 미래 상대 시작 앵커 — "1년 이후(부터)", "6개월 후", "2년 뒤"(2026-06-18 추가).
     # '현재 계약 1년 뒤부터 다음 이사 언제'처럼 미래의 특정 시점'부터' 탐색을 시작한다. C8의
@@ -1018,6 +1064,14 @@ def parse_time(
         return TimeRange(
             type="absolute", granularity=Granularity.YEAR, start=year_key, end=year_key,
             urgency=urgency,
+        ), TimeScope.MID_TERM
+
+    # C2a 개방형 '몇 년도'(2026-10-28 데굴님 승인) — "해외에서 일한 운이 몇년도에 있어?"는 연 단위
+    # 시점 탐색이다. '언제'와 달리 연 입도를 명시했으므로 granularity=YEAR 로 두고, 답변 지평은
+    # horizon 이 '향후 5년(연 단위) + 이후 기간 지정 안내'로 잡는다.
+    if YEAR_WHEN_RE.search(text):
+        return TimeRange(
+            type="open_when", granularity=Granularity.YEAR, urgency=urgency,
         ), TimeScope.MID_TERM
 
     # C2 개방형 "언제".

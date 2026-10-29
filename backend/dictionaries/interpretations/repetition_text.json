@@ -1,42 +1,196 @@
 {
-  "version": "1.0.0",
-  "note": "반복 구조 해석 후보 사전(2026-10-27 데굴님 승인). 판정은 saju_engines.repetition_structure(같은 글자 여부만), 이 사전은 서술 재료만 준다. 반복 자체로 성격·사건을 확정하지 않고, 유불리는 반복된 글자의 십성·용희기구한이 정한다. 자형은 지지 반복 가운데 辰辰·午午·酉酉·亥亥 네 종류만이다. 천간 반복을 형살로 부르지 않는다.",
+  "version": "1.1.0",
+  "note": "반복 구조 해석 후보 사전(2026-10-27 데굴님 승인). 판정은 saju_engines.repetition_structure(같은 글자 여부만), 이 사전은 서술 재료만 준다. 반복 자체로 성격·사건을 확정하지 않고, 유불리는 반복된 글자의 십성·용희기구한이 정한다. 자형은 지지 반복 가운데 辰辰·午午·酉酉·亥亥 네 종류만이다. 천간 반복을 형살로 부르지 않는다. 1.1.0(2026-10-28): 亥 활성화 공통 문구·궁위별(연·월·일·시) 가능성 영역 추가 — 월운 己亥×원국 亥 강의 대조, 가능성 서술은 단정이 아니다(데굴님 정정). 다른 자형 글자의 궁위 문구는 감수 전까지 비워 둔다(공통 문구 폴백).",
   "principles": {
     "no_event": "반복 구조가 있다는 사실만으로 사건(이직·이별·손실 등)을 말하지 말 것 — 사건은 독립 근거가 있는 후보에서만.",
     "no_fixed_fortune": "반복·자형을 흉살로 단정하지 말 것 — 반복된 글자의 십성과 용희기구한 역할이 유불리를 정한다.",
     "group_not_pairs": "같은 글자가 셋 이상이어도 그룹 하나로 읽을 것 — 관계 쌍 수만큼 사건이나 흉을 늘리지 말 것.",
-    "luck_activation": "운에서 같은 글자가 들어오면 새 사건이 아니라 기존 구조의 기간 활성화로 읽을 것."
+    "luck_activation": "운에서 같은 글자가 들어오면 새 사건이 아니라 기존 구조의 기간 활성화로 읽을 것.",
+    "palace_possibility": "운 글자가 원국의 어느 기둥과 반복·자형을 이루는지에 따라 궁위별 '가능성 영역'을 안내할 것 — '…할 수 있다·…이 거론될 수 있는 기간'은 가능성 서술이며 단정('반드시 일어난다')이 아니다. 같은 영역에 독립 근거의 사건 후보가 있으면 후보의 판정·시기를 우선하고, 궁위 문구는 영역 안내로만."
   },
   "stems": [
-    {"char": "甲", "base": "개척·성장·목표 지향", "excess": "독단·목표 충돌", "reviewed": false},
-    {"char": "乙", "base": "조율·적응·연결", "excess": "우유부단·관계 얽힘", "reviewed": false},
-    {"char": "丙", "base": "활동·표현·확장", "excess": "과시·성급한 추진", "reviewed": false},
-    {"char": "丁", "base": "집중·정교함·내적 열의", "excess": "예민함·집착", "reviewed": false},
-    {"char": "戊", "base": "안정·통제·책임", "excess": "경직성·변화 저항", "reviewed": false},
-    {"char": "己", "base": "관리·조정·지속성", "excess": "과도한 책임·자기주장 반복", "reviewed": false},
-    {"char": "庚", "base": "결단·실행·개혁", "excess": "강압적 판단·충돌", "reviewed": false},
-    {"char": "辛", "base": "정밀함·평가·전문성", "excess": "비판 과잉·완벽주의", "reviewed": false},
-    {"char": "壬", "base": "확장·유동성·기획", "excess": "분산·잦은 방향 변경", "reviewed": false},
-    {"char": "癸", "base": "관찰·축적·세밀한 판단", "excess": "고민 누적·결정 지연", "reviewed": false}
+    {
+      "char": "甲",
+      "base": "개척·성장·목표 지향",
+      "excess": "독단·목표 충돌",
+      "reviewed": false
+    },
+    {
+      "char": "乙",
+      "base": "조율·적응·연결",
+      "excess": "우유부단·관계 얽힘",
+      "reviewed": false
+    },
+    {
+      "char": "丙",
+      "base": "활동·표현·확장",
+      "excess": "과시·성급한 추진",
+      "reviewed": false
+    },
+    {
+      "char": "丁",
+      "base": "집중·정교함·내적 열의",
+      "excess": "예민함·집착",
+      "reviewed": false
+    },
+    {
+      "char": "戊",
+      "base": "안정·통제·책임",
+      "excess": "경직성·변화 저항",
+      "reviewed": false
+    },
+    {
+      "char": "己",
+      "base": "관리·조정·지속성",
+      "excess": "과도한 책임·자기주장 반복",
+      "reviewed": false
+    },
+    {
+      "char": "庚",
+      "base": "결단·실행·개혁",
+      "excess": "강압적 판단·충돌",
+      "reviewed": false
+    },
+    {
+      "char": "辛",
+      "base": "정밀함·평가·전문성",
+      "excess": "비판 과잉·완벽주의",
+      "reviewed": false
+    },
+    {
+      "char": "壬",
+      "base": "확장·유동성·기획",
+      "excess": "분산·잦은 방향 변경",
+      "reviewed": false
+    },
+    {
+      "char": "癸",
+      "base": "관찰·축적·세밀한 판단",
+      "excess": "고민 누적·결정 지연",
+      "reviewed": false
+    }
   ],
   "branches": [
-    {"char": "子", "base": "정보·교류·수기의 반복", "reviewed": false},
-    {"char": "丑", "base": "저장·관리·유지의 반복", "reviewed": false},
-    {"char": "寅", "base": "개척·성장·활동의 반복", "reviewed": false},
-    {"char": "卯", "base": "확장·관계·조정의 반복", "reviewed": false},
-    {"char": "辰", "base": "축적·정체·자기조정의 반복", "reviewed": false},
-    {"char": "巳", "base": "실행·변화·활동의 반복", "reviewed": false},
-    {"char": "午", "base": "추진·경쟁·과열의 반복", "reviewed": false},
-    {"char": "未", "base": "완충·조율·축적의 반복", "reviewed": false},
-    {"char": "申", "base": "기술·변화·실행의 반복", "reviewed": false},
-    {"char": "酉", "base": "평가·정밀·통제의 반복", "reviewed": false},
-    {"char": "戌", "base": "방어·관리·유지의 반복", "reviewed": false},
-    {"char": "亥", "base": "사고·탐구·내면 활동의 반복", "reviewed": false}
+    {
+      "char": "子",
+      "base": "정보·교류·수기의 반복",
+      "reviewed": false
+    },
+    {
+      "char": "丑",
+      "base": "저장·관리·유지의 반복",
+      "reviewed": false
+    },
+    {
+      "char": "寅",
+      "base": "개척·성장·활동의 반복",
+      "reviewed": false
+    },
+    {
+      "char": "卯",
+      "base": "확장·관계·조정의 반복",
+      "reviewed": false
+    },
+    {
+      "char": "辰",
+      "base": "축적·정체·자기조정의 반복",
+      "reviewed": false
+    },
+    {
+      "char": "巳",
+      "base": "실행·변화·활동의 반복",
+      "reviewed": false
+    },
+    {
+      "char": "午",
+      "base": "추진·경쟁·과열의 반복",
+      "reviewed": false
+    },
+    {
+      "char": "未",
+      "base": "완충·조율·축적의 반복",
+      "reviewed": false
+    },
+    {
+      "char": "申",
+      "base": "기술·변화·실행의 반복",
+      "reviewed": false
+    },
+    {
+      "char": "酉",
+      "base": "평가·정밀·통제의 반복",
+      "reviewed": false
+    },
+    {
+      "char": "戌",
+      "base": "방어·관리·유지의 반복",
+      "reviewed": false
+    },
+    {
+      "char": "亥",
+      "base": "사고·탐구·내면 활동의 반복",
+      "reviewed": false
+    }
   ],
   "self_punishment": [
-    {"char": "辰", "center": "저장·축적·고집·내부 갈등", "positive": "지속력·자원 관리·독립적 판단", "negative": "과도한 고집·결정 지연·문제 누적", "reviewed": false},
-    {"char": "午", "center": "왕성한 화기·경쟁·과열", "positive": "추진력·표현력·경쟁력", "negative": "성급함·과잉 반응·무리한 추진", "reviewed": false},
-    {"char": "酉", "center": "정밀함·규칙·완벽주의", "positive": "전문성·분석력·정교한 판단", "negative": "지나친 비판·완벽주의·대인 마찰", "reviewed": false},
-    {"char": "亥", "center": "수기·사고·내면의 반복", "positive": "깊은 탐구·집중력·통찰", "negative": "과도한 숙고·우유부단·내적 갈등", "reviewed": false}
+    {
+      "char": "辰",
+      "center": "저장·축적·고집·내부 갈등",
+      "positive": "지속력·자원 관리·독립적 판단",
+      "negative": "과도한 고집·결정 지연·문제 누적",
+      "reviewed": false
+    },
+    {
+      "char": "午",
+      "center": "왕성한 화기·경쟁·과열",
+      "positive": "추진력·표현력·경쟁력",
+      "negative": "성급함·과잉 반응·무리한 추진",
+      "reviewed": false
+    },
+    {
+      "char": "酉",
+      "center": "정밀함·규칙·완벽주의",
+      "positive": "전문성·분석력·정교한 판단",
+      "negative": "지나친 비판·완벽주의·대인 마찰",
+      "reviewed": false
+    },
+    {
+      "char": "亥",
+      "center": "수기·사고·내면의 반복",
+      "positive": "깊은 탐구·집중력·통찰",
+      "negative": "과도한 숙고·우유부단·내적 갈등",
+      "reviewed": false,
+      "activation": "새 출발·부담에서 벗어나는 출구가 열릴 수 있는 기간 — 의지를 보이면 돕는 사람과 현실적 수입이 따를 수 있다. 조급함은 금물이고, 단체·인간관계·애정에서 오해·시기·구설이 생길 수 있으니 말과 행동을 조심하며 혼자 고민하고 혼자 결정하는 일은 피할 것. 몸을 손보는 시술·수술이 거론될 수 있으니 전문의와 상의해 안전하게(의료 조언 아님). 바쁘게 살아온 사람은 취미·여행으로 숨을 돌릴 만한 때."
+    }
+  ],
+  "palace": [
+    {
+      "char": "亥",
+      "palace": "year",
+      "palace_ko": "연지(조상·사회 배경)",
+      "text": "시야를 넓힐 일 — 해외·먼 곳·여행이 거론될 수 있다. 윗사람·거래처, 가족·부부 사이의 갈등을 봉합하고 조율할 과제가 있을 수 있고, 명상·종교·취미처럼 마음을 풀 시간과 공간이 필요한 때.",
+      "reviewed": false
+    },
+    {
+      "char": "亥",
+      "palace": "month",
+      "palace_ko": "월지(사회·직장)",
+      "text": "직위·역할의 변동(승진·부서 이동)이 거론될 수 있고, 관공서·정책·회사 결정 같은 제도적 통로를 거칠 수 있다. 자금 조달·투자·거래에서 돕는 사람과 금전 흐름이 생길 수 있는 반면, 괜한 고민이 많아져 혼자 결정하면 그르치기 쉽다. 책임이 늘고 머리·몸 신호가 있으면 병원 점검.",
+      "reviewed": false
+    },
+    {
+      "char": "亥",
+      "palace": "day",
+      "palace_ko": "일지(배우자·몸)",
+      "text": "의지는 오르되 혼자 결정 대신 상의를 거칠 것 — 혼자 가면 오해·시기·구설이 생길 수 있다. 새 친구·새 인연·새 연인이 생길 수 있고 부부 관계는 조심할 때. 몸(하체·손발)의 시술·수술이 거론될 수 있다. 의지를 보이면 지갑을 여는 사람이 있고, 예술·장사는 고객 맞춤·대중성이 수입으로 이어질 수 있다 — 움직인 만큼 돈이 되는 때.",
+      "reviewed": false
+    },
+    {
+      "char": "亥",
+      "palace": "hour",
+      "palace_ko": "시지(자녀·지향·투자)",
+      "text": "여행이나 벗어나고픈 마음이 들 수 있다. 자녀의 취업·진로가 움직일 수 있고, 개인·자녀와의 돈 관계(증여·세금·부동산)를 유의해 정리할 때 — 공적 지원·제도의 도움을 받을 길이 있을 수 있다.",
+      "reviewed": false
+    }
   ]
 }

@@ -26,7 +26,8 @@ def test_dictionary_loads_with_source_and_fix_scope():
     f = load_ai_tell_patterns()
     assert f.source.license == "MIT" and "im-not-ai" in f.source.url
     assert {it.id for it in f.items if it.fix} == {"A-3", "A-8", "D-1a"}
-    assert sum(1 for it in f.items if it.severity == "S1") == 8
+    # S1 9종 — 2026-10-29 D-15(판정 라벨 직역 '조건부 유리함') 추가, 자동 교정 없음.
+    assert sum(1 for it in f.items if it.severity == "S1") == 9
     assert all(it.reviewed is False for it in f.items)
 
 

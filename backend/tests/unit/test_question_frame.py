@@ -305,3 +305,160 @@ def test_activity_directive_is_decisive_and_short() -> None:
     assert "'오늘 운동'을(를)" in text and "3문장" in text
     assert "확정형 판정" in text and "완곡형 금지" in text
     assert "해도 돼요 / 가볍게 조절해서 하면 돼요 / 오늘은 미루는 게 좋아요" in text
+
+
+# ── 시제·대상 shadow 필드(2026-10-28 데굴님 "분류 모델 병행은 제외하고 진행") ─────────
+
+
+def test_parse_frame_shadow_fields_default_and_normalize() -> None:
+    from saju_shared_types.question_frame import SubjectFrame, TimeDirection
+
+    # 구 형식 출력(두 키 없음) → 기본값, 라우팅 필드는 그대로
+    old = parse_frame(_LUNCH)
+    assert old is not None
+    assert old.time_direction is TimeDirection.NONE
+    assert old.subject_frame is SubjectFrame.UNSPECIFIED and old.mentioned_people == []
+    # 집합 밖 값·비목록 지칭은 기본값으로, 목록은 상한·중복 정리
+    raw = (
+        '{"ask_kind":"judgment","lifestyle_item":"none","answer_shape":"analysis",'
+        '"brevity":"normal","topic_object":"x","time_direction":"yesterday",'
+        '"subject_frame":"me","mentioned_people":"남편"}'
+    )
+    f = parse_frame(raw)
+    assert f is not None and f.time_direction is TimeDirection.NONE
+    assert f.subject_frame is SubjectFrame.UNSPECIFIED and f.mentioned_people == []
+    raw2 = raw.replace('"yesterday"', '"wish"').replace('"me"', '"self_explicit"').replace(
+        '"남편"', '["남편","남편",3,"아들"," ","a","b","c","d"]'
+    )
+    f2 = parse_frame(raw2)
+    assert f2 is not None and f2.time_direction is TimeDirection.WISH
+    assert f2.subject_frame is SubjectFrame.SELF_EXPLICIT
+    assert f2.mentioned_people == ["남편", "아들", "a", "b", "c"]
+
+
+def test_schema_prompt_cover_shadow_fields() -> None:
+    from saju_shared_types.question_frame import SubjectFrame, TimeDirection
+
+    schema = frame_json_schema()
+    assert set(schema["properties"]["time_direction"]["enum"]) == {e.value for e in TimeDirection}
+    assert set(schema["properties"]["subject_frame"]["enum"]) == {e.value for e in SubjectFrame}
+    for key in ("time_direction", "subject_frame", "mentioned_people", "wish", "self_explicit"):
+        assert key in QUESTION_FRAME_SYSTEM
+
+
+def test_disagreement_time_direction_vs_rule_retro() -> None:
+    from saju_shared_types.question_frame import TimeDirection
+
+    intent = parse_message("그냥 일 적당히 있었으면 좋겠어", _TODAY).intents[0]
+    wish = QuestionFrame(time_direction=TimeDirection.WISH)
+    # 룰이 회고로 봤는데 프레임은 바람 → 후보 라벨 / 룰이 미래면 라벨 없음 / 대조값 없으면 생략
+    assert frame_disagreements(wish, intent, rule_retro=True) == ["time_rule_past_vs_frame_wish"]
+    # 창 구조 판정('5월은 어때?' — 오늘이 10월)은 룰이 맞다 → 게이트 후보군과 분리된 라벨
+    assert frame_disagreements(
+        QuestionFrame(time_direction=TimeDirection.FUTURE), intent,
+        rule_retro=True, rule_time_reason="window_past",
+    ) == ["time_window_past_vs_frame_future"]
+    assert frame_disagreements(
+        QuestionFrame(time_direction=TimeDirection.FUTURE), intent,
+        rule_retro=True, rule_time_reason="past_phrase",
+    ) == ["time_rule_past_vs_frame_future"]
+    assert frame_disagreements(wish, intent, rule_retro=False) == []
+    assert frame_disagreements(wish, intent) == []
+    past = QuestionFrame(time_direction=TimeDirection.PAST)
+    assert frame_disagreements(past, intent, rule_retro=False) == ["time_rule_future_vs_frame_past"]
+    assert frame_disagreements(past, intent, rule_retro=True) == []
+
+
+def test_disagreement_subject_frame_vs_rule() -> None:
+    from saju_engines.question_frame import rule_subject_frame
+    from saju_shared_types.intent import SubjectKind, SubjectMode, SubjectRef
+    from saju_shared_types.question_frame import SubjectFrame
+
+    base = parse_message("2027년 내가 이직을 하게 된다면 어느 쪽 회사가 좋아?", _TODAY).intents[0]
+    assert rule_subject_frame(base) == "self"
+    hus = SubjectRef(kind=SubjectKind.COMPANION, label="남편", companion_id="h1")
+    me = SubjectRef(kind=SubjectKind.SELF, label="본인")
+    inherited = base.model_copy(update={"subjects": [hus]})
+    assert rule_subject_frame(inherited) == "companion_single"
+    frame = QuestionFrame(subject_frame=SubjectFrame.SELF_EXPLICIT)
+    # 룰이 직전 동반자를 상속한 턴에 프레임이 1인칭 명시 → 본인 복귀 놓침 후보 두 라벨
+    assert frame_disagreements(frame, inherited, rule_subject_inherited=True) == [
+        "subject_frame_self_vs_rule_companion_single", "subject_self_on_inherited",
+    ]
+    assert frame_disagreements(frame, inherited, rule_subject_inherited=False) == [
+        "subject_frame_self_vs_rule_companion_single",
+    ]
+    assert frame_disagreements(frame, base) == []
+    # 프레임이 동반자군인데 룰은 본인 → 미등록 지칭 후보
+    assert frame_disagreements(QuestionFrame(subject_frame=SubjectFrame.COMPANIONS_ONLY), base) == [
+        "subject_frame_companions_only_vs_rule_self",
+    ]
+    # 본인 포함/제외 모양 불일치
+    pair = base.model_copy(update={"subjects": [me, hus], "subject_mode": SubjectMode.PAIRWISE})
+    assert rule_subject_frame(pair) == "self_with_companions"
+    assert frame_disagreements(QuestionFrame(subject_frame=SubjectFrame.COMPANIONS_ONLY), pair) == [
+        "subject_frame_companions_only_vs_rule_self_with_companions",
+    ]
+    excl = base.model_copy(update={
+        "subjects": [hus, SubjectRef(kind=SubjectKind.COMPANION, label="아들", companion_id="s1")],
+        "subject_mode": SubjectMode.COMPARE_EXCLUDE_SELF,
+    })
+    assert rule_subject_frame(excl) == "companions_only"
+    only = QuestionFrame(subject_frame=SubjectFrame.COMPANIONS_ONLY)
+    assert frame_disagreements(only, excl) == []
+    assert frame_disagreements(QuestionFrame(subject_frame=SubjectFrame.UNSPECIFIED), excl) == []
+
+
+def test_resolution_inherited_flag() -> None:
+    from saju_engines.conversation import ConversationEngine
+    from saju_shared_types.conversation import ConversationState
+    from saju_shared_types.intent import SubjectKind, SubjectRef
+
+    eng = ConversationEngine()
+    fresh = eng.resolve_subjects(ConversationState(thread_id="t"), "내년 재물운 어때?", _TODAY)
+    assert fresh.inherited is False  # 직전 대상 없음 → 본인 기본값(상속 아님)
+    st = ConversationState(
+        thread_id="t",
+        active_subjects=[SubjectRef(kind=SubjectKind.COMPANION, label="남편", companion_id="h1")],
+    )
+    assert eng.resolve_subjects(st, "내년 재물운 어때?", _TODAY).inherited is True
+    assert eng.resolve_subjects(st, "내가 내년에 이직할까?", _TODAY).inherited is False
+
+
+def test_observe_sync_carries_rule_contrast_values(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_call(role: str, system: str, prompt: str, **kw: Any) -> tuple[str, int, int]:
+        return (
+            '{"ask_kind":"venting","lifestyle_item":"none","answer_shape":"empathy_first",'
+            '"brevity":"normal","topic_object":"업무량","time_direction":"wish",'
+            '"subject_frame":"unspecified","mentioned_people":[]}', 600, 40,
+        )
+
+    monkeypatch.setattr(llm_client, "call_role_raw", fake_call)
+    q = "그냥 일 적당히 있었으면 좋겠어"
+    intent = parse_message(q, _TODAY).intents[0]
+    shadow = question_frame_service.observe_sync(
+        q, intent, rule_retro=True, rule_subject_inherited=False,
+    )
+    assert shadow.ok and shadow.rule_time_direction == "past"
+    assert shadow.rule_subject_frame == "self"
+    assert shadow.rule_subject_inherited is False
+    assert "time_rule_past_vs_frame_wish" in shadow.disagreements
+    none = question_frame_service.observe_sync(q, intent)
+    assert none.rule_time_direction is None and none.rule_subject_inherited is None
+
+
+def test_time_direction_reason_labels() -> None:
+    from saju_api.services.chat_service import _question_time_direction_reason as reason
+
+    i = parse_message("5월은 어때?", _TODAY).intents[0]
+    assert reason("5월은 어때?", i, None, _TODAY) == (True, "window_past")
+    i = parse_message("작년에 왜 힘들었을까", _TODAY).intents[0]
+    assert reason("작년에 왜 힘들었을까", i, None, _TODAY)[1] in (
+        "window_past", "past_phrase", "event_explanation",
+    )
+    i = parse_message("몸이 예전 같지 않은데 괜찮아질까?", _TODAY).intents[0]
+    assert reason("몸이 예전 같지 않은데 괜찮아질까?", i, None, _TODAY) == (True, "past_phrase")
+    i = parse_message("그냥 일 적당히 있었으면 좋겠어", _TODAY).intents[0]
+    assert reason("그냥 일 적당히 있었으면 좋겠어", i, None, _TODAY)[0] is False
+    i = parse_message("이직 제안 언제쯤 들어올까?", _TODAY).intents[0]
+    assert reason("이직 제안 언제쯤 들어올까?", i, None, _TODAY) == (False, "future_phrase")

@@ -76,6 +76,7 @@ from saju_shared_types.wealth_capacity import WealthCapacity
 
 from . import period_v2_config
 from .addendum_gate_modifier import AddendumGateModifier, GateContext
+from .career_exit_seed import load_career_exit_config, produce_career_exit_seeds
 from .career_mobility_modifier import CareerMobilityContext, CareerMobilityModifier
 from .cohort_calibration import CohortStats
 from .contribution_provenance import (
@@ -102,6 +103,7 @@ from .layer_evidence_scope import normalize_layers
 from .layer_flow_modifier import LayerFlowModifier
 from .life_fit_ranker import LifeFitRanker
 from .llm_event_serializer import reason_codes_ko
+from .love_separation import produce_love_separation_seeds
 from .love_timing import (
     apply_partner_element_daewoon,
     hap_overload_damping,
@@ -266,6 +268,9 @@ class EventEngineV2:
         enable_transit_clash_support: bool = False,
         enable_role_event_seed: bool = False,
         role_event_seed_rule_ids: Collection[str] | None = None,
+        enable_career_exit_seed: bool = False,
+        enable_wealth_natal_complement: bool = False,
+        career_exit_rule_ids: Collection[str] | None = None,
         tamhap_mangchung_mode: str = "shadow",
         love_experiments: Collection[str] | None = None,
     ) -> None:
@@ -339,6 +344,15 @@ class EventEngineV2:
         )
         self._role_seed_rule_ids = (
             frozenset(role_event_seed_rule_ids) if role_event_seed_rule_ids is not None else None
+        )
+        # 재물 강의(2026-10-29) — 원국 한쪽 + 운 한쪽 식상생재 횡재 발동(실험, 기본 OFF).
+        self._wealth_natal_complement = enable_wealth_natal_complement
+        # 외부 강의 번역 시드(2026-10-29 데굴님 결정) — 역할 시드 다음 자리에서 합류. 기본 OFF.
+        self._career_exit_cfg = (
+            load_career_exit_config(dictionaries_dir) if enable_career_exit_seed else None
+        )
+        self._career_exit_rule_ids = (
+            frozenset(career_exit_rule_ids) if career_exit_rule_ids is not None else None
         )
         # 세운 육신별 사건 신호(2026-10-15, 교재 6장 대조) — 사전 절 부재·OFF면 불변.
         self._tamhap_mode = tamhap_mangchung_mode
@@ -795,6 +809,12 @@ class EventEngineV2:
                     signals, target_layer, result, marriage_flow.gender, label,
                 ),
             )
+        # 이별운 강의(2026-10-29, 실험 OFF) — 원국 글자 × 운 글자 관계 변동 시드.
+        # 켜진 키가 없으면 무동작.
+        cands = merge_role_event_seeds(
+            cands,
+            produce_love_separation_seeds(signals, target_layer, result, label, self._love),
+        )
         # 비겁 용신 × 비겁 유입 → career_change 시드(2026-10-14). 브랜처 직후 합류 → 6계층 보정·랭킹
         # 공통 적용(관성 충 등 다른 작용이 뒤에서 풀이를 바꿀 수 있어야 한다는 데굴님 지시).
         for _peer_rule in (self._peer_mobility_rule, self._peer_gisin_rule):
@@ -813,6 +833,16 @@ class EventEngineV2:
                 produce_role_event_seeds(
                     signals, target_layer, result, fav_map, label, self._role_seed_cfg,
                     rule_ids=self._role_seed_rule_ids,
+                ),
+            )
+        # 외부 강의 번역 시드(2026-10-29) — 원국 천간 정관×운 상관(환경형)·원국 천간 상관×운 정관
+        # (자기형)·겁재 역할 무관 이동·편인 휴직(career_leave). 병합 규칙은 역할 시드와 같다.
+        if self._career_exit_cfg is not None:
+            cands = merge_role_event_seeds(
+                cands,
+                produce_career_exit_seeds(
+                    signals, target_layer, result, fav_map, label, self._career_exit_cfg,
+                    rule_ids=self._career_exit_rule_ids,
                 ),
             )
         if not cands:
@@ -1224,12 +1254,16 @@ class EventEngineV2:
         luck_stem_elements = {
             str(STEM_ELEMENT[Stem(pillar.stem)]) for _layer, pillar in stack
         }
+        groups = result.force_analysis.ten_gods.groups if result.force_analysis else {}
         return detect_wealth_activations(
             day_element=str(STEM_ELEMENT[Stem(day_pillar.stem)]),
             wealth_element=capacity.wealth_element,
             natal_branches=natal_branches,
             luck_branches=luck_branches,
             luck_stem_elements=luck_stem_elements,
+            natal_output_present=float(groups.get("output", 0.0)) >= 10.0,
+            natal_wealth_present=float(groups.get("wealth", 0.0)) >= 10.0,
+            natal_complement=self._wealth_natal_complement,
         )
 
 

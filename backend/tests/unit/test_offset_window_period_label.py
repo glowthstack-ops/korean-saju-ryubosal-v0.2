@@ -39,7 +39,7 @@ def _frame(tr: TimeRange):
 def test_offset_window_renders_full_period() -> None:
     frame = _frame(TimeRange(type="relative", granularity=Granularity.MONTH,
                              start="2026-07-17", end_offset_days=360))
-    assert frame.question_period == "2026-07-17 ~ 2027-07-12"
+    assert frame.question_period == "2026-07-17 – 2027-07-12"
     assert "구간으로 해석" in frame.question_period_note
 
 

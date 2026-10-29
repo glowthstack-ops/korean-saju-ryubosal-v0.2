@@ -262,7 +262,7 @@ def operational_rank_guards(
 
 def _period_level(period: str) -> str:
     """기간 라벨 → level 키. 연 'YYYY'/월 'YYYY-MM'/일 'YYYY-MM-DD'/대운 'YYYY~YYYY'."""
-    if "~" in period:
+    if "–" in period:
         return "daewoon"
     return {0: "year", 1: "month"}.get(period.count("-"), "day")
 

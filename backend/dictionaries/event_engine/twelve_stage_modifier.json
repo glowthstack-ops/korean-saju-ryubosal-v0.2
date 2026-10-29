@@ -944,6 +944,14 @@
         "pace_down": -0.4,
         "disengage": -0.4,
         "closure": -0.4
+      },
+      "career_leave": {
+        "stamina_down": 0.4,
+        "pace_down": 0.4,
+        "disengage": 0.3,
+        "closure": 0.2,
+        "renewal": 0.1,
+        "activity_up": -0.2
       }
     }
   },

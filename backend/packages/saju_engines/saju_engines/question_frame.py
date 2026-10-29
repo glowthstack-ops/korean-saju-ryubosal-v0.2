@@ -14,12 +14,14 @@ from __future__ import annotations
 import json
 import re
 
-from saju_shared_types.intent import Domain, IntentJson, QueryType
+from saju_shared_types.intent import Domain, IntentJson, QueryType, SubjectKind, SubjectMode
 from saju_shared_types.question_frame import (
     AnswerShape,
     AskKind,
     LifestyleItem,
     QuestionFrame,
+    SubjectFrame,
+    TimeDirection,
 )
 
 QUESTION_FRAME_SYSTEM = (
@@ -38,20 +40,50 @@ QUESTION_FRAME_SYSTEM = (
     "- brevity: short | normal\n"
     "- topic_object: 질문이 실제로 묻는 대상(한국어 명사구, 20자 이내. "
     "예: '점심 메뉴', '이직 시기')\n"
+    "- time_direction: past(이미 지난 일을 묻는다) | future(앞으로를 묻는다) | "
+    "wish(바람·소원 — '~았/었으면 좋겠다'는 과거형 어미여도 과거가 아니다) | "
+    "counterfactual(반사실 — '그때 ~했으면 어땠을까') | none(시간 방향 없음)\n"
+    "- subject_frame: self_explicit(1인칭 명시 — '내가', '나는', '내 사주') | "
+    "companion_single(제3자 한 명 — '남편의', '아들 운') | "
+    "companions_only(본인을 뺀 둘 이상 — '남편이랑 아들 둘만') | "
+    "self_with_companions(본인 포함 둘 이상 — '남편이랑 내 궁합', '우리 둘') | "
+    "all(등록 전체 — '우리 가족 모두') | unspecified(대상 언급 없음)\n"
+    "- mentioned_people: 질문에 나온 사람 지칭 원문 목록(호칭·이름, 최대 5개. 없으면 [])\n"
     "규칙: 각 키의 값은 반드시 그 키에 적힌 후보 중 하나만 쓴다(다른 키의 후보를 섞지 말 것 — "
     "ask_kind 에 analysis/none, answer_shape 에 normal/judgment 는 틀린 값). 질문이 아니거나 "
-    "뜻이 불분명한 짧은 발화는 ask_kind=unknown, answer_shape=analysis, brevity=short 로 둔다.\n"
+    "뜻이 불분명한 짧은 발화는 ask_kind=unknown, answer_shape=analysis, brevity=short 로 둔다. "
+    "'내가 보기엔'·'제 생각엔' 같은 관점 표현은 대상 지정이 아니다(subject_frame 은 그 문장이 "
+    "실제로 누구의 운을 묻는지로 정한다).\n"
     "예시:\n"
     '질문: 오늘 점심은 뭘 먹는게 좋을까 → {"ask_kind":"recommendation","lifestyle_item":"food",'
-    '"answer_shape":"short_pick","brevity":"short","topic_object":"점심 메뉴"}\n'
+    '"answer_shape":"short_pick","brevity":"short","topic_object":"점심 메뉴",'
+    '"time_direction":"future","subject_frame":"unspecified","mentioned_people":[]}\n'
     '질문: 올해 이직운 어때? → {"ask_kind":"judgment","lifestyle_item":"none",'
-    '"answer_shape":"analysis","brevity":"normal","topic_object":"올해 이직 흐름"}\n'
+    '"answer_shape":"analysis","brevity":"normal","topic_object":"올해 이직 흐름",'
+    '"time_direction":"future","subject_frame":"unspecified","mentioned_people":[]}\n'
     '질문: 언제 결혼하게 될까 → {"ask_kind":"timing","lifestyle_item":"none",'
-    '"answer_shape":"timeline","brevity":"normal","topic_object":"결혼 시기"}\n'
+    '"answer_shape":"timeline","brevity":"normal","topic_object":"결혼 시기",'
+    '"time_direction":"future","subject_frame":"unspecified","mentioned_people":[]}\n'
     '질문: 아빠가 너무 혼내서 힘들어 → {"ask_kind":"venting","lifestyle_item":"none",'
-    '"answer_shape":"empathy_first","brevity":"normal","topic_object":"아버지와의 갈등"}\n'
+    '"answer_shape":"empathy_first","brevity":"normal","topic_object":"아버지와의 갈등",'
+    '"time_direction":"none","subject_frame":"unspecified","mentioned_people":["아빠"]}\n'
     '질문: 오늘 머리 자르러 가도 될까 → {"ask_kind":"judgment","lifestyle_item":"grooming",'
-    '"answer_shape":"short_pick","brevity":"short","topic_object":"오늘 미용실"}'
+    '"answer_shape":"short_pick","brevity":"short","topic_object":"오늘 미용실",'
+    '"time_direction":"future","subject_frame":"unspecified","mentioned_people":[]}\n'
+    '질문: 그냥 일 적당히 있었으면 좋겠어 → {"ask_kind":"venting","lifestyle_item":"none",'
+    '"answer_shape":"empathy_first","brevity":"normal","topic_object":"업무량",'
+    '"time_direction":"wish","subject_frame":"unspecified","mentioned_people":[]}\n'
+    '질문: 2027년 내가 이직을 하게 된다면 어느 쪽 회사가 좋아? → {"ask_kind":"recommendation",'
+    '"lifestyle_item":"direction","answer_shape":"short_pick","brevity":"normal",'
+    '"topic_object":"이직 시 회사 방향","time_direction":"future","subject_frame":"self_explicit",'
+    '"mentioned_people":[]}\n'
+    '질문: 남편이랑 아들 둘만 놓고 누가 더 재물운이 좋아? → {"ask_kind":"comparison",'
+    '"lifestyle_item":"none","answer_shape":"compare_table","brevity":"normal",'
+    '"topic_object":"남편·아들 재물운 비교","time_direction":"none",'
+    '"subject_frame":"companions_only","mentioned_people":["남편","아들"]}\n'
+    '질문: 작년에 왜 그렇게 힘들었을까 → {"ask_kind":"explanation","lifestyle_item":"none",'
+    '"answer_shape":"analysis","brevity":"normal","topic_object":"작년 어려움의 이유",'
+    '"time_direction":"past","subject_frame":"unspecified","mentioned_people":[]}'
 )
 
 
@@ -73,8 +105,14 @@ def frame_json_schema() -> dict:
             "answer_shape": {"type": "string", "enum": [e.value for e in AnswerShape]},
             "brevity": {"type": "string", "enum": ["short", "normal"]},
             "topic_object": {"type": "string"},
+            "time_direction": {"type": "string", "enum": [e.value for e in TimeDirection]},
+            "subject_frame": {"type": "string", "enum": [e.value for e in SubjectFrame]},
+            "mentioned_people": {"type": "array", "items": {"type": "string"}},
         },
-        "required": ["ask_kind", "lifestyle_item", "answer_shape", "brevity", "topic_object"],
+        "required": [
+            "ask_kind", "lifestyle_item", "answer_shape", "brevity", "topic_object",
+            "time_direction", "subject_frame", "mentioned_people",
+        ],
     }
 
 
@@ -84,6 +122,8 @@ _FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE | re.MULTILINE
 _ASK_VALUES = frozenset(e.value for e in AskKind)
 _SHAPE_VALUES = frozenset(e.value for e in AnswerShape)
 _ITEM_VALUES = frozenset(e.value for e in LifestyleItem)
+_TIME_VALUES = frozenset(e.value for e in TimeDirection)
+_SUBJECT_VALUES = frozenset(e.value for e in SubjectFrame)
 
 
 def parse_frame(text: str) -> QuestionFrame | None:
@@ -116,6 +156,15 @@ def parse_frame(text: str) -> QuestionFrame | None:
         lowered["answer_shape"] = AnswerShape.ANALYSIS.value
     if lowered.get("brevity") not in ("short", "normal"):
         lowered["brevity"] = "normal"
+    # shadow 필드(2026-10-28) — 집합 밖·누락은 기본값(none/unspecified). 라우팅에 쓰이지 않는다.
+    if lowered.get("time_direction") not in _TIME_VALUES:
+        lowered["time_direction"] = TimeDirection.NONE.value
+    if lowered.get("subject_frame") not in _SUBJECT_VALUES:
+        lowered["subject_frame"] = SubjectFrame.UNSPECIFIED.value
+    if not isinstance(raw.get("mentioned_people"), list):
+        lowered["mentioned_people"] = []
+    else:
+        lowered["mentioned_people"] = raw["mentioned_people"]
     try:
         return QuestionFrame.model_validate(lowered)
     except ValueError:
@@ -197,8 +246,46 @@ def apply_frame_correction(
     return new, f"applied:{item.value}"
 
 
-def frame_disagreements(frame: QuestionFrame, intent: IntentJson) -> list[str]:
-    """프레임과 룰 intent 의 불일치 라벨(없으면 빈 목록). 측정·검수용 — 라우팅을 바꾸지 않는다."""
+def rule_subject_frame(intent: IntentJson) -> str:
+    """룰이 확정한 대상 틀을 프레임과 같은 어휘로 — self / companion_single / companions_only /
+    self_with_companions. ID·별칭은 보지 않고 모양(본인 포함 여부·인원)만 본다."""
+    subs = list(intent.subjects)
+    has_self = any(s.kind is SubjectKind.SELF for s in subs)
+    others = [s for s in subs if s.kind is not SubjectKind.SELF]
+    if not others:
+        return "self"
+    if intent.subject_mode is SubjectMode.COMPARE_EXCLUDE_SELF or (
+        not has_self and len(others) >= 2
+    ):
+        return "companions_only"
+    if has_self or intent.subject_mode is SubjectMode.PAIRWISE:
+        return "self_with_companions"
+    return "companion_single"
+
+
+_GROUP_FRAMES = frozenset({
+    SubjectFrame.COMPANION_SINGLE, SubjectFrame.COMPANIONS_ONLY,
+    SubjectFrame.SELF_WITH_COMPANIONS, SubjectFrame.ALL,
+})
+
+
+def frame_disagreements(
+    frame: QuestionFrame,
+    intent: IntentJson,
+    *,
+    rule_retro: bool | None = None,
+    rule_time_reason: str | None = None,
+    rule_subject_inherited: bool | None = None,
+) -> list[str]:
+    """프레임과 룰 intent 의 불일치 라벨(없으면 빈 목록). 측정·검수용 — 라우팅을 바꾸지 않는다.
+
+    rule_retro: 채팅의 회고 판정(`_question_time_direction`) — None 이면 시제 대조를 건너뛴다.
+    rule_time_reason: 그 판정의 근거(`_question_time_direction_reason`). 창 구조 판정(window_*)은
+        오늘 날짜를 모르는 프레임이 어긋나도 룰이 맞다 — `time_window_*` 로 따로 세고 게이트 후보
+        군(`time_rule_*`)에서 뺀다(2026-10-28 측정: '5월은 어때?'류 24건 중 대부분이 이 잡음).
+    rule_subject_inherited: 룰이 A0 4순위(직전 대상 상속)로 대상을 정했는가 — 상속 턴에 프레임이
+        1인칭 명시를 읽으면 '본인 복귀 놓침' 후보(2026-10-28 실로그 "2027년 내가 이직을 …").
+    """
     out: list[str] = []
     if frame.lifestyle_item is not LifestyleItem.NONE and is_rule_fallback(intent):
         out.append("lifestyle_on_overview_fallback")  # '오늘 옷 뭐 입을까' 류 — 핵심 결함군
@@ -226,4 +313,29 @@ def frame_disagreements(frame: QuestionFrame, intent: IntentJson) -> list[str]:
         out.append("meta_vs_rule")
     if frame.ask_kind is not AskKind.META and intent.query_type is QueryType.OUT_OF_SCOPE:
         out.append("rule_out_of_scope_vs_frame")
+    # ── 시제(shadow) — 룰 회고 판정 vs 프레임 time_direction ──
+    _structural = (rule_time_reason or "").startswith("window_")
+    _time_head = "time_window" if _structural else "time_rule"
+    if rule_retro is True and frame.time_direction in (TimeDirection.WISH, TimeDirection.FUTURE):
+        out.append(f"{_time_head}_past_vs_frame_{frame.time_direction.value}")  # '있었으면' 류 후보
+    if rule_retro is False and frame.time_direction in (
+        TimeDirection.PAST, TimeDirection.COUNTERFACTUAL,
+    ):
+        out.append(f"{_time_head}_future_vs_frame_{frame.time_direction.value}")
+    # ── 대상(shadow) — 룰 대상 틀 vs 프레임 subject_frame(ID 매핑은 대조하지 않는다) ──
+    rule_subj = rule_subject_frame(intent)
+    if frame.subject_frame is SubjectFrame.SELF_EXPLICIT and rule_subj != "self":
+        out.append(f"subject_frame_self_vs_rule_{rule_subj}")
+        if rule_subject_inherited:
+            out.append("subject_self_on_inherited")  # 본인 복귀 놓침 후보(게이트 1순위 검토군)
+    elif frame.subject_frame in _GROUP_FRAMES and rule_subj == "self":
+        out.append(f"subject_frame_{frame.subject_frame.value}_vs_rule_self")
+    elif (
+        frame.subject_frame is SubjectFrame.COMPANIONS_ONLY
+        and rule_subj in ("self_with_companions", "companion_single")
+    ) or (
+        frame.subject_frame is SubjectFrame.SELF_WITH_COMPANIONS
+        and rule_subj in ("companions_only", "companion_single")
+    ):
+        out.append(f"subject_frame_{frame.subject_frame.value}_vs_rule_{rule_subj}")
     return out

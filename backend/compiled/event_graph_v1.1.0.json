@@ -1,6 +1,6 @@
 {
   "version": "1.1.0",
-  "updated_at": "2026-08-10T05:24:14.220434+00:00",
+  "updated_at": "2026-10-29T04:27:17.128027+00:00",
   "nodes": [
     {
       "id": "element_木",
@@ -919,6 +919,14 @@
       "label": "공개 노출·평가",
       "attrs": {
         "eventType": "instant"
+      }
+    },
+    {
+      "id": "event_career_leave",
+      "type": "event",
+      "label": "휴직·휴가(복귀 전제)",
+      "attrs": {
+        "eventType": "progress"
       }
     },
     {

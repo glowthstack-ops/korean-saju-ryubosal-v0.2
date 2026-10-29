@@ -37,6 +37,18 @@ FACT_REBUTTAL_RE = re.compile(
     r"(?:(?:와|과|랑|이랑|하고)\s*(?:는\s*)?(?:상관\s*없|관계\s*없|무관)|(?:이|가)\s*아닌데|아니잖)"
     r"[^.!\n]{0,40}?(?:거야|건가|건지|말이야|맞아|맞나|왜)"
 )
+# 사실 단언형 반박(2026-10-28 데굴님 승인) — 시스템이 전망한 사건을 사용자가 **이미 겪은 사실**로
+# 되받는 발화. 실로그 web-mvrq8ocg: 이직 시기를 서술한 답에 "아니 난 이직을 했다니까!"가 또 이직
+# 전망으로 흘렀다(1인칭 '난'이 CHALLENGE_RE 의 자기 발화 예외에 걸려 이의로 보지 않음).
+# 형태: '아니/아뇨/아니요/아니야' 머리 + (1인칭·이미·벌써 선택) + 완료형(했/됐/왔/갔/옮겼/들어갔)
+# + 강조 종결(다니까/라니까/다고/거든/잖아/니까) — 또는 머리 없이 '이미/벌써 … 완료형 + 강조 종결'.
+# 강조 종결이 없는 '아니 이직했어'는 이의로 보지 않는다(단순 사실 보고 — 사실 원장이 받는다).
+_ASSERTED_DONE = r"(?:했|됐|되었|왔|갔|옮겼|들어갔|들어왔|끝났|받았)"
+_ASSERTED_EMPH = r"(?:다니까|라니까|다고|거든|잖아|니까)"
+ASSERTED_FACT_REBUTTAL_RE = re.compile(
+    rf"^\s*(?:아니|아뇨|아니요|아니야|아니지)[,.!\s]*[^.!?\n]{{0,24}}?{_ASSERTED_DONE}{_ASSERTED_EMPH}"
+    rf"|(?:이미|벌써)\s*[^.!?\n]{{0,16}}?{_ASSERTED_DONE}{_ASSERTED_EMPH}"
+)
 CHALLENGE_RE = re.compile(
     rf"{_SECOND_PERSON}[^.!?\n]{{0,30}}?{_QUOTE_END}"
     rf"|{_TIME_REF}[^.!?\n]{{0,30}}?{_SPEECH_VERB}"
@@ -65,6 +77,9 @@ def is_challenge(text: str) -> bool:
     이사했잖아")가 있으면 사용자 자신의 발화·사실이라 이의로 보지 않는다.
     """
     if FACT_REBUTTAL_RE.search(text):
+        return True
+    # 사실 단언형 반박("아니 난 이직을 했다니까!") — 1인칭이어도 시스템 전망에 대한 이의다.
+    if ASSERTED_FACT_REBUTTAL_RE.search(text):
         return True
     for m in CHALLENGE_RE.finditer(text):
         clause = _clause_at(text, m.start())

@@ -42,6 +42,8 @@ EVENT_KO: dict[EventKeyV2, str] = {
     EventKeyV2.PREPARATION_DELAY: "준비·지연",
     EventKeyV2.CREATIVE_OUTPUT: "결과물·창작",
     EventKeyV2.PUBLIC_EXPOSURE: "공개 노출·평가",
+    # 2026-10-29 신설 — 완전 이탈(이직·퇴사)과 구분.
+    EventKeyV2.CAREER_LEAVE: "휴직·휴가(복귀 전제)",
 }
 
 # ── 시간 성격 (progress/instant/hybrid — 택일·타임라인 분기) ──────
@@ -67,6 +69,7 @@ EVENT_TYPE: dict[EventKeyV2, str] = {
     EventKeyV2.PREPARATION_DELAY: "progress",
     EventKeyV2.CREATIVE_OUTPUT: "progress",
     EventKeyV2.PUBLIC_EXPOSURE: "instant",
+    EventKeyV2.CAREER_LEAVE: "progress",
 }
 
 # ── 검증(calibration) 카테고리 — career/move/affection/money/health/study ──
@@ -88,6 +91,7 @@ EVENT_CATEGORY: dict[EventKeyV2, str] = {
     EventKeyV2.HEALTH_ATTENTION: "health",
     EventKeyV2.EDUCATION_ADMISSION: "study",
     EventKeyV2.EDUCATION_COMPLETION: "study",
+    EventKeyV2.CAREER_LEAVE: "career",
 }
 
 # ── 리포트·planner 도메인 — career/relationship/relocation/wealth/education/health ──
@@ -113,6 +117,7 @@ EVENT_DOMAIN: dict[EventKeyV2, str] = {
     EventKeyV2.EDUCATION_ADMISSION: "education",
     EventKeyV2.EDUCATION_COMPLETION: "education",
     EventKeyV2.HEALTH_ATTENTION: "health",
+    EventKeyV2.CAREER_LEAVE: "career",
 }
 
 # ── 채널 중립 의미 facet (2026-07-30 데굴님 확정 — 가′) ──────────────
@@ -309,6 +314,7 @@ EVENT_WORDS: dict[EventKeyV2, list[str]] = {
                                  "악플", "뒷말", "입방아"],
     EventKeyV2.CREATIVE_OUTPUT: ["작품", "프로젝트", "성과물"],
     EventKeyV2.PUBLIC_EXPOSURE: ["오디션", "대회", "경연", "선거", "공개 발표"],
+    EventKeyV2.CAREER_LEAVE: ["휴직", "육아휴직", "병가", "안식년", "휴가"],
 }
 
 # ── 택일(date selection) 대상 — 즉효/실행일 성격 이벤트 ──

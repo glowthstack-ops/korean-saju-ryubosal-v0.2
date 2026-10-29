@@ -227,7 +227,7 @@ def _tone_line(result: ManseV2Result, ganji: str, fav_map: dict[str, str] | None
     day_master = result.pillars.day_master if result.pillars else ""
     if not day_master or len(ganji) != 2:
         return ""
-    action = incoming_ten_god_note(day_master, ganji, fav_map or {})
+    action = incoming_ten_god_note(day_master, ganji, fav_map or {}, natal=result)
     flow = incoming_stage_note(day_master, ganji)
     parts = [x for x in (f"행동={action}" if action else "", f"흐름={flow}" if flow else "") if x]
     return "  운 결(문체 전용): " + " / ".join(parts) if parts else ""

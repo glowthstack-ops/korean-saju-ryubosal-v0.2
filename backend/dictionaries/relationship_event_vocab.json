@@ -209,6 +209,15 @@
       "deprecated": false
     },
     {
+      "canonical_key": "career_leave",
+      "legacy_aliases": [],
+      "family": "career",
+      "owner": "event_engine_v2",
+      "personalized_allowed": true,
+      "daily_allowed": false,
+      "deprecated": false
+    },
+    {
       "canonical_key": "creative_output",
       "legacy_aliases": [],
       "family": "career",

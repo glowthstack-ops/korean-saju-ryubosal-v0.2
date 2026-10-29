@@ -22,16 +22,20 @@ _ACT_WEIGHT: dict[str, float] = {
     "재성국 완성": 0.18,
     "묘고 충개고": 0.12,
     "식상생재": 0.10,
+    # 원국 한쪽 + 운 한쪽 식상생재(2026-10-29 재물 강의 — 실험 플래그일 때만 발동).
+    "식상생재(원국 보완)": 0.10,
 }
 # 계열 인지 감쇠(2차-2단계) — 발동은 모두 '재성 작동' 한 계열이라, 대표 1개만 full로 두고
 # 추가는 감쇠한다(중복 집계 방지). 같은 현상을 여러 이름으로 더해 100에 붙던 문제(2026-06-16).
 _DIMINISH_TIERS: tuple[float, ...] = (1.0, 0.45, 0.25)  # 대표·2번째·3번째
 # 교차 중복 — 그 발동이 이미 base 십성 조합으로 점수화됐으면(같은 fingerprint) 추가 가산 최소화.
+_SIKSANG_BASE = {
+    "COMBO_OUTPUT_WEALTH", "SPEC_SHISHEN_ZHENGCAI",
+    "SPEC_SHISHEN_PIANCAI", "SPEC_SHANGGUAN_ZHENGCAI",
+}
 _ACT_BASE_OVERLAP: dict[str, set[str]] = {
-    "식상생재": {
-        "COMBO_OUTPUT_WEALTH", "SPEC_SHISHEN_ZHENGCAI",
-        "SPEC_SHISHEN_PIANCAI", "SPEC_SHANGGUAN_ZHENGCAI",
-    },
+    "식상생재": _SIKSANG_BASE,
+    "식상생재(원국 보완)": _SIKSANG_BASE,
 }
 _DUP_FACTOR = 0.35  # base에 이미 잡힌 발동 — 추가 가산 35%만
 _TARGET_KEYS = (EventKeyV2.WINDFALL, EventKeyV2.WEALTH_CHANGE)

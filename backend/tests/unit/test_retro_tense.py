@@ -223,5 +223,5 @@ def test_reference_frame_marks_current_solar_month_as_ongoing() -> None:
         _TODAY_PRE_JEOL, _intent(tr2), result, current_month_label=_LUCK_MONTH_PRE_JEOL,
     )
     assert "2026-08는 현재 진행 중인 절기월" in frame2.question_period_note
-    assert "2026-09~2026-09는 곧 시작되는 다음 절기월" in frame2.question_period_note
+    assert "2026-09–2026-09는 곧 시작되는 다음 절기월" in frame2.question_period_note
     assert "이미 지났다" not in frame2.question_period_note

@@ -79,8 +79,8 @@ def test_followup_does_not_inherit_windfall() -> None:
     assert it.time_range is not None and it.time_range.start == "2026-09"
     body = second.prompt_preview or ""
     # 3. 단일 달 창 — 월별 요약이 12개월로 늘지 않는다.
-    assert "[월별 요약 — 2026-09~2026-09 1개월" in body
-    assert "[월별 요약 — 2026-01~2026-12" not in body
+    assert "[월별 요약 — 2026-09–2026-09 1개월" in body
+    assert "[월별 요약 — 2026-01–2026-12" not in body
     # 1. 앵커 전후 일운 창이 엔진 사실로 들어간다.
     assert "[앵커 전후 일운 — 엔진 확정 사실] 앵커: 추석 2026-09-25." in body
     assert "09-25(추석)" in body

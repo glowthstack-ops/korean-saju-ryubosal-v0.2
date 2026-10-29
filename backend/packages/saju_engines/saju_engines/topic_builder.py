@@ -93,7 +93,7 @@ _DEFAULT_BUDGET = TokenBudget(
 
 # 단정 표현 금지(절대 원칙 3) — 모든 모듈 공통 기본.
 _BASE_STYLE = StyleRules(
-    prohibited_expressions=["반드시", "확실히 ~한다", "100% ~된다"],
+    prohibited_expressions=["반드시", "확실히 …한다", "100% …된다"],
     tone_notes=["단정 대신 단계(awareness→exploration→action→decision) 표현 사용"],
 )
 
@@ -863,7 +863,7 @@ def build_business_context(
 
 
 _PAST_STYLE = StyleRules(
-    prohibited_expressions=[*_BASE_STYLE.prohibited_expressions, "분명히 ~였다"],
+    prohibited_expressions=[*_BASE_STYLE.prohibited_expressions, "분명히 …였다"],
     tone_notes=[
         *_BASE_STYLE.tone_notes,
         "과거 검증은 맞춘 항목으로 신뢰도를 보정하는 용도 — 콜드리딩 금지(연 ≤2건·근거 필수·"

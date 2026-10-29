@@ -13,6 +13,7 @@ SSOT: doc/v2_2/EXTERNAL_TEXT_GAP_LOVE_TIMING.md
                             → marriage_signal +6.
   new_relationship_palace: new_relationship 을 일지 HAP·복음 likely_events 에 편입
                             (궁위 가산 사각 해소).
+  separation_*           : 남녀 이별운 강의(2026-10-29) — love_separation 모듈 참조.
 """
 
 from __future__ import annotations
@@ -33,11 +34,15 @@ from saju_shared_types.event_engine import TenGod as TenGodCode
 from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
 
+from .love_separation import SEPARATION_KEYS
+
 LOVE_EXPERIMENT_KEYS: tuple[str, ...] = (
     "new_relationship_palace",
     "female_qisha_partner",
     "hap_overload_damping",
     "partner_element_daewoon",
+    # 이별운 강의 번역층(2026-10-29, saju_engines.love_separation) — 규칙 4종 + 지지 가중 변형.
+    *SEPARATION_KEYS,
 )
 _ENV = "SAJU_LOVE_EXPERIMENTS"  # 쉼표 구분 이름 목록 — 운영 기본은 비움(전부 OFF)
 

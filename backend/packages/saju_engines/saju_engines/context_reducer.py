@@ -194,13 +194,14 @@ _NO_SUGGESTION_QUERY_TYPES = (
 
 # docs/06 점수→표현 강도 매핑(toneGuide 기본).
 _TONE_GUIDE = (
-    "85+: '~신호가 매우 강합니다' / 70~84: '~가능성이 높습니다' / "
-    "55~69: '~흐름이 나타날 수 있습니다' / 40~54: '~조짐이 약하게 있습니다' / "
+    "85+: '…신호가 매우 강합니다' / 70–84: '…가능성이 높습니다' / "
+    "55–69: '…흐름이 나타날 수 있습니다' / 40–54: '…조짐이 약하게 있습니다' / "
     "40 미만: 언급 생략 또는 '뚜렷한 신호는 없습니다'"
 )
 _BASE_PROHIBITED = ["반드시 이직한다", "무조건 헤어진다", "확정적으로 발생한다"]
 _BASE_INSTRUCTION = (
-    "사건 발생이 아니라 '변화 에너지의 활성화'로 표현하고, 촉발→진행→결과의 인과 흐름으로 "
+    "사건은 구체 사건명으로 부르되 가능성형('…할 수 있다')으로 쓰고(단정은 결과를 확정하는 "
+    "어미만 — 시스템 지시의 공통 정의), 촉발→진행→결과의 인과 흐름으로 "
     "설명하되 '촉발/진행/결과'를 단계 표제·소제목으로 달지 말고 자연스러운 문장으로 녹일 것. "
     "제공된 간지·점수·근거 외의 명리 계산을 시도하지 말 것 — 데이터에 없으면 지어내지 말고 "
     "해당 대목을 조용히 생략하고, '제공되지 않았다'·'재계산은 제공되지 않았다' 같은 안내·메타 "
@@ -214,8 +215,9 @@ _DAILY_INSTRUCTION = (
     " 이 질문은 '하루 운세'다 — 하루 안에 실제로 일어날 수 있는 범위로만 풀 것: "
     "주요 사건의 '조짐/신호'(실행·확정 단정 금지), 소소한 금전·횡재, 직장에서의 가벼운 "
     "변화나 기분, 애정 관련 만남·연락, 작은 다툼·신경전, 이동·건강·컨디션 정도다. "
-    "이직·이사 같은 인생 사건을 '그날 일어난다'고 단정하지 말고, 그날 일진이 그런 흐름의 "
-    "'조짐을 비춘다'는 수준으로만 언급한다. [해당 일 운세] 블록의 일진·생활 슬롯 점수 "
+    "이직·이사 같은 인생 사건을 '그날 일어난다'고 확정하지 말고, 사건명은 그대로 둔 채 '그날 "
+    "이직 이야기가 나올 수 있다'처럼 가능성형으로 언급한다. [해당 일 운세] 블록의 일진·생활 "
+    "슬롯 점수 "
     "범위 안에서 핵심기운→분야별(일·돈·관계·건강)→주의·활용 순으로 간결히 서술할 것. "
     "그 날을 지칭할 때는 [기준 시점]의 오늘과 대조해 정확히 부를 것 — 오늘이 아닌 날을 "
     "'오늘'이라고 쓰지 말 것."
@@ -227,9 +229,9 @@ _MONTHLY_INSTRUCTION = (
     "오늘과 대조해 정확히 부를 것 — 이번 달이 아닌 달을 '이번 달'이라고 쓰지 말 것. "
     "[해당 월 총운] 블록의 분야별"
     "(일·직업/재물/관계·연애/건강) 점수와, 그 달 안에서 상대적으로 주의할 시기·기회 "
-    "시기(주·일)를 함께 짚는다. 한 달 안에 가능한 사건의 '활성화·가능성'으로 표현하고 "
-    "특정 사건의 실행·확정은 단정하지 말 것. [이벤트 후보]가 있으면 그 사건 종류를 해당 슬롯 "
-    "서술에 반영하되 활성화·가능성으로만 쓸 것 — 슬롯 점수는 활성 강도이지 길흉이 아니며, "
+    "시기(주·일)를 함께 짚는다. 한 달 안에 가능한 사건은 사건명을 그대로 쓰되 가능성형으로 "
+    "표현하고(확정 어미만 금지), [이벤트 후보]가 있으면 그 사건 종류를 해당 슬롯 서술에 "
+    "'…할 수 있다'로 반영할 것 — 슬롯 점수는 활성 강도이지 길흉이 아니며, "
     "'강한 용신운'만으로 그 분야가 유리하다고 쓰지 말 것. 이동(이직·역할 변동) 후보가 있으면 "
     "주체(자발·타의)를 정하지 말고 '이동이 걸릴 수 있는 달'로 쓰며, '이동 뒤 흐름'은 "
     "[이동 흐름] 줄의 판정(이후 운 긍정/부정/엇갈림)만 근거로 쓸 것."
@@ -241,8 +243,8 @@ _YEARLY_INSTRUCTION = (
     "부를 것 — 올해가 아닌 해를 '올해'라고 쓰지 말 것. "
     "[해당 연 총운] 블록의 상·하반기 흐름과 분야별(직업/재물/"
     "관계/건강) 기운, 주의 시기·기회 시기(월)를 짚는다. 연 단위라 사건의 방향·가능성·"
-    "시기 흐름으로 서술하고 특정 사건을 단정하지 말 것. [이벤트 후보]가 있으면 그 사건 "
-    "종류를 해당 분야 서술에 반영하되 활성화·가능성으로만 쓸 것 — 슬롯 점수는 활성 강도이지 "
+    "시기 흐름으로 서술하되 사건명은 그대로 쓰고 확정 어미만 피할 것. [이벤트 후보]가 있으면 "
+    "그 사건 종류를 해당 분야 서술에 '…할 수 있는 해'로 반영할 것 — 슬롯 점수는 활성 강도이지 "
     "길흉이 아니다. 이동 후보가 있으면 주체를 정하지 말고 '이동 뒤 흐름'은 [이동 흐름] 줄의 "
     "판정만 근거로 쓸 것. [월주 상대 관점] 블록이 있으면 ①그 블록으로 '시절이 만드는 환경' 한 문장 "
     "→ ②[세운:] 줄의 일간 기준 십성·십이운성으로 '그 환경에서 취하기 쉬운 태도' 한 문장 → ③둘을 "
@@ -492,7 +494,7 @@ _OUT_OF_RANGE_INSTRUCTION = (
 )
 _DATE_TABLE_INSTRUCTION = (
     "[택일 결과] 표가 제공되었으므로 '날짜 정보가 없다' 류의 회피성 답변을 절대 하지 말 "
-    "것. 표의 날짜·간지·사유를 그대로 인용해 1~3개 날짜를 명확히 추천할 것. 표 밖의 "
+    "것. 표의 날짜·간지·사유를 그대로 인용해 1–3개 날짜를 명확히 추천할 것. 표 밖의 "
     "날짜를 임의로 만들지 말 것."
 )
 
@@ -1607,9 +1609,9 @@ def build_calendar_context(
     _cur_dw = lc.current_daewoon_index
     daewoon = [
         DaewoonEntry(
-            period=f"{d.approx_start_date.year}~{d.approx_end_date.year}",
+            period=f"{d.approx_start_date.year}–{d.approx_end_date.year}",
             ganji=d.ganji,
-            age_range=f"{d.start_age}~{d.start_age + 9}세",
+            age_range=f"{d.start_age}–{d.start_age + 9}세",
             jiao_date=_nearest_jiao(d.approx_start_date, exact_jiao),
             status=(
                 ""
@@ -2051,7 +2053,7 @@ def build_reference_frame(
             ).isoformat()
         except ValueError:
             end = None
-    period = f"{start} ~ {end}" if start and end and start != end else (start or "")
+    period = f"{start} – {end}" if start and end and start != end else (start or "")
     note = (
         f"질문의 시점 표현은 {period} 구간으로 해석되었다."
         if period
@@ -2064,7 +2066,7 @@ def build_reference_frame(
     if tr is not None and tr.granularity is not None:
         gv = tr.granularity.value
         if tr.type == "absolute" and gv == "year":
-            note += " 기간 유형: 달력연도(해당 연도 1~12월 전체)."
+            note += " 기간 유형: 달력연도(해당 연도 1–12월 전체)."
         elif tr.type == "relative" and gv == "month" and start and end and start[:4] != end[:4]:
             note += " 기간 유형: 현재 달부터 미래 롤링 구간."
         elif gv == "year":
@@ -2079,8 +2081,8 @@ def build_reference_frame(
         end_m = end[:7] if len(end) >= 7 else f"{end}-12"
         if start_m < cur <= end_m:
             note += (
-                f" 이 중 {start_m}~{_prev_month(cur)}는 이미 지났다(과거형으로만, "
-                f"앞으로의 권고·트리거로 쓰지 말 것) — 남은 구간은 {cur}~{end_m}이다."
+                f" 이 중 {start_m}–{_prev_month(cur)}는 이미 지났다(과거형으로만, "
+                f"앞으로의 권고·트리거로 쓰지 말 것) — 남은 구간은 {cur}–{end_m}이다."
             )
         elif start_m == cur:
             # 창이 현재 절기월로 시작 — 라벨(YYYY-MM)의 달 숫자가 오늘 양력 달보다 앞설 수
@@ -2089,7 +2091,7 @@ def build_reference_frame(
             if end_m > cur:
                 note += (
                     f" 이 중 {cur}는 현재 진행 중인 절기월(지난 구간이 아니다)이고 "
-                    f"{_next_month(cur)}~{end_m}는 곧 시작되는 다음 절기월 구간이다 — "
+                    f"{_next_month(cur)}–{end_m}는 곧 시작되는 다음 절기월 구간이다 — "
                     "전체를 현재·미래형으로 서술하고, 이달 잔여 구간의 흐름과 다음 달 흐름을 "
                     "구분해 각각 짚을 것."
                 )
@@ -3463,7 +3465,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
             f"높은 다른 사건(엔진 판정). 첫 판정 문장에는 '{_asked_ko}' 자체 신호의 강도(위 "
             "[이벤트 후보], 없으면 약함)와 이 영역의 강한 신호를 함께 밝힐 것. 한쪽만 보고 "
             "'아무 일 없다'고 하거나, 이 블록 사건을 질문 사건의 확정으로 바꿔 말하지 말 것 — 두 "
-            "신호가 어떻게 이어질 수 있는지는 '~로 이어질 수 있다' 수준으로 쓸 것]"
+            "신호가 어떻게 이어질 수 있는지는 '…로 이어질 수 있다' 수준으로 쓸 것]"
         )
         if _key_value(_asked_key) in _DOMAIN_EVENT_KEYS["relationship"] and any(
             _key_value(c.event_key) in LOVE_NOTE_EVENT_KEYS for c in payload.family_candidates
@@ -3487,7 +3489,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
         _cand_out.append(
             "[선정 제외 강신호 — '신호 없음'이 아니다] 아래는 신호 강도가 최상위권이나 "
             "조망 선정에서 밀린 항목이다. 각 항목의 존재를 답변에서 **한 문장으로 짧게** "
-            "언급하라('~신호도 강하게 잡혀 있으니 따로 물어보면 자세히 볼 수 있다' 수준). "
+            "언급하라('…신호도 강하게 잡혀 있으니 따로 물어보면 자세히 볼 수 있다' 수준). "
             "주요 서사로 승격하거나 상세 풀이하지 말고, 반대로 이 영역을 '신호 없음·"
             "조용함'으로 단정하지도 마라."
         )
@@ -3505,7 +3507,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
     if payload.monthly_overview:
         lines.append("")
         _ov = payload.monthly_overview
-        _span = f"{_ov[0].period}~{_ov[-1].period}" if _ov else ""
+        _span = f"{_ov[0].period}–{_ov[-1].period}" if _ov else ""
         _is_yearly = bool(_ov) and len(_ov[0].period) == 4
         _n_months = sum(1 for r in _ov if len(r.period) == 7)
         _n_years = sum(1 for r in _ov if len(r.period) == 4)

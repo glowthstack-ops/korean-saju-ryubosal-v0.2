@@ -182,7 +182,7 @@ def test_years_spread_across_life_bands_and_not_adjacent(question) -> None:
     assert len(years) == 10
     assert all(b - a > 1 for a, b in zip(years, years[1:], strict=False)), years
     bands = {y.band_ko for y in question.years}
-    assert {"사회초년기", "20대 후반~30대 초", "30대", "40대"} <= bands
+    assert {"사회초년기", "20대 후반–30대 초", "30대", "40대"} <= bands
     assert max(years) >= 2023  # 최근 시기 포함(기억 선명)
     for y in question.years:
         assert y.age == y.year - 1980 and y.hint

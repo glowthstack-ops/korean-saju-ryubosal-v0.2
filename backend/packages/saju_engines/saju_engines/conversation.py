@@ -45,6 +45,8 @@ from .companion_alias import (
     AliasEntry,
     normalize_token,
 )
+from .horizon import YEAR_WHEN_SPAN_YEARS
+from .job_change_report import strip_job_change_report
 from .query_parser import (
     AFFIRMATION_RE,
     INCLUSIVE_WE_RE,
@@ -54,6 +56,7 @@ from .query_parser import (
     attach_parenthetical_births,
     detect_asked_direction,
     detect_direction_purpose,
+    detect_explain_request,
     detect_kin_axis,
     implies_self_counterpart,
     is_direction_question,
@@ -77,6 +80,18 @@ _POLICY_QTYPES = frozenset({
 })
 # 본인 복귀(A8).
 _SELF_RETURN_RE = re.compile(r"본인\s*사주로|내\s*사주로\s*봐")
+# 1인칭 주어·소유 표지(A0 3단계 보강, 2026-10-28) — 동반자 지칭이 전혀 없을 때 직전 대상 상속
+# 대신 본인으로 확정한다. 앞글자 한글 금지('하나는'·'안내가' 오매칭 차단), '난'은 뒤가 공백·
+# 문장 끝·부호일 때만('난리' 제외).
+_FIRST_PERSON_SUBJECT_RE = re.compile(
+    r"(?<![가-힣])(?:내가|나는|나도|나만|나의|제가|저는|저도|저의)(?![가-힣])"
+    r"|(?<![가-힣])(?:내|제)\s*(?:사주|명식)"
+    r"|(?<![가-힣])난(?=\s|$|[,.!?])"
+)
+# 1인칭 관점 표현 — 대상 지정이 아니다('내가 보기엔 성실해' = 동반자 스레드의 되물음 답).
+_FIRST_PERSON_VIEW_RE = re.compile(
+    r"(?:내가|제가)\s*(?:보기|알기|듣기|느끼기|생각하기)|(?:내|제)\s*생각(?:엔|에는|으로)"
+)
 # 생시 미상(A13).
 _TIME_UNKNOWN_RE = re.compile(r"태어난\s*시간[은는]?\s*몰라|시간\s*모름")
 # 누적 참조(F4) — "앞서 물어본 2명까지 포함".
@@ -158,6 +173,26 @@ _GENERAL_FORTUNE_RE = re.compile(r"운세|하루\s*운|오늘\s*하루")
 # 반기 슬롯. 도메인/총운/새풀이 신호가 없을 때만 직전 스레드 시점 교체 후속으로 본다(2026-07-01
 # 데굴님 지적: '난 언제쯤 돈이 생길까?' 뒤 '2026년'이 NEW로 떨어져 재물 맥락을 잃던 결함).
 _BARE_ABS_TIME_RE = re.compile(r"\d{3,4}\s*년|\b\d{4}\b|상반기|하반기|연초|연말")
+# 연도 범위만 적은 후속(공백 제거 후 전체 일치) — '2032년부터2036년까지는?', '2032~2036년은어때?',
+# '2032년이후는?'. '몇 년도' 답의 '이후 기간 지정' 안내에 대한 지정 형식(2026-10-28).
+_YEAR_RANGE_ONLY_RE = re.compile(
+    r"^(?:그럼|그러면)?20\d{2}년?(?:부터|에서|~|-|–|부터는)?(?:20\d{2}년?)?(?:까지)?"
+    r"(?:는|은|에는|에|도|이후는?|이후|부터는?|사이는?|사이|의)?"
+    r"(?:어때요?|어떨까요?|어떤가요?|어떻게|봐줘|알려줘|는|요|운세는?)?\??$"
+)
+# '그 이후 5년은?'·'그 다음은?'·'이후 5년 어때?' — 직전 창 끝 다음부터의 연 창(2026-10-28).
+_AFTER_WINDOW_RE = re.compile(
+    r"^(?:그럼|그러면)?\s*(?:그|이)?\s*(?:이후|다음|뒤|후)(?:로|에|에는|는|은|의)?\s*"
+    r"(?:(?P<n>\d+)\s*년)?(?:은|는|에는|동안|간)?\s*(?:어때요?|어떨까요?|어떤가요?|어떻게|봐줘|알려줘|도)?\s*\??$"
+)
+
+
+def _window_end_year(tr: TimeRange) -> int | None:
+    """창의 끝 연도(YYYY 또는 YYYY-MM… 라벨) — 없으면 None."""
+    label = tr.end or tr.start
+    if label and len(label) >= 4 and label[:4].isdigit():
+        return int(label[:4])
+    return None
 # 직전 제안이 '월별 흐름'을 제시했는지 — 슬롯 답변('2026년') 시 granularity를 월로 승격한다.
 _OFFER_MONTHLY_RE = re.compile(r"월별|달별|월\s*단위|매월|달마다")
 # 시점-탐색 질문(스스로 시점을 찾는 질문) — 직전 시점 창을 승계하면 안 된다(2026-06-23: 7/4 이사
@@ -336,6 +371,9 @@ class ConversationEngine:
         # (예: '다음 주')였다면 여기서 직전 창 기준으로 재조준한다.
         self._reframe_prev_week(parsed, prev, text, today)
 
+        # '그 이후 5년은?'(2026-10-28) — 직전 창(예: '몇 년도' 답의 향후 5년) 끝 다음 해부터 N년.
+        self._inherit_after_window(parsed, prev, text, today)
+
         # 슬롯 상속 보강: 파서가 직접 상속 못 한 경우(참조어형) 도메인/대상 병합.
         explicit_domains = bool(_detect_domains(text))
         prev_domain = prev.domain if prev is not None else Domain.GENERAL
@@ -359,7 +397,11 @@ class ConversationEngine:
             # 의도 연속성: 후속 턴이 새 사건·도메인을 들고 오지 않은 '시점·사실 보완'(예:
             # '7월 4일은 갑오월이야')이면 직전 질문의 query_type·event_key를 이어받아 같은
             # 주제(계약·이사 평가 등)를 계속 다룬다 — 막연한 하루 운세로 리셋되지 않게.
-            if link.is_follow_up and prev is not None:
+            # 설명 요청은 직전 유형·사건·시점을 잇지 않는다(인용 본문만 풀이, 2026-10-28).
+            if (
+                link.is_follow_up and prev is not None
+                and intent.dialogue_act != "explain_request"
+            ):
                 introduces_new = (
                     intent.event_key is not None and not neutral_event
                 ) or explicit_domains
@@ -376,6 +418,31 @@ class ConversationEngine:
                         intent.event_key = prev.event_key
                         intent.event_keys = intent.event_keys or list(prev.event_keys)
                     intent.relocation_kind = prev.relocation_kind
+                    # 해외 근무 유형도 같은 주제의 시점·사실 보완 후속에 이어진다(2026-10-28).
+                    if intent.overseas_work is None:
+                        intent.overseas_work = prev.overseas_work
+                # 되물음 답(2026-10-28 데굴님 승인) — 직전 '언제쯤 안정될까'(시점 탐색) 답 말미의
+                # 되물음("업무량 때문인지 관계 때문인지?")에 사용자가 상황을 서술해 답하면, 그
+                # 서술은 새 분석 질문이 아니라 직전 시점 탐색의 재료다. 분야 어휘('업무')가 있어도
+                # 시점 탐색 유형과 개방형 시점을 이어받는다. 자체 사건·시점을 새로 들면 미승계.
+                # 위 약한 후속 규칙이 유형(TIMING_SEARCH)만 먼저 승계한 경우도 개방형 시점은 여기서
+                # 잇는다(2026-10-28 실로그: "아니 새롭게 하고싶은건 없고 그냥 일 적당히 있었으면
+                # 좋겠어"가 유형만 받고 시점은 비어 '언제 줄어들까'의 개방형 창을 놓쳤다 — 일반 시점
+                # 승계는 시작일 없는 open_when 을 잇지 않는다).
+                if (
+                    state.last_offer
+                    and prev.query_type is QueryType.TIMING_SEARCH
+                    and intent.event_key is None
+                    and (intent.time_range is None or not intent.time_range.start)
+                    and intent.query_type in (
+                        QueryType.FORTUNE_OVERVIEW, QueryType.DOMAIN_ANALYSIS,
+                        QueryType.TIMING_SEARCH,
+                    )
+                ):
+                    intent.query_type = QueryType.TIMING_SEARCH
+                    if intent.time_range is None and prev.time_range is not None:
+                        intent.time_range = prev.time_range
+                        intent.time_scope = prev.time_scope
             if resolution.subjects:
                 intent.subjects = resolution.subjects
                 intent.subject_mode = resolution.subject_mode
@@ -487,7 +554,8 @@ class ConversationEngine:
             # 사건 보고형('오늘 해고통보 받았어. 앞으로…')의 시점 없음은 '앞으로'라는 뜻이다 — 직전
             # 창(특히 과거 회고 창)을 이으면 회고 지시와 보고형 지시가 함께 붙는다(2026-10-14 검수).
             and not any(
-                getattr(i, "dialogue_act", None) == "reported_event" for i in parsed.intents
+                getattr(i, "dialogue_act", None) in ("reported_event", "explain_request")
+                for i in parsed.intents
             )
             # P2 승계 가드 — 직전 시점이 배제 창과 겹치면 오염 승계를 차단한다(배제 기간은
             # 절대 target으로 승격 금지). 시점 미확정으로 두면 broad/재질문 경로가 처리.
@@ -688,8 +756,21 @@ class ConversationEngine:
         if not subjects and not unresolved and kin_axis_self:
             # 미등록 육친 운 — 직전 대상을 잇지 않고 본인 명식(육친 축)으로 확정.
             subjects = [SubjectRef(kind=SubjectKind.SELF, label="본인")]
+        if (
+            not subjects and not unresolved
+            and _FIRST_PERSON_SUBJECT_RE.search(scan_text)
+            and not _FIRST_PERSON_VIEW_RE.search(scan_text)
+            and not INCLUSIVE_WE_RE.search(scan_text)
+        ):
+            # 1인칭 주어·소유 표지('내가/나는/난/제가/내 사주') + 동반자 지칭 없음 → 본인 복귀
+            # (A0 3단계, 2026-10-28 실로그: "남편과의 2027년 관계" 뒤 "2027년 내가 이직을 하게
+            # 된다면 …"이 직전 동반자(남편)를 상속해 남편 풀이로 나갔다). 관점 표현('내가 보기엔')
+            # 과 1인칭 복수('우리가')는 대상 지정이 아니라 제외. SELF 는 스레드 기준 명식이다.
+            subjects = [SubjectRef(kind=SubjectKind.SELF, label="본인")]
+        inherited_flag = False
         if not subjects and not unresolved:
             # 직전 턴 subject 상속, 그것도 없으면 self (A0 4순위).
+            inherited_flag = bool(state.active_subjects)
             inherited = state.active_subjects or [
                 SubjectRef(kind=SubjectKind.SELF, label="본인")
             ]
@@ -702,6 +783,7 @@ class ConversationEngine:
             unresolved=unresolved,
             correction=correction,
             time_unknown=time_unknown,
+            inherited=inherited_flag,
         )
 
     def _match_aliases(self, text: str) -> list[tuple[str, list[AliasEntry]]]:
@@ -787,6 +869,28 @@ class ConversationEngine:
         # 실로그).
         if is_challenge(text):
             return self._follow(parent_id, LinkKind.CHALLENGE, state)
+
+        # 설명 요청('위의 내용 쉽게 설명해줘', 2026-10-28) — 인용 본문에 분야 어휘가 있어도 새
+        # 질문이 아니라 직전 답의 풀이 요청이다. 직전 스레드(대상·도메인)를 잇는다.
+        if detect_explain_request(text):
+            return self._follow(parent_id, LinkKind.DRILL_DOWN, state)
+
+        # 연도 범위만 적은 후속('2032년부터 2036년까지는?', '2032~2036년은?', 2026-10-28) —
+        # '몇 년도'
+        # 답의 "이후 기간은 연도 범위를 지정해 달라" 안내에 대한 지정. 길이와 무관하게 직전 질문의
+        # 시점만 바꾸는 후속이다(아래 10자 단답 규칙은 15자 범위 표현을 놓친다).
+        if _YEAR_RANGE_ONLY_RE.fullmatch(text.replace(" ", "")):
+            return self._follow(parent_id, LinkKind.TIME_SHIFT, state)
+        # '그 이후 5년은?'·'그 다음은?' — 직전 창 끝 다음부터의 연 창(process_turn 이 계산).
+        if (
+            _AFTER_WINDOW_RE.fullmatch(text.strip())
+            and state.last_intent.time_range is not None
+            and (
+                _window_end_year(state.last_intent.time_range) is not None
+                or state.last_intent.time_range.type == "open_when"
+            )
+        ):
+            return self._follow(parent_id, LinkKind.TIME_SHIFT, state)
 
         # 주 틀 정정('일요일부터 토요일까지로 잡고 확인해줘') — 직전 시점 질문의 주 경계만 바꾸는
         # 후속이다. 새 도메인이 없을 때만(2026-10-04 실로그: 로또 택일 뒤 주 정의 정정).
@@ -908,11 +1012,24 @@ class ConversationEngine:
         # offer 답변 링크에서 제외(docs/19 §7 P0-b, 2026-09-21 실로그: 공부 방향 되물음 뒤 수면
         # 방향 질문이 제안 수락으로 링크돼 query_type·도메인을 승계).
         is_direction_q = is_direction_question(text)
+        # 되물음 답의 도메인 판정은 완료형 이직 보고 절을 뺀 잔여 텍스트로 한다(2026-10-28 실로그:
+        # "업무량 때문인지 관계 때문인지?" 되물음에 "이직을 했는데 업무의 양이 많아"로 답했는데
+        # 보고 절의 '이직'이 새 도메인으로 잡혀 NEW 로 끊기고 이직 시기 서술로 흘렀다). 잔여에
+        # 같은 분야 어휘('업무')가 남아도 직전 스레드(일·업무)의 답이므로 직전 도메인은 허용한다.
+        _offer_residual = strip_job_change_report(text)
+        _offer_doms = _detect_domains(_offer_residual)
+        _offer_new_domain = bool(_offer_doms) and (
+            _offer_residual == text
+            or (
+                state.last_intent.domain not in _offer_doms
+                and state.last_intent.domain is not Domain.GENERAL
+            )
+        )
         if (
             state.last_offer
             and len(compact) <= 12
             and not is_direction_q
-            and not _detect_domains(text)
+            and not _offer_new_domain
             and not _FRESH_OVERVIEW_RE.search(text)
             and not _READING_REQUEST_RE.search(text)
         ):
@@ -925,7 +1042,7 @@ class ConversationEngine:
         if (
             state.last_offer
             and not is_direction_q
-            and not _detect_domains(text)
+            and not _offer_new_domain
             and not _FRESH_OVERVIEW_RE.search(text)
             and not _READING_REQUEST_RE.search(text)
         ):
@@ -955,6 +1072,40 @@ class ConversationEngine:
 
         # 4순위 — 새로운 도메인+완결 질문 → 새 스레드 문맥.
         return LinkResult(is_follow_up=False, link_kind=LinkKind.NEW)
+
+    @staticmethod
+    def _inherit_after_window(
+        parsed: ParsedMessage, prev: IntentJson | None, text: str, today: date,
+    ) -> bool:
+        """'그 이후 N년은?' 후속이면 직전 창의 끝 다음 해부터 N년(기본 5년)의 절대 연 창을 잡는다.
+
+        직전 창이 개방형(open_when)이면 '몇 년도' 답의 기본 지평(올해부터 5년)을 직전 창으로 본다.
+        """
+        m = _AFTER_WINDOW_RE.fullmatch(text.strip())
+        if m is None or prev is None or prev.time_range is None:
+            return False
+        end_year = _window_end_year(prev.time_range)
+        if end_year is None:
+            if prev.time_range.type != "open_when":
+                return False
+            end_year = today.year + YEAR_WHEN_SPAN_YEARS - 1
+        n = int(m.group("n")) if m.group("n") else YEAR_WHEN_SPAN_YEARS
+        start = end_year + 1
+        new_tr = TimeRange(
+            type="absolute", granularity=Granularity.YEAR, start=str(start), end=str(start + n - 1),
+        )
+        for intent in parsed.intents:
+            intent.time_range = new_tr
+            intent.time_scope = (
+                TimeScope.LONG_TERM if start - today.year >= 3 else TimeScope.MID_TERM
+            )
+            intent.query_type = prev.query_type
+            if intent.domain is Domain.GENERAL:
+                intent.domain = prev.domain
+            intent.event_key = intent.event_key or prev.event_key
+            intent.event_keys = intent.event_keys or list(prev.event_keys)
+            intent.overseas_work = intent.overseas_work or prev.overseas_work
+        return True
 
     @staticmethod
     def _reframe_prev_week(

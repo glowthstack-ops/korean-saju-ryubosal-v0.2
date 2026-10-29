@@ -469,12 +469,12 @@ def selection_report_lines(result: ManseV2Result, domain: str) -> list[str]:
     return [
         f"[선발·배치 보조 — {adapter.label_ko}] 기관·자격 신호가 작동 수준이라 "
         "노출 조건을 충족했다(엔진 계산).",
-        "단계 성립도(0~100, 상한 적용): "
+        "단계 성립도(0–100, 상한 적용): "
         f"지원 {s.application} / 자격·서류 {s.eligibility} / 선발 지원도 "
         f"{s.selection_support} / 배정 {s.allocation} / 희망 조건 일치 "
         f"{s.preference_match} / 실제 실행 {s.execution}",
         f"서술 지침: 이 블록은 {adapter.label_ko} 같은 추첨·선발형 주제가 본문 맥락과 "
-        "자연스럽게 닿을 때만 1~2문장으로 녹일 것 — 무관하면 통째로 언급하지 말 것. "
+        "자연스럽게 닿을 때만 1–2문장으로 녹일 것 — 무관하면 통째로 언급하지 말 것. "
         "당첨·탈락 단정과 확률 % 표시는 금지, '선발되는 흐름'과 '희망 조건 배치'는 "
         "분리해 말하고, 이동·충 신호는 당첨 근거가 아니라 실제 실행(계약·입주·등록) "
         f"신호로만 쓸 것. 확신 수준은 최대 '{cap_ko}'.",
@@ -528,7 +528,7 @@ def format_selection_reading_block(
         odds_line = "\n" + _odds_line(reading.objective_odds)
     return (
         f"[선발·배치 풀이 — {adapter.label_ko}] 이 질문은 추첨·선발·배치형 사건이다. "
-        f"질문 초점 단계: {focus_ko}. 아래는 엔진이 계산한 단계별 성립도(0~100)와 "
+        f"질문 초점 단계: {focus_ko}. 아래는 엔진이 계산한 단계별 성립도(0–100)와 "
         "신호 근거다 — 초점 단계를 중심으로 답하되, '선발되는 흐름'과 '희망 조건 "
         "배치'는 서로 다른 사건이므로 반드시 분리해 서술하라.\n"
         f"단계 점수: {score_line}\n"
@@ -548,6 +548,6 @@ def format_selection_reading_block(
             "열려 있으나 결과 변수가 크다' 수준으로 표현할 것." if lottery else ""
         )
         + waitlist
-        + "\n답변 형식: 결론(1~2문장) → 유리한 부분 → 변수 → 가능한 전개(조건 조정·"
+        + "\n답변 형식: 결론(1–2문장) → 유리한 부분 → 변수 → 가능한 전개(조건 조정·"
         "다음 회차 포함) 순으로 짧게."
     )

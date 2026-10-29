@@ -52,7 +52,13 @@ from saju_engines.assistant_commitments import (
     prior_statement_lines,
 )
 from saju_engines.career_field import build_career_field_facts, render_career_field_lines
-from saju_engines.chart_interpretation import build_luck_grounding, luck_dohwa_sinsal_line
+from saju_engines.chart_interpretation import (
+    build_luck_grounding,
+    career_exit_lecture_block,
+    luck_dohwa_sinsal_line,
+    yeokma_natal_lines,
+    yeokma_period_lines,
+)
 from saju_engines.commitment_audit import audit_answer
 from saju_engines.companion_alias import AliasEntry, merge_attached_partner
 from saju_engines.companion_similarity import augment_relation_type, augment_subject_mode
@@ -82,6 +88,7 @@ from saju_engines.counterfactual_context import (
     counterfactual_lines,
 )
 from saju_engines.daewoon_progression import resolve_all_daewoon_progressions
+from saju_engines.daewoon_turn import daewoon_turn_lines
 from saju_engines.date_answer_audit import rewrite_avoid_ranges, strip_after_closing_question
 from saju_engines.date_selection import DateSelectionEngine
 from saju_engines.effective_subjects import AttachedCompanion, build_effective_subjects
@@ -104,6 +111,7 @@ from saju_engines.horizon import (
 from saju_engines.ilju_mention_audit import audit_ilju_mention
 from saju_engines.impossible_relation_audit import strip_impossible_relation_claims
 from saju_engines.intent_event_filter import IntentEventFilter
+from saju_engines.job_change_report import asks_new_job_change
 from saju_engines.job_separation import is_job_separation
 from saju_engines.layer_label_audit import audit_layer_labels
 from saju_engines.life_event_followup import followup_candidates
@@ -115,6 +123,7 @@ from saju_engines.lifetime_scan import (
     select_lifetime_years,
 )
 from saju_engines.llm_guard import TokenBudgetExceeded, estimate_tokens
+from saju_engines.love_separation import love_separation_block, love_separation_natal_lines
 from saju_engines.luck_hierarchy import build_luck_hierarchy
 from saju_engines.luck_hierarchy_render import (
     render_hierarchy_appendix,
@@ -135,6 +144,11 @@ from saju_engines.month_coverage_audit import (
 )
 from saju_engines.movement_timing_shadow import detect_movement_timing_shadow
 from saju_engines.output_wealth_term import fix_wealth_generation_term
+from saju_engines.overseas_work import (
+    OVERSEAS_DIRECTIVE,
+    overseas_year_signals,
+    render_overseas_block,
+)
 from saju_engines.period_fortune_signals import (
     annotate_period_fortune,
     select_period_candidates,
@@ -147,6 +161,7 @@ from saju_engines.policy_echo_audit import detect_policy_echo, strip_policy_echo
 from saju_engines.precompute import CompositeBuilder
 from saju_engines.prediction import PredictionEngines
 from saju_engines.profile_engine import profile_context_for, profile_event_signals
+from saju_engines.prompt_notation import normalize_range_tilde
 from saju_engines.query_parser import (
     ACCIDENT_SAGO_RE,
     AFFIRMATION_RE,
@@ -177,6 +192,7 @@ from saju_engines.relationship_hints import (
     non_romantic_frame_directive,
     perspective_hints_for,
 )
+from saju_engines.relationship_tendency import relationship_tendency_lines
 from saju_engines.rewriter import QueryAssessment, assess
 from saju_engines.selection_intent import detect_selection_query
 from saju_engines.shadow_scoring import domain_to_expression_key
@@ -187,6 +203,7 @@ from saju_engines.structural_context import (
     CONCLUSION_FIRST_DIRECTIVE,
     DAEWOON_FRAMING_DIRECTIVE,
     DAEWOON_TRANSITION_SIGNALS_DIRECTIVE,
+    DAEWOON_WHEN_DIRECTIVE,
     DECISION_ATTITUDE_DIRECTIVE,
     DOCUMENT_IMAGERY_DIRECTIVE,
     EVIDENCE_FIDELITY_DIRECTIVE,
@@ -196,6 +213,7 @@ from saju_engines.structural_context import (
     NON_NORMATIVE_REASSURANCE_DIRECTIVE,
     PARTNER_APPEARANCE_REFERENT_DIRECTIVE,
     PARTNER_SOURCE_DIRECTIVE,
+    RELATIONSHIP_DIFFERENCE_PERSPECTIVE,
     RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
     RETRO_BEHAVIOR_DIRECTIVE,
     SPOUSE_IMAGE_DIRECTIVE,
@@ -219,12 +237,22 @@ from saju_engines.task_procedures import (
 )
 from saju_engines.ten_god_label_audit import audit_ten_god_labels, facts_from_pillar_details
 from saju_engines.time_parser import DAY_WORD_OFFSETS as _TP_DAY_WORDS
-from saju_engines.time_parser import LIFE_STAGE_AGE_RANGES, WEEK_FRAME_SUN_SAT
+from saju_engines.time_parser import (
+    LIFE_STAGE_AGE_RANGES,
+    WEEK_FRAME_SUN_SAT,
+    is_daewoon_when_question,
+)
 from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
 from saju_engines.topic_builder import build_lifestyle_context, build_topic_context
 from saju_engines.user_facts import user_facts_block
 from saju_engines.v2_scoring import V2ScoringError, build_v2_scoring
 from saju_engines.wealth_capacity import analyze_wealth_capacity
+from saju_engines.wealth_lecture import (
+    daewoon_readiness_lines,
+    output_blocked_lines,
+    wealth_period_block,
+    wealth_vessel_lines,
+)
 from saju_engines.yearly_environment import (
     build_yearly_environment,
     render_yearly_environment,
@@ -366,7 +394,7 @@ def _current_luck_month_detail(birth: BirthInput, today: date, timezone: str = "
     elapsed = (today - sm_s).days + 1
     remaining = _current_luck_month_remaining_days(today, label, timezone)
     return (
-        f"{label} = {mp.ganji}월(절기월). 양력 {sm_s.isoformat()}~{sm_e.isoformat()} 진행 중 — "
+        f"{label} = {mp.ganji}월(절기월). 양력 {sm_s.isoformat()}–{sm_e.isoformat()} 진행 중 — "
         f"오늘 {today.isoformat()}은 이 절기월 {elapsed}/{total}일차(남은 약 {remaining}일). "
         f"라벨의 '{label[5:7]}'월은 절입 시작 캘린더월이라 오늘 캘린더월({today.month}월)과 "
         f"다를 수 있다. 이 달은 '{int(label[5:7])}월({mp.ganji}월)'처럼 부르고 "
@@ -457,7 +485,7 @@ def _date_solar_month_note(birth: BirthInput, target: date, timezone: str) -> st
     sm_s, sm_e = _solar_month_range(label, timezone)
     return (
         f"[날짜 절기월 — 엔진 확정 사실] 질문 날짜 {target.isoformat()}의 월운(절기월)은 "
-        f"{mp.ganji}이며 양력 {sm_s.isoformat()}~{sm_e.isoformat()}에 해당한다. 월운은 절입 "
+        f"{mp.ganji}이며 양력 {sm_s.isoformat()}–{sm_e.isoformat()}에 해당한다. 월운은 절입 "
         f"기준이라 양력 달과 다르다 — 이 날짜의 월간지를 양력 {target.month}월의 다음 절기월로 "
         f"답하지 말고 반드시 {mp.ganji}로 본다."
     )
@@ -598,8 +626,8 @@ def _anchor_window_day_note(
     return (
         f"[앵커 전후 일운 — 엔진 확정 사실] 앵커: {anchor.label} {anchor.date}. "
         + " / ".join(rows)
-        + f". 앵커 전({start.isoformat()}~{b_end}) 등급 집계: {_tally(before)} ; "
-        f"앵커 후({a_start}~{end.isoformat()}) 등급 집계: {_tally(after)}. "
+        + f". 앵커 전({start.isoformat()}–{b_end}) 등급 집계: {_tally(before)} ; "
+        f"앵커 후({a_start}–{end.isoformat()}) 등급 집계: {_tally(after)}. "
         "질문이 앵커 전/후를 비교하면 첫 문단에서 '앵커 전이 유리 / 앵커 후가 유리 / 뚜렷한 차이 "
         "없음' 중 하나로 판정하고 근거 날짜(일운 간지·십성·등급)를 들 것 — 월운으로 뭉뚱그리거나 "
         "다른 달로 답을 옮기지 말 것. 질문한 사건이 아닌 다른 사건(횡재 등)으로 바꿔 답하지 말 것. "
@@ -745,6 +773,11 @@ _FUTURE_WHEN_RE = re.compile(
 # _PAST_KEYWORDS의 '았을까' 부분 문자열에 안 걸린다(2026-07-21 데굴님 실로그: '2025년 몇월에
 # 취직에 성공했을까?'가 미래 시제로 서술되던 결함). 종성 ㅆ을 유니코드 분해로 일반 판정한다.
 _CONTRACTED_PAST_TAILS = ("을까", "을지", "을 때", "던")
+# 소원·조건형 '~았/었/했으면' — 과거가 아니라 바람·가정이다(2026-10-28 실로그: "그냥 일 적당히
+# 있었으면 좋겠어"의 '있었'이 _PAST_KEYWORDS에 걸려 회고 모드가 되고 2022~2024년을 되짚었다).
+# 과거 표지·축약 과거형 검사 전에 이 구간을 가린다. 반사실 회고('갔었으면 어땠을까')는 뒤의
+# '어땠'이 남아 그대로 회고다.
+_WISH_CONDITIONAL_RE = re.compile(r"[가-힣]{1,6}(?:았|었|였|했|갔|왔|됐)으면")
 
 
 def _has_contracted_past(question: str) -> bool:
@@ -769,7 +802,23 @@ def _question_time_direction(
     today: date,
     current_month_label: str | None = None,
 ) -> bool:
-    """질문의 시간 방향 판정 — True=과거 회고(retro).
+    """질문의 시간 방향 판정 — True=과거 회고(retro). 근거는 `_question_time_direction_reason`."""
+    return _question_time_direction_reason(question, intent, state, today, current_month_label)[0]
+
+
+def _question_time_direction_reason(
+    question: str,
+    intent: IntentJson,
+    state: ConversationState | None,
+    today: date,
+    current_month_label: str | None = None,
+) -> tuple[bool, str]:
+    """질문의 시간 방향 판정 — (True=과거 회고(retro), 근거 라벨).
+
+    근거 라벨(질문 이해 층 shadow 대조용, 2026-10-28): window_past(창 전체 과거) ·
+    window_future(창 전체 미래) · reported_event · event_explanation · past_phrase(과거 문구·축약
+    과거형) · future_phrase · inherited(open_when 직전 방향 승계) · none. 구조 판정(window_*)은
+    오늘 날짜를 모르는 프레임과 어긋나도 룰이 맞으므로 대조에서 따로 센다.
 
     우선순위: ①창 전체가 오늘 이전인 절대창(구조 신호 — 문구와 무관, 2026-07-21 실로그:
     '2025년 몇월에 성공했을까'가 문구 매칭 실패로 미래 모드가 되던 결함) ②과거 문구
@@ -788,7 +837,7 @@ def _question_time_direction(
         if end:
             end_m = end[:7] if len(end) >= 7 else f"{end}-12"
             if end_m < cur_month:
-                return True
+                return True, "window_past"
         # ①b 창 전체가 오늘 이후인 절대창 — 준비 완료 사실 나열('이미 계약도 끝냈고 잔금만
         # 남았는데')의 축약 과거형이 회고로 뒤집히지 않게 한다(2026-07-22 실로그: 9/30 명시
         # 미래 창 후속이 과거형 서술로 빠짐). 구조 신호가 문구 신호보다 우선(①과 대칭).
@@ -799,23 +848,23 @@ def _question_time_direction(
                 else start[:7] > cur_month
             )
             if starts_future:
-                return False
+                return False, "window_future"
     # 사건 보고형('오늘 해고통보를 받았어. 앞으로 어떻게…')은 과거형 어미가 있어도 묻는 것은
     # 앞으로다(2026-10-13) — 회고 모드로 뒤집으면 미래 조언이 금지된다.
     if intent.dialogue_act == "reported_event":
-        return False
-    if (
-        intent.query_type is QueryType.EVENT_EXPLANATION
-        or any(k in question for k in _PAST_KEYWORDS)
-        or _has_contracted_past(question)
-    ):
-        return True
+        return False, "reported_event"
+    # 소원·조건형('있었으면 좋겠어')은 과거 표지가 아니다 — 문구 검사 전에 가린다.
+    question = _WISH_CONDITIONAL_RE.sub(" ", question)
+    if intent.query_type is QueryType.EVENT_EXPLANATION:
+        return True, "event_explanation"
+    if any(k in question for k in _PAST_KEYWORDS) or _has_contracted_past(question):
+        return True, "past_phrase"
     if _FUTURE_WHEN_RE.search(question):
-        return False
+        return False, "future_phrase"
     if tr is not None and tr.type == "open_when":
         # 자체 방향 신호 없는 open_when(상속/단답) → 직전 방향 승계(기본 미래).
-        return bool(state is not None and state.last_retro)
-    return False
+        return bool(state is not None and state.last_retro), "inherited"
+    return False, "none"
 
 
 # 사건 보고형 답변 계약(2026-10-13 데굴님 지시) — 실로그: "오늘 해고통보를 받았어. 앞으로
@@ -839,6 +888,28 @@ _REPORTED_EVENT_DIRECTIVE = (
 _REPORTED_JOB_SEPARATION_TAIL = (
     " 해고·퇴사 통보·권고사직은 같은 계열(직장을 떠나게 된 사건)로 다루고, "
     "재직 중이라는 전제로 쓰지 말 것."
+)
+# 이직 완료 사실(2026-10-28 데굴님 승인) — 실로그 2건: "이직을 했는데 업무의 양이 많아"·"아니 난
+# 이직을 했다니까!"에 2027년 이직 제안·면접·스카우트 시기를 서술했다. 사용자가 이미 이직했다고
+# 알린 스레드에서는 이직·입사 후보를 빼고(아래 _JOB_ENTRY_EVENT_KEYS) 말미에 이 지시를 고정한다.
+# 새 이직을 명시해 물은 턴('또 이직할까')은 제외. 판정 SSOT = saju_engines.job_change_report.
+_JOB_CHANGED_DIRECTIVE = (
+    "[이직 완료 — 사용자가 이미 이직했다고 알렸다] 이직은 이미 일어난 사실이다. 앞으로의 이직·"
+    "채용 제안·면접·스카우트·입사 시기를 서술하지 말고, 그런 달을 '움직이는 달'로 이름 붙이지도 "
+    "말 것. 답은 현 직장에서의 적응·업무 부담·관계 압박의 흐름과 그 부담이 누그러지는 시기, "
+    "그리고 지금 취할 태도로 구성하라. 사용자가 직접 밝힌 상황(업무량 등)은 사실로 받아 그 위에서 "
+    "풀이하고 되묻지 말 것."
+)
+_JOB_ENTRY_EVENT_KEYS: frozenset[EventKey] = frozenset({EventKey.CAREER_CHANGE, EventKey.JOB_GAIN})
+# 설명 요청(2026-10-28 데굴님 승인) — 실로그: 직전 답의 '서쪽 申·酉 방위 활용' 문장을 붙여
+# "위의 내용 쉽게 설명해줘"라고 했는데 방위 설명 뒤에 2028~2031년 연운·삼재 서술이 붙었다.
+# 사건 후보·지평을 비우고 인용 본문만 쉬운 말로 풀이한다.
+_EXPLAIN_REQUEST_DIRECTIVE = (
+    "[설명 요청 — 사용자가 앞선 답의 한 부분(아래 인용)을 쉽게 설명해 달라고 했다] "
+    "인용된 내용만 일상어로 다시 풀어라: 무엇을 뜻하는지 → 왜 그렇게 말했는지(근거 한두 가지) "
+    "→ 실제로 어떻게 하면 "
+    "되는지, 여섯 문장 이내. 새 기간·연도·월별 흐름·사건 후보·삼재 같은 다른 주제를 덧붙이지 말고, "
+    "인용에 없는 간지·연도를 새로 만들지 말 것. 되묻는 질문도 붙이지 말 것."
 )
 # 이동 주체 미상(2026-10-15 데굴님 승인) — 라이브 실측: 이동 후보 문구는 '자의·타의 모두·단정
 # 금지'이고 극성도 '조건부'였는데, 답이 "강한 용신운"을 근거로 "외부 강요가 아니라 자발적 성격이
@@ -920,8 +991,8 @@ def _audit_partner_appearance_answer(
 # 회고 질문 시제 강제 — is_retro여도 시제 지시가 없어 이벤트 후보·트리거류 미래 지향
 # 디렉티브에 묻혀 과거 사건을 예측처럼 서술하던 결함 교정(2026-07-21 데굴님 실로그).
 _RETRO_TENSE_DIRECTIVE = (
-    "[회고 모드 — 질문 기간은 이미 지난 과거] 전체 답변을 과거 추정형('~였을 것으로 보여요', "
-    "'~했을 가능성이 커요')으로만 서술할 것. '~될 것으로 보여요'·'~열릴 거예요'·'기대돼요' 같은 "
+    "[회고 모드 — 질문 기간은 이미 지난 과거] 전체 답변을 과거 추정형('…였을 것으로 보여요', "
+    "'…했을 가능성이 커요')으로만 서술할 것. '…될 것으로 보여요'·'…열릴 거예요'·'기대돼요' 같은 "
     "미래 예측·권고 표현 금지. 신호 데이터는 '그 시기에 그런 흐름이 있었다'는 확인·복원 용도로만 "
     "쓰고, 사용자가 묻지 않은 미래 조언을 덧붙이지 말 것. 마무리 확인 질문도 '실제로 그랬는지'를 "
     "묻는 형태로 할 것."
@@ -1260,13 +1331,13 @@ def _build_period_fortune(
             sm_s, sm_e = _solar_month_range(m_label, tz_m)
             solar_month_note = (
                 f"이 기간이 속한 절기월은 {m_comp.ganji.stem}{m_comp.ganji.branch}월"
-                f"(양력 {sm_s.isoformat()}~{sm_e.isoformat()})이다 — 월운은 절기 경계라 양력 달과 "
+                f"(양력 {sm_s.isoformat()}–{sm_e.isoformat()})이다 — 월운은 절기 경계라 양력 달과 "
                 "다르니 '○월=○○월운'으로 혼동하지 말 것."
             )
             # 사용자 노출용(안전 템플릿) — 지시문 없이 사실만.
             solar_month_user_note = (
                 f"이 기간이 속한 절기월은 {m_comp.ganji.stem}{m_comp.ganji.branch}월"
-                f"(양력 {sm_s.isoformat()}~{sm_e.isoformat()})이에요."
+                f"(양력 {sm_s.isoformat()}–{sm_e.isoformat()})이에요."
             )
     ctx = build_lifestyle_context(
         [SubjectRef(kind=SubjectKind.SELF, label="본인")],
@@ -1659,7 +1730,7 @@ def _date_selection_block(
     cautions = list(result.cautions)
     if truncated:
         cautions.append(
-            f"택일은 한 번에 약 한 달 범위만 탐색합니다 — 이번에는 {start_iso} ~ {end_iso}를"
+            f"택일은 한 번에 약 한 달 범위만 탐색합니다 — 이번에는 {start_iso} – {end_iso}를"
             f" 살폈어요. 그 이후 시기는 원하시는 달(예: '{_next_month_label(scan_end)} 이사일')을"
             " 지정해 다시 물어봐 주세요."
         )
@@ -1670,7 +1741,7 @@ def _date_selection_block(
     )
     return DateSelectionBlock(
         purpose_ko=purpose_label or event_ko(purpose),
-        period=f"{start_iso} ~ {end_iso}",
+        period=f"{start_iso} – {end_iso}",
         frame_notes=_week_frame_notes(tr, purpose, today),
         rows=rows,
         avoid=result.avoid_dates,
@@ -1701,7 +1772,7 @@ def _week_frame_notes(tr: TimeRange | None, purpose: EventKey, today: date) -> l
     except ValueError:
         return []
     span = (
-        f"{w_start.isoformat()}({_WEEKDAY_KO[w_start.weekday()]}) ~ "
+        f"{w_start.isoformat()}({_WEEKDAY_KO[w_start.weekday()]}) – "
         f"{w_end.isoformat()}({_WEEKDAY_KO[w_end.weekday()]})"
     )
     if tr.week_label:
@@ -1791,7 +1862,7 @@ def _pillar_claim_answer(question: str, birth: BirthInput, today: date) -> str |
         alt_ko = _ganji_ko(tc.alternative_hour_pillar)
         if tc.boundary_sensitive and alt_ko:
             lines.append(
-                f"출생 시각이 시지 경계에 가까워 기록 오차 2~3분이면 "
+                f"출생 시각이 시지 경계에 가까워 기록 오차 2–3분이면 "
                 f"{tc.alternative_hour_pillar}({alt_ko})가 될 수 있어요."
             )
         lines.append("시주는 출생 시각과 출생지에 따라 달라지니 입력을 한 번 확인해 주세요.")
@@ -2722,7 +2793,7 @@ def _relocation_group_block(
     )
     return DateSelectionBlock(
         purpose_ko=f"이사(그룹: {self_label}·{partner_label})",
-        period=f"{req_start.isoformat()} ~ {scan_end.isoformat()}",
+        period=f"{req_start.isoformat()} – {scan_end.isoformat()}",
         rows=rows,
         avoid=[{"date": a.date, "reason": a.reason} for a in result.avoid_dates],
         directions=directions,
@@ -2737,7 +2808,7 @@ _CHAT_SCOPE_DIRECTIVE = (
     "사용자의 이번 질문에 곧장 답한다. 질문이 특정 시점(그날·그달)이나 특정 주제이면 그 범위에"
     " 집중하고, 원국·성향·신살은 그 답에 꼭 필요한 근거만 골라 한두 줄로 인용한다 — 원국 전체를"
     " 처음부터 다시 설명하지 말 것. 앞 턴에서 이미 말한 내용은 반복하지 않는다. 인사말은 생략한다."
-    " 첫 문장은 이번 질문에 대한 답(결론·방향)으로 바로 시작한다 — '회원님은 ~한 사주/일간/성향'"
+    " 첫 문장은 이번 질문에 대한 답(결론·방향)으로 바로 시작한다 — '회원님은 …한 사주/일간/성향'"
     " 류 명식 공통 묘사로 답변을 열지 말 것(답변마다 같은 자기소개가 반복되는 인상 방지). 명식"
     " 언급이 필요하면 답의 근거로 본문 중간에 짧게 녹인다."
     " 입력에 없는 점수·확률·백분율 수치('98점'·'확률 70%' 류)를 만들어 말하지 않는다 — 강도는"
@@ -2997,7 +3068,9 @@ _YEAR_DIGEST_DIRECTIVE = (
 # 전 생애/인생 단계 스캔(2026-08-07 데굴님 승인) — 발동 키워드. C13 단계 어휘(초년/청년/
 # 중년/말년/평생)는 파서의 time_range.life_stage로 들어오고, 아래 정규식은 파서가 단계
 # 어휘로 잡지 않는 전 생애 표현('살면서', '내 인생에서' 등)을 보강한다.
-_LIFETIME_RE = re.compile(r"평생|일생|인생\s*전체|살면서|죽기\s*전|내\s*인생")
+#: 2026-10-29 — '제 인생에 좋은 대운은 언제'가 월 단위 시기 탐색으로 빠지던 결함:
+#: 제·저의·나의 인생 추가.
+_LIFETIME_RE = re.compile(r"평생|일생|인생\s*전체|살면서|죽기\s*전|(?:내|제|저의|나의)\s*인생")
 # 전 생애 표 상한 — 발견된 연 후보 중 표에 올릴 연도 수(Top 8~12 승인안의 상한)와
 # 10년 구간당 상한. 값·선별 로직은 lifetime_scan 엔진으로 승격(2026-08-13 — 리포트
 # F-14 생애 변곡점 연표와 공용). 채팅 동작 불변(같은 상한·같은 알고리즘).
@@ -3030,9 +3103,9 @@ def _lifetime_directive(
         프롬프트 트레일링에 붙일 디렉티브 문자열.
     """
     scope_label = (
-        f"평생(출생~약 100세, {lo_year}~{hi_year}년)"
+        f"평생(출생–약 100세, {lo_year}–{hi_year}년)"
         if stage == "평생"
-        else f"{stage}({lo_age}~{hi_age}세 무렵, {lo_year}~{hi_year}년)"
+        else f"{stage}({lo_age}–{hi_age}세 무렵, {lo_year}–{hi_year}년)"
     )
     parts = [
         f"[응답 형식 — 인생 단계 스캔] 이 질문의 대상 구간은 {scope_label}이다. "
@@ -3043,8 +3116,8 @@ def _lifetime_directive(
         parts.append(
             f"{this_year}년 이전의 후보 연도는 이미 지난 시기다 — '이런 흐름이 지나갔을 "
             "시기'로 회고하고 실제 그랬는지 가볍게 확인을 유도하라(단정 금지). "
-            f"{this_year}년 이후의 후보 연도는 '사건이 확정되는 해'가 아니라 '관련 "
-            "에너지가 활성화되는 창'이다 — 반드시 가능성·기류로 표현하라."
+            f"{this_year}년 이후의 후보 연도는 '사건이 확정되는 해'가 아니다 — 사건명은 "
+            "그대로 쓰되 '이직이 거론될 수 있는 해'처럼 가능성형으로 표현하라(확정 어미만 금지)."
         )
     else:
         parts.append(
@@ -3164,7 +3237,7 @@ _TASK_RISK_CHECK_DIRECTIVE = (
     "짧게 제시한다. 질문 창 밖의 다른 해·다른 달 흐름은 위로·전망용으로도 언급하지 말고, "
     "과업과 무관한 일반 운세 서술로 채우지 말 것. 서술할 때 네 층위를 구분하라: 사용자가 "
     "밝힌 사실 / 엔진이 산출한 운 신호 / 일반 절차상 점검 항목 / 아직 모르는 정보. 진행 "
-    "단계가 확인되지 않은 과업은 단정하지 말고 '신청 전이라면 ~을, 이미 진행 중이라면 ~을 "
+    "단계가 확인되지 않은 과업은 단정하지 말고 '신청 전이라면 …을, 이미 진행 중이라면 …을 "
     "확인하라'처럼 단계 분기로 안내할 것."
 )
 
@@ -3347,7 +3420,7 @@ def _lotto_round_directive(
         "[로또 회차 기준 — 엔진 계산값]\n"
         "로또는 일요일부터 토요일 저녁 판매 마감 전까지 산 분량을 그 주 토요일 저녁에 추첨한다. "
         f"오늘 {today.isoformat()}({_WEEKDAY_KO[today.weekday()]})이 속한 회차는 "
-        f"{r_start.isoformat()}(일) ~ {r_end.isoformat()}(토)이고, "
+        f"{r_start.isoformat()}(일) – {r_end.isoformat()}(토)이고, "
         f"{(r_end + timedelta(days=1)).isoformat()}(일)부터는 다음 회차다. "
         "언급하는 날이 어느 회차에 드는지 이 구간으로 구분해 말하고, 서로 다른 회차의 날을 "
         "'같은 주'로 묶지 않는다. 토요일은 '저녁 판매 마감 전'에 사야 그 회차에 들어간다."
@@ -3388,7 +3461,7 @@ def _is_investment_flow(intent: IntentJson, question: str) -> bool:
 _CAREER_FIELD_DIRECTIVE = (
     "[직업 분야 풀이 — 분야·직종·적성 질문 전용]\n"
     "이 질문은 '언제'가 아니라 '어떤 분야·직무'를 묻는다. 첫 문단에서 [직업 분야 근거]의 두드러진 "
-    "십성·배합을 근거로 가장 유력한 직업군 2~3개를 이름으로 답하고, 각각 '어떤 기능과 방식으로 "
+    "십성·배합을 근거로 가장 유력한 직업군 2–3개를 이름으로 답하고, 각각 '어떤 기능과 방식으로 "
     "일하는가'(생산·표현·거래·관리·통제·탐구·전승 중 무엇)로 이유를 붙일 것. '제안·기회가 들어오는 "
     "통로'가 있으면 원국 적성(어떤 일이 맞나)과 현재 운의 통로(어떤 쪽에서 제안이 오기 쉬운가)를 "
     "구분해 서술하고, 시점 서술은 한두 문장의 보조로만 둘 것(월별 타이밍 분석으로 흐르지 말 것). "
@@ -3398,7 +3471,7 @@ _CAREER_FIELD_DIRECTIVE = (
     "배합)에 따라 강조점이 달라짐을 짚을 것. 학파별 배속 차이가 있는 참고 해석임을 한 문장으로 "
     "밝히되 면책 반복은 금지. [간지론 관점] 블록(직업 유형 축·궁위 우선·관성 위치·업종·사업 "
     "시기)이 "
-    "있으면 '간지론에서는 ~로 본다'는 학파 서술로 한 문단 덧붙일 것 — 직장형/상업형은 판정이 "
+    "있으면 '간지론에서는 …로 본다'는 학파 서술로 한 문단 덧붙일 것 — 직장형/상업형은 판정이 "
     "아니라 '결이 맞는 방식'이며, 억부 용신 풀이와 합산·상쇄하지 말고 나란히 둘 것. 2단계 프로필의 "
     "실제 직업·고용형태가 있으면 그것이 사실이고 유형 축은 결 설명으로만 쓸 것."
 )
@@ -3422,7 +3495,7 @@ _ACCIDENT_RISK_DIRECTIVE = (
     "④외부 유입 축: 아무리 조심해도 상대 과실처럼 통제 밖에서 오는 변수는 있다 — 이 축은 "
     "겁주기가 아니라 보험·정기 점검·안전 습관 등 '대비'로만 짧게 서술한다.\n"
     "출력 순서(3층 분리 — 한 문장에 섞지 마라, 2026-07-23 데굴님 승인 D-1): "
-    "①전통 해석 — '전통적으로 ~로 해석하기도 합니다' 형으로, 제공된 위험 신호 블록의 "
+    "①전통 해석 — '전통적으로 …로 해석하기도 합니다' 형으로, 제공된 위험 신호 블록의 "
     "classicalInterpretation·구조 패턴의 전통 해석 문구를 활용해 감추거나 완화하지 말고 전달 "
     "②이번 판정의 근거 — 원국의 어떤 관계가 운의 무엇과 다시 충·형을 이루는지, 제공된 근거로만 "
     "③현실 확인 항목 — exposureCheckItems·노출 예시를 활용해 '실제로 운전·보증·기계 작업이 "
@@ -3435,7 +3508,7 @@ _ACCIDENT_RISK_DIRECTIVE = (
     "횡액수라 부른다'로 풀며 반드시 구성 위험을 함께 나열하라. "
     "금지: '사고가 난다/안 난다' 같은 발생·시점 단정 금지('주의가 필요한 시기' 프레임으로). "
     "살(煞)·귀신·조상 등 초자연 원인 서술 금지(신살은 제공된 데이터에 있는 것만, 공포 조장 "
-    "금지). 질문 기간이 길면(수년~10년) 주의 시기를 2~3개로 압축하고, 나머지 기간은 비교적 "
+    "금지). 질문 기간이 길면(수년–10년) 주의 시기를 2–3개로 압축하고, 나머지 기간은 비교적 "
     "평온하다는 균형도 함께 말하라."
 )
 
@@ -3751,7 +3824,7 @@ def _timing_granularity(question: str) -> str | None:
 
 _MONTH_PICK_DIRECTIVE = (
     "[응답 형식 — '어느 달' 질문] 사용자가 특정 기간 없이 '달(월)'을 물었다. 연 단위 "
-    "나열로 답하지 말고, 아래 월별 흐름(오늘부터 12개월)에서 유리한 달 1~3개를 골라 월 "
+    "나열로 답하지 말고, 아래 월별 흐름(오늘부터 12개월)에서 유리한 달 1–3개를 골라 월 "
     "단위로 답하라. 각 달은 '이 달에 된다' 단정이 아니라 기운이 열리는 창으로 표현하고, "
     "12개월 너머에 더 강한 해가 있으면 '길게 보면 ○○○○년이 더 크다' 정도로만 짧게 "
     "덧붙여라. 마무리 질문을 따로 더 만들지 말고, 시스템 지시의 마지막 마무리 질문 하나의 "
@@ -3769,7 +3842,7 @@ _DAY_PICK_DIRECTIVE = (
 _MEETING_TIMING_MONTH_DIRECTIVE = (
     "[인연·만남 시기 — 달 단위 요청]\n"
     "연인·배우자를 만나는 시기는 일정처럼 고르는 택일이 아니지만, 사용자가 '달'을 명시해 "
-    "물었으므로 연·계절 단위로 뭉개지 말고 제공된 월별 흐름에서 가장 유리한 달 1~2개로 "
+    "물었으므로 연·계절 단위로 뭉개지 말고 제공된 월별 흐름에서 가장 유리한 달 1–2개로 "
     "좁혀 답하라. 약한 달·기신 달을 선택지로 끌어와 곧장 무르지 말고, '어디서·어떤 "
     "경로로' 만나는지는 장소를 지어내지 말 것(활동 성향 경향까지만, 단정 금지)."
 )
@@ -3781,7 +3854,7 @@ _CONCLUSION_SUMMARY_DIRECTIVE = (
     "[결론 요약 모드] 이 질문은 직전 분석의 결론을 재확인하는 후속이다. 새로운 월별 "
     "흐름·연도 나열을 생성하지 말고, 직전 분석과 같은 시점 창 기준으로 이 순서로 짧게 "
     "답하라: ①한 문장 결론(가능성의 방향) ②확실성 수준(단정 불가 명시) ③핵심 근거 "
-    "2~3개 ④성립 조건·변수. 합격·당락·승패는 확정 표현 금지 — '유리한 흐름이나 확정할 "
+    "2–3개 ④성립 조건·변수. 합격·당락·승패는 확정 표현 금지 — '유리한 흐름이나 확정할 "
     "수는 없다' 수준으로. 직전 답변과 이번 계산 결과가 충돌하면 요약 대신 정정을 먼저 "
     "밝혀라. 질문에 정면으로 답하는 것이 최우선이다."
 )
@@ -3812,7 +3885,7 @@ _OVERVIEW_COVERAGE_DIRECTIVE = (
     "[총운 조망 지침] 선정된 주요 후보를 생활 영역별로 묶어 앞으로의 흐름을 조망하라. "
     "**선정된 이벤트 후보는 각각 최소 한 번씩 직접 다루고**, 강도가 가장 높은 후보는 "
     "영역과 무관하게 첫 문단의 결론에 담아 비중 있게 서술하되, 나머지 영역(직장·관계·"
-    "재물·건강 등)은 영역당 1~2문장으로 짧게 받는다 — 월별 용신·기신 흐름 서술이 "
+    "재물·건강 등)은 영역당 1–2문장으로 짧게 받는다 — 월별 용신·기신 흐름 서술이 "
     "이벤트 후보 조망을 대체하거나 특정 영역(직업 등)으로 비중을 쏠리게 하면 안 된다. "
     "여러 후보가 같은 사건군·같은 영역에 집중돼 있으면 반복 나열하지 말고 하나의 "
     "흐름으로 통합하고, 그 집중을 명시하라('이 기간은 ○○ 영역 신호가 특히 강하다'). "
@@ -3831,7 +3904,7 @@ _OVERVIEW_COVERAGE_DIRECTIVE = (
 # ANSWER_CLARITY_DIRECTIVE(공용)의 결론 우선 규칙만 공유한다.
 _RESULT_FIRST_BREVITY_DIRECTIVE = (
     "[결론 우선·근거 압축 — 항상 적용] 사용자는 결과를 먼저 듣고 근거는 짧게 받기를 원한다. "
-    "구성은 ①일상어 결론 1~2문장 → ②그 결론을 받치는 근거(간지·관계·십성)를 영역당 1~2문장 "
+    "구성은 ①일상어 결론 1–2문장 → ②그 결론을 받치는 근거(간지·관계·십성)를 영역당 1–2문장 "
     "→ ③시스템 지시의 마무리 한 번 순서로 쓴다. 첫 문장에는 간지·오행·용신 등 한자 원어를 "
     "한 글자도 넣지 않는다 — 예: '오늘은 내 편이 늘고 기반이 단단해지는 유리한 날이에요.'로 "
     "시작하고, '己未 일진·土 용신' 같은 근거는 둘째 문단에서 처음 말한다(날짜·기준 설명으로 "
@@ -3867,13 +3940,13 @@ def _time_exclusion_directive_text(
     분석 시점으로 재등장하는 회귀를 서술 계층에서도 차단한다.
     """
     spans = ", ".join(
-        f"{e.start_year}~{e.end_year}년" if e.start_year != e.end_year
+        f"{e.start_year}–{e.end_year}년" if e.start_year != e.end_year
         else f"{e.start_year}년"
         for e in exclusions
     )
     tr = intent.time_range
     resolved = (
-        f"{tr.start}{'~' + tr.end if tr.end and tr.end != tr.start else ''}"
+        f"{tr.start}{'–' + tr.end if tr.end and tr.end != tr.start else ''}"
         if tr is not None and tr.start else "미지정"
     )
     return (
@@ -4107,6 +4180,10 @@ def _compat_prompt_block(
         return None
     lines = ["", "[궁합 분석 — 아래 엔진 계산값만 근거로 두 사람 궁합을 설명할 것]"]
     lines += compatibility_lines(report)
+    lines.append(RELATIONSHIP_DIFFERENCE_PERSPECTIVE)  # 다름의 인정·성별 일반화 금지(2026-10-29)
+    # 두 사람 각각의 관계 결(2026-10-29 관계 강의 — 비낙인, 명식 근거).
+    lines += relationship_tendency_lines(result, "본인")
+    lines += relationship_tendency_lines(partner_result, partner_label)
     # 시주 미상 궁합 고지(2026-10-06) — 시주가 없는 쪽은 3기둥 기준이며 시지 상호작용은 미산출.
     _missing = [
         label for label, res in (("본인", result), (partner_label, partner_result))
@@ -4418,6 +4495,8 @@ def _structural_context(
 
         _wc = analyze_wealth_capacity(result)
         out += wealth_capacity_lines(_wc, _wc_fav(result).get(_wc.wealth_element))
+        # 재물 강의 3편(2026-10-29) — 재물 그릇 4분류·부재 경로·관점(원국 분류 해설, 판정 아님).
+        out += wealth_vessel_lines(result)
         # 재물 준비기(P3, 데굴님 확정 2026-07-12) — 발현 후보년·선행 준비년 서술 전용 맥락.
         # 점수·순위·시기·확신도 불변(inert). 세운 미보유 시 빈 목록(무언급).
         if result.luck_cycles is not None:
@@ -4426,6 +4505,14 @@ def _structural_context(
             ))
     if general or domain in (Domain.WEALTH, Domain.CAREER):
         out += wealth_status_lines(analyze_wealth_status_lean(result))
+    if domain in (Domain.RELOCATION, Domain.CAREER):
+        # 원국 역마 성립 블록(2026-10-29 역마살 강의 후속) — 고정 prefix 발췌에서 자주 밀리는 역마를
+        # 이동이 주제인 질문에만 따로 싣는다.
+        out += yeokma_natal_lines(result)
+    if domain is Domain.CAREER:
+        # 식상생재 강의(2026-10-29) — 원국 식상이 있고 식상을 막는 구조가 성립하면 1줄(재물 질문은
+        # wealth_vessel_lines 가 이미 싣는다).
+        out += output_blocked_lines(result)
     if (general or domain is Domain.RELATIONSHIP) and relation_frame is not None:
         # 비연애 관계(부모·자식·친구·직장) — 연애·결혼 블록 대신 관계 유형 프레임 + 궁위 관계망만.
         out += palace_network_lines(analyze_palace_network(result), domain)
@@ -4443,9 +4530,14 @@ def _structural_context(
             analyze_marriage_resource(result, _useful, age=age_from_result(result, today))
         )
         out += marriage_age_prior_lines(result)  # MT6 혼기 static prior(프로파일 off면 빈 줄)
+        # 이별운 강의 원국 분류 해설(2026-10-29) — 무인성·정인 약함. 판정이 아니라 원국 분류 설명.
+        out += love_separation_natal_lines(result)
         # 궁위 관계망(P3) — 연·월·일·시 궁위 간 관계질(설명 레이어, 점수 미개입).
         out += palace_network_lines(analyze_palace_network(result), domain)
         out.append(RELATIONSHIP_SELF_AWARENESS_DIRECTIVE)
+        out.append(RELATIONSHIP_DIFFERENCE_PERSPECTIVE)  # 다름의 인정·성별 일반화 금지(2026-10-29)
+        # 관계에서 나타나기 쉬운 결(2026-10-29 관계 강의) — 비낙인 경향·관계를 편하게 하는 방법.
+        out += relationship_tendency_lines(result)
         out.append(TENDENCY_SHIFT_DIRECTIVE)
         # P2(2026-07-21) — '연애운 없으면 결혼운 좋다' 류 이원 구도 질문에만 통합 관점 주입.
         _q_compact = question.replace(" ", "")
@@ -4499,7 +4591,7 @@ def _daewoon_span_context(result: ManseV2Result, start_year: int, end_year: int)
         e = dw.approx_end_date.year if dw.approx_end_date else None
         if s is None or (e or 9999) < start_year or s > end_year:
             continue
-        span = f"{s}~{e}" if e else f"{s}~"
+        span = f"{s}–{e}" if e else f"{s}–"
         tg = dw.stem_ten_god or ""
         label = f", {dw.luck_label}" if dw.luck_label else ""
         segs.append(f"{dw.ganji}({span}, {tg}{label})")
@@ -5084,7 +5176,7 @@ def _weekly_overview_lines(
             "이 날을 중심으로 서술할 것]"
             if start == end
             else (
-                f"[해당 기간({start.isoformat()}~{end.isoformat()}) 일별 흐름 — 일운 간지·길흉"
+                f"[해당 기간({start.isoformat()}–{end.isoformat()}) 일별 흐름 — 일운 간지·길흉"
                 "(용신/희신/한신/기신/구신)·십성. 날짜별로 하루씩 짚어 서술하고 월 단위로 "
                 "뭉뚱그리지 말 것]"
             )
@@ -5390,6 +5482,7 @@ def chat(
     _prev_question_norm = ""
     repeated = False
     is_followup_turn = False
+    _qf_subject_inherited: bool | None = None  # 질문 이해 층 shadow 대조값(멀티턴에서만 확정)
     _is_challenge_turn = False  # 이의·인용 반문 턴(CHALLENGE 링크) — 정정 답 계약·원장 주입 근거.
     prior_intent = None  # 직전 턴 intent — 활성 스레드 맥락 기반 broad 제안용.
     if thread_id is not None:
@@ -5437,6 +5530,7 @@ def chat(
         # 첨부(없으면 None)로 갱신 — 프론트 첨부/해제가 곧 서버 상태가 된다.
         state.partner = partner_ref
         repeated = state.repeat_count >= 2
+        _qf_subject_inherited = bool(resolution.inherited)
         if resolution.unresolved:
             store.save(state)
             return ChatResponse(
@@ -5470,11 +5564,20 @@ def chat(
     # 로컬 LLM 을 동기 호출해 색·방향·음식·장소 생활 질문을 각자의 룰 경로(Q10·거주 분석)로 보정한다
     # (데굴님 "우선 켜고", 측정 정밀도 ≈87%·p50 312ms). 그 외 턴은 백그라운드 shadow 로그만
     # (답변·라우팅·지연 영향 0). 룰이 확정한 유형·도메인은 어느 경우에도 덮어쓰지 않는다.
+    # 시제·대상 shadow 대조값(2026-10-28): 회고 판정은 순수 함수라 여기서 미리 계산해 넘긴다(뒤의
+    # 본 판정과 같은 입력·같은 결과). 대상 상속 여부는 대화 엔진 해소 결과(단일턴이면 None).
+    _qf_rule_retro, _qf_time_reason = _question_time_direction_reason(
+        question, intent, state, today, luck_month,
+    )
     intent, _qf_observed = question_frame_service.correct_if_fallback(
-        question, intent, thread_id=thread_id,
+        question, intent, thread_id=thread_id, rule_retro=_qf_rule_retro,
+        rule_time_reason=_qf_time_reason, rule_subject_inherited=_qf_subject_inherited,
     )
     if not _qf_observed:
-        question_frame_service.observe_async(question, intent, thread_id=thread_id)
+        question_frame_service.observe_async(
+            question, intent, thread_id=thread_id, rule_retro=_qf_rule_retro,
+            rule_time_reason=_qf_time_reason, rule_subject_inherited=_qf_subject_inherited,
+        )
 
     # P2 불변식(2026-07-14) — 배제 기간은 엔진 창이 될 수 없다: 승계·임베딩 시점 보강이
     # 배제 연도를 시점으로 합성하면 시점 미확정으로 되돌린다(명시적 재요청 승격은 대화
@@ -5552,6 +5655,31 @@ def chat(
     )
     if nonregular and career_presupposed and EventKey.JOB_GAIN not in intent.event_keys:
         intent = intent.model_copy(update={"event_keys": [*intent.event_keys, EventKey.JOB_GAIN]})
+
+    # 이직 완료 사실(2026-10-28) — 이번 턴 보고 또는 원장의 확정 사실. 활성이면 의도의 이직·입사
+    # 사건 키를 비워 지평(진입 두 칸)·후보 선별이 이직 전망으로 가지 않게 한다. 새 이직을 명시해
+    # 물으면('또 이직할까') 사용자가 전망을 원하는 것이므로 유지.
+    _job_changed_active = (
+        intent.job_changed_reported
+        or (
+            state is not None
+            and any(
+                f.key == "job_changed" and f.status == "confirmed" for f in state.user_facts
+            )
+        )
+    ) and not asks_new_job_change(question)
+    if _job_changed_active and (
+        intent.event_key in _JOB_ENTRY_EVENT_KEYS
+        or any(k in _JOB_ENTRY_EVENT_KEYS for k in intent.event_keys)
+    ):
+        intent = intent.model_copy(update={
+            "event_key": (
+                None if intent.event_key in _JOB_ENTRY_EVENT_KEYS else intent.event_key
+            ),
+            "event_keys": [k for k in intent.event_keys if k not in _JOB_ENTRY_EVENT_KEYS],
+        })
+        if state is not None:
+            state = state.model_copy(update={"last_intent": intent})
 
     # 명식 기둥 주장('시주가 경인인데?') — 엔진 계산값과 대조해 결정론 즉답(2026-09-11).
     # 정책 라우트(FEEDBACK_CORRECTION canned)보다 먼저 본다 — 간지 대조는 이력 맥락이 필요 없다.
@@ -5645,7 +5773,8 @@ def chat(
     # 의도를 상속했으므로 broad 안내로 빠뜨리지 않는다(스레드 단절 방지 — 2026-06-16).
     assessment = assess(intent, question, last_intent=prior_intent)
     if assessment.status in ("too_broad", "need_subject") and not (
-        is_followup_turn and assessment.status == "too_broad"
+        assessment.status == "too_broad"
+        and (is_followup_turn or intent.dialogue_act == "explain_request")
     ):
         suggestion_text = " / ".join(s.label for s in assessment.rewrite_suggestions)
         answer = (
@@ -5956,6 +6085,7 @@ def chat(
     # 입도(달/날짜) 명시 질문도 제외(gran_no_period) — 연 나열은 질문 입도와 어긋난다.
     vague_future = (
         period_fortune is None
+        and intent.dialogue_act != "explain_request"  # 설명 요청은 새 기간 서술 재료를 주지 않는다
         and not is_structural
         and not is_retro
         and not relo_decided
@@ -6518,11 +6648,21 @@ def chat(
         span = _daewoon_span_context(year_result, year_digest_years[0], year_digest_years[-1])
         if span:
             structural = structural + [span]
+            # 대운 받을 준비(2026-10-29 대운 강의) — 재성 대운 × 원국 식상 유무.
+            structural = structural + daewoon_readiness_lines(
+                year_result, year_digest_years[0], year_digest_years[-1],
+            )
+            # 교운 방향 조언(2026-10-29 길흉 강의) — 교운기(엔진 가중 앞뒤 1~2년)에 걸릴 때만.
+            structural = structural + daewoon_turn_lines(
+                year_result, year_digest_years[0], year_digest_years[-1],
+            )
     # 전 생애/단계 스캔 → 창 전체를 지나는 대운 배경·교운기를 구조 블록에 싣는다.
     if structural is not None and lifetime_scan and _lt_hi_y:
         span_lt = _daewoon_span_context(year_result, _lt_lo_y, _lt_hi_y)
         if span_lt:
             structural = structural + [span_lt]
+            structural = structural + daewoon_readiness_lines(year_result, _lt_lo_y, _lt_hi_y)
+            structural = structural + daewoon_turn_lines(year_result, _lt_lo_y, _lt_hi_y)
     # P2a — pairwise(본인+동반자 1명)이고 동반자 birth가 확보되면 대상별 명식 블록을 가산 주입.
     # per_subject/chat_compare는 건드리지 않는다(본인 base 유지). birth 없으면 블록 생략(본인
     # 명식으로 대체하지 않음 — 기존 pairwise 경로 그대로). companion_only 등은 P2b 이후.
@@ -6683,6 +6823,17 @@ def chat(
         candidates = _get_intent_filter().filter(
             candidates, str(intent.domain), _event_filter_context,
         )
+    # 이직 완료 사실(2026-10-28) — 이직·입사 후보를 뺀다. 지시문만으로는 후보가 실리면 서술이
+    # 따라갔다(실답 2건: 후보의 2027년 2~4월이 '움직이는 달'로 이름 붙어 나감).
+    if _job_changed_active:
+        candidates = [c for c in candidates if c.event_key not in _JOB_ENTRY_EVENT_KEYS]
+    # 설명 요청(2026-10-28) — 인용 본문만 풀이한다. 사건 후보·월별 표가 실리면 서술이 따라갔다
+    # (실답).
+    if intent.dialogue_act == "explain_request":
+        candidates = []
+        overview = None
+        period_fortune = None
+        extra_period_fortunes = []
     # 후속 확인 후보(LIFE_EVENT_INFERENCE §4.1 ③) — 최종 후보 목록에서 아직 지나지 않은 기간만.
     _followup_meta = [
         c.model_dump(mode="json")
@@ -6910,15 +7061,91 @@ def chat(
     # P4 — 결론 요약 모드: 새 월별 분석 대신 직전 분석 압축 결론(1문장 결론→확실성→근거→조건).
     if intent.dialogue_act == "conclusion_summary":
         trailing.append(_CONCLUSION_SUMMARY_DIRECTIVE)
+    # 설명 요청(2026-10-28) — 인용 본문만 쉬운 말로. 본문은 지시 바로 뒤에 붙여 참조를 고정한다.
+    if intent.dialogue_act == "explain_request":
+        trailing.append(
+            _EXPLAIN_REQUEST_DIRECTIVE
+            + (f" [인용] {intent.explain_target}" if intent.explain_target else "")
+        )
     # 사건 보고형(2026-10-13) — 이미 겪은 사건을 전제로 앞으로의 흐름·대응을 답한다.
     if intent.dialogue_act == "reported_event":
         trailing.append(
             _REPORTED_EVENT_DIRECTIVE
             + (_REPORTED_JOB_SEPARATION_TAIL if is_job_separation(question) else "")
         )
+    # 이직 완료 사실(2026-10-28) — 사용자가 이미 이직했다고 알렸다: 앞으로의 이직 시기 서술 금지.
+    if _job_changed_active:
+        trailing.append(_JOB_CHANGED_DIRECTIVE)
+    # 해외 근무 질문(2026-10-28) — 연도별 이동×직업 동시 활성화 표 + 해석 규칙(참고 체계 번역층).
+    if intent.overseas_work:
+        _ow_span = tr_year_span(intent.time_range)
+        if _ow_span is not None:
+            _ow_years = [str(y) for y in range(_ow_span[0], _ow_span[1] + 1)]
+        elif horizon is not None and horizon.years_span:
+            _ow_years = [str(y) for y in range(today.year, today.year + horizon.years_span)]
+        else:
+            _ow_years = [str(y) for y in range(today.year, today.year + 5)]
+        # 후보 풀은 도메인 필터 전(all_scored) — 이동 후보(relocation)는 직업 도메인 필터에서
+        # 빠진다.
+        # 세운 기둥은 기본 창(result)과 확장 창(result_for_llm·year_result)을 합친다.
+        _ow_pillars: dict[str, object] = {}
+        for _ow_r in (result, result_for_llm, year_result):
+            _ow_lc = getattr(_ow_r, "luck_cycles", None)
+            if _ow_lc is not None:
+                for _pl in _ow_lc.yearly_luck:
+                    _ow_pillars.setdefault(_pl.label, _pl)
+        _ow_signals = overseas_year_signals(
+            list(all_scored) + [c for c in year_scored if c not in all_scored],
+            list(_ow_pillars.values()),  # type: ignore[arg-type]
+            _ow_years, intent.overseas_work,
+        )
+        trailing.extend(render_overseas_block(_ow_signals, intent.overseas_work))
+        trailing.append(OVERSEAS_DIRECTIVE)
+        _logger.info(
+            "overseas_work kind=%s years=%s tiers=%s thread=%s",
+            intent.overseas_work, _ow_years, [(s.year, s.tier) for s in _ow_signals], thread_id,
+        )
     # 이동 주체 미상(2026-10-15) — 이동 후보가 실리거나 질문이 주체(자발·타의)를 물으면 단정 금지.
     if _mobility_agency_directive_needed(question, payload.event_candidates):
         trailing.append(_MOBILITY_AGENCY_DIRECTIVE)
+    # 대운 시기 질문 — '대운=좋은 운' 오해 교정·다음 교운·맞는 대운(2026-10-29 대운 강의).
+    if is_daewoon_when_question(question):
+        trailing.append(DAEWOON_WHEN_DIRECTIVE)
+    # 재물 운 결 — 재물 강의 3편 번역층(2026-10-29): 식상·재성 보완·그릇×유입 만족도·재성×겁재 경계.
+    if intent.domain is Domain.WEALTH and result is not None:
+        _wbest: dict[str, int] = {}
+        for _c in payload.event_candidates:
+            if str(_c.event_key) in ("wealth_change", "windfall"):
+                _wbest[_c.period] = max(_wbest.get(_c.period, 0), _c.score)
+        trailing.extend(wealth_period_block(
+            result, [(c.period, c.ganji, _wbest.get(c.period)) for c in payload.event_candidates],
+        ))
+    # 연애·관계 운 결 — 이별운 강의 번역층(2026-10-29 데굴님 결정 ③: 관계 질문일 때만).
+    if intent.domain is Domain.RELATIONSHIP and result is not None:
+        trailing.extend(love_separation_block(
+            result, [(c.period, c.ganji) for c in payload.event_candidates],
+        ))
+    # 운 역마(2026-10-29 역마살 강의 후속) — 이사·직업 질문의 후보 기간에 역마가 들어오면 글자별 결·
+    # 조언과 함께 싣는다(사건 후보 경로에는 운 신살 줄이 없던 공백).
+    if intent.domain in (Domain.RELOCATION, Domain.CAREER) and result is not None:
+        _yk_pillars: list[object] = []
+        for _yk_r in (result, result_for_llm, year_result):
+            _yk_lc = getattr(_yk_r, "luck_cycles", None)
+            if _yk_lc is not None:
+                _yk_pillars += [*_yk_lc.yearly_luck, *_yk_lc.monthly_luck]
+        # 후보 기간 + 질문 시점 범위의 연도 — 이사 질문은 이사 전용 블록으로 답해 사건 후보가 비는
+        # 경우가 있다(2026-10-29 실측: '2028년에 이사나 이동 운' → 후보 0건).
+        _yk_periods = [c.period for c in payload.event_candidates]
+        _yk_span = tr_year_span(intent.time_range)
+        if _yk_span is not None:
+            _yk_periods += [str(y) for y in range(_yk_span[0], _yk_span[1] + 1)]
+        trailing.extend(yeokma_period_lines(_yk_pillars, _yk_periods))
+    # 직장 운 결 — 외부 강의 번역층(2026-10-29 데굴님 결정). 직업 도메인 질문에서 후보 기간 운 글자
+    # × 원국 천간(상관견관 환경형/자기형·정인 완화·겁재 역할 무관·편인 휴직)을 간지당 1회 싣는다.
+    if intent.domain is Domain.CAREER and result is not None:
+        trailing.extend(career_exit_lecture_block(
+            result, [(c.period, c.ganji) for c in payload.event_candidates],
+        ))
     # 상대 외모 지시 대상(2026-10-26) — 구조 블록 안의 지시만으로는 LLM 이 본인 외모를 답했다(실답
     # 재현 d3). 프롬프트 말미에 한 번 더 고정하고, 답변 후 본인 외모 서술 감사(로그 전용)의
     # 표지로 쓴다.
@@ -7555,6 +7782,8 @@ def chat(
         )
 
     prompt_text = prompt_text + "".join("\n" + part for part in trailing)
+    # 범위 라벨 ~ → – (dry-run 미리보기와 실호출 본문을 같게 — llm_client 에서도 한 번 더 적용).
+    prompt_text = normalize_range_tilde(prompt_text)
 
     # R5-b(감수 46차): 위험 노출 배선 — **EXPOSE 계열 모드에서만** 실행.
     # OFF/SHADOW에서는 아래 분기가 실행되지 않아 prompt·system byte 불변

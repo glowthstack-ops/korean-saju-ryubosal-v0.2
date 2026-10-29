@@ -335,6 +335,18 @@ class IntentJson(BaseModel):
     # 사실)으로 가부를 짧게 판정하라는 **답 형태 지시**만 붙는다. activity_topic = 질문한 행동.
     activity_question: bool = False
     activity_topic: str = ""
+    # 완료형 이직 보고('이직을 했는데 업무의 양이 많아', 2026-10-28). 보고 절의 '이직'은 앞으로의
+    # 사건이 아니라 이미 일어난 사실이다 — 파서는 보고 절을 뺀 잔여 텍스트로 사건을 감지하고, 채팅은
+    # 이직·입사 후보를 빼고 '이직은 이미 일어난 사건' 지시를 붙인다. 판정 SSOT = job_change_report.
+    job_changed_reported: bool = False
+    # 설명 요청(dialogue_act='explain_request', 2026-10-28) — 사용자가 인용한 본문(요청 문장 제외).
+    # 채팅은 사건 후보·지평을 비우고 이 본문만 쉬운 말로 풀이하라는 지시를 붙인다.
+    explain_target: str = ""
+    # 해외 근무 질문(2026-10-28) — 'assignment'(주재원·발령)|'dispatch'(파견·출장)|'local_hire'(해외
+    # 취업)|'emigration'(이민)|'unspecified'. 주 사건은 이동(relocation), 동반 사건은 유형별 직업
+    # 키. 채팅은 [해외 근무 신호](이동×직업 동시 활성화) 블록과 해석 규칙을 붙인다.
+    # SSOT = overseas_work.
+    overseas_work: str | None = None
 
     constraints: Constraints = Field(default_factory=Constraints)
     output: OutputStyle = Field(default_factory=OutputStyle)
