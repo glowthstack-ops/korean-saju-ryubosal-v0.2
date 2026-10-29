@@ -21,7 +21,8 @@
         "job_gain",
         "promotion",
         "contract_document",
-        "social_conflict"
+        "social_conflict",
+        "career_leave"
       ],
       "exclude_or_deprioritize": [
         "new_relationship",
@@ -81,7 +82,8 @@
       "include": [
         "health_attention",
         "social_conflict",
-        "preparation_delay"
+        "preparation_delay",
+        "career_leave"
       ],
       "exclude_or_deprioritize": [
         "windfall",

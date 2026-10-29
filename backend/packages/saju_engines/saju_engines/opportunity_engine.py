@@ -72,6 +72,7 @@ EVENT_DOMAINS: dict[str, tuple[str, ...]] = {
     "health_attention": ("health_safety",), "social_conflict": ("relationship",),
     "preparation_delay": ("contract_legal", "selection"), "creative_output": ("career", "finance"),
     "public_exposure": ("career", "relationship"),
+    "career_leave": ("career", "health_safety"),  # 2026-10-29 휴직(복귀 전제)
 }
 
 

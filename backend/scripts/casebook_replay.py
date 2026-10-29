@@ -422,6 +422,10 @@ def main() -> int:
     ap.add_argument("--role-event-seed", action="store_true")
     ap.add_argument("--role-seed-only", action="append", default=[],
                     help="역할 시드 규칙 id 만 적용(--role-event-seed 와 함께, 반복 가능)")
+    # 2026-10-29 — 외부 강의 번역 시드(상관견관·겁재 한신·편인 휴직) ON/OFF·규칙별 비교 재생용.
+    ap.add_argument("--career-exit-seed", action="store_true")
+    ap.add_argument("--career-exit-only", action="append", default=[],
+                    help="강의 시드 규칙 id 만 적용(--career-exit-seed 와 함께, 반복 가능)")
     # 2026-10-25 — 탐합망충 shadow/apply 비교 재생용(기본 shadow: 기록만, 점수 불변).
     ap.add_argument("--tamhap-mode", default="shadow", choices=("off", "shadow", "apply"))
     # 2026-10-25 — hap_modes 실험 플래그(trine_third_clash / stem_tougan) 비교 재생용(반복 가능).
@@ -445,6 +449,8 @@ def main() -> int:
         enable_yearly_ten_god_signals=not args.no_yearly_signals,
         enable_role_event_seed=args.role_event_seed,
         role_event_seed_rule_ids=args.role_seed_only or None,
+        enable_career_exit_seed=args.career_exit_seed,
+        career_exit_rule_ids=args.career_exit_only or None,
         tamhap_mangchung_mode=args.tamhap_mode,
         love_experiments=args.love_experiment,
     )

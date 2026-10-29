@@ -70,7 +70,8 @@
     "social_conflict": "대인 갈등·경쟁·분쟁",
     "preparation_delay": "준비·보류·지연·정체",
     "creative_output": "창작·표현·성과물 생산",
-    "public_exposure": "노출·홍보·발표·대외 활동"
+    "public_exposure": "노출·홍보·발표·대외 활동",
+    "career_leave": "휴직·휴가·일시 중단(복귀 전제 — 완전 이탈 아님)"
   },
   "layer_roles": {
     "daewoon": {
@@ -2096,5 +2097,98 @@
       }
     ],
     "base_note": "기준점은 비겁 이동 시드와 동일(특수 조합 규칙 56~64 급, 간여지동은 그 위). 둘째 사건은 secondary_ratio(0.85) — 같은 유입에 두 후보가 같은 점수로 서면 상위 노출이 중복되므로 주 사건을 앞세운다. 용신 규칙 3종의 사건은 favorable_role_tiering 유익형 목록에 이미 들어 있어(상관 creative_output·public_exposure / 편관 job_gain·promotion / 편인 education_admission·creative_output) 품질군 차등 모드에서도 유익형으로 잡힌다."
+  },
+  "career_exit_lecture_rules": {
+    "id": "CAREER_EXIT_LECTURE",
+    "reviewed": false,
+    "basis": "2026-10-29 데굴님 결정 — 외부 강의 「직장을 그만두거나 이직해야 할 때」 번역층(doc/v2_2/EXTERNAL_TEXT_GAP_CAREER_EXIT_LECTURE.md). 브랜처는 운 신호만 조합해 원국 천간 정관×운 상관(환경형)·원국 천간 상관×운 정관(자기형)이 사건 시드로 서지 않았고(정관격일 때 運破格 감점만), 겁재 이동 시드는 비겁이 용신·기신일 때만 있었으며, 편인 운의 휴직(복귀 전제의 긴 휴가)은 사건 키가 없었다(career_leave 신설). 브랜처 직후·역할 시드 다음 자리에서 합류해 순위로 전환하고 뒤 6계층 보정은 그대로. 원국 쪽은 천간만(연·월·시 — 일간 제외), 구응(정인)은 원국 천간·지지 본기에서 찾아 resource_rescue_ratio 를 곱한다(제거 아님 — 참고 지나갈 수 있음). 원인 축(환경/자기)은 점수에 관여하지 않고 reason_code 로만. 값은 명리 확정 수치가 아닌 초기 설계값(비겁·역할 시드와 같은 급) — 85사례 off/on 재생과 생애 사건 원장(career_change·resignation)으로 규칙별 ON/OFF 를 정한다(점수 규칙은 적중률로 켜고 끈다).",
+    "layers": [
+      "sewoon",
+      "wolwoon"
+    ],
+    "base_by_inflow": {
+      "same_god": 68,
+      "same_group": 58,
+      "stem_only": 50,
+      "branch_only": 44
+    },
+    "resource_rescue_ratio": 0.8,
+    "inflow_reason_codes": {
+      "same_god": "CXL_INFLOW_SAME_GOD",
+      "same_group": "CXL_INFLOW_SAME_GROUP",
+      "stem_only": "CXL_INFLOW_STEM",
+      "branch_only": "CXL_INFLOW_BRANCH"
+    },
+    "upper_support_prefix": "CXL_UPPER_SUPPORT_",
+    "rescue_reason_prefix": "CXL_RESCUE_",
+    "cause_reason_codes": {
+      "environment": "CXL_CAUSE_ENVIRONMENT",
+      "self": "CXL_CAUSE_SELF"
+    },
+    "rules": [
+      {
+        "id": "CXL_NATAL_OFFICER_LUCK_OUTPUT",
+        "enabled": true,
+        "natal_stem": "ZHENGGUAN",
+        "incoming": "SHANGGUAN",
+        "event": "career_change",
+        "cause": "environment",
+        "rescue_by": [
+          "ZHENGYIN"
+        ],
+        "seed_role": "gi",
+        "polarity": "conditional",
+        "reason": "원국 천간 정관을 운 상관이 극한다(상관견관) — 멀쩡히 다니던 직장이 불편해질 수 있는 기간. 원인은 환경(시스템 변화·상사 교체·부서 발령). 원국에 정인이 있으면 ×0.8(달램 — 참고 지나갈 수 있음)."
+      },
+      {
+        "id": "CXL_NATAL_OUTPUT_LUCK_OFFICER",
+        "enabled": true,
+        "natal_stem": "SHANGGUAN",
+        "incoming": "ZHENGGUAN",
+        "event": "career_change",
+        "cause": "self",
+        "rescue_by": [
+          "ZHENGYIN"
+        ],
+        "seed_role": "gi",
+        "polarity": "conditional",
+        "reason": "원국 천간 상관이 운 정관과 부딪힌다 — 직장 생활이 불편해질 수 있는 기간. 원인은 나(실수·불만·충고가 거슬림). 원국에 정인이 있으면 ×0.8."
+      },
+      {
+        "id": "CXL_PEER_NEUTRAL_MOBILITY",
+        "enabled": true,
+        "incoming": "JIECAI",
+        "favorability_any": [
+          "희신",
+          "한신",
+          "구신"
+        ],
+        "event": "career_change",
+        "seed_role": "gi",
+        "polarity": "conditional",
+        "base_by_inflow": {
+          "same_god": 58,
+          "same_group": 50,
+          "stem_only": 44,
+          "branch_only": 38
+        },
+        "reason": "겁재 운(역할 무관 — 용신·기신은 기존 비겁 시드가 담당) — 재성(내 지위·공간·무대)을 흔들고 경쟁자를 만들어 이직·퇴사가 거론될 수 있다. 기준점은 용신·기신 시드보다 한 단계 낮다. 비견 제외(데굴님 결정)."
+      },
+      {
+        "id": "CXL_PIANYIN_LEAVE",
+        "enabled": true,
+        "incoming": "PIANYIN",
+        "event": "career_leave",
+        "seed_role": "gi",
+        "polarity": "conditional",
+        "base_by_inflow": {
+          "same_god": 58,
+          "same_group": 50,
+          "stem_only": 44,
+          "branch_only": 38
+        },
+        "reason": "편인 운(도식 — 식신 유무 무관) — 직장 생활이 피곤·불안해지고 휴직·긴 휴가처럼 복귀를 전제로 쉬는 일이 거론될 수 있다(번아웃·건강·출산). 완전 이탈(career_change)과 구분."
+      }
+    ]
   }
 }

@@ -86,7 +86,7 @@ def test_date_recommendation_after_specific_date() -> None:
     text = _preview("그럼 7월 4일 이후로 이사가기 좋은 날을 뽑아줘")
     assert "[택일 결과 — 이사" in text
     # 윈도우는 7/4부터 시작하고 6월(이전) 날짜 행은 표에 없다.
-    assert "2026-07-04 ~ 2026-08-03" in text
+    assert "2026-07-04 – 2026-08-03" in text
     table = text.split("[택일 결과")[1].split("[근거")[0]
     assert "2026-07-" in table
     assert "2026-06-" not in table  # 요청 시작일(7/4) 이전 날짜 미포함

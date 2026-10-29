@@ -95,6 +95,18 @@ def _role_event_text() -> dict[tuple[str, str], str]:
     }
 
 
+def _natal_gender(result: ManseV2Result) -> str:
+    """명식 성별('male'/'female'/'unknown') — 결혼 흐름 분석기와 같은 출처(지역 import)."""
+    from .marriage_flow_modifier import analyze_marriage_flow_natal
+
+    return analyze_marriage_flow_natal(result).gender
+
+
+def _career_exit_text() -> dict[str, str]:
+    """외부 강의 번역 문구(id → text) — career_exit_lecture_text.json(2026-10-29)."""
+    return {it["id"]: it["text"] for it in _load("career_exit_lecture_text.json")["items"]}
+
+
 @lru_cache(maxsize=1)
 def _ten_god_by_name() -> dict[str, dict]:
     return {item["tenGod"]: item for item in _load("ten_gods_text.json")["items"]}
@@ -307,7 +319,9 @@ def build_luck_grounding(
     fav = favorability_map(result)
     day_master = result.pillars.day_master if result.pillars else ""
     ganji = getattr(luck_pillar, "ganji", "")
-    note = incoming_ten_god_note(day_master, ganji, fav, natal_operational_role_map(result))
+    note = incoming_ten_god_note(
+        day_master, ganji, fav, natal_operational_role_map(result), natal=result,
+    )
     # 교차 작용(2026-10-01) — 질문 도메인이 있으면 유입 십성 × 기준 십성 생극 1줄을 덧붙인다.
     _inter = domain_interaction_note(day_master, ganji, domain_key, fav)
     if _inter:
@@ -1220,13 +1234,100 @@ def incoming_stage_note(day_master: str, ganji: str) -> str:
     return _first_sentence(item["incoming"], 90)
 
 
+def career_exit_lecture_texts(
+    day_master: str, ganji: str, fav_map: dict[str, str], natal: ManseV2Result | None = None,
+) -> list[str]:
+    """운 간지 1개에 붙는 외부 강의 번역 문구(조건 성립분만, 사전 id 순).
+
+    - 겁재 천간(비겁 역할이 용신·기신이 아님)·편인(천간 또는 지지 본기)은 natal 없이도 붙는다.
+    - 원국 천간 정관×운 상관(환경형)·원국 천간 상관×운 정관(자기형)·정인 완화·여성 분기는 natal 이
+      있을 때만. 일간은 원국 천간 조건에서 제외된다(2026-10-29 데굴님 결정: 천간만).
+    """
+    if not day_master or len(ganji) < 2:
+        return []
+    try:
+        dm = Stem(day_master)
+        stem = Stem(ganji[0])
+        branch = Branch(ganji[1])
+    except ValueError:
+        return []
+    stem_tg = str(ten_god(dm, stem))
+    branch_tg = str(ten_god(dm, Stem(main_hidden_stem(branch).value)))
+    peer_role = fav_map.get(str(STEM_ELEMENT[dm]))
+    cxl = _career_exit_text()
+    out: list[str] = []
+    if stem_tg == "겁재" and peer_role not in ("용신", "기신"):
+        out.append(cxl["peer_neutral_mobility"])
+    if "편인" in (stem_tg, branch_tg):
+        leave = cxl["pianyin_leave"]
+        if natal is not None and _natal_gender(natal) == "female":
+            leave += " " + cxl["pianyin_leave_female"]
+        out.append(leave)
+    if natal is None or natal.pillars is None:
+        return out
+    _np = natal.pillars
+    natal_stems = {x.stem_ten_god for x in (_np.year, _np.month, _np.hour) if x is not None}
+    natal_all = natal_stems | {
+        x.branch_main_ten_god for x in (_np.year, _np.month, _np.day, _np.hour) if x is not None
+    }
+    hits: list[str] = []
+    if "정관" in natal_stems and "상관" in (stem_tg, branch_tg):
+        hits.append("natal_officer_luck_output")
+    if "상관" in natal_stems and "정관" in (stem_tg, branch_tg):
+        hits.append("natal_output_luck_officer")
+    if hits and "정인" in natal_all:
+        hits.append("resource_rescue")
+    out.extend(cxl[h] for h in hits)
+    return out
+
+
+def career_exit_lecture_block(result: ManseV2Result, periods: list[tuple[str, str]]) -> list[str]:
+    """직업 질문용 블록 — 후보 기간의 운 간지마다 강의 번역 문구를 **간지당 1회** 묶는다.
+
+    후보별 note 에 붙이면 같은 달의 후보 수만큼 반복돼 토큰이 늘어나므로(실측 4회 반복) 기간·간지
+    단위로 한 번만 낸다. 조건이 하나도 없으면 빈 목록(블록 없음).
+
+    Args:
+        result: 본인 명식(원국 천간 조건·성별).
+        periods: (기간 라벨, 운 간지) 목록 — 후보 순서를 유지하고 같은 간지는 한 번만.
+    """
+    from .event_scoring import favorability_map
+
+    if result.pillars is None:
+        return []
+    fav = favorability_map(result)
+    seen: set[str] = set()
+    lines: list[str] = []
+    for period, ganji in periods:
+        if not ganji or ganji in seen:
+            continue
+        seen.add(ganji)
+        texts = career_exit_lecture_texts(result.pillars.day_master, ganji, fav, result)
+        if texts:
+            lines.append(f"- {period} {ganji}: " + " ".join(texts))
+    if not lines:
+        return []
+    return [
+        "[직장 운 결 — 강의 번역층(원국 글자 × 운 글자)] 아래는 해당 기간 운 글자와 원국 천간의 "
+        "관계가 직장 생활에 주는 결이다. 사건명은 그대로 두되 가능성형으로만 쓰고, 휴직과 퇴사를 "
+        "섞어 쓰지 말 것.",
+        *lines,
+    ]
+
+
 def incoming_ten_god_note(
     day_master: str,
     ganji: str,
     fav_map: dict[str, str],
     operational_map: dict[str, str] | None = None,
+    natal: ManseV2Result | None = None,
 ) -> str:
     """운 유입 간지의 일간 기준 십성 해석 1줄(동적 suffix — 후보별 동반).
+
+    natal(2026-10-29)이 주어지면 외부 강의 번역 문구(원국 천간 정관×운 상관 환경형 / 원국 천간
+    상관×운 정관 자기형 / 정인 완화 / 편인 휴직 여성 분기)를 조건에 맞게 붙인다 — 단일 기간
+    근거(build_luck_grounding·리포트 운 결)에서만 넘기고 후보별 note 는 넘기지 않는다(토큰).
+    겁재 역할 무관 문구·편인 휴직 기본 문구는 natal 없이도 붙는다.
 
     천간·지지 십성을 함께 표기한다 — 단일 천간 십성만 보고 사건을 단정하는
     오류 방지(regression_2025_08: 甲申월 = 정관(甲)+상관(申) 복합). operational_map(원국 기준)이
@@ -1286,5 +1387,8 @@ def incoming_ten_god_note(
         if role_key in role_texts and role_key not in seen:
             seen.add(role_key)
             body += f" · {role_texts[role_key]}"
+    # 외부 강의 번역층(2026-10-29 데굴님 결정) — 문구는 사전에서 고르기만 한다(시드 플래그 무관).
+    for text in career_exit_lecture_texts(day_master, ganji, fav_map, natal):
+        body += f" · {text}"
     guard = _operational_guard_suffix([stem_el, branch_el], op)
     return f"{body} {guard}".strip() if guard else body

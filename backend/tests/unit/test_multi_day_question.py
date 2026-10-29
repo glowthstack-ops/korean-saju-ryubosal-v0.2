@@ -121,7 +121,7 @@ def test_two_days_both_grounded_with_full_blocks(two_days: chat_service.ChatResp
 def test_three_day_range_lists_each_day_with_multi_directive() -> None:
     res = _prep("10월 7일부터 9일까지는 어때?")
     p = res.prompt_preview or ""
-    assert "[해당 기간(2026-10-07~2026-10-09) 일별 흐름" in p
+    assert "[해당 기간(2026-10-07–2026-10-09) 일별 흐름" in p
     assert all(f"- 2026-10-0{d}(" in p for d in (7, 8, 9))
     assert "[중요·복수 날짜 질문" in p and "6일 뒤" in p
     assert res.postprocess.payload.extra_period_fortunes == []

@@ -73,6 +73,8 @@ EVENT_KEY_PROCESS_AUDIT: dict[EventKeyV2, EventProcessAuditStatus] = {
     EventKeyV2.SOCIAL_CONFLICT: EventProcessAuditStatus.NOT_PROCESS_GATED,
     EventKeyV2.LEGAL_CONFLICT: EventProcessAuditStatus.NOT_PROCESS_GATED,
     EventKeyV2.PREPARATION_DELAY: EventProcessAuditStatus.NOT_PROCESS_GATED,
+    # 휴직(2026-10-29 신설) — 복귀 전제의 쉼. 이직 과정으로 여는 사건이 아니다.
+    EventKeyV2.CAREER_LEAVE: EventProcessAuditStatus.NOT_PROCESS_GATED,
     EventKeyV2.CREATIVE_OUTPUT: EventProcessAuditStatus.NOT_PROCESS_GATED,
     EventKeyV2.PUBLIC_EXPOSURE: EventProcessAuditStatus.NOT_PROCESS_GATED,
     EventKeyV2.CHILDBIRTH: EventProcessAuditStatus.NOT_PROCESS_GATED,

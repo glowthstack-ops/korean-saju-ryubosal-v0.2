@@ -18,7 +18,7 @@
   },
   "expose_pipeline": {
     "reviewed": true,
-    "expose_policy_hash": "c409cc83ad144955",
+    "expose_policy_hash": "a99b8146efd0b8cd",
     "critical_validation_state": {
       "synthetic_fixtures": "passed",
       "corpus_positive_cases": 0,

@@ -151,6 +151,7 @@ def build_event_engine_v2(dictionaries_dir: Path, **overrides: Any) -> Any:
     kwargs["yong_tier_mode"] = period_v2_config.YONG_TIERED_MULTIPLIER_MODE
     kwargs["enable_transit_clash_support"] = period_v2_config.TRANSIT_CLASH_SUPPORT_ENABLED
     kwargs["enable_role_event_seed"] = period_v2_config.ROLE_EVENT_SEED_ENABLED
+    kwargs["enable_career_exit_seed"] = period_v2_config.CAREER_EXIT_SEED_ENABLED
     kwargs["tamhap_mangchung_mode"] = period_v2_config.TAMHAP_MANGCHUNG_MODE
     kwargs.update(overrides)
     return EventEngineV2(dictionaries_dir, **kwargs)

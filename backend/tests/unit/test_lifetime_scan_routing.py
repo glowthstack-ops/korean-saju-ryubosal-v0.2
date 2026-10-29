@@ -41,14 +41,14 @@ def test_lifetime_question_routes_to_scan() -> None:
     assert _CENTENARY_MARK in p
     assert _DAEWOON_SPAN_MARK in p
     assert _YEAR_DIGEST_MARK not in p  # 10년 digest로 새지 않는다
-    assert "평생(출생~약 100세, 1980~2080년)" in p
+    assert "평생(출생–약 100세, 1980–2080년)" in p
 
 
 def test_late_life_stage_scan_window() -> None:
-    """'말년' — 단계 창(76~100세=2056~2080)이 디렉티브에 나이 병기로 실린다."""
+    """'말년' — 단계 창(76–100세=2056–2080)이 디렉티브에 나이 병기로 실린다."""
     p = _prompt("말년에 돈 걱정 없이 살 수 있을까?")
     assert _LIFETIME_MARK in p
-    assert "말년(76~100세 무렵, 2056~2080년)" in p
+    assert "말년(76–100세 무렵, 2056–2080년)" in p
     assert _YEAR_DIGEST_MARK not in p
 
 
@@ -58,7 +58,7 @@ def test_late_life_stage_scan_window() -> None:
 def test_regex_trigger_without_stage_vocab() -> None:
     p = _prompt("살면서 결혼운이 가장 강한 시기는 언제야?")
     assert _LIFETIME_MARK in p
-    assert "평생(출생~약 100세" in p
+    assert "평생(출생–약 100세" in p
 
 
 # ── 비발동 — 기존 경로 불변 ──────────────────────────────────
@@ -84,7 +84,10 @@ def test_past_recall_guidance_present_for_lifetime() -> None:
     """평생 창은 과거를 포함한다 — 회고·적중 확인 유도 문구가 실린다(확정안 ①)."""
     p = _prompt("평생 재물운의 흐름을 알려줘")
     assert "이미 지난 시기다" in p
-    assert "활성화되는 창" in p
+    # 2026-10-29 단정 금지 구체화 — 미래 후보 연도는 추상어('활성화되는 창')가 아니라
+    # 사건명을 유지한 가능성형으로 쓴다.
+    assert "활성화되는 창" not in p
+    assert "가능성형으로 표현하라" in p
 
 
 # ── 선별 헬퍼 ────────────────────────────────────────────────

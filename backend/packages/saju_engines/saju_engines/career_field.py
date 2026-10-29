@@ -541,6 +541,28 @@ def _officer_lines(
     return lines
 
 
+def _peer_stem_lines(result: ManseV2Result, dictionary: CareerFieldDict) -> list[str]:
+    """연·월 천간 겁재의 이동·겸업 성향(외부 강의 ⑥, 2026-10-29) — 정관 유무 분기, 서술 전용."""
+    ps = dictionary.peer_stem
+    p = result.pillars
+    if ps is None or p is None:
+        return []
+    where = [
+        f"{label}간 {pil.stem}" for label, pil in (("년", p.year), ("월", p.month))
+        if pil is not None and pil.stem_ten_god == "겁재"
+    ]
+    if not where:
+        return []
+    pillars = [x for x in (p.year, p.month, p.day, p.hour) if x is not None]
+    has_officer = any(
+        x.stem_ten_god == "정관" or x.branch_main_ten_god == "정관" for x in pillars
+    )
+    t = ps.items
+    lines = [f"겁재 천간({'·'.join(where)}): " + t["year_month_stem"]]
+    lines.append(t["with_officer"] if has_officer else t["without_officer"])
+    return lines
+
+
 def _business_lines(
     result: ManseV2Result, dictionary: CareerFieldDict, group_pct: dict[str, float],
     dist: dict[str, float], palace: dict[str, str],
@@ -659,6 +681,7 @@ def _apply_ganji_school(
     axis_key = facts.orientation.key if facts.orientation is not None else ""
     facts.palace_lines = _palace_lines(dictionary, palace, axis_key)
     facts.officer_lines = _officer_lines(result, dictionary, palace, daewoon)
+    facts.peer_lines = _peer_stem_lines(result, dictionary)
     wn = dictionary.workplace_notes
     if wn is not None and group_pct.get("resource", 0.0) >= dictionary.thresholds.excess_pct:
         facts.workplace_lines = [wn.resource_excess]
@@ -675,7 +698,7 @@ def _render_ganji_school(facts: CareerFieldFacts) -> list[str]:
     nar = facts.school_narration or f"{facts.school_label}에서는"
     lines = [
         f"[{facts.school_label} 관점 — 직업 유형 축·궁위·관성 위치·업종·사업 시기 "
-        f"(학파 서술: '{nar} ~로 본다'로 쓸 것, 억부 용신 판정과 별개·단정 금지)]",
+        f"(학파 서술: '{nar} …로 본다'로 쓸 것, 억부 용신 판정과 별개·단정 금지)]",
         f"- 직업 유형 축: {o.label}(관·인 {o.workplace_axis:g} vs 식·재 {o.business_axis:g}) — "
         f"근거 {', '.join(o.basis) if o.basis else '해당 궁위 없음'}. {nar} {o.reading}",
     ]
@@ -683,6 +706,7 @@ def _render_ganji_school(facts: CareerFieldFacts) -> list[str]:
         lines.append(f"- 대운 축: {o.daewoon_axis}")
     lines += [f"- {x}" for x in facts.palace_lines]
     lines += [f"- 관성 위치(직장 축): {x}" for x in facts.officer_lines]
+    lines += [f"- 비겁 천간(이동·겸업 성향): {x}" for x in facts.peer_lines]
     lines += [f"- 보조: {x}" for x in facts.workplace_lines]
     lines += [
         f"- {x}" if x.startswith("업종 결") else f"- 업종 규칙: {x}" for x in facts.business_lines

@@ -554,7 +554,7 @@ def analyze_marriage_resource(
             lo, hi = LIFE_STAGE_AGE_RANGES[_stage_of[_pname]]
             spouse_star_ganyeojidong.append(
                 f"{_pname}주 간여지동 배우자성({_pil.stem_ten_god}·{_pil.branch_main_ten_god}) — "
-                f"{_stage_of[_pname]}({lo}~{hi}세, 100세 밴드)에 이성·관계 몰입 경향"
+                f"{_stage_of[_pname]}({lo}–{hi}세, 100세 밴드)에 이성·관계 몰입 경향"
             )
     # P2-4 연상/동갑/연하 경향(강의 S3 — 여성에 더 유효, 단정 아님).
     partner_age_tendencies: list[str] = []

@@ -25,10 +25,14 @@ _YONGSIN_RE = re.compile(r"용신[은는이가의]?\s*([木火土金水])")
 # 금지 표현(검사 5 — 절대 원칙 3·8, prohibited_styles 초안).
 # 육친 사망·사별 단정은 생애 개편(docs/10 3-4, 2026-08-13)으로 추가 — 부모·가족 섹션은
 # '이별·상실 계열 신호' 프레임만 허용한다.
+# 2026-10-29: 단정 = 결과를 확정하는 어미만(structural_context.ASSERTION_POLICY). 이 검사는 하드
+# 위반(재생성)이라 가능성형을 잡으면 안 된다 — '당첨될 수도 있어요'·'컨디션이 떨어진다'가 걸리던
+# `당첨될`·`떨어진다`를 확정 어미·승부 맥락으로 좁혔다.
 _PROHIBITED_PATTERNS = [
     r"반드시\s*\S{0,6}(한다|된다|입니다)",
     r"틀림없이", r"무조건\s*\S{0,6}(된다|한다)", r"100\s*%",
-    r"당첨된다", r"당첨될", r"합격한다", r"당선된다", r"떨어진다",
+    r"당첨된다", r"당첨될\s*(것|겁니다|거예요|테니)", r"합격한다", r"당선된다",
+    r"(시험|면접|선거|오디션|전형)에서?\s*떨어진다",
     r"이혼하게\s*된다", r"죽는다", r"확실히\s*\S{0,6}(된다|한다)",
     r"사별(한다|하게\s*된다|할\s*것)", r"사망(한다|하게\s*된다|할\s*것)",
     r"세상을\s*떠난다", r"돌아가시게\s*된다",
@@ -56,7 +60,7 @@ class ReportChecker:
         n = len(text)
         if not (plan.target_chars.min <= n <= plan.target_chars.max):
             violations.append(
-                f"분량 위반: {n}자 (목표 {plan.target_chars.min}~{plan.target_chars.max})"
+                f"분량 위반: {n}자 (목표 {plan.target_chars.min}–{plan.target_chars.max})"
             )
 
         # 2. 간지 표기 — 미제공 간지 등장 = 즉시 실패.

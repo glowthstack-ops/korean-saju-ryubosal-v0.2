@@ -156,4 +156,4 @@ def test_long_term_question_skips_horizon_policy() -> None:
     text = _prompt("노후 운세가 궁금해")
     assert "[답변 지평]" not in text
     assert "[응답 형식 — 인생 단계 스캔]" in text
-    assert "말년(76~100세 무렵" in text
+    assert "말년(76–100세 무렵" in text

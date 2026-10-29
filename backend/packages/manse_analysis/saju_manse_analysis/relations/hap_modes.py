@@ -313,7 +313,7 @@ def resolve_stem_hap(
         strength = 1.0
         if weakened:
             strength *= w["geokwi_strength"]
-            notes.append("隔位(비인접) — 합력 약화(2~3할)")
+            notes.append("隔位(비인접) — 합력 약화(2–3할)")
         if contend:
             strength *= w["contend_strength"]
             notes.append("쟁합·투합 — 정(情)이 전일하지 못함")

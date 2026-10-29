@@ -112,8 +112,8 @@ def test_plan_report_year_half_pages() -> None:
     assert ids.index("Y-04") < h1_pos < h2_pos < ids.index("Y-06")
     h1 = next(c for c in contexts if c.section_id == "Y-05-H1")
     h2 = next(c for c in contexts if c.section_id == "Y-05-H2")
-    assert "상반기(입춘 2월~7월)의 6개 달" in h1.body_prompt
-    assert "하반기(8월~다음해 1월)의 6개 달" in h2.body_prompt
+    assert "상반기(입춘 2월–7월)의 6개 달" in h1.body_prompt
+    assert "하반기(8월–다음해 1월)의 6개 달" in h2.body_prompt
     # 월별 흐름 표는 자기 반기의 달만 담는다(모듈 블록의 달 언급은 별개 — 표만 검사).
     h1_table = h1.body_prompt.split("[월별 흐름 — ")[1].split("\n\n")[0]
     h2_table = h2.body_prompt.split("[월별 흐름 — ")[1].split("\n\n")[0]

@@ -168,6 +168,16 @@ def test_check5_prohibited_styles(checker) -> None:
     assert any("금지 표현" in v for v in violations)
 
 
+def test_check5_possibility_forms_are_not_prohibited(checker) -> None:
+    """2026-10-29 — 가능성형('당첨될 수도'·'컨디션이 떨어진다')은 금지 표현이 아니다.
+
+    금지 표현은 하드 위반(재생성)이라 오탐 비용이 크다.
+    """
+    text = _GOOD_TEXT + " 작은 횡재가 당첨될 수도 있고, 컨디션이 떨어진다 싶으면 쉬어 가세요."
+    violations = checker.check_section(_plan(), _ctx(), text, PersonaConfig(), "길동")
+    assert not any("금지 표현" in v for v in violations), violations
+
+
 def test_check1_length(checker) -> None:
     short = "짧아요."
     violations = checker.check_section(

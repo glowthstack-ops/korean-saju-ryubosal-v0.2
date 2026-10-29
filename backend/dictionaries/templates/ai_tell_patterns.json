@@ -28,14 +28,14 @@
       "id": "A-3",
       "severity": "S1",
       "category": "A",
-      "label": "'~에 있어(서)' 번역투",
+      "label": "'…에 있어(서)' 번역투",
       "patterns": [
         "(?:관계|인간관계|직장|재물|금전|경제|연애|결혼|일|업무|사업|투자|결정|선택|판단|건강|커리어|진로|학업|시험|생활|시기|흐름|문제|운)에\\s?있어서?(?=[\\s,.])",
         "[가-힣]+에\\s?있어\\s"
       ],
       "threshold": 1,
       "region": "all",
-      "directive": "'~에 있어서'는 '~에서'로",
+      "directive": "'…에 있어서'는 '…에서'로",
       "scopes": [
         "chat",
         "report",
@@ -73,7 +73,7 @@
       "id": "A-8",
       "severity": "S1",
       "category": "A",
-      "label": "이중 피동 '~되어지다·~지게 되다'",
+      "label": "이중 피동 '…되어지다·…지게 되다'",
       "patterns": [
         "되어지|되어진|되어져|되어집",
         "[가-힣]지게\\s?(?:되|돼|됩)"
@@ -145,7 +145,7 @@
       ],
       "threshold": 3,
       "region": "all",
-      "directive": "'~고,' '~지만,' '~면서,' 처럼 연결어미 바로 뒤에 쉼표를 찍지 않기",
+      "directive": "'…고,' '…지만,' '…면서,' 처럼 연결어미 바로 뒤에 쉼표를 찍지 않기",
       "scopes": [
         "chat",
         "report"
@@ -221,13 +221,13 @@
       "id": "A-1",
       "severity": "S2",
       "category": "A",
-      "label": "'~에 대해' 밀집",
+      "label": "'…에 대해' 밀집",
       "patterns": [
         "에\\s?대해(?:서)?|에\\s?대한"
       ],
       "threshold": 3,
       "region": "all",
-      "directive": "'~에 대해'는 목적격으로 직결('X에 대해 고민'→'X를 고민')",
+      "directive": "'…에 대해'는 목적격으로 직결('X에 대해 고민'→'X를 고민')",
       "scopes": [
         "chat",
         "report"
@@ -239,13 +239,13 @@
       "id": "A-2",
       "severity": "S2",
       "category": "A",
-      "label": "'~를 통해' 남발",
+      "label": "'…를 통해' 남발",
       "patterns": [
         "[을를]\\s?통해|통하여"
       ],
       "threshold": 2,
       "region": "all",
-      "directive": "'~를 통해'는 '~로'·'~에서'로",
+      "directive": "'…를 통해'는 '…로'·'…에서'로",
       "scopes": [
         "chat",
         "report"
@@ -257,13 +257,13 @@
       "id": "A-5",
       "severity": "S2",
       "category": "A",
-      "label": "'~와 관련하여'",
+      "label": "'…와 관련하여'",
       "patterns": [
         "[와과]\\s?관련(?:하여|된|해|해서)"
       ],
       "threshold": 2,
       "region": "all",
-      "directive": "'~와 관련된'은 '~의'·'~에'로",
+      "directive": "'…와 관련된'은 '…의'·'…에'로",
       "scopes": [
         "chat",
         "report"
@@ -275,13 +275,13 @@
       "id": "A-6",
       "severity": "S2",
       "category": "A",
-      "label": "'~을 바탕으로·~에 기반하여'",
+      "label": "'…을 바탕으로·…에 기반하여'",
       "patterns": [
         "[을를]\\s?바탕으로|에\\s?기반(?:하여|해)"
       ],
       "threshold": 2,
       "region": "all",
-      "directive": "'~을 바탕으로'는 '~로 보면'·'~을 보고'로",
+      "directive": "'…을 바탕으로'는 '…로 보면'·'…을 보고'로",
       "scopes": [
         "chat",
         "report"
@@ -293,13 +293,13 @@
       "id": "A-9",
       "severity": "S2",
       "category": "A",
-      "label": "'~에 의해' 피동",
+      "label": "'…에 의해' 피동",
       "patterns": [
         "에\\s?의해"
       ],
       "threshold": 2,
       "region": "all",
-      "directive": "'~에 의해'는 행위자를 주어로('운에 의해 흔들려요'→'운이 흔들어요')",
+      "directive": "'…에 의해'는 행위자를 주어로('운에 의해 흔들려요'→'운이 흔들어요')",
       "scopes": [
         "chat",
         "report"
@@ -317,7 +317,7 @@
       ],
       "threshold": 3,
       "region": "all",
-      "directive": "'기운이 ~을 제공해요·보여줘요' 대신 사람이 겪는 일로('연락이 와요·결정을 미루게 돼요')",
+      "directive": "'기운이 …을 제공해요·보여줘요' 대신 사람이 겪는 일로('연락이 와요·결정을 미루게 돼요')",
       "scopes": [
         "chat",
         "report"
@@ -353,7 +353,7 @@
       ],
       "threshold": 3,
       "region": "all",
-      "directive": "'따라서·그러므로·이를 통해'는 답 전체 1~2회까지",
+      "directive": "'따라서·그러므로·이를 통해'는 답 전체 1–2회까지",
       "scopes": [
         "chat",
         "report"
@@ -365,13 +365,13 @@
       "id": "D-6",
       "severity": "S2",
       "category": "D",
-      "label": "완결 공식 결말 '~할 때예요·시점이에요'",
+      "label": "완결 공식 결말 '…할 때예요·시점이에요'",
       "patterns": [
         "[가-힣]?[할될볼둘갈낼쓸]\\s?(?:때|시점|순간)(?:이에요|예요|입니다|이죠|이다)"
       ],
       "threshold": 2,
       "region": "all",
-      "directive": "'~할 때예요·~할 시점이에요' 결말은 답 전체 한 번까지",
+      "directive": "'…할 때예요·…할 시점이에요' 결말은 답 전체 한 번까지",
       "scopes": [
         "chat",
         "report",
@@ -403,7 +403,7 @@
       "id": "D-8",
       "severity": "S2",
       "category": "D",
-      "label": "분열문 '중요한 것은 ~이에요'",
+      "label": "분열문 '중요한 것은 …이에요'",
       "patterns": [
         "(?:필요한|중요한)\\s?(?:것은|건|점은)|(?:문제는|핵심은|관건은|답은|포인트는)\\s"
       ],
@@ -422,14 +422,14 @@
       "id": "D-9",
       "severity": "S2",
       "category": "D",
-      "label": "인과 결산 '결국 ~로 이어져요'",
+      "label": "인과 결산 '결국 …로 이어져요'",
       "patterns": [
         "결국",
         "(?:으로|로)\\s?이어(?:져요|집니다|지죠|진다|질\\s)"
       ],
       "threshold": 3,
       "region": "all",
-      "directive": "'결국 ~로 이어져요' 압축 대신 어떤 경로로 이어지는지 구체적으로",
+      "directive": "'결국 …로 이어져요' 압축 대신 어떤 경로로 이어지는지 구체적으로",
       "scopes": [
         "chat",
         "report"
@@ -441,13 +441,13 @@
       "id": "D-10",
       "severity": "S2",
       "category": "D",
-      "label": "역방향 결산 '~하는 이유예요'",
+      "label": "역방향 결산 '…하는 이유예요'",
       "patterns": [
         "이유(?:예요|이에요|입니다|죠|다)(?=[.!?]|$)"
       ],
       "threshold": 1,
       "region": "all",
-      "directive": "'~하는 이유예요' 도치 결산은 '그래서 ~해요'로",
+      "directive": "'…하는 이유예요' 도치 결산은 '그래서 …해요'로",
       "scopes": [
         "chat",
         "report"
@@ -531,13 +531,13 @@
       "id": "F-5",
       "severity": "S2",
       "category": "F",
-      "label": "'~적 N' 추상어 체인",
+      "label": "'…적 N' 추상어 체인",
       "patterns": [
         "[가-힣]{1,4}적\\s[가-힣]{1,4}"
       ],
       "threshold": 3,
       "region": "all",
-      "directive": "'전략적 함의' 식 '~적 N' 체인은 풀어 쓰기",
+      "directive": "'전략적 함의' 식 '…적 N' 체인은 풀어 쓰기",
       "scopes": [
         "chat",
         "report"
@@ -555,7 +555,7 @@
       ],
       "threshold": 1,
       "region": "all",
-      "directive": "'~할 수 있을 것으로 보여요' 같은 겹완곡은 하나만 남기되 단정으로 바꾸지 않기",
+      "directive": "'…할 수 있을 것으로 보여요' 같은 겹완곡은 하나만 남기되 단정으로 바꾸지 않기",
       "scopes": [
         "chat",
         "report",
@@ -604,13 +604,13 @@
       "id": "I-3",
       "severity": "S2",
       "category": "I",
-      "label": "'~다는 것이에요' 결말",
+      "label": "'…다는 것이에요' 결말",
       "patterns": [
         "(?:다는|라는)\\s?(?:것이에요|거예요|것입니다|뜻이에요|뜻입니다|의미예요|의미입니다)"
       ],
       "threshold": 2,
       "region": "all",
-      "directive": "'~다는 것이에요·~다는 뜻이에요' 결말은 '~예요'로 직접 종결",
+      "directive": "'…다는 것이에요·…다는 뜻이에요' 결말은 '…예요'로 직접 종결",
       "scopes": [
         "chat",
         "report",
@@ -623,13 +623,13 @@
       "id": "I-4",
       "severity": "S2",
       "category": "I",
-      "label": "당위 결말 '~할 필요가 있어요'",
+      "label": "당위 결말 '…할 필요가 있어요'",
       "patterns": [
         "필요가\\s?있(?:어요|습니다|다)"
       ],
       "threshold": 2,
       "region": "all",
-      "directive": "'~할 필요가 있어요' 당위 결말은 두 문단 이상 반복하지 않기",
+      "directive": "'…할 필요가 있어요' 당위 결말은 두 문단 이상 반복하지 않기",
       "scopes": [
         "chat",
         "report"

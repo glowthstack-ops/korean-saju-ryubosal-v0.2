@@ -52,7 +52,11 @@ from saju_engines.assistant_commitments import (
     prior_statement_lines,
 )
 from saju_engines.career_field import build_career_field_facts, render_career_field_lines
-from saju_engines.chart_interpretation import build_luck_grounding, luck_dohwa_sinsal_line
+from saju_engines.chart_interpretation import (
+    build_luck_grounding,
+    career_exit_lecture_block,
+    luck_dohwa_sinsal_line,
+)
 from saju_engines.commitment_audit import audit_answer
 from saju_engines.companion_alias import AliasEntry, merge_attached_partner
 from saju_engines.companion_similarity import augment_relation_type, augment_subject_mode
@@ -116,6 +120,7 @@ from saju_engines.lifetime_scan import (
     select_lifetime_years,
 )
 from saju_engines.llm_guard import TokenBudgetExceeded, estimate_tokens
+from saju_engines.love_separation import love_separation_block, love_separation_natal_lines
 from saju_engines.luck_hierarchy import build_luck_hierarchy
 from saju_engines.luck_hierarchy_render import (
     render_hierarchy_appendix,
@@ -153,6 +158,7 @@ from saju_engines.policy_echo_audit import detect_policy_echo, strip_policy_echo
 from saju_engines.precompute import CompositeBuilder
 from saju_engines.prediction import PredictionEngines
 from saju_engines.profile_engine import profile_context_for, profile_event_signals
+from saju_engines.prompt_notation import normalize_range_tilde
 from saju_engines.query_parser import (
     ACCIDENT_SAGO_RE,
     AFFIRMATION_RE,
@@ -202,6 +208,7 @@ from saju_engines.structural_context import (
     NON_NORMATIVE_REASSURANCE_DIRECTIVE,
     PARTNER_APPEARANCE_REFERENT_DIRECTIVE,
     PARTNER_SOURCE_DIRECTIVE,
+    RELATIONSHIP_DIFFERENCE_PERSPECTIVE,
     RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
     RETRO_BEHAVIOR_DIRECTIVE,
     SPOUSE_IMAGE_DIRECTIVE,
@@ -372,7 +379,7 @@ def _current_luck_month_detail(birth: BirthInput, today: date, timezone: str = "
     elapsed = (today - sm_s).days + 1
     remaining = _current_luck_month_remaining_days(today, label, timezone)
     return (
-        f"{label} = {mp.ganji}월(절기월). 양력 {sm_s.isoformat()}~{sm_e.isoformat()} 진행 중 — "
+        f"{label} = {mp.ganji}월(절기월). 양력 {sm_s.isoformat()}–{sm_e.isoformat()} 진행 중 — "
         f"오늘 {today.isoformat()}은 이 절기월 {elapsed}/{total}일차(남은 약 {remaining}일). "
         f"라벨의 '{label[5:7]}'월은 절입 시작 캘린더월이라 오늘 캘린더월({today.month}월)과 "
         f"다를 수 있다. 이 달은 '{int(label[5:7])}월({mp.ganji}월)'처럼 부르고 "
@@ -463,7 +470,7 @@ def _date_solar_month_note(birth: BirthInput, target: date, timezone: str) -> st
     sm_s, sm_e = _solar_month_range(label, timezone)
     return (
         f"[날짜 절기월 — 엔진 확정 사실] 질문 날짜 {target.isoformat()}의 월운(절기월)은 "
-        f"{mp.ganji}이며 양력 {sm_s.isoformat()}~{sm_e.isoformat()}에 해당한다. 월운은 절입 "
+        f"{mp.ganji}이며 양력 {sm_s.isoformat()}–{sm_e.isoformat()}에 해당한다. 월운은 절입 "
         f"기준이라 양력 달과 다르다 — 이 날짜의 월간지를 양력 {target.month}월의 다음 절기월로 "
         f"답하지 말고 반드시 {mp.ganji}로 본다."
     )
@@ -604,8 +611,8 @@ def _anchor_window_day_note(
     return (
         f"[앵커 전후 일운 — 엔진 확정 사실] 앵커: {anchor.label} {anchor.date}. "
         + " / ".join(rows)
-        + f". 앵커 전({start.isoformat()}~{b_end}) 등급 집계: {_tally(before)} ; "
-        f"앵커 후({a_start}~{end.isoformat()}) 등급 집계: {_tally(after)}. "
+        + f". 앵커 전({start.isoformat()}–{b_end}) 등급 집계: {_tally(before)} ; "
+        f"앵커 후({a_start}–{end.isoformat()}) 등급 집계: {_tally(after)}. "
         "질문이 앵커 전/후를 비교하면 첫 문단에서 '앵커 전이 유리 / 앵커 후가 유리 / 뚜렷한 차이 "
         "없음' 중 하나로 판정하고 근거 날짜(일운 간지·십성·등급)를 들 것 — 월운으로 뭉뚱그리거나 "
         "다른 달로 답을 옮기지 말 것. 질문한 사건이 아닌 다른 사건(횡재 등)으로 바꿔 답하지 말 것. "
@@ -969,8 +976,8 @@ def _audit_partner_appearance_answer(
 # 회고 질문 시제 강제 — is_retro여도 시제 지시가 없어 이벤트 후보·트리거류 미래 지향
 # 디렉티브에 묻혀 과거 사건을 예측처럼 서술하던 결함 교정(2026-07-21 데굴님 실로그).
 _RETRO_TENSE_DIRECTIVE = (
-    "[회고 모드 — 질문 기간은 이미 지난 과거] 전체 답변을 과거 추정형('~였을 것으로 보여요', "
-    "'~했을 가능성이 커요')으로만 서술할 것. '~될 것으로 보여요'·'~열릴 거예요'·'기대돼요' 같은 "
+    "[회고 모드 — 질문 기간은 이미 지난 과거] 전체 답변을 과거 추정형('…였을 것으로 보여요', "
+    "'…했을 가능성이 커요')으로만 서술할 것. '…될 것으로 보여요'·'…열릴 거예요'·'기대돼요' 같은 "
     "미래 예측·권고 표현 금지. 신호 데이터는 '그 시기에 그런 흐름이 있었다'는 확인·복원 용도로만 "
     "쓰고, 사용자가 묻지 않은 미래 조언을 덧붙이지 말 것. 마무리 확인 질문도 '실제로 그랬는지'를 "
     "묻는 형태로 할 것."
@@ -1309,13 +1316,13 @@ def _build_period_fortune(
             sm_s, sm_e = _solar_month_range(m_label, tz_m)
             solar_month_note = (
                 f"이 기간이 속한 절기월은 {m_comp.ganji.stem}{m_comp.ganji.branch}월"
-                f"(양력 {sm_s.isoformat()}~{sm_e.isoformat()})이다 — 월운은 절기 경계라 양력 달과 "
+                f"(양력 {sm_s.isoformat()}–{sm_e.isoformat()})이다 — 월운은 절기 경계라 양력 달과 "
                 "다르니 '○월=○○월운'으로 혼동하지 말 것."
             )
             # 사용자 노출용(안전 템플릿) — 지시문 없이 사실만.
             solar_month_user_note = (
                 f"이 기간이 속한 절기월은 {m_comp.ganji.stem}{m_comp.ganji.branch}월"
-                f"(양력 {sm_s.isoformat()}~{sm_e.isoformat()})이에요."
+                f"(양력 {sm_s.isoformat()}–{sm_e.isoformat()})이에요."
             )
     ctx = build_lifestyle_context(
         [SubjectRef(kind=SubjectKind.SELF, label="본인")],
@@ -1708,7 +1715,7 @@ def _date_selection_block(
     cautions = list(result.cautions)
     if truncated:
         cautions.append(
-            f"택일은 한 번에 약 한 달 범위만 탐색합니다 — 이번에는 {start_iso} ~ {end_iso}를"
+            f"택일은 한 번에 약 한 달 범위만 탐색합니다 — 이번에는 {start_iso} – {end_iso}를"
             f" 살폈어요. 그 이후 시기는 원하시는 달(예: '{_next_month_label(scan_end)} 이사일')을"
             " 지정해 다시 물어봐 주세요."
         )
@@ -1719,7 +1726,7 @@ def _date_selection_block(
     )
     return DateSelectionBlock(
         purpose_ko=purpose_label or event_ko(purpose),
-        period=f"{start_iso} ~ {end_iso}",
+        period=f"{start_iso} – {end_iso}",
         frame_notes=_week_frame_notes(tr, purpose, today),
         rows=rows,
         avoid=result.avoid_dates,
@@ -1750,7 +1757,7 @@ def _week_frame_notes(tr: TimeRange | None, purpose: EventKey, today: date) -> l
     except ValueError:
         return []
     span = (
-        f"{w_start.isoformat()}({_WEEKDAY_KO[w_start.weekday()]}) ~ "
+        f"{w_start.isoformat()}({_WEEKDAY_KO[w_start.weekday()]}) – "
         f"{w_end.isoformat()}({_WEEKDAY_KO[w_end.weekday()]})"
     )
     if tr.week_label:
@@ -1840,7 +1847,7 @@ def _pillar_claim_answer(question: str, birth: BirthInput, today: date) -> str |
         alt_ko = _ganji_ko(tc.alternative_hour_pillar)
         if tc.boundary_sensitive and alt_ko:
             lines.append(
-                f"출생 시각이 시지 경계에 가까워 기록 오차 2~3분이면 "
+                f"출생 시각이 시지 경계에 가까워 기록 오차 2–3분이면 "
                 f"{tc.alternative_hour_pillar}({alt_ko})가 될 수 있어요."
             )
         lines.append("시주는 출생 시각과 출생지에 따라 달라지니 입력을 한 번 확인해 주세요.")
@@ -2771,7 +2778,7 @@ def _relocation_group_block(
     )
     return DateSelectionBlock(
         purpose_ko=f"이사(그룹: {self_label}·{partner_label})",
-        period=f"{req_start.isoformat()} ~ {scan_end.isoformat()}",
+        period=f"{req_start.isoformat()} – {scan_end.isoformat()}",
         rows=rows,
         avoid=[{"date": a.date, "reason": a.reason} for a in result.avoid_dates],
         directions=directions,
@@ -2786,7 +2793,7 @@ _CHAT_SCOPE_DIRECTIVE = (
     "사용자의 이번 질문에 곧장 답한다. 질문이 특정 시점(그날·그달)이나 특정 주제이면 그 범위에"
     " 집중하고, 원국·성향·신살은 그 답에 꼭 필요한 근거만 골라 한두 줄로 인용한다 — 원국 전체를"
     " 처음부터 다시 설명하지 말 것. 앞 턴에서 이미 말한 내용은 반복하지 않는다. 인사말은 생략한다."
-    " 첫 문장은 이번 질문에 대한 답(결론·방향)으로 바로 시작한다 — '회원님은 ~한 사주/일간/성향'"
+    " 첫 문장은 이번 질문에 대한 답(결론·방향)으로 바로 시작한다 — '회원님은 …한 사주/일간/성향'"
     " 류 명식 공통 묘사로 답변을 열지 말 것(답변마다 같은 자기소개가 반복되는 인상 방지). 명식"
     " 언급이 필요하면 답의 근거로 본문 중간에 짧게 녹인다."
     " 입력에 없는 점수·확률·백분율 수치('98점'·'확률 70%' 류)를 만들어 말하지 않는다 — 강도는"
@@ -3079,9 +3086,9 @@ def _lifetime_directive(
         프롬프트 트레일링에 붙일 디렉티브 문자열.
     """
     scope_label = (
-        f"평생(출생~약 100세, {lo_year}~{hi_year}년)"
+        f"평생(출생–약 100세, {lo_year}–{hi_year}년)"
         if stage == "평생"
-        else f"{stage}({lo_age}~{hi_age}세 무렵, {lo_year}~{hi_year}년)"
+        else f"{stage}({lo_age}–{hi_age}세 무렵, {lo_year}–{hi_year}년)"
     )
     parts = [
         f"[응답 형식 — 인생 단계 스캔] 이 질문의 대상 구간은 {scope_label}이다. "
@@ -3092,8 +3099,8 @@ def _lifetime_directive(
         parts.append(
             f"{this_year}년 이전의 후보 연도는 이미 지난 시기다 — '이런 흐름이 지나갔을 "
             "시기'로 회고하고 실제 그랬는지 가볍게 확인을 유도하라(단정 금지). "
-            f"{this_year}년 이후의 후보 연도는 '사건이 확정되는 해'가 아니라 '관련 "
-            "에너지가 활성화되는 창'이다 — 반드시 가능성·기류로 표현하라."
+            f"{this_year}년 이후의 후보 연도는 '사건이 확정되는 해'가 아니다 — 사건명은 "
+            "그대로 쓰되 '이직이 거론될 수 있는 해'처럼 가능성형으로 표현하라(확정 어미만 금지)."
         )
     else:
         parts.append(
@@ -3213,7 +3220,7 @@ _TASK_RISK_CHECK_DIRECTIVE = (
     "짧게 제시한다. 질문 창 밖의 다른 해·다른 달 흐름은 위로·전망용으로도 언급하지 말고, "
     "과업과 무관한 일반 운세 서술로 채우지 말 것. 서술할 때 네 층위를 구분하라: 사용자가 "
     "밝힌 사실 / 엔진이 산출한 운 신호 / 일반 절차상 점검 항목 / 아직 모르는 정보. 진행 "
-    "단계가 확인되지 않은 과업은 단정하지 말고 '신청 전이라면 ~을, 이미 진행 중이라면 ~을 "
+    "단계가 확인되지 않은 과업은 단정하지 말고 '신청 전이라면 …을, 이미 진행 중이라면 …을 "
     "확인하라'처럼 단계 분기로 안내할 것."
 )
 
@@ -3396,7 +3403,7 @@ def _lotto_round_directive(
         "[로또 회차 기준 — 엔진 계산값]\n"
         "로또는 일요일부터 토요일 저녁 판매 마감 전까지 산 분량을 그 주 토요일 저녁에 추첨한다. "
         f"오늘 {today.isoformat()}({_WEEKDAY_KO[today.weekday()]})이 속한 회차는 "
-        f"{r_start.isoformat()}(일) ~ {r_end.isoformat()}(토)이고, "
+        f"{r_start.isoformat()}(일) – {r_end.isoformat()}(토)이고, "
         f"{(r_end + timedelta(days=1)).isoformat()}(일)부터는 다음 회차다. "
         "언급하는 날이 어느 회차에 드는지 이 구간으로 구분해 말하고, 서로 다른 회차의 날을 "
         "'같은 주'로 묶지 않는다. 토요일은 '저녁 판매 마감 전'에 사야 그 회차에 들어간다."
@@ -3437,7 +3444,7 @@ def _is_investment_flow(intent: IntentJson, question: str) -> bool:
 _CAREER_FIELD_DIRECTIVE = (
     "[직업 분야 풀이 — 분야·직종·적성 질문 전용]\n"
     "이 질문은 '언제'가 아니라 '어떤 분야·직무'를 묻는다. 첫 문단에서 [직업 분야 근거]의 두드러진 "
-    "십성·배합을 근거로 가장 유력한 직업군 2~3개를 이름으로 답하고, 각각 '어떤 기능과 방식으로 "
+    "십성·배합을 근거로 가장 유력한 직업군 2–3개를 이름으로 답하고, 각각 '어떤 기능과 방식으로 "
     "일하는가'(생산·표현·거래·관리·통제·탐구·전승 중 무엇)로 이유를 붙일 것. '제안·기회가 들어오는 "
     "통로'가 있으면 원국 적성(어떤 일이 맞나)과 현재 운의 통로(어떤 쪽에서 제안이 오기 쉬운가)를 "
     "구분해 서술하고, 시점 서술은 한두 문장의 보조로만 둘 것(월별 타이밍 분석으로 흐르지 말 것). "
@@ -3447,7 +3454,7 @@ _CAREER_FIELD_DIRECTIVE = (
     "배합)에 따라 강조점이 달라짐을 짚을 것. 학파별 배속 차이가 있는 참고 해석임을 한 문장으로 "
     "밝히되 면책 반복은 금지. [간지론 관점] 블록(직업 유형 축·궁위 우선·관성 위치·업종·사업 "
     "시기)이 "
-    "있으면 '간지론에서는 ~로 본다'는 학파 서술로 한 문단 덧붙일 것 — 직장형/상업형은 판정이 "
+    "있으면 '간지론에서는 …로 본다'는 학파 서술로 한 문단 덧붙일 것 — 직장형/상업형은 판정이 "
     "아니라 '결이 맞는 방식'이며, 억부 용신 풀이와 합산·상쇄하지 말고 나란히 둘 것. 2단계 프로필의 "
     "실제 직업·고용형태가 있으면 그것이 사실이고 유형 축은 결 설명으로만 쓸 것."
 )
@@ -3471,7 +3478,7 @@ _ACCIDENT_RISK_DIRECTIVE = (
     "④외부 유입 축: 아무리 조심해도 상대 과실처럼 통제 밖에서 오는 변수는 있다 — 이 축은 "
     "겁주기가 아니라 보험·정기 점검·안전 습관 등 '대비'로만 짧게 서술한다.\n"
     "출력 순서(3층 분리 — 한 문장에 섞지 마라, 2026-07-23 데굴님 승인 D-1): "
-    "①전통 해석 — '전통적으로 ~로 해석하기도 합니다' 형으로, 제공된 위험 신호 블록의 "
+    "①전통 해석 — '전통적으로 …로 해석하기도 합니다' 형으로, 제공된 위험 신호 블록의 "
     "classicalInterpretation·구조 패턴의 전통 해석 문구를 활용해 감추거나 완화하지 말고 전달 "
     "②이번 판정의 근거 — 원국의 어떤 관계가 운의 무엇과 다시 충·형을 이루는지, 제공된 근거로만 "
     "③현실 확인 항목 — exposureCheckItems·노출 예시를 활용해 '실제로 운전·보증·기계 작업이 "
@@ -3484,7 +3491,7 @@ _ACCIDENT_RISK_DIRECTIVE = (
     "횡액수라 부른다'로 풀며 반드시 구성 위험을 함께 나열하라. "
     "금지: '사고가 난다/안 난다' 같은 발생·시점 단정 금지('주의가 필요한 시기' 프레임으로). "
     "살(煞)·귀신·조상 등 초자연 원인 서술 금지(신살은 제공된 데이터에 있는 것만, 공포 조장 "
-    "금지). 질문 기간이 길면(수년~10년) 주의 시기를 2~3개로 압축하고, 나머지 기간은 비교적 "
+    "금지). 질문 기간이 길면(수년–10년) 주의 시기를 2–3개로 압축하고, 나머지 기간은 비교적 "
     "평온하다는 균형도 함께 말하라."
 )
 
@@ -3800,7 +3807,7 @@ def _timing_granularity(question: str) -> str | None:
 
 _MONTH_PICK_DIRECTIVE = (
     "[응답 형식 — '어느 달' 질문] 사용자가 특정 기간 없이 '달(월)'을 물었다. 연 단위 "
-    "나열로 답하지 말고, 아래 월별 흐름(오늘부터 12개월)에서 유리한 달 1~3개를 골라 월 "
+    "나열로 답하지 말고, 아래 월별 흐름(오늘부터 12개월)에서 유리한 달 1–3개를 골라 월 "
     "단위로 답하라. 각 달은 '이 달에 된다' 단정이 아니라 기운이 열리는 창으로 표현하고, "
     "12개월 너머에 더 강한 해가 있으면 '길게 보면 ○○○○년이 더 크다' 정도로만 짧게 "
     "덧붙여라. 마무리 질문을 따로 더 만들지 말고, 시스템 지시의 마지막 마무리 질문 하나의 "
@@ -3818,7 +3825,7 @@ _DAY_PICK_DIRECTIVE = (
 _MEETING_TIMING_MONTH_DIRECTIVE = (
     "[인연·만남 시기 — 달 단위 요청]\n"
     "연인·배우자를 만나는 시기는 일정처럼 고르는 택일이 아니지만, 사용자가 '달'을 명시해 "
-    "물었으므로 연·계절 단위로 뭉개지 말고 제공된 월별 흐름에서 가장 유리한 달 1~2개로 "
+    "물었으므로 연·계절 단위로 뭉개지 말고 제공된 월별 흐름에서 가장 유리한 달 1–2개로 "
     "좁혀 답하라. 약한 달·기신 달을 선택지로 끌어와 곧장 무르지 말고, '어디서·어떤 "
     "경로로' 만나는지는 장소를 지어내지 말 것(활동 성향 경향까지만, 단정 금지)."
 )
@@ -3830,7 +3837,7 @@ _CONCLUSION_SUMMARY_DIRECTIVE = (
     "[결론 요약 모드] 이 질문은 직전 분석의 결론을 재확인하는 후속이다. 새로운 월별 "
     "흐름·연도 나열을 생성하지 말고, 직전 분석과 같은 시점 창 기준으로 이 순서로 짧게 "
     "답하라: ①한 문장 결론(가능성의 방향) ②확실성 수준(단정 불가 명시) ③핵심 근거 "
-    "2~3개 ④성립 조건·변수. 합격·당락·승패는 확정 표현 금지 — '유리한 흐름이나 확정할 "
+    "2–3개 ④성립 조건·변수. 합격·당락·승패는 확정 표현 금지 — '유리한 흐름이나 확정할 "
     "수는 없다' 수준으로. 직전 답변과 이번 계산 결과가 충돌하면 요약 대신 정정을 먼저 "
     "밝혀라. 질문에 정면으로 답하는 것이 최우선이다."
 )
@@ -3861,7 +3868,7 @@ _OVERVIEW_COVERAGE_DIRECTIVE = (
     "[총운 조망 지침] 선정된 주요 후보를 생활 영역별로 묶어 앞으로의 흐름을 조망하라. "
     "**선정된 이벤트 후보는 각각 최소 한 번씩 직접 다루고**, 강도가 가장 높은 후보는 "
     "영역과 무관하게 첫 문단의 결론에 담아 비중 있게 서술하되, 나머지 영역(직장·관계·"
-    "재물·건강 등)은 영역당 1~2문장으로 짧게 받는다 — 월별 용신·기신 흐름 서술이 "
+    "재물·건강 등)은 영역당 1–2문장으로 짧게 받는다 — 월별 용신·기신 흐름 서술이 "
     "이벤트 후보 조망을 대체하거나 특정 영역(직업 등)으로 비중을 쏠리게 하면 안 된다. "
     "여러 후보가 같은 사건군·같은 영역에 집중돼 있으면 반복 나열하지 말고 하나의 "
     "흐름으로 통합하고, 그 집중을 명시하라('이 기간은 ○○ 영역 신호가 특히 강하다'). "
@@ -3880,7 +3887,7 @@ _OVERVIEW_COVERAGE_DIRECTIVE = (
 # ANSWER_CLARITY_DIRECTIVE(공용)의 결론 우선 규칙만 공유한다.
 _RESULT_FIRST_BREVITY_DIRECTIVE = (
     "[결론 우선·근거 압축 — 항상 적용] 사용자는 결과를 먼저 듣고 근거는 짧게 받기를 원한다. "
-    "구성은 ①일상어 결론 1~2문장 → ②그 결론을 받치는 근거(간지·관계·십성)를 영역당 1~2문장 "
+    "구성은 ①일상어 결론 1–2문장 → ②그 결론을 받치는 근거(간지·관계·십성)를 영역당 1–2문장 "
     "→ ③시스템 지시의 마무리 한 번 순서로 쓴다. 첫 문장에는 간지·오행·용신 등 한자 원어를 "
     "한 글자도 넣지 않는다 — 예: '오늘은 내 편이 늘고 기반이 단단해지는 유리한 날이에요.'로 "
     "시작하고, '己未 일진·土 용신' 같은 근거는 둘째 문단에서 처음 말한다(날짜·기준 설명으로 "
@@ -3916,13 +3923,13 @@ def _time_exclusion_directive_text(
     분석 시점으로 재등장하는 회귀를 서술 계층에서도 차단한다.
     """
     spans = ", ".join(
-        f"{e.start_year}~{e.end_year}년" if e.start_year != e.end_year
+        f"{e.start_year}–{e.end_year}년" if e.start_year != e.end_year
         else f"{e.start_year}년"
         for e in exclusions
     )
     tr = intent.time_range
     resolved = (
-        f"{tr.start}{'~' + tr.end if tr.end and tr.end != tr.start else ''}"
+        f"{tr.start}{'–' + tr.end if tr.end and tr.end != tr.start else ''}"
         if tr is not None and tr.start else "미지정"
     )
     return (
@@ -4156,6 +4163,7 @@ def _compat_prompt_block(
         return None
     lines = ["", "[궁합 분석 — 아래 엔진 계산값만 근거로 두 사람 궁합을 설명할 것]"]
     lines += compatibility_lines(report)
+    lines.append(RELATIONSHIP_DIFFERENCE_PERSPECTIVE)  # 다름의 인정·성별 일반화 금지(2026-10-29)
     # 시주 미상 궁합 고지(2026-10-06) — 시주가 없는 쪽은 3기둥 기준이며 시지 상호작용은 미산출.
     _missing = [
         label for label, res in (("본인", result), (partner_label, partner_result))
@@ -4492,9 +4500,12 @@ def _structural_context(
             analyze_marriage_resource(result, _useful, age=age_from_result(result, today))
         )
         out += marriage_age_prior_lines(result)  # MT6 혼기 static prior(프로파일 off면 빈 줄)
+        # 이별운 강의 원국 분류 해설(2026-10-29) — 무인성·정인 약함. 판정이 아니라 원국 분류 설명.
+        out += love_separation_natal_lines(result)
         # 궁위 관계망(P3) — 연·월·일·시 궁위 간 관계질(설명 레이어, 점수 미개입).
         out += palace_network_lines(analyze_palace_network(result), domain)
         out.append(RELATIONSHIP_SELF_AWARENESS_DIRECTIVE)
+        out.append(RELATIONSHIP_DIFFERENCE_PERSPECTIVE)  # 다름의 인정·성별 일반화 금지(2026-10-29)
         out.append(TENDENCY_SHIFT_DIRECTIVE)
         # P2(2026-07-21) — '연애운 없으면 결혼운 좋다' 류 이원 구도 질문에만 통합 관점 주입.
         _q_compact = question.replace(" ", "")
@@ -4548,7 +4559,7 @@ def _daewoon_span_context(result: ManseV2Result, start_year: int, end_year: int)
         e = dw.approx_end_date.year if dw.approx_end_date else None
         if s is None or (e or 9999) < start_year or s > end_year:
             continue
-        span = f"{s}~{e}" if e else f"{s}~"
+        span = f"{s}–{e}" if e else f"{s}–"
         tg = dw.stem_ten_god or ""
         label = f", {dw.luck_label}" if dw.luck_label else ""
         segs.append(f"{dw.ganji}({span}, {tg}{label})")
@@ -5133,7 +5144,7 @@ def _weekly_overview_lines(
             "이 날을 중심으로 서술할 것]"
             if start == end
             else (
-                f"[해당 기간({start.isoformat()}~{end.isoformat()}) 일별 흐름 — 일운 간지·길흉"
+                f"[해당 기간({start.isoformat()}–{end.isoformat()}) 일별 흐름 — 일운 간지·길흉"
                 "(용신/희신/한신/기신/구신)·십성. 날짜별로 하루씩 짚어 서술하고 월 단위로 "
                 "뭉뚱그리지 말 것]"
             )
@@ -7055,6 +7066,17 @@ def chat(
     # 이동 주체 미상(2026-10-15) — 이동 후보가 실리거나 질문이 주체(자발·타의)를 물으면 단정 금지.
     if _mobility_agency_directive_needed(question, payload.event_candidates):
         trailing.append(_MOBILITY_AGENCY_DIRECTIVE)
+    # 연애·관계 운 결 — 이별운 강의 번역층(2026-10-29 데굴님 결정 ③: 관계 질문일 때만).
+    if intent.domain is Domain.RELATIONSHIP and result is not None:
+        trailing.extend(love_separation_block(
+            result, [(c.period, c.ganji) for c in payload.event_candidates],
+        ))
+    # 직장 운 결 — 외부 강의 번역층(2026-10-29 데굴님 결정). 직업 도메인 질문에서 후보 기간 운 글자
+    # × 원국 천간(상관견관 환경형/자기형·정인 완화·겁재 역할 무관·편인 휴직)을 간지당 1회 싣는다.
+    if intent.domain is Domain.CAREER and result is not None:
+        trailing.extend(career_exit_lecture_block(
+            result, [(c.period, c.ganji) for c in payload.event_candidates],
+        ))
     # 상대 외모 지시 대상(2026-10-26) — 구조 블록 안의 지시만으로는 LLM 이 본인 외모를 답했다(실답
     # 재현 d3). 프롬프트 말미에 한 번 더 고정하고, 답변 후 본인 외모 서술 감사(로그 전용)의
     # 표지로 쓴다.
@@ -7691,6 +7713,8 @@ def chat(
         )
 
     prompt_text = prompt_text + "".join("\n" + part for part in trailing)
+    # 범위 라벨 ~ → – (dry-run 미리보기와 실호출 본문을 같게 — llm_client 에서도 한 번 더 적용).
+    prompt_text = normalize_range_tilde(prompt_text)
 
     # R5-b(감수 46차): 위험 노출 배선 — **EXPOSE 계열 모드에서만** 실행.
     # OFF/SHADOW에서는 아래 분기가 실행되지 않아 prompt·system byte 불변

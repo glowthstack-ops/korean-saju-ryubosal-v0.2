@@ -206,7 +206,7 @@ def horizon_directive(policy: HorizonPolicy) -> str:
     elif policy.kind == "year_when":
         parts.append(
             f"사용자는 '몇 년도'를 물었다 — 첫 문장을 '향후 {policy.years_span}년을 기준으로 "
-            "보면'으로 시작해 올해부터 연(세운) 단위로 짚고, 유력한 해 1~2개를 들되 특정 해를 "
+            "보면'으로 시작해 올해부터 연(세운) 단위로 짚고, 유력한 해 1–2개를 들되 특정 해를 "
             "단정하지 말 것. "
             "월별 나열은 하지 말고, 이 창 밖의 해는 본문에 쓰지 말 것. 마지막 한 줄은 '그 이후 "
             "기간이 궁금하면 연도 범위를 지정해 달라(예: 2032년부터 2036년까지)'는 안내로 맺을 것."
@@ -214,7 +214,7 @@ def horizon_directive(policy: HorizonPolicy) -> str:
     elif policy.kind == "transactional_when":
         parts.append(
             "사용자는 '언제'를 물었다 — 앞 12개월은 월 단위로 짚고 그 뒤 2년은 연(세운) 단위 큰 "
-            "줄기만 요약하라. 결론은 유력 구간 1~2개로 말하되 특정 달을 단정하지 말고, 사건 후보가 "
+            "줄기만 요약하라. 결론은 유력 구간 1–2개로 말하되 특정 달을 단정하지 말고, 사건 후보가 "
             "있는 달만 실행·계약 가능 시기로 들 것."
         )
     elif policy.years_span and policy.months_detail:

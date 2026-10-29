@@ -129,6 +129,14 @@ class OfficerPosition(BaseModel):
     items: dict[str, str]
 
 
+class PeerStem(BaseModel):
+    """원국 연·월 천간 겁재의 이동·겸업 성향 문구(외부 강의 ⑥, 2026-10-29) — 서술 전용."""
+
+    model_config = ConfigDict(extra="forbid")
+    note: str = ""
+    items: dict[str, str]
+
+
 class WorkplaceNotes(BaseModel):
     model_config = ConfigDict(extra="forbid")
     note: str = ""
@@ -193,6 +201,7 @@ class CareerFieldDict(BaseModel):
     orientation: OrientationRule | None = None
     palace_priority: PalacePriority | None = None
     officer_position: OfficerPosition | None = None
+    peer_stem: PeerStem | None = None
     workplace_notes: WorkplaceNotes | None = None
     business_types: BusinessTypes | None = None
     business_rules: BusinessRules | None = None
@@ -257,6 +266,7 @@ class CareerFieldFacts(BaseModel):
     orientation: OrientationFacts | None = None
     palace_lines: list[str] = Field(default_factory=list)
     officer_lines: list[str] = Field(default_factory=list)
+    peer_lines: list[str] = Field(default_factory=list)  # 연·월 천간 겁재 성향(2026-10-29)
     workplace_lines: list[str] = Field(default_factory=list)
     business_lines: list[str] = Field(default_factory=list)
     timing_lines: list[str] = Field(default_factory=list)

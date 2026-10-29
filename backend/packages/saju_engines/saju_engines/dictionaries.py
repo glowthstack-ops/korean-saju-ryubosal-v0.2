@@ -507,6 +507,50 @@ class RoleEventTextFile(_AliasModel):
     items: list[RoleEventTextItem] = Field(min_length=6, max_length=6)
 
 
+class CareerExitTextItem(_AliasModel):
+    """외부 강의 「직장을 그만두거나 이직해야 할 때」 번역 문구 1건 (career_exit_lecture_text.json,
+    2026-10-29)."""
+
+    id: Literal[
+        "natal_officer_luck_output", "natal_output_luck_officer", "resource_rescue",
+        "peer_neutral_mobility", "pianyin_leave", "pianyin_leave_female",
+    ]
+    condition: str
+    text: str = Field(min_length=20)
+    basis: str = Field(min_length=10)
+    reviewed: bool
+
+
+class CareerExitTextFile(_AliasModel):
+    """강의 번역 문구 사전 — 6항목 정확 커버리지(환경형·자기형·정인 완화·겁재 역할 무관·편인 휴직·
+    여성 분기)."""
+
+    version: str
+    note: str | None = None
+    items: list[CareerExitTextItem] = Field(min_length=6, max_length=6)
+
+
+class LoveSeparationTextItem(_AliasModel):
+    """외부 강의 「남녀의 이별운」 번역 문구 1건 (love_separation_lecture_text.json, 2026-10-29)."""
+
+    id: Literal[
+        "officer_output", "palace_jiecai", "resource_inflow", "zhengcai_peer",
+        "no_resource_classification", "weak_resource_classification",
+    ]
+    condition: str
+    text: str = Field(min_length=20)
+    basis: str = Field(min_length=10)
+    reviewed: bool
+
+
+class LoveSeparationTextFile(_AliasModel):
+    """이별운 강의 문구 사전 — 6항목 정확 커버리지(운 4 + 원국 분류 해설 2)."""
+
+    version: str
+    note: str | None = None
+    items: list[LoveSeparationTextItem] = Field(min_length=6, max_length=6)
+
+
 class YearlyEnvTenGodItem(_AliasModel):
     """세운 환경 십성 어휘 1건 (yearly_environment.json `tenGodEnv`).
 
@@ -2768,6 +2812,8 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/dohwa_text.json": DohwaTextFile,
     "interpretations/transit_peer_mobility_text.json": PeerMobilityTextFile,
     "interpretations/transit_role_event_text.json": RoleEventTextFile,
+    "interpretations/career_exit_lecture_text.json": CareerExitTextFile,
+    "interpretations/love_separation_lecture_text.json": LoveSeparationTextFile,
     "interpretations/yearly_environment.json": YearlyEnvironmentFile,
     "interpretations/mobility_flow_text.json": MobilityFlowTextFile,
     "interpretations/pattern_transit_text.json": PatternTransitTextFile,
@@ -3277,6 +3323,48 @@ def _lint_role_event_text(file: RoleEventTextFile) -> list[str]:
         if exp is not None and (it.ten_god, it.role) != exp:
             errors.append(f"{head}: {it.id} 의 십성×역할 {it.ten_god}×{it.role} ≠ {exp}")
         for bad in ("반드시", "확실히", "틀림없이", "무조건"):
+            if bad in it.text:
+                errors.append(f"{head}: {it.id} 문구에 단정 어휘 '{bad}'")
+    return errors
+
+
+_CAREER_EXIT_TEXT_IDS = (
+    "natal_officer_luck_output", "natal_output_luck_officer", "resource_rescue",
+    "peer_neutral_mobility", "pianyin_leave", "pianyin_leave_female",
+)
+
+
+def _lint_career_exit_text(file: CareerExitTextFile) -> list[str]:
+    """career_exit_lecture_text.json — 6 id 정확 커버리지·단정 어휘 금지·휴직≠퇴사 문구 보존."""
+    head = "interpretations/career_exit_lecture_text.json"
+    errors: list[str] = []
+    ids = [it.id for it in file.items]
+    if sorted(ids) != sorted(_CAREER_EXIT_TEXT_IDS):
+        errors.append(f"{head}: id 집합이 6종과 다름 — {ids}")
+    for it in file.items:
+        for bad in ("반드시", "확실히", "틀림없이", "무조건"):
+            if bad in it.text:
+                errors.append(f"{head}: {it.id} 문구에 단정 어휘 '{bad}'")
+        if it.id == "pianyin_leave" and "복귀" not in it.text:
+            errors.append(f"{head}: pianyin_leave 문구에 '복귀'(휴직≠퇴사 구분) 누락")
+    return errors
+
+
+_LOVE_SEPARATION_TEXT_IDS = (
+    "officer_output", "palace_jiecai", "resource_inflow", "zhengcai_peer",
+    "no_resource_classification", "weak_resource_classification",
+)
+
+
+def _lint_love_separation_text(file: LoveSeparationTextFile) -> list[str]:
+    """love_separation_lecture_text.json — 6 id 정확 커버리지·단정 어휘 금지."""
+    head = "interpretations/love_separation_lecture_text.json"
+    errors: list[str] = []
+    ids = [it.id for it in file.items]
+    if sorted(ids) != sorted(_LOVE_SEPARATION_TEXT_IDS):
+        errors.append(f"{head}: id 집합이 6종과 다름 — {ids}")
+    for it in file.items:
+        for bad in ("반드시", "확실히", "틀림없이", "무조건", "헤어진다", "이혼한다"):
             if bad in it.text:
                 errors.append(f"{head}: {it.id} 문구에 단정 어휘 '{bad}'")
     return errors
@@ -4075,6 +4163,10 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_peer_mobility_text(parsed))
         elif isinstance(parsed, RoleEventTextFile):
             errors.extend(_lint_role_event_text(parsed))
+        elif isinstance(parsed, CareerExitTextFile):
+            errors.extend(_lint_career_exit_text(parsed))
+        elif isinstance(parsed, LoveSeparationTextFile):
+            errors.extend(_lint_love_separation_text(parsed))
         elif isinstance(parsed, YearlyEnvironmentFile):
             errors.extend(_lint_yearly_environment(parsed))
         elif isinstance(parsed, MobilityFlowTextFile):

@@ -13025,3 +13025,66 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 렌더: `repetition_structure._palace_suffix` — same 관계·지지·사전 항목 있을 때만 활성화 줄 뒤에 붙임(채팅 grounding·사건 후보 블록·리포트 월별
   공용). 辰·午·酉는 감수 전 비워 둠(공통 문구 폴백). 점수·후보·세력 불변. 스키마 `RepetitionPalaceItem`·린트(중복·금지 어휘·원칙 필수).
 - 회귀: `tests/unit/test_repetition_palace_text_20261028.py` 4건. docs/05.
+
+## 2026-10-29 — 단정 금지 원칙 구체화: "단정은 '반드시 ~한다'뿐, '~할 수도 있다'는 단정이 아니다" (데굴님 "그래 진행해")
+
+- **배경**: 데굴님 지적 — 단정 금지 항목 때문에 사용자가 애매한 답만 받았다. 실측(DB 완료 답변 948건): 추상 어구(에너지·기류·흐름·활성화) 출현 75% vs 구체 사건명(이직·승진·합격·이사…) 41%, 확정 단정은 2%. 원인은 단정 금지 자체가 아니라 **추상화 강제** — 시스템 프롬프트 규칙 5 "사건 발생이 아니라 '변화 에너지의 활성화'로 표현"(채팅·리포트 공통), CLAUDE.md 원칙 3·docs/06 표현 원칙 1의 같은 문안, 명확한 답 계약 ②의 '수 있' 최대 2문장 상한, 섹션 지시의 "활성화 창으로·움직임이 강해지는 창으로" 류 문구.
+- **공통 정의 SSOT**: `structural_context.ASSERTION_POLICY` — 단정 = 결과를 확정하는 어미(반드시·틀림없이·무조건·확실히 ~한다)·100%·당락/승패/당첨 확정만. 구체 사건명 + 가능성 어미가 기본 서술 형태, 사건명을 추상어로 바꾸지 않음(추상어는 후보 없을 때만), 강도는 점수 표현표, 신호 달≠실현 달은 한 문장. 예외(가능성형도 금지) = 수명·생사(사망·사별·요절·불치), 로또 번호·종목 픽, 당락·승패·당첨 확정.
+- **적용**: ①`llm_client._SYSTEM_PROMPT`·`_REPORT_SYSTEM_PROMPT` 규칙 5 교체(규칙 1~4·6~9 리터럴 불변) ②`ANSWER_CLARITY_DIRECTIVE` ② 개정(판정 문장만 유보 금지, 사건 가능성 문장 횟수 제한 없음, 유보 중첩만 금지) ③`AVOID_DATE_CERTAINTY_DIRECTIVE` 사건명 유지 ④`context_reducer` 기본·일/월/연 총운 지시 ⑤`report_service` 섹션 지시 F-14·F-15·F-17·F-17c·F-18b·J-06·J-07·R-03·RP-03·Y-06·Y-08·Y-09·대운/연 페이지·변곡 연표·공통 꼬리 ⑥`chat_service` 생애 스캔 지시 ⑦`report_checks._PROHIBITED_PATTERNS` 오탐 정정 — 하드 위반(재생성)이라 `당첨될`→`당첨될 (것|겁니다|거예요|테니)`, `떨어진다`→`(시험|면접|선거|오디션|전형)에(서) 떨어진다` ⑧`templates/prohibited_styles.json` 1.1.0 — 대체 지침을 사건명 유지 가능성형으로.
+- **문서**: CLAUDE.md 원칙 3, docs/06 표현 원칙 1·3, docs/10 7장 검사 5.
+- **회귀**: `tests/unit/test_assertion_policy_20261029.py`(정의·규칙 5·② 상한 폐기·시기 지시·금지 패턴 반례/정례), `test_report_phase9::test_check5_possibility_forms_are_not_prohibited`, `test_lifetime_scan_routing` 기대값 갱신.
+- **남음**: 실답 감수 — 재기동 후 채팅·리포트에서 사건명 출현 비율(41%)이 올라가는지 같은 스크립트로 재측정.
+
+## 2026-10-29 — LLM 입력 물결표(~) 표기 정리 — 취소선 오독 제거 (데굴님 "그렇게 하자")
+
+**배경**: 데굴님이 LLM 입력 본문에서 "취소선으로 그어진 수많은 정보"를 보고 토큰 낭비를 의심. 실측(dry-run 39,481자): 취소선 마크업 `~~…~~` 0건, 단일 `~` 44개 — 마크다운 뷰어가 같은 줄의 `~`…`~` 사이(12신살 방위판 `345°~15°`, 자리표시 `'~할 수 있다'·'~가능성이 높다'`)를 취소선으로 렌더한 것. 시스템 프롬프트도 `~` 37개/18구간.
+
+**결정**: 범위 `A~B` → `A–B`(엔 대시, 붙여 씀), 어미 자리표시 `~` → `…`. 토큰은 동일 수준. docs/06 표현 원칙 8 신설.
+
+**변경**
+- 정적 지시문 145곳/24파일(토큰 단위 치환, docstring·로그 포맷·정규식·raw 문자열 제외): llm_client 시스템 프롬프트 2종, structural_context(ASSERTION_POLICY·명확한 답 계약 등), context_reducer, chat_service, report_service, sinsal_direction 방위판, date_selection·hour_unknown 시각 구간 라벨, selection_allocation, horizon, topic_builder 금지 예시, persona 템플릿 등.
+- 주입 사전 6파일: persona_lexicon 종결어미 20건(`…예요`), ai_tell_patterns label·directive 45건(시스템 프롬프트 문체 지시로 주입), daily_phrase_templates band_guide 3건, repetition_text principles, terminology(장생–양), structure_patterns evidence 2건. 시스템 프롬프트 규칙 7의 `취소선(~~…~~)` 표기는 말로 풀어 씀.
+- 신규 `saju_engines/prompt_notation.py` `normalize_range_tilde` — 숫자·도(°) 뒤 범위 `~`만 `–`로. `llm_client.generate_reading`(prompt+system)과 chat_service 본문 조립 끝(dry-run 미리보기 동일)에서 적용. **대운 기간 키 `YYYY~YYYY`(adapter·ganji_calendar·event_engine_v2)·folk span_ko·`_period_level`·context_reducer의 `replace("~","-")`는 식별자라 불변** — life_event_store·dual-run 감사·period_fortune_signals가 문자열로 대조한다.
+- 제외: 사용자 발화 파서(time_parser·query_parser·conversation·question_frame 등)의 `~` 수용, 로그 포맷, 사전 `note` 필드, 출력 정리기(`~~…~~` 제거는 유지).
+- 테스트: `test_prompt_notation_20261029.py` 신설(시스템 프롬프트·공용 지시 `~` 0건 고정, 정규화 경계, 방위 라벨·페르소나 어미), test_sinsal_direction 도수 단언 20건·persona·selection_allocation 기대 문자열 갱신.
+
+## 2026-10-29 — 외부 강의 「직장을 그만두거나 이직해야 할 때」 번역층 — 원국×운 상관견관·겁재 역할 무관·편인 휴직(career_leave 신설) (데굴님 결정 3건)
+
+**배경**: 데굴님이 붙여 넣은 영상 스크립트(상관견관 환경형/자기형·정인 완화·편인 도식 휴직·겁재 천간 운 이직·원국 연월 천간 겁재 성향)를 엔진과 대조(`doc/v2_2/EXTERNAL_TEXT_GAP_CAREER_EXIT_LECTURE.md`). 브랜처는 운 신호만 조합해 원국 글자×운 글자 시드가 없었고(정관격 運破格 감점만), 겁재 이동 시드는 용신·기신 한정, 휴직 사건 키 없음.
+
+**결정(데굴님)**: ① 원국 쪽은 천간만 ② 휴직 사건 키 신설("휴직은 다시 그 회사로 돌아가는 긴 휴가 — 완전 이탈이 아니다") ③ 겁재 천간만(비견 제외).
+
+**구현**
+- 사건 키 `career_leave`(EventKeyV2 22종) + 레지스트리 10곳 전수(docs/05 절 참조). `test_dictionaries_phase1` 21→22.
+- 점수층 `saju_engines/career_exit_seed.py` + 사전 절 `career_exit_lecture_rules` 4규칙(환경형·자기형·겁재 한신·편인 휴직), 정인 구응 ×0.8, 원인 축 reason_code 전용. 플래그 `SAJU_CAREER_EXIT_SEED_ENABLED` 기본 OFF, `casebook_replay --career-exit-seed`, 원장 측정 `scripts/measure_career_exit_seed.py`.
+- 문구층 `career_exit_lecture_text.json` 6항목(항상 노출) — `incoming_ten_god_note(natal=…)` 단일 기간 근거에만 부착(후보별 note 제외). career_fields.json `peer_stem` 3칸 → 간지론 블록 "비겁 천간(이동·겸업 성향)".
+- 테스트 `test_career_exit_seed.py` 15건(OFF 기준선 불변·규칙별 시드·구응 감쇠·rule_ids·문구 분기·career_field).
+- 측정 결과는 대조 문서 §7 에 기입.
+- 측정(2026-10-29): 원장 11명 off/on/규칙별 전부 동일(t95 연 정밀도 0.413·top3 월 0.145) + 85사례 재생 metrics 변화 0 — 발동 달에 브랜처 기본점 59~61이 이미 있어 시드(50~68)가 inert. 점수층 OFF 유지·문구층 ON. 채팅 직업 질문은 후보별 note 가 원국을 안 받아 문구가 0건이던 것을 `career_exit_lecture_block`(간지당 1회)로 보완.
+
+## 2026-10-29 — 외부 강의 「남녀의 이별운」 번역층 — 관성 손상·배우자궁 쟁재·무인성 정인운·정재 비겁 쟁재 (데굴님 결정 3건)
+
+**배경**: 같은 강사의 이별운 강의를 엔진과 대조(`doc/v2_2/EXTERNAL_TEXT_GAP_LOVE_SEPARATION.md`). 관계 사건을 내는 규칙은 운 스택 안의 비견+정재(41)·겁재+정재(49)뿐이라 원국 글자 × 운 글자 4축이 모두 빈 곳.
+
+**결정(데굴님)**: ① 천간/지지 가중은 "연애운이니 케이스를 기준으로 판단" ② 무인성은 "원국 분류 설명 — 해설이지 단정 판정 대상 아님" ③ 넓은 이별(자녀 독립·이사·이직)은 "관계 질문일 때만".
+
+**구현**
+- 점수층 `saju_engines/love_separation.py` — 연애 실험 키 5종(`separation_*`, `love_timing.LOVE_EXPERIMENT_KEYS`), relationship_change 시드(같은 시점 최고점 1건). 기본 OFF.
+- 서술층 `love_separation_lecture_text.json` 6항목 — 운 문구 4종은 채팅 관계 도메인 말미 블록(간지당 1회), 무인성·정인 약함 분류 해설은 채팅 관계 블록·리포트 결혼 자원 블록. 시주 미상은 분류 안 함(데이터 불완전).
+- 측정: 85사례 9모드 — 적중 불변, ④가 방향 오탐 7→8 → 점수층 전부 OFF, 천간 우위 기본(지지 우위 근거 없음 — 원장 정밀도 소폭 하락). 서술층 ON.
+- 테스트 `test_love_separation.py` 16건.
+
+**같은 날 부수 정리**
+- 이직 강의 층의 `career_leave` 추가로 위험 노출 정책 해시(`event_key_enum_hash`)·이벤트 그래프 스냅샷이 바뀌어 스위트 3건 실패 → `scripts/risk_review_manifest.py`·`scripts/build_event_graph.py` 로 재생성(휴직=사건형, allowlist 불요). 재기동~재생성 사이 라이브 위험 노출은 해시 불일치로 우회 상태였다(설계된 안전장치).
+- `career_exit_lecture_texts` 리팩터링 중 원국 없이 붙어야 할 문구(편인 휴직·겁재 역할 무관)가 빠지던 회귀를 일간 인자 분리로 교정(+회귀 테스트), mypy 9건 해소.
+
+## 2026-10-29 — 외부 강의 「남자와 여자는 어떻게 다른가」 반영 — 다름의 인정 관점·성별 일반화 금지·천간/지지 비유 해설 예외 (데굴님 결정 3건)
+
+**배경**: 같은 강사의 음양·천간지지 강의(`doc/v2_2/EXTERNAL_TEXT_GAP_GENDER_YINYANG.md`). 명식 판정 규칙은 없고, 핵심 '천간=생각·지지=행동'은 2026-09-06 고정 등식 금지와 충돌, '여자=합리적·남자=뜬구름'은 명식 근거 없는 성별 일반화.
+
+**결정·구현**
+- 성별 성향 일반화 불채택 — 관계·궁합 블록에 금지 가드로 명시(`RELATIONSHIP_DIFFERENCE_PERSPECTIVE`).
+- 강의 결론(다름의 인정)만 관계 관점 문구로 채팅 연애 관계 블록·궁합 블록에 부착(마무리 위치 비지정).
+- 고정 등식 금지 유지 + 개념 설명용 비유는 해설 한정 예외(`BEHAVIOR_PATTERN_DIRECTIVE`·`terminology.json` 천간/지지·`career_fields.json` avoid).
+- 테스트 5건. 점수·판정 불변(서술층만).
+

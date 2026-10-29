@@ -116,6 +116,12 @@
       "reviewed": false
     },
     {
+      "eventKey": "career_leave",
+      "ko": "휴직·휴가",
+      "eventType": "progress",
+      "reviewed": false
+    },
+    {
       "eventKey": "creative_output",
       "ko": "결과물·창작",
       "eventType": "progress",
