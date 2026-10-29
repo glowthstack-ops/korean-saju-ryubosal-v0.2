@@ -48,6 +48,7 @@ from saju_engines.daewoon_background import (
     background_evidence_block,
 )
 from saju_engines.daewoon_progression import resolve_all_daewoon_progressions
+from saju_engines.daewoon_turn import daewoon_turn_lines
 from saju_engines.dictionary_version import report_dict_version
 from saju_engines.direction_avoidance import annotate_avoidance, strong_avoid_lines
 from saju_engines.direction_suggestion import (
@@ -109,6 +110,7 @@ from saju_engines.relationship_hints import (
     normalize_relation_type,
     relation_context_lines,
 )
+from saju_engines.relationship_tendency import relationship_tendency_lines
 from saju_engines.repetition_structure import activation_line, repetition_activations
 from saju_engines.report_builder import ReportBuilder
 from saju_engines.report_event_input import (
@@ -200,6 +202,7 @@ from saju_engines.ten_god_label_audit import audit_ten_god_labels, facts_from_pi
 from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
 from saju_engines.topic_builder import build_topic_context
 from saju_engines.wealth_capacity import analyze_wealth_capacity
+from saju_engines.wealth_lecture import daewoon_readiness_lines, wealth_vessel_lines
 from saju_engines.wealth_status_lean import analyze_wealth_status_lean
 from saju_engines.yearly_environment import (
     build_yearly_environment,
@@ -1967,10 +1970,16 @@ class _ReportData:
                     if dw.index == _cur
                     else (" [지남]" if dw.index < _cur else " [예정]")
                 )
+            # 대운 역할 라벨(2026-10-29 대운 강의 — '원국을 받쳐 주는 대운인가'가 핵심인데 채팅과
+            # 달리 이 페이지에만 빠져 있던 결함). 엔진 luck_label 그대로.
+            role = f" · 역할: {dw.luck_label}" if dw.luck_label else ""
             lines.append(
                 f"[이 페이지의 대운] {dw.ganji}(천간 {dw.stem}={dw.stem_ten_god}/지지 "
-                f"{dw.branch}={dw.branch_ten_god}) {y0}-{y1}년, {age}-{age + 9}세{tag}"
+                f"{dw.branch}={dw.branch_ten_god}) {y0}-{y1}년, {age}-{age + 9}세{role}{tag}"
             )
+            # 재성 대운 받을 준비 — 앞 대운 끝 해와 겹치지 않게 이 대운 안쪽 해(y0+1)로 고정.
+            lines += daewoon_readiness_lines(self.result, y0 + 1, y0 + 1)
+            lines += daewoon_turn_lines(self.result, y0, y1)  # 교운 방향(2026-10-29 길흉 강의)
         rows = year_spectrum_lines(
             self._lifetime_result, self.lifetime_pool, list(range(y0, y1 + 1))
         )
@@ -1993,7 +2002,8 @@ class _ReportData:
         from saju_engines.event_scoring import favorability_map
 
         role = favorability_map(self.result).get(self.wealth_capacity.wealth_element)
-        return wealth_capacity_lines(self.wealth_capacity, role)
+        # 재물 강의 3편(2026-10-29) — 재물 그릇 4분류·부재 경로·관점(원국 분류 해설, 판정 아님).
+        return wealth_capacity_lines(self.wealth_capacity, role) + wealth_vessel_lines(self.result)
 
     def activity_remedy_block(self) -> list[str]:
         """[활동 키워드]+[개운 행동] — 용신·희신/기신·구신·원국 신살 기준 결정론 선별.
@@ -2038,6 +2048,7 @@ class _ReportData:
             marriage_resource_lines(self.marriage_resource)
             + marriage_age_prior_lines(self.result)
             + love_separation_natal_lines(self.result)
+            + relationship_tendency_lines(self.result)  # 관계 결(2026-10-29 관계 강의)
         )
 
     def selection_block(self, domain: str) -> list[str]:

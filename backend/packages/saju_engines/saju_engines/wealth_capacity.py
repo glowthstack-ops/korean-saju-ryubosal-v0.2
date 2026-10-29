@@ -118,6 +118,9 @@ def detect_wealth_activations(
     natal_branches: set[str],
     luck_branches: set[str],
     luck_stem_elements: set[str],
+    natal_output_present: bool = False,
+    natal_wealth_present: bool = False,
+    natal_complement: bool = False,
 ) -> list[str]:
     """한 시점(거버닝 스택)의 재물 발동을 판정한다 — **운 완성 경로 포함**(v2.2 Phase 2).
 
@@ -130,6 +133,9 @@ def detect_wealth_activations(
         natal_branches: 원국 4지지.
         luck_branches: 이 시점 거버닝 스택(대운·세운·월 등) 지지.
         luck_stem_elements: 거버닝 스택 천간 오행.
+        natal_output_present / natal_wealth_present: 원국 식상·재성 세력 10%+(존재 임계).
+        natal_complement: True 면 '원국 한쪽 + 운 천간 다른 한쪽' 식상생재를 별도 발동
+            '식상생재(원국 보완)'으로 인정한다(2026-10-29 재물 강의 — 실험, 기본 OFF).
 
     Returns:
         성립한 발동 한글 라벨 목록(재성국 완성 / 묘고 충개고 / 식상생재).
@@ -152,5 +158,12 @@ def detect_wealth_activations(
     if output_el and output_el in luck_stem_elements and wealth_element in luck_stem_elements:
         # 운 천간에 식상·재성이 동시 투간 — 식상생재 흐름이 운에서 실제 작동.
         acts.append("식상생재")
+    elif natal_complement and output_el and (
+        (natal_wealth_present and output_el in luck_stem_elements)
+        or (natal_output_present and wealth_element in luck_stem_elements)
+    ):
+        # 원국 재성 + 운 식상(묻힌 재물을 캐냄) / 원국 식상 + 운 재성(밖에서 벌어옴) — 운이 한쪽을
+        # 보충해 식상생재가 이어진다(재물 강의 2026-10-29, 운 적용 구조 층 신규 성립과 같은 조건).
+        acts.append("식상생재(원국 보완)")
 
     return acts

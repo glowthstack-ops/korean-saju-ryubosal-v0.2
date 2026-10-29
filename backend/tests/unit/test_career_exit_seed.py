@@ -169,7 +169,7 @@ def test_text_dictionary_lint_and_ids() -> None:
     raw = json.loads(path.read_text("utf-8"))
     parsed = CareerExitTextFile.model_validate(raw)
     assert _lint_career_exit_text(parsed) == []
-    assert len(parsed.items) == 6
+    assert len(parsed.items) == 9  # 2026-10-29 편인 도식 3항목 추가
 
 
 def test_note_attaches_environment_text_without_rescue() -> None:

@@ -312,6 +312,12 @@ class SinsalTextItem(_AliasModel):
     # from_luck(선택, 2026-06-12 사용자 확정): 운(대운·세운 등)에서 도래 시 현실 징후 —
     # 원국 보유(체질)와 달리 그 시기에 '사건'으로 터진다. 미저작 신살은 manifestation 폴백.
     from_luck: str | None = Field(default=None, alias="fromLuck")
+    # by_branch·advice(선택, 2026-10-29 역마살 강의): 성립한 신살 글자별 결과 조언 1줄. 역마살만
+    # 저작 — 성립(상대 12신살) 글자에만 붙고 이동지(寅申巳亥 보유) 표지에는 쓰지 않는다.
+    by_branch: dict[Literal[
+        "子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥",
+    ], str] | None = Field(default=None, alias="byBranch")
+    advice: str | None = None
 
 
 class StemTextItem(_AliasModel):
@@ -514,6 +520,7 @@ class CareerExitTextItem(_AliasModel):
     id: Literal[
         "natal_officer_luck_output", "natal_output_luck_officer", "resource_rescue",
         "peer_neutral_mobility", "pianyin_leave", "pianyin_leave_female",
+        "pianyin_dosik_single", "pianyin_dosik_ample", "siksin_immersion",
     ]
     condition: str
     text: str = Field(min_length=20)
@@ -527,7 +534,7 @@ class CareerExitTextFile(_AliasModel):
 
     version: str
     note: str | None = None
-    items: list[CareerExitTextItem] = Field(min_length=6, max_length=6)
+    items: list[CareerExitTextItem] = Field(min_length=9, max_length=9)
 
 
 class LoveSeparationTextItem(_AliasModel):
@@ -549,6 +556,90 @@ class LoveSeparationTextFile(_AliasModel):
     version: str
     note: str | None = None
     items: list[LoveSeparationTextItem] = Field(min_length=6, max_length=6)
+
+
+#: wealth_lecture_text.json id 정확 커버리지(2026-10-29 재물 강의 3편).
+WEALTH_LECTURE_TEXT_IDS: tuple[str, ...] = (
+    "vessel_strong_firm",
+    "vessel_strong_weak",
+    "vessel_weak_firm",
+    "vessel_weak_weak",
+    "no_output_wealth_resource",
+    "no_output_wealth_resource_officer",
+    "complement_output_natal",
+    "complement_wealth_natal",
+    "satisfaction_big_low",
+    "satisfaction_small_high",
+    "satisfaction_big_high",
+    "satisfaction_small_low",
+    "peer_wealth_caution",
+    "peer_wealth_caution_officer",
+    "peer_wealth_caution_weak",
+    "daewoon_wealth_ready",
+    "daewoon_wealth_no_spoon",
+    "natal_wealth_only",
+    "natal_output_only",
+    "bond_support",
+    "output_blocked",
+    "perspective",
+)
+
+
+class WealthLectureTextItem(_AliasModel):
+    """외부 강의 재물 3편 번역 문구 1건 (wealth_lecture_text.json, 2026-10-29)."""
+
+    id: str
+    condition: str
+    text: str = Field(min_length=20)
+    basis: str = Field(min_length=10)
+    reviewed: bool
+
+
+class WealthLectureTextFile(_AliasModel):
+    """재물 강의 문구 사전 — 22항목 정확 커버리지(그릇·부재·보완·만족도·경계·대운·원국·관점)."""
+
+    version: str
+    note: str | None = None
+    items: list[WealthLectureTextItem] = Field(min_length=22, max_length=22)
+
+
+class RelationshipTendencyTextItem(_AliasModel):
+    """관계에서 나타나기 쉬운 결 문구 1건 (relationship_tendency_text.json, 2026-10-29)."""
+
+    id: Literal[
+        "header", "sanggwan_gyeongwan", "sanggwan_gyeongwan_weak", "officer_heavy_weak",
+        "no_officer_male", "no_officer_female", "no_officer_output_strong",
+    ]
+    condition: str
+    text: str = Field(min_length=20)
+    basis: str = Field(min_length=10)
+    reviewed: bool
+
+
+class RelationshipTendencyTextFile(_AliasModel):
+    """관계 결 사전 — 7항목 정확 커버리지·낙인 어휘 금지(lint)."""
+
+    version: str
+    note: str | None = None
+    items: list[RelationshipTendencyTextItem] = Field(min_length=7, max_length=7)
+
+
+class DaewoonTurnTextItem(_AliasModel):
+    """교운 방향 조언 문구 1건 (daewoon_turn_text.json, 2026-10-29)."""
+
+    id: Literal["good_to_bad", "bad_to_good", "core_label", "extended_label"]
+    condition: str
+    text: str = Field(min_length=5)
+    basis: str = Field(min_length=10)
+    reviewed: bool
+
+
+class DaewoonTurnTextFile(_AliasModel):
+    """교운 방향 사전 — 4항목 정확 커버리지·단정 어휘 금지(lint)."""
+
+    version: str
+    note: str | None = None
+    items: list[DaewoonTurnTextItem] = Field(min_length=4, max_length=4)
 
 
 class YearlyEnvTenGodItem(_AliasModel):
@@ -2814,6 +2905,9 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/transit_role_event_text.json": RoleEventTextFile,
     "interpretations/career_exit_lecture_text.json": CareerExitTextFile,
     "interpretations/love_separation_lecture_text.json": LoveSeparationTextFile,
+    "interpretations/wealth_lecture_text.json": WealthLectureTextFile,
+    "interpretations/relationship_tendency_text.json": RelationshipTendencyTextFile,
+    "interpretations/daewoon_turn_text.json": DaewoonTurnTextFile,
     "interpretations/yearly_environment.json": YearlyEnvironmentFile,
     "interpretations/mobility_flow_text.json": MobilityFlowTextFile,
     "interpretations/pattern_transit_text.json": PatternTransitTextFile,
@@ -3331,16 +3425,17 @@ def _lint_role_event_text(file: RoleEventTextFile) -> list[str]:
 _CAREER_EXIT_TEXT_IDS = (
     "natal_officer_luck_output", "natal_output_luck_officer", "resource_rescue",
     "peer_neutral_mobility", "pianyin_leave", "pianyin_leave_female",
+    "pianyin_dosik_single", "pianyin_dosik_ample", "siksin_immersion",
 )
 
 
 def _lint_career_exit_text(file: CareerExitTextFile) -> list[str]:
-    """career_exit_lecture_text.json — 6 id 정확 커버리지·단정 어휘 금지·휴직≠퇴사 문구 보존."""
+    """career_exit_lecture_text.json — 9 id 정확 커버리지·단정 어휘 금지·휴직≠퇴사 문구 보존."""
     head = "interpretations/career_exit_lecture_text.json"
     errors: list[str] = []
     ids = [it.id for it in file.items]
     if sorted(ids) != sorted(_CAREER_EXIT_TEXT_IDS):
-        errors.append(f"{head}: id 집합이 6종과 다름 — {ids}")
+        errors.append(f"{head}: id 집합이 9종과 다름 — {ids}")
     for it in file.items:
         for bad in ("반드시", "확실히", "틀림없이", "무조건"):
             if bad in it.text:
@@ -3367,6 +3462,54 @@ def _lint_love_separation_text(file: LoveSeparationTextFile) -> list[str]:
         for bad in ("반드시", "확실히", "틀림없이", "무조건", "헤어진다", "이혼한다"):
             if bad in it.text:
                 errors.append(f"{head}: {it.id} 문구에 단정 어휘 '{bad}'")
+    return errors
+
+
+def _lint_wealth_lecture_text(file: WealthLectureTextFile) -> list[str]:
+    """wealth_lecture_text.json — 22 id 정확 커버리지·수익/당첨 확정 어휘 금지."""
+    head = "interpretations/wealth_lecture_text.json"
+    errors: list[str] = []
+    ids = [it.id for it in file.items]
+    if sorted(ids) != sorted(WEALTH_LECTURE_TEXT_IDS):
+        errors.append(f"{head}: id 집합이 22종과 다름 — {ids}")
+    for it in file.items:
+        for bad in ("반드시", "확실히", "틀림없이", "무조건", "당첨된다", "부자가 된다"):
+            if bad in it.text:
+                errors.append(f"{head}: {it.id} 문구에 단정 어휘 '{bad}'")
+    return errors
+
+
+#: 관계 결 문구 낙인·단정 어휘(2026-10-29 — 강의의 '조심해야 할 사주'·마마보이·무속인 프레임 차단).
+_RELATIONSHIP_TENDENCY_BANNED = (
+    "마마보이", "무속", "팔자가 드세", "피해야", "2% 부족", "반드시", "무조건",
+)
+
+
+def _lint_relationship_tendency_text(file: RelationshipTendencyTextFile) -> list[str]:
+    """relationship_tendency_text.json — 7 id 정확 커버리지·낙인/단정 어휘 금지."""
+    head = "interpretations/relationship_tendency_text.json"
+    errors: list[str] = []
+    ids = [it.id for it in file.items]
+    if len(set(ids)) != 7:
+        errors.append(f"{head}: id 중복 또는 7종 아님 — {ids}")
+    for it in file.items:
+        for bad in _RELATIONSHIP_TENDENCY_BANNED:
+            if bad in it.text:
+                errors.append(f"{head}: {it.id} 문구에 금지 어휘 '{bad}'")
+    return errors
+
+
+def _lint_daewoon_turn_text(file: DaewoonTurnTextFile) -> list[str]:
+    """daewoon_turn_text.json — 4 id 정확 커버리지·단정 어휘 금지."""
+    head = "interpretations/daewoon_turn_text.json"
+    errors: list[str] = []
+    ids = [it.id for it in file.items]
+    if len(set(ids)) != 4:
+        errors.append(f"{head}: id 중복 또는 4종 아님 — {ids}")
+    for it in file.items:
+        for bad in ("반드시", "확실히", "틀림없이", "무조건", "나락"):
+            if bad in it.text:
+                errors.append(f"{head}: {it.id} 문구에 금지 어휘 '{bad}'")
     return errors
 
 
@@ -4167,6 +4310,12 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_career_exit_text(parsed))
         elif isinstance(parsed, LoveSeparationTextFile):
             errors.extend(_lint_love_separation_text(parsed))
+        elif isinstance(parsed, WealthLectureTextFile):
+            errors.extend(_lint_wealth_lecture_text(parsed))
+        elif isinstance(parsed, RelationshipTendencyTextFile):
+            errors.extend(_lint_relationship_tendency_text(parsed))
+        elif isinstance(parsed, DaewoonTurnTextFile):
+            errors.extend(_lint_daewoon_turn_text(parsed))
         elif isinstance(parsed, YearlyEnvironmentFile):
             errors.extend(_lint_yearly_environment(parsed))
         elif isinstance(parsed, MobilityFlowTextFile):

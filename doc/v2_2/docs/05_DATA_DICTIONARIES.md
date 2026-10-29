@@ -301,6 +301,14 @@ compiled/
 - 검증 픽스처(2026-10-29 탐색): 1978-03-02 남(원국 천간 정관, 정인 없음 — 2026-06 甲午 상관) / 1979-01-02 남(정관 + 정인 — 2026-02 庚寅, 구응 감쇠) / 1978-01-02 남(원국 천간 상관 — 2026-03 辛卯 정관 자기형, 2026-07 乙未 겁재 구신, 2026-04 壬辰 편인 휴직) / 1976-01-03 여·1977-01-13 여(연·월 천간 겁재, 정관 無/有). 두 사전 절 모두 reviewed:false.
 - 측정(2026-10-29, 원장 11명·연 72/양성 26·월 27): off·on·규칙별 전부 **동일**(t95 연 정밀도 0.413, top3 월 0.145) — 발동 달(208건)에 브랜처 career_change 기본점 59~61이 이미 있어 시드(50~68)가 최댓값 병합에서 넘지 못함(inert). career_leave 후보 160건은 shadow(원장에 휴직 행 없음). 권고 = 점수층 OFF 유지·문구층 ON 실답 감수. 상세·85사례 재생은 대조 문서 §7.
 
+### interpretations/wealth_lecture_text.json + 횡재 발동 '식상생재(원국 보완)' — 외부 강의 재물 3편 번역층 (2026-10-29 데굴님 결정)
+
+- 대조 문서 `doc/v2_2/EXTERNAL_TEXT_GAP_WEALTH_VESSEL.md`. 결정: 재성 튼튼 = 재성 세력 강(비중 22%+ 또는 3자리+, 결혼 자원 블록 기준) 그리고 식상 10%+, 신강약 = `wealth_capacity._is_strong`. 시기 재물 유입 = 그 기간 재물 변화·횡재 후보 최고점 ≥70 많음 / <55 적음. 노출 = 채팅 재물 질문 + 리포트 재물 섹션.
+- 서술층(항상 노출) `saju_engines.wealth_lecture`: `wealth_vessel_lines`(재물 그릇 4분류 — 원국 분류 해설·판정 아님, 식상·재성 모두 10% 미만이면 인성·관성 경로, 관점 1줄 — 채팅 재물 구조 블록·리포트 `wealth_capacity_block`), `wealth_period_block`(채팅 재물 질문 말미, 간지당 1회 — 식상·재성 보완 2종·그릇×유입 4칸·재성×겁재 경계 3변형 중 하나). 문구 16항목 `WealthLectureTextFile`(id 정확 커버리지·확정 어휘 lint).
+- 점수층(실험 OFF): `detect_wealth_activations(natal_complement=True)` → '식상생재(원국 보완)'(원국 식상/재성 10%+ 한쪽 + 운 천간 다른 한쪽, 가중 0.10·기존 식상생재 중복 감쇠 공유). 엔진 `enable_wealth_natal_complement`, 플래그 `SAJU_WEALTH_NATAL_COMPLEMENT_ENABLED`, `casebook_replay --wealth-natal-complement`, `scripts/measure_wealth_complement.py`.
+- 측정(2026-10-29): 85사례 전 지표 불변(재물 행 1건 맞는 방향 이동), 원장 13명 — 월 t85 정밀도 0.087→0.071·t95 0.250→0.143(후보 달만 증가), top-k 불변 → 점수층 OFF, 서술층 ON.
+- 검증 픽스처: 1973-01-12 남(신왕재왕) · 1972-01-12 남(신약재약) · 1972-07-12 남(신약재왕) · 1973-04-12 남(원국 재성만) · 1973-10-12 남(원국 식상만) · 1975-01-12 남(식상·재성 부재, 인성·관성) · 1970-01-12/1971-01-12 남(경계 문구 관성·신약 변형). 사전 reviewed:false.
+
 ### interpretations/love_separation_lecture_text.json + 연애 실험 키 `separation_*` — 외부 강의 「남녀의 이별운」 번역층 (2026-10-29 데굴님 결정)
 
 - 대조 문서 `doc/v2_2/EXTERNAL_TEXT_GAP_LOVE_SEPARATION.md`. 강의 4축: ① 여·원국 관성 매우 약(십성군 officer <10% — 구조 패턴 존재 임계와 같음) × 운 식신·상관 ② 남·일지 본기 정재 × 운 겁재(배우자궁 쟁재) ③ 여·원국 정인 없음(`missing_ten_gods`)·지장간에만(`hidden_only_ten_gods`) × 운 정인 ④ 원국 정재(천간 연·월·시 또는 지지 본기) × 운 비견·겁재(겁재 > 비견).

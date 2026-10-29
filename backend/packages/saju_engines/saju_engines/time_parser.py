@@ -39,6 +39,22 @@ _LIFE_STAGES = {
     "평생": "평생", "일생": "평생",
 }
 _YOUTH_STAGE_RE = re.compile(r"청년\s*(?:기|때|시절|에)")
+#: C14 대운 단위 — 지금·이번·다음 대운, 대운 교운·교체(2026-10-29: '지금 대운은 어때요?'가
+#: 시점 미파싱 → too_broad 로 반려되던 결함 — '지금·요즘' 추가, '대운이 언제 바뀌어요?' 포함).
+DAEWOON_UNIT_RE = re.compile(
+    r"(다음|이번|현재|지금|요즘)\s*(?:의\s*)?대운|대운\s*교운|대운\S{0,3}\s*(?:언제\s*)?(?:바뀌|교체)"
+)
+#: C14b '대운이 언제 들어오나요'·'좋은 대운은 언제' — 대운을 '좋은 운'으로 보고 시기를 묻는 질문
+#: (2026-10-29 대운 강의 대조). 월 단위 시기 탐색으로 빠지던 결함 → 평생 스캔(전 대운 역할 흐름)으로
+#: 보낸다. 이번·다음·지금 대운(C14)이 먼저 잡히므로 여기 오지 않는다.
+DAEWOON_WHEN_RE = re.compile(
+    r"(?:언제|좋은)\s*(?:쯤\s*)?대운|대운\S{0,3}\s*(?:언제|들어오|들어와|오나|와요|올까|오는)"
+)
+
+
+def is_daewoon_when_question(text: str) -> bool:
+    """대운을 '좋은 운'으로 보고 그 시기를 묻는 질문인가(이번·다음·지금 대운 단위 질문 제외)."""
+    return bool(DAEWOON_WHEN_RE.search(text)) and not DAEWOON_UNIT_RE.search(text)
 #: 단계별 (시작나이, 끝나이) — 근묘화실(연주=초년·월주=청년·일주=중년·시주=말년)
 #: 4분법을 100세 시대 기준으로 재조정한 현대 명리 통용 경계(2026-08-07 데굴님 확정).
 #: '평생'=출생~100세. chat의 전 생애 스캔 창·100세 상한이 이 표를 공유한다.
@@ -629,10 +645,23 @@ def parse_time(
         ), TimeScope.LIFE_STAGE
 
     # C14 대운 단위.
-    if re.search(r"(다음|이번|현재)\s*대운|대운\s*교운", text):
+    if DAEWOON_UNIT_RE.search(text):
         return TimeRange(
             type="relative", granularity=Granularity.DAEWOON, urgency=urgency,
         ), TimeScope.DAEWOON_UNIT
+
+    # C14b 대운 시기 질문('언제쯤 대운이 들어오나요'·'좋은 대운은 언제') → 평생 창
+    # (전 대운 역할 흐름).
+    if is_daewoon_when_question(text):
+        lo_age, hi_age = LIFE_STAGE_AGE_RANGES["평생"]
+        start = end = None
+        if birth_year is not None:
+            start = str(birth_year + lo_age)
+            end = str(birth_year + hi_age)
+        return TimeRange(
+            type="relative", granularity=Granularity.DAEWOON,
+            life_stage="평생", start=start, end=end, urgency=urgency,
+        ), TimeScope.LIFE_STAGE
 
     # C15 과거 개방형(역검증) — "언제인지 맞춰봐", "왜 힘들었을까".
     if re.search(r"맞춰\s*봐|왜\s*힘들었|언제인지\s*맞", text):

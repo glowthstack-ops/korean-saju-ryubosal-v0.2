@@ -184,6 +184,9 @@ ROLE_EVENT_SEED_ENABLED: bool = _env_flag("SAJU_ROLE_EVENT_SEED_ENABLED")
 # 이동·편인 휴직 career_leave). 점수 규칙이라 기본 OFF — 85사례 재생·생애 사건 원장 적중률로
 # 규칙별 ON 을 정한다(문구층은 플래그와 무관하게 항상 노출).
 CAREER_EXIT_SEED_ENABLED: bool = _env_flag("SAJU_CAREER_EXIT_SEED_ENABLED")
+# 재물 강의(2026-10-29) — 원국 한쪽 + 운 천간 다른 한쪽 식상생재를 횡재 발동으로 인정. 점수 규칙이라
+# 기본 OFF — 85사례 재생으로 ON 을 정한다(문구층 wealth_lecture 는 플래그 무관 노출).
+WEALTH_NATAL_COMPLEMENT_ENABLED: bool = _env_flag("SAJU_WEALTH_NATAL_COMPLEMENT_ENABLED")
 # 공망 점수 규칙 측정용 비활성 플래그(2026-10-23 P4) — 기본 false = 기존 동작 그대로. 사례집 적중률
 # 비교(ON/OFF)에만 쓰고, 운영 OFF 전환은 측정 결과로 데굴님이 결정한다.
 #   GONGMANG_CLASH_DELAY_DISABLED: 이벤트 게이트의 공망 충발 감점(−10)·지연(DELAY)을 끈다.
@@ -280,6 +283,7 @@ def active_versions() -> dict[str, str | bool]:
         "transit_clash_support_enabled": TRANSIT_CLASH_SUPPORT_ENABLED,
         "role_event_seed_enabled": ROLE_EVENT_SEED_ENABLED,
         "career_exit_seed_enabled": CAREER_EXIT_SEED_ENABLED,
+        "wealth_natal_complement_enabled": WEALTH_NATAL_COMPLEMENT_ENABLED,
         "sewoon_daewoon_context_enabled": SEWOON_DAEWOON_CONTEXT_ENABLED,
         "transit_hidden_stem_enabled": TRANSIT_HIDDEN_STEM_ENABLED,
         "domain_family_scope_enabled": DOMAIN_FAMILY_SCOPE_ENABLED,

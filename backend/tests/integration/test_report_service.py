@@ -159,6 +159,7 @@ def test_plan_report_full_natal_sections() -> None:
     # 십년 페이지 — 그 대운 정보 + 십년 세운 흐름 표, 근접 5년 스펙트럼·전역 후보 미부착.
     d1 = decades[0]
     assert "[이 페이지의 대운]" in d1.body_prompt
+    assert "· 역할: " in d1.body_prompt  # 대운 역할 라벨(2026-10-29 대운 강의)
     assert "[십년 세운 흐름" in d1.body_prompt
     assert "[연도별 흐름" not in d1.body_prompt
     # F-14 바로 뒤에 연속 배치.

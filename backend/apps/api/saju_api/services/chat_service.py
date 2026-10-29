@@ -56,6 +56,8 @@ from saju_engines.chart_interpretation import (
     build_luck_grounding,
     career_exit_lecture_block,
     luck_dohwa_sinsal_line,
+    yeokma_natal_lines,
+    yeokma_period_lines,
 )
 from saju_engines.commitment_audit import audit_answer
 from saju_engines.companion_alias import AliasEntry, merge_attached_partner
@@ -86,6 +88,7 @@ from saju_engines.counterfactual_context import (
     counterfactual_lines,
 )
 from saju_engines.daewoon_progression import resolve_all_daewoon_progressions
+from saju_engines.daewoon_turn import daewoon_turn_lines
 from saju_engines.date_answer_audit import rewrite_avoid_ranges, strip_after_closing_question
 from saju_engines.date_selection import DateSelectionEngine
 from saju_engines.effective_subjects import AttachedCompanion, build_effective_subjects
@@ -189,6 +192,7 @@ from saju_engines.relationship_hints import (
     non_romantic_frame_directive,
     perspective_hints_for,
 )
+from saju_engines.relationship_tendency import relationship_tendency_lines
 from saju_engines.rewriter import QueryAssessment, assess
 from saju_engines.selection_intent import detect_selection_query
 from saju_engines.shadow_scoring import domain_to_expression_key
@@ -199,6 +203,7 @@ from saju_engines.structural_context import (
     CONCLUSION_FIRST_DIRECTIVE,
     DAEWOON_FRAMING_DIRECTIVE,
     DAEWOON_TRANSITION_SIGNALS_DIRECTIVE,
+    DAEWOON_WHEN_DIRECTIVE,
     DECISION_ATTITUDE_DIRECTIVE,
     DOCUMENT_IMAGERY_DIRECTIVE,
     EVIDENCE_FIDELITY_DIRECTIVE,
@@ -232,12 +237,22 @@ from saju_engines.task_procedures import (
 )
 from saju_engines.ten_god_label_audit import audit_ten_god_labels, facts_from_pillar_details
 from saju_engines.time_parser import DAY_WORD_OFFSETS as _TP_DAY_WORDS
-from saju_engines.time_parser import LIFE_STAGE_AGE_RANGES, WEEK_FRAME_SUN_SAT
+from saju_engines.time_parser import (
+    LIFE_STAGE_AGE_RANGES,
+    WEEK_FRAME_SUN_SAT,
+    is_daewoon_when_question,
+)
 from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
 from saju_engines.topic_builder import build_lifestyle_context, build_topic_context
 from saju_engines.user_facts import user_facts_block
 from saju_engines.v2_scoring import V2ScoringError, build_v2_scoring
 from saju_engines.wealth_capacity import analyze_wealth_capacity
+from saju_engines.wealth_lecture import (
+    daewoon_readiness_lines,
+    output_blocked_lines,
+    wealth_period_block,
+    wealth_vessel_lines,
+)
 from saju_engines.yearly_environment import (
     build_yearly_environment,
     render_yearly_environment,
@@ -3053,7 +3068,9 @@ _YEAR_DIGEST_DIRECTIVE = (
 # 전 생애/인생 단계 스캔(2026-08-07 데굴님 승인) — 발동 키워드. C13 단계 어휘(초년/청년/
 # 중년/말년/평생)는 파서의 time_range.life_stage로 들어오고, 아래 정규식은 파서가 단계
 # 어휘로 잡지 않는 전 생애 표현('살면서', '내 인생에서' 등)을 보강한다.
-_LIFETIME_RE = re.compile(r"평생|일생|인생\s*전체|살면서|죽기\s*전|내\s*인생")
+#: 2026-10-29 — '제 인생에 좋은 대운은 언제'가 월 단위 시기 탐색으로 빠지던 결함:
+#: 제·저의·나의 인생 추가.
+_LIFETIME_RE = re.compile(r"평생|일생|인생\s*전체|살면서|죽기\s*전|(?:내|제|저의|나의)\s*인생")
 # 전 생애 표 상한 — 발견된 연 후보 중 표에 올릴 연도 수(Top 8~12 승인안의 상한)와
 # 10년 구간당 상한. 값·선별 로직은 lifetime_scan 엔진으로 승격(2026-08-13 — 리포트
 # F-14 생애 변곡점 연표와 공용). 채팅 동작 불변(같은 상한·같은 알고리즘).
@@ -4164,6 +4181,9 @@ def _compat_prompt_block(
     lines = ["", "[궁합 분석 — 아래 엔진 계산값만 근거로 두 사람 궁합을 설명할 것]"]
     lines += compatibility_lines(report)
     lines.append(RELATIONSHIP_DIFFERENCE_PERSPECTIVE)  # 다름의 인정·성별 일반화 금지(2026-10-29)
+    # 두 사람 각각의 관계 결(2026-10-29 관계 강의 — 비낙인, 명식 근거).
+    lines += relationship_tendency_lines(result, "본인")
+    lines += relationship_tendency_lines(partner_result, partner_label)
     # 시주 미상 궁합 고지(2026-10-06) — 시주가 없는 쪽은 3기둥 기준이며 시지 상호작용은 미산출.
     _missing = [
         label for label, res in (("본인", result), (partner_label, partner_result))
@@ -4475,6 +4495,8 @@ def _structural_context(
 
         _wc = analyze_wealth_capacity(result)
         out += wealth_capacity_lines(_wc, _wc_fav(result).get(_wc.wealth_element))
+        # 재물 강의 3편(2026-10-29) — 재물 그릇 4분류·부재 경로·관점(원국 분류 해설, 판정 아님).
+        out += wealth_vessel_lines(result)
         # 재물 준비기(P3, 데굴님 확정 2026-07-12) — 발현 후보년·선행 준비년 서술 전용 맥락.
         # 점수·순위·시기·확신도 불변(inert). 세운 미보유 시 빈 목록(무언급).
         if result.luck_cycles is not None:
@@ -4483,6 +4505,14 @@ def _structural_context(
             ))
     if general or domain in (Domain.WEALTH, Domain.CAREER):
         out += wealth_status_lines(analyze_wealth_status_lean(result))
+    if domain in (Domain.RELOCATION, Domain.CAREER):
+        # 원국 역마 성립 블록(2026-10-29 역마살 강의 후속) — 고정 prefix 발췌에서 자주 밀리는 역마를
+        # 이동이 주제인 질문에만 따로 싣는다.
+        out += yeokma_natal_lines(result)
+    if domain is Domain.CAREER:
+        # 식상생재 강의(2026-10-29) — 원국 식상이 있고 식상을 막는 구조가 성립하면 1줄(재물 질문은
+        # wealth_vessel_lines 가 이미 싣는다).
+        out += output_blocked_lines(result)
     if (general or domain is Domain.RELATIONSHIP) and relation_frame is not None:
         # 비연애 관계(부모·자식·친구·직장) — 연애·결혼 블록 대신 관계 유형 프레임 + 궁위 관계망만.
         out += palace_network_lines(analyze_palace_network(result), domain)
@@ -4506,6 +4536,8 @@ def _structural_context(
         out += palace_network_lines(analyze_palace_network(result), domain)
         out.append(RELATIONSHIP_SELF_AWARENESS_DIRECTIVE)
         out.append(RELATIONSHIP_DIFFERENCE_PERSPECTIVE)  # 다름의 인정·성별 일반화 금지(2026-10-29)
+        # 관계에서 나타나기 쉬운 결(2026-10-29 관계 강의) — 비낙인 경향·관계를 편하게 하는 방법.
+        out += relationship_tendency_lines(result)
         out.append(TENDENCY_SHIFT_DIRECTIVE)
         # P2(2026-07-21) — '연애운 없으면 결혼운 좋다' 류 이원 구도 질문에만 통합 관점 주입.
         _q_compact = question.replace(" ", "")
@@ -6616,11 +6648,21 @@ def chat(
         span = _daewoon_span_context(year_result, year_digest_years[0], year_digest_years[-1])
         if span:
             structural = structural + [span]
+            # 대운 받을 준비(2026-10-29 대운 강의) — 재성 대운 × 원국 식상 유무.
+            structural = structural + daewoon_readiness_lines(
+                year_result, year_digest_years[0], year_digest_years[-1],
+            )
+            # 교운 방향 조언(2026-10-29 길흉 강의) — 교운기(엔진 가중 앞뒤 1~2년)에 걸릴 때만.
+            structural = structural + daewoon_turn_lines(
+                year_result, year_digest_years[0], year_digest_years[-1],
+            )
     # 전 생애/단계 스캔 → 창 전체를 지나는 대운 배경·교운기를 구조 블록에 싣는다.
     if structural is not None and lifetime_scan and _lt_hi_y:
         span_lt = _daewoon_span_context(year_result, _lt_lo_y, _lt_hi_y)
         if span_lt:
             structural = structural + [span_lt]
+            structural = structural + daewoon_readiness_lines(year_result, _lt_lo_y, _lt_hi_y)
+            structural = structural + daewoon_turn_lines(year_result, _lt_lo_y, _lt_hi_y)
     # P2a — pairwise(본인+동반자 1명)이고 동반자 birth가 확보되면 대상별 명식 블록을 가산 주입.
     # per_subject/chat_compare는 건드리지 않는다(본인 base 유지). birth 없으면 블록 생략(본인
     # 명식으로 대체하지 않음 — 기존 pairwise 경로 그대로). companion_only 등은 P2b 이후.
@@ -7066,11 +7108,38 @@ def chat(
     # 이동 주체 미상(2026-10-15) — 이동 후보가 실리거나 질문이 주체(자발·타의)를 물으면 단정 금지.
     if _mobility_agency_directive_needed(question, payload.event_candidates):
         trailing.append(_MOBILITY_AGENCY_DIRECTIVE)
+    # 대운 시기 질문 — '대운=좋은 운' 오해 교정·다음 교운·맞는 대운(2026-10-29 대운 강의).
+    if is_daewoon_when_question(question):
+        trailing.append(DAEWOON_WHEN_DIRECTIVE)
+    # 재물 운 결 — 재물 강의 3편 번역층(2026-10-29): 식상·재성 보완·그릇×유입 만족도·재성×겁재 경계.
+    if intent.domain is Domain.WEALTH and result is not None:
+        _wbest: dict[str, int] = {}
+        for _c in payload.event_candidates:
+            if str(_c.event_key) in ("wealth_change", "windfall"):
+                _wbest[_c.period] = max(_wbest.get(_c.period, 0), _c.score)
+        trailing.extend(wealth_period_block(
+            result, [(c.period, c.ganji, _wbest.get(c.period)) for c in payload.event_candidates],
+        ))
     # 연애·관계 운 결 — 이별운 강의 번역층(2026-10-29 데굴님 결정 ③: 관계 질문일 때만).
     if intent.domain is Domain.RELATIONSHIP and result is not None:
         trailing.extend(love_separation_block(
             result, [(c.period, c.ganji) for c in payload.event_candidates],
         ))
+    # 운 역마(2026-10-29 역마살 강의 후속) — 이사·직업 질문의 후보 기간에 역마가 들어오면 글자별 결·
+    # 조언과 함께 싣는다(사건 후보 경로에는 운 신살 줄이 없던 공백).
+    if intent.domain in (Domain.RELOCATION, Domain.CAREER) and result is not None:
+        _yk_pillars: list[object] = []
+        for _yk_r in (result, result_for_llm, year_result):
+            _yk_lc = getattr(_yk_r, "luck_cycles", None)
+            if _yk_lc is not None:
+                _yk_pillars += [*_yk_lc.yearly_luck, *_yk_lc.monthly_luck]
+        # 후보 기간 + 질문 시점 범위의 연도 — 이사 질문은 이사 전용 블록으로 답해 사건 후보가 비는
+        # 경우가 있다(2026-10-29 실측: '2028년에 이사나 이동 운' → 후보 0건).
+        _yk_periods = [c.period for c in payload.event_candidates]
+        _yk_span = tr_year_span(intent.time_range)
+        if _yk_span is not None:
+            _yk_periods += [str(y) for y in range(_yk_span[0], _yk_span[1] + 1)]
+        trailing.extend(yeokma_period_lines(_yk_pillars, _yk_periods))
     # 직장 운 결 — 외부 강의 번역층(2026-10-29 데굴님 결정). 직업 도메인 질문에서 후보 기간 운 글자
     # × 원국 천간(상관견관 환경형/자기형·정인 완화·겁재 역할 무관·편인 휴직)을 간지당 1회 싣는다.
     if intent.domain is Domain.CAREER and result is not None:

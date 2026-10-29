@@ -15,6 +15,7 @@ import json
 import re
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 # TODO(Phase 5a): operational 라벨 class·밴드 mapper를 manse_analysis 에서 직접 import.
 #   순환참조 없음(manse_analysis 는 saju_engines 미참조), config 상수만 사용.
@@ -409,7 +410,7 @@ def build_luck_grounding(
         line = (
             f"(보조·{level_ko} 유입) {name}: {_first_sentence(body, 110)} "
             f"양면 {_first_sentence(item['flipSide'], 80)}"
-        )
+        ) + _sinsal_branch_advice_note(item, [str(getattr(luck_pillar, "branch", ""))])
         if name == "도화":
             # 운 도화 × 십성군(2026-10-13) — 기존 운 진도화 판정에 기준 지지·운 지지 본기 십성군과
             # 십성군 문구(운에 적용된 설명)를 붙인다. 한 줄 1건 — 두 기준이 겹쳐도 가산 없음.
@@ -1052,6 +1053,115 @@ def _sinsal_positions(analysis: object) -> dict[str, list[str]]:
     return out
 
 
+def _sinsal_branch_advice_note(item: dict, branches: list[str]) -> str:
+    """신살 글자별 결(byBranch)·조언(advice) 꼬리 — 둘 다 없으면 빈 문자열(2026-10-29 역마살 강의).
+
+    Args:
+        item: sinsal_text.json 항목.
+        branches: 그 신살이 성립한 자리의 지지 글자(원국 자리 또는 운 지지).
+    """
+    by_branch = item.get("byBranch") or {}
+    seen: list[str] = []
+    for b in branches:
+        if b in by_branch and by_branch[b] not in seen:
+            seen.append(by_branch[b])
+    note = (" 글자별 결: " + " / ".join(seen)) if seen else ""
+    if item.get("advice"):
+        note += f" 조언: {item['advice']}"
+    return note
+
+
+_YEOKMA = "역마살"
+#: 운 역마 블록 줄 상한 — 긴 창(5년 이상)에서 월·연 역마 줄이 불어나지 않게.
+_YEOKMA_PERIOD_MAX = 6
+
+
+def yeokma_natal_lines(result: ManseV2Result) -> list[str]:
+    """원국 역마 성립(연지·일지 삼합 기준 12신살) 1블록 — 이사·직업 질문 전용(2026-10-29).
+
+    원국 신살 발췌(`_sinsal_excerpts`)는 고정 prefix 라 질문과 무관하게 같아야 하고, 중립 신살인
+    역마는 5개 상한에 자주 밀린다(표본 96명식: 시주 43·연주 9·일주 6 성립, 발췌 노출은 드묾). 그래서
+    이동이 주제인 질문에서만 이 블록으로 따로 싣는다. 이동지(寅申巳亥 보유) 표지는 쓰지 않는다.
+    """
+    sinsal = result.traditional_extras.sinsal if result.traditional_extras else None
+    item = _sinsal_text_by_name().get(_YEOKMA)
+    if sinsal is None or item is None or result.pillars is None:
+        return []
+    pos = [p for p in ("year", "month", "day", "hour") if _YEOKMA in sinsal.by_pillar.get(p, [])]
+    if not pos:
+        return []
+    where = ", ".join(
+        f"{_SINSAL_PALACE_LABEL[p].split('(')[0]}({getattr(result.pillars, p).branch})"
+        for p in pos if getattr(result.pillars, p, None) is not None
+    )
+    bypos = item.get("byPosition") or {}
+    pos_texts: list[str] = []
+    if bypos and any(p in _SOCIAL_PALACES for p in pos):
+        pos_texts.append(bypos["social"])
+    if bypos and any(p in _PERSONAL_PALACES for p in pos):
+        pos_texts.append(bypos["personal"])
+    branches = [getattr(getattr(result.pillars, p, None), "branch", "") for p in pos]
+    return [
+        "[역마 — 원국 성립(연지·일지 삼합 기준 12신살), 서술 전용 — 성립만으로 이사·이직을 "
+        "단정하지 말고 운의 이동 신호와 함께 볼 것]",
+        f"위치: {where} — {item['meaning']}"
+        + (" 위치별: " + " / ".join(pos_texts) if pos_texts else "")
+        + _sinsal_branch_advice_note(item, branches),
+    ]
+
+
+def yeokma_period_lines(pillars: list[Any], periods: list[str]) -> list[str]:
+    """후보 기간 가운데 운으로 역마가 들어오는 기간 1블록 — 이사·직업 질문 전용(2026-10-29).
+
+    사건 후보로 답하는 경로에는 운 신살 줄이 없어(연·월 총운의 `build_luck_grounding` 에만 있음)
+    글자별 결이 실리지 않던 공백을 메운다. 운 기둥의 `luck_sinsal` 판정(엔진)을 그대로 쓴다.
+
+    Args:
+        pillars: 운 기둥(세운·월운) 후보 — 라벨로 기간을 찾는다(중복은 첫 것).
+        periods: 후보 기간 라벨('YYYY'·'YYYY-MM') — 순서 유지, 같은 기간은 한 번.
+    """
+    item = _sinsal_text_by_name().get(_YEOKMA)
+    if item is None:
+        return []
+    by_label: dict[str, Any] = {}
+    for pl in pillars:
+        by_label.setdefault(str(getattr(pl, "label", "")), pl)
+    lines: list[str] = []
+    seen: set[str] = set()
+    # 월 후보('YYYY-MM')는 그 해 세운('YYYY')도 함께 본다 — 역마는 세운 지지로 들어오는 경우가
+    # 많은데 이사·이직 질문 후보는 대개 월 단위라 세운 역마가 빠지던 공백(2026-10-29, 2028 戊申).
+    expanded: list[str] = []
+    for period in periods:
+        expanded.append(period)
+        if len(period) == 7:
+            expanded.append(period[:4])
+    for period in expanded:
+        pl = by_label.get(period)
+        if pl is None or period in seen:
+            continue
+        seen.add(period)
+        names = [getattr(x, "name", None) for x in (getattr(pl, "luck_sinsal", None) or [])]
+        if _YEOKMA not in names:
+            continue
+        body = item.get("fromLuck") or item["manifestation"]
+        note = _sinsal_branch_advice_note(
+            {**item, "advice": None}, [str(getattr(pl, "branch", ""))],
+        )
+        lines.append(f"- {period} {getattr(pl, 'ganji', '')}: {_first_sentence(body, 150)}{note}")
+        if len(lines) >= _YEOKMA_PERIOD_MAX:
+            break
+    if not lines:
+        return []
+    block = [
+        "[운 역마 — 후보 기간에 역마가 들어오는 시기(엔진 판정), 서술 전용 — 성립만으로 이동을 "
+        "단정하지 말 것]",
+        *lines,
+    ]
+    if item.get("advice"):
+        block.append(f"조언: {item['advice']}")  # 조언은 블록 끝에 한 번만
+    return block
+
+
 def _sinsal_excerpts(result: ManseV2Result) -> list[InterpretationExcerpt]:
     """주요 신살의 해석 발췌 — 보조 자료 표기 의무(단독 결론 금지).
 
@@ -1071,6 +1181,10 @@ def _sinsal_excerpts(result: ManseV2Result) -> list[InterpretationExcerpt]:
     ]:
         if name not in names:
             names.append(name)
+    # 역마 성립(상대 12신살)이 있으면 같은 글자 보유 표지(이동지)는 뺀다 — 성립이 보유를 포함하고,
+    # 표지가 발췌 슬롯을 먼저 차지해 성립한 역마가 밀리던 결함(2026-10-29 역마살 강의 대조).
+    if "역마살" in names and "이동지" in names:
+        names.remove("이동지")
     texts = _sinsal_text_by_name()
     excerpts: list[InterpretationExcerpt] = []
     for name in names:
@@ -1097,6 +1211,10 @@ def _sinsal_excerpts(result: ManseV2Result) -> list[InterpretationExcerpt]:
         if bypos_note and pos:
             labels = "·".join(_SINSAL_PALACE_LABEL[p].split("(")[0] for p in pos)
             bypos_note += f" ※ 실제 위치 {labels} 한정(다른 주로 옮겨 말하지 말 것)."
+        # 글자별 결·조언(2026-10-29 역마살 강의) — 성립한 자리의 지지 글자 기준.
+        bypos_note += _sinsal_branch_advice_note(item, [
+            getattr(getattr(result.pillars, p, None), "branch", "") for p in pos
+        ] if result.pillars is not None else [])
         # 양면 해석 동반(2026-06-12 사용자 확정) — 길신의 그림자·흉성의 빛을 함께.
         excerpts.append(InterpretationExcerpt(
             kind="sinsal", key=name,
@@ -1263,6 +1381,8 @@ def career_exit_lecture_texts(
         if natal is not None and _natal_gender(natal) == "female":
             leave += " " + cxl["pianyin_leave_female"]
         out.append(leave)
+        if natal is not None:
+            out.extend(dosik_texts(natal))
     if natal is None or natal.pillars is None:
         return out
     _np = natal.pillars
@@ -1279,6 +1399,34 @@ def career_exit_lecture_texts(
         hits.append("resource_rescue")
     out.extend(cxl[h] for h in hits)
     return out
+
+
+def natal_siksin_count(result: ManseV2Result) -> int:
+    """원국 식신 가시 글자 수 — 천간(연·월·시)과 지지 본기(연·월·일·시). 일간 제외."""
+    p = result.pillars
+    if p is None:
+        return 0
+    n = sum(1 for x in (p.year, p.month, p.hour) if x is not None and x.stem_ten_god == "식신")
+    return n + sum(
+        1 for x in (p.year, p.month, p.day, p.hour)
+        if x is not None and x.branch_main_ten_god == "식신"
+    )
+
+
+def dosik_texts(natal: ManseV2Result) -> list[str]:
+    """편인 운이 들어온 기간의 도식 문구(외부 강의 「편인 도식」, 2026-10-29 데굴님 승인).
+
+    원국 식신 1개 → 도식이 정확히 걸림(경제 활동 제약·조심성 상실·큰 결정은 조언), 2개 이상 → 깊게
+    걸리지 않음 + 식신 몰입 상담(데굴님 결정: 스스로 문제를 파악·교정하는 카운슬링으로 넣는다).
+    원국 식신이 없으면 빈 목록(편인 운 기본 문구만 남는다). 호출자가 편인 유입을 확인한다.
+    """
+    n = natal_siksin_count(natal)
+    if n == 0:
+        return []
+    cxl = _career_exit_text()
+    if n == 1:
+        return [cxl["pianyin_dosik_single"]]
+    return [cxl["pianyin_dosik_ample"], cxl["siksin_immersion"]]
 
 
 def career_exit_lecture_block(result: ManseV2Result, periods: list[tuple[str, str]]) -> list[str]:
