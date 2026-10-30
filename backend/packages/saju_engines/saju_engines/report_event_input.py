@@ -23,7 +23,7 @@ from saju_shared_types.marriage_timing import derive_marriage_stage
 from . import period_v2_config
 from . import sinsal_modifier_config as _sinsal_cfg
 from .candidate_semantics import candidate_semantics, review_month_from_signals
-from .chart_interpretation import incoming_stage_note, incoming_ten_god_note
+from .chart_interpretation import incoming_stage_note, incoming_ten_god_note, luck_has_pianyin
 from .context_reducer import _dominant_trigger, event_ko, polarity_ko
 from .ganji_calendar import relation_hits
 from .llm_event_serializer import score_band
@@ -154,14 +154,23 @@ def precise_candidate_clusters(
     *,
     fav_map: dict[str, str] | None = None,
     rank_by_period: dict[str, tuple[int, bool, int]] | None = None,
+    career_lecture: bool = True,
+    include_dosik: bool = True,
 ) -> list[str]:
     """후보를 시점 클러스터로 묶어 운간지·per-글자 십성·관계 분해·점수를 정밀 출력한다.
+
+    career_lecture(2026-10-30): '운 결' 줄의 직장 강의 문구(휴직·겁재 천간·도식)를 섹션 도메인이
+    일반·직업일 때만 붙인다 — 관계·건강·방위 섹션의 클러스터에도 실리던 결함 교정. 도식 문구는
+    한 호출(한 섹션)의 클러스터 목록 안에서 1회만, include_dosik=False 면 아예 붙이지 않는다(직업·
+    재물 섹션은 말미 강의 블록이 도식 1줄을 담당).
 
     2026-08-21 채팅 패리티: fav_map을 주면 시점별 결실 뉘앙스 마커(⚠계약·결실 불리/
     ↗통관 순화/⚠길신 누설)와 후보별 검토월(공망 충발 한정)을 함께 표기하고,
     rank_by_period를 주면 '기간 내 상대 N/M위'(절대 강도와 분리)를 병기한다.
     판정·점수 불변 — 표기 전용.
     """
+    dosik_done = False
+    day_master_for_dosik = result.pillars.day_master if result.pillars else ""
     if result.pillars is None:
         return []
     lookup = _pillar_lookup(result)
@@ -196,9 +205,14 @@ def precise_candidate_clusters(
         lines.append(head)
         # 표현 결(daily §23 이식, 2026-09-10) — 행동=운 천간 십성 유입, 흐름=12운성 유입.
         # 문체 전용(점수·판정 무관) — 리포트에는 운의 성질이 문체로 가는 통로가 없었다.
-        tone = _tone_line(result, p.ganji, fav_map)
+        tone = _tone_line(
+            result, p.ganji, fav_map, career_lecture=career_lecture,
+            include_dosik=include_dosik and not dosik_done,
+        )
         if tone:
             lines.append(tone)
+            if career_lecture and luck_has_pianyin(day_master_for_dosik, p.ganji):
+                dosik_done = True
         if nuance_note:
             lines.append(f"  ⚠유불리: {nuance_note}")
         note = _sinsal_channel_note(result, period, p.ganji, evs)
@@ -222,12 +236,18 @@ def precise_candidate_clusters(
     return lines
 
 
-def _tone_line(result: ManseV2Result, ganji: str, fav_map: dict[str, str] | None) -> str:
+def _tone_line(
+    result: ManseV2Result, ganji: str, fav_map: dict[str, str] | None,
+    *, career_lecture: bool = True, include_dosik: bool = True,
+) -> str:
     """기간 헤더 아래 '운 결' 1줄 — 행동(십성 유입)·흐름(12운성 유입) 결. 없으면 빈 문자열."""
     day_master = result.pillars.day_master if result.pillars else ""
     if not day_master or len(ganji) != 2:
         return ""
-    action = incoming_ten_god_note(day_master, ganji, fav_map or {}, natal=result)
+    action = incoming_ten_god_note(
+        day_master, ganji, fav_map or {}, natal=result,
+        career_lecture=career_lecture, include_dosik=include_dosik,
+    )
     flow = incoming_stage_note(day_master, ganji)
     parts = [x for x in (f"행동={action}" if action else "", f"흐름={flow}" if flow else "") if x]
     return "  운 결(문체 전용): " + " / ".join(parts) if parts else ""

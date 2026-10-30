@@ -47,8 +47,11 @@ DAEWOON_UNIT_RE = re.compile(
 #: C14b '대운이 언제 들어오나요'·'좋은 대운은 언제' — 대운을 '좋은 운'으로 보고 시기를 묻는 질문
 #: (2026-10-29 대운 강의 대조). 월 단위 시기 탐색으로 빠지던 결함 → 평생 스캔(전 대운 역할 흐름)으로
 #: 보낸다. 이번·다음·지금 대운(C14)이 먼저 잡히므로 여기 오지 않는다.
+#: '역마대운이 들어오는 시기'처럼 신살·간지가 앞에 붙은 '○○대운'은 낱말 '대운'이 아니다 — 한글 뒤의
+#: 대운은 제외(2026-10-30 점검: 오해 교정 지시가 잘못 붙던 사례).
 DAEWOON_WHEN_RE = re.compile(
-    r"(?:언제|좋은)\s*(?:쯤\s*)?대운|대운\S{0,3}\s*(?:언제|들어오|들어와|오나|와요|올까|오는)"
+    r"(?:언제|좋은)\s*(?:쯤\s*)?대운"
+    r"|(?<![가-힣])대운\S{0,3}\s*(?:언제|들어오|들어와|오나|와요|올까|오는)"
 )
 
 
@@ -644,25 +647,6 @@ def parse_time(
             life_stage=stage_hit, start=start, end=end, urgency=urgency,
         ), TimeScope.LIFE_STAGE
 
-    # C14 대운 단위.
-    if DAEWOON_UNIT_RE.search(text):
-        return TimeRange(
-            type="relative", granularity=Granularity.DAEWOON, urgency=urgency,
-        ), TimeScope.DAEWOON_UNIT
-
-    # C14b 대운 시기 질문('언제쯤 대운이 들어오나요'·'좋은 대운은 언제') → 평생 창
-    # (전 대운 역할 흐름).
-    if is_daewoon_when_question(text):
-        lo_age, hi_age = LIFE_STAGE_AGE_RANGES["평생"]
-        start = end = None
-        if birth_year is not None:
-            start = str(birth_year + lo_age)
-            end = str(birth_year + hi_age)
-        return TimeRange(
-            type="relative", granularity=Granularity.DAEWOON,
-            life_stage="평생", start=start, end=end, urgency=urgency,
-        ), TimeScope.LIFE_STAGE
-
     # C15 과거 개방형(역검증) — "언제인지 맞춰봐", "왜 힘들었을까".
     if re.search(r"맞춰\s*봐|왜\s*힘들었|언제인지\s*맞", text):
         return TimeRange(
@@ -1065,6 +1049,29 @@ def parse_time(
             type="absolute", granularity=Granularity.YEAR, start=year_key, end=year_key,
             urgency=urgency,
         ), TimeScope.MID_TERM
+
+    # C14 대운 단위 — 명시 시점(연·월·상대 기간·나이) 규칙 **뒤**에 둔다(2026-10-30 점검: '지금
+    # 대운이 안 좋은데 내년엔?'·'2030년 3월에 대운이 바뀌나요?'가 내년·2030-03 을 잃고 대운 단위로
+    # 빠지던 결함). 대운 낱말이 섞여도 시점이 명시됐으면 그 시점이 창이고, 대운 관점 지시는
+    # chat_service 가 '대운' 키워드로 따로 붙인다. 개방형 '언제'(C2)보다는 앞이다('대운이 언제
+    # 바뀌어요?').
+    if DAEWOON_UNIT_RE.search(text):
+        return TimeRange(
+            type="relative", granularity=Granularity.DAEWOON, urgency=urgency,
+        ), TimeScope.DAEWOON_UNIT
+
+    # C14b 대운 시기 질문('언제쯤 대운이 들어오나요'·'좋은 대운은 언제') → 평생 창
+    # (전 대운 역할 흐름). '2028년에 좋은 대운이 오나요?'는 C6 이 먼저 2028 로 잡는다.
+    if is_daewoon_when_question(text):
+        lo_age, hi_age = LIFE_STAGE_AGE_RANGES["평생"]
+        start = end = None
+        if birth_year is not None:
+            start = str(birth_year + lo_age)
+            end = str(birth_year + hi_age)
+        return TimeRange(
+            type="relative", granularity=Granularity.DAEWOON,
+            life_stage="평생", start=start, end=end, urgency=urgency,
+        ), TimeScope.LIFE_STAGE
 
     # C2a 개방형 '몇 년도'(2026-10-28 데굴님 승인) — "해외에서 일한 운이 몇년도에 있어?"는 연 단위
     # 시점 탐색이다. '언제'와 달리 연 입도를 명시했으므로 granularity=YEAR 로 두고, 답변 지평은

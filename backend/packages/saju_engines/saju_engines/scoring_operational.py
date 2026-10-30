@@ -261,8 +261,13 @@ def operational_rank_guards(
 
 
 def _period_level(period: str) -> str:
-    """기간 라벨 → level 키. 연 'YYYY'/월 'YYYY-MM'/일 'YYYY-MM-DD'/대운 'YYYY~YYYY'."""
-    if "–" in period:
+    """기간 라벨 → level 키. 연 'YYYY'/월 'YYYY-MM'/일 'YYYY-MM-DD'/대운 'YYYY~YYYY'.
+
+    엔진 대운 후보 키는 ``YYYY~YYYY``(adapter·event_engine_v2 — 식별자라 불변)이고, LLM 입력
+    표기만 ``YYYY–YYYY`` 다. 2026-10-29 물결표 정리에서 이 비교까지 ``–`` 로 바뀌어 대운 후보가
+    "year" 레벨로 분류되던 잠복 결함(2026-10-30 점검) — 두 표기를 모두 대운으로 본다.
+    """
+    if "~" in period or "–" in period:
         return "daewoon"
     return {0: "year", 1: "month"}.get(period.count("-"), "day")
 

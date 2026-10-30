@@ -249,6 +249,10 @@ class TimeRange(BaseModel):
     life_stage: str | None = None  # '초년'|'청년'|'중년'|'말년'|'평생'
     urgency: str | None = None  # 'asap'
     granularity_override: bool = False
+    # 사람이 읽는 창 라벨(예: '현재 대운 壬辰(2025–2035, 45–54세)') — start/end 가 없는 대운 단위
+    # 질문에서 [기준 시점] 표기에만 쓴다. 파서는 채우지 않고 chat_service 가 대운표로 채운다
+    # (2026-10-30).
+    label_ko: str | None = None
 
 
 class Constraints(BaseModel):

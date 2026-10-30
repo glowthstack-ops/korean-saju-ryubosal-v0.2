@@ -238,7 +238,7 @@ def render_yearly_environment(env: YearlyEnvironment | None, *, dict_path: str =
         return it["text"] if it else ""
 
     lines = [
-        f"[{label} — 시절이 만드는 환경 (학파 서술: '{nar} ~'로 쓸 것. 일간 기준 용신·길흉 판정과 "
+        f"[{label} — 시절이 만드는 환경 (학파 서술: '{nar} …'로 쓸 것. 일간 기준 용신·길흉 판정과 "
         "합산·상쇄 금지, 단정 금지. 아래 사실과 어휘 밖의 십성·운성을 새로 계산하지 말 것)]",
         f"- 환경 자리: 월주 {env.month_ganji}(월간 {ms}·월지 {mb}) × 세운 {env.year_label} "
         f"{env.luck_ganji}",

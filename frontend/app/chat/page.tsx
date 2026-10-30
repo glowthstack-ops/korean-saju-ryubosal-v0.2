@@ -342,9 +342,35 @@ export default function ChatPage() {
     if (isLoggedIn) loadThreads();
   }, [isLoggedIn]);
 
+  // 스크롤은 사용자 동작(질문 전송·대화 이어보기)에만 — 답변이 도착했을 때는 움직이지 않는다.
+  // 이전엔 messages/busy 가 바뀔 때마다 맨 아래로 내려가, 긴 답변이 오면 답변 끝으로 튀어
+  // 처음부터 읽을 수 없었다(2026-10-30 데굴님 지적). 질문 전송 직후 질문·작성 중 표시를 보이게
+  // 한 번 내려두면, 답변은 그 자리에서 아래로 펼쳐져 첫 줄부터 읽힌다.
+  const [scrollTick, setScrollTick] = useState(0);
+  const scrollToBottom = () => setScrollTick((t) => t + 1);
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, busy]);
+    if (scrollTick > 0) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [scrollTick]);
+  // 아래로 더 스크롤할 내용이 남았을 때만 '맨 아래로' 버튼을 보인다. 최신 항목까지 내려오면
+  // 내용을 가리지 않도록 숨긴다(2026-10-30 데굴님). 본문 길이 변화(답변 도착)는 ResizeObserver 로 감지.
+  const [canScrollDown, setCanScrollDown] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      const doc = document.documentElement;
+      const remaining = doc.scrollHeight - (window.innerHeight + window.scrollY);
+      setCanScrollDown(remaining > 48);
+    };
+    check();
+    window.addEventListener("scroll", check, { passive: true });
+    window.addEventListener("resize", check);
+    const ro = new ResizeObserver(check);
+    ro.observe(document.body);
+    return () => {
+      window.removeEventListener("scroll", check);
+      window.removeEventListener("resize", check);
+      ro.disconnect();
+    };
+  }, []);
 
   // 스레드가 바뀌면(이어가기·새 대화) 그 스레드의 궁합 상대 첨부를 복원한다.
   // 로컬(같은 기기) 우선, 없으면 저장된 스레드에 한해 서버에서 복원(크로스 디바이스).
@@ -391,6 +417,7 @@ export default function ChatPage() {
       const msgs = await getChatThread(id);
       setMessages(msgs.map(toMessage));
       setThreadId(id);
+      scrollToBottom(); // 이어보기 — 가장 최근 메시지로
       // 이어보기 중인 스레드의 답변이 아직 생성 중이면(다른 기기/이탈 중 전송) 폴링 재개.
       const last = msgs[msgs.length - 1];
       if (last && last.role === "assistant" && last.status === "pending") {
@@ -416,6 +443,7 @@ export default function ChatPage() {
     const companions = partner ? [partner.label] : undefined; // 첨부 동반자(현재 1명, n명 대비)
     setMessages((prev) => [...prev, { role: "user", text: question, companions }]);
     setBusy(true);
+    scrollToBottom(); // 질문·작성 중 표시를 보이게 — 답변 도착 시에는 스크롤하지 않는다.
     try {
       const res = await postChat(
         profile, question, threadId, persona, selected?.label, selected?.subjectId,
@@ -858,6 +886,22 @@ export default function ChatPage() {
         }}
       >
         <div className="relative mx-auto max-w-4xl">
+          {/* 맨 아래로 — 아래에 스크롤할 내용이 남았을 때만. 입력란 바로 위 오른쪽에 떠서 본문을
+              가리지 않고, 최신 항목까지 내려오면 사라진다. */}
+          {canScrollDown && (
+            <button
+              type="button"
+              onClick={scrollToBottom}
+              aria-label="맨 아래로"
+              title="맨 아래로"
+              className="absolute -top-11 right-0 flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-md hover:bg-slate-50"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 5v14" />
+                <path d="m19 12-7 7-7-7" />
+              </svg>
+            </button>
+          )}
           {/* 동반자 첨부 칩 */}
           {partner && (
             <div className="mb-2 flex w-fit items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs text-rose-700">

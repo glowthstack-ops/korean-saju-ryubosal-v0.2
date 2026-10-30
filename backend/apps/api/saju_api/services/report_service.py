@@ -27,7 +27,11 @@ from saju_engines.ai_tell_audit import audit_ai_tells
 from saju_engines.answer_label_audit import rewrite_rank_labels, rewrite_raw_period_labels
 from saju_engines.candidate_semantics import candidate_semantics
 from saju_engines.career_field import build_career_field_facts, render_career_field_lines
-from saju_engines.chart_interpretation import build_chart_interpretation, build_luck_grounding
+from saju_engines.chart_interpretation import (
+    build_chart_interpretation,
+    build_luck_grounding,
+    career_exit_lecture_block,
+)
 from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
 from saju_engines.context_reducer import (
     _DOMAIN_EVENT_KEYS,
@@ -86,7 +90,7 @@ from saju_engines.lifetime_scan import (
 )
 from saju_engines.llm_guard import TokenBudgetExceeded
 from saju_engines.love_period_notes import LOVE_NOTE_EVENT_KEYS, love_period_note_items
-from saju_engines.love_separation import love_separation_natal_lines
+from saju_engines.love_separation import love_separation_block, love_separation_natal_lines
 from saju_engines.love_type import age_from_result
 from saju_engines.manifestation_branch import branch_summary
 from saju_engines.marriage_resource import analyze_marriage_resource
@@ -158,6 +162,7 @@ from saju_engines.structural_context import (
     KEYWORD_COMBO_TRANSLATION_DIRECTIVE,
     MANAGE_NOT_OVERCOME_DIRECTIVE,
     NON_NORMATIVE_REASSURANCE_DIRECTIVE,
+    RELATIONSHIP_DIFFERENCE_PERSPECTIVE,
     RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
     SPOUSE_IMAGE_DIRECTIVE,
     SPOUSE_MARRIED_DIRECTIVE,
@@ -202,7 +207,11 @@ from saju_engines.ten_god_label_audit import audit_ten_god_labels, facts_from_pi
 from saju_engines.topic_builder import MODULES as _TOPIC_MODULES
 from saju_engines.topic_builder import build_topic_context
 from saju_engines.wealth_capacity import analyze_wealth_capacity
-from saju_engines.wealth_lecture import daewoon_readiness_lines, wealth_vessel_lines
+from saju_engines.wealth_lecture import (
+    daewoon_readiness_lines,
+    wealth_period_block,
+    wealth_vessel_lines,
+)
 from saju_engines.wealth_status_lean import analyze_wealth_status_lean
 from saju_engines.yearly_environment import (
     build_yearly_environment,
@@ -855,6 +864,12 @@ _SAMJAE_SECTIONS: dict[str, str] = {
 
 #: 관계 도메인이지만 연애 운의 결을 싣지 않는 섹션 — 자녀(출산 신호) 섹션(2026-10-27 재검토).
 _NO_LOVE_NOTE_SECTIONS = frozenset({"F-17c"})
+# 직장 강의 문구(휴직·겁재 천간·도식)를 전역 후보 클러스터 줄에 붙이는 일반(총운) 섹션 — 대운·세운·
+# 연표·월별 흐름. 부모·가족(F-17b)·행동 전략(F-19/Y-10)·개운(F-20/Y-11)·방위(F-20b/Y-11b)·달력표
+# (Y-12)처럼 도메인 미매핑이지만 총운이 아닌 섹션은 제외(2026-10-30 점검 — 관계 섹션 누출 교정).
+_CAREER_LECTURE_GENERAL_SECTIONS = frozenset({
+    "F-10", "F-11", "F-13", "F-14", "Y-01", "Y-03", "Y-04", "Y-05",
+})
 
 # 도메인 섹션 → 생애 도메인 변곡 행(장기 연동) 매핑 — 모든 도메인 섹션이 근접 5년만
 # 반복하던 결함 교정(2026-08-13). 값=(도메인, 사건 키 필터, 헤더 라벨).
@@ -1621,6 +1636,35 @@ class _ReportData:
             for c in candidates[:3]
             if self.scorer.readable_path(c)
         ]
+
+    def lecture_block(self, domain: str | None, cands: list[EventCandidate]) -> list[str]:
+        """테마 기간 섹션의 운 간지별 강의 문구(2026-10-30 점검 배선) — 채팅 말미 블록과 같은 함수.
+
+        2026-10-29 강의 번역층의 운 간지별 문구(직장 운 결·재물 운 결·이별운 운 문구)는 채팅 말미
+        블록에만 배선돼 테마 리포트의 기간 섹션(J-05/J-06·W-06/W-07·R-05/R-06·연도별 상세)에서
+        빠져 있었다(2026-10-30 dry-run 실측: 1978-01-02 픽스처의 2026-03 辛卯 자기형·2026-04 壬辰
+        휴직 조건이 J-06 후보 줄에 없음). 섹션 도메인 후보의 (기간, 운 간지)를 그대로 넘긴다.
+
+        - career: `career_exit_lecture_block`(원국 천간×운 글자·겁재 역할 무관·편인 휴직·도식 1회)
+        - wealth: `wealth_period_block`(식상·재성 보완·그릇×유입 만족도·재성×겁재 경계·도식 1회) —
+          만족도 칸은 그 기간 재물 후보(재물 변화·횡재) 최고점으로 채팅과 같은 기준
+        - relationship: `love_separation_block`(이별운 강의 운 문구 4종) + 다름의 인정 관점
+        세 도메인 밖이거나 후보가 없으면 빈 목록. 점수·판정 불변(서술 전용).
+        """
+        if domain not in ("career", "wealth", "relationship") or not cands:
+            return []
+        periods = [(c.period, self._ganji_by_label.get(c.period, "")) for c in cands]
+        if domain == "career":
+            return career_exit_lecture_block(self.result, periods)
+        if domain == "wealth":
+            best: dict[str, int] = {}
+            for c in cands:
+                if str(c.event_key) in ("wealth_change", "windfall"):
+                    best[c.period] = max(best.get(c.period, 0), c.score)
+            return wealth_period_block(
+                self.result, [(p, g, best.get(p)) for p, g in periods],
+            )
+        return [*love_separation_block(self.result, periods), RELATIONSHIP_DIFFERENCE_PERSPECTIVE]
 
     def domain_candidates(self, domain: str, n: int = 6) -> list[EventCandidate]:
         """섹션 도메인 후보 — 기간 내 같은 도메인 신호를 길·흉 모두 담아 시점순 top-n.
@@ -2568,7 +2612,8 @@ class _ReportData:
         self, candidates: list[EventCandidate] | None = None, *, daewoon_only: bool = False,
         include_event_candidates: bool = True, domain: str | None = None,
         love_notes: bool = True,
-    ) -> list[str]:
+            career_lecture: bool = True,
+) -> list[str]:
         """[대운표]+[이벤트 후보] — 운 관련 섹션의 데이터 블록.
 
         candidates를 주면 그 후보만(섹션별 도메인 스코프), 없으면 전역 top 후보를 쓴다.
@@ -2637,6 +2682,11 @@ class _ReportData:
                 self.result, cands,
                 fav_map=self.fav_map,
                 rank_by_period=self._domain_rank.get(domain or ""),
+                # 직장 강의 문구는 호출자가 섹션으로 결정(2026-10-30 — 관계 섹션 누출 교정: 일반
+                # 총운 섹션·직업 섹션만). 도식은 일반 섹션 클러스터 줄에 1회 — 직업·재물 섹션은
+                # 말미 강의 블록(lecture_block)이 담당.
+                career_lecture=career_lecture,
+                include_dosik=career_lecture and domain is None,
             )
             if clusters:
                 lines += clusters
@@ -3929,6 +3979,14 @@ def build_section_context(
             if _yp_rows:
                 lines += [f"[이 해 세운 — {_yp}년]", *_yp_rows, ""]
         lines += data.month_slice_block(_mp_months, _mp_label, _mp_domain)
+        # 테마 연도별 상세 — 그 해 구간의 도메인 후보에 운 간지별 강의 문구(2026-10-30 배선).
+        if _mp_domain is not None:
+            _mp_lec = data.lecture_block(_mp_domain, [
+                c for c in data.domain_candidates(_mp_domain, n=24)
+                if c.period in _mp_months or (_yp is not None and c.period == str(_yp))
+            ])
+            if _mp_lec:
+                lines += ["", *_mp_lec]
         if _mp_pair:
             # 상대의 같은 해 세운 행 + 같은 구간 달 표(2026-10-15 ③) — 본인 표 뒤에 나란히.
             lines.append("")
@@ -4011,7 +4069,8 @@ def build_section_context(
                 # legacy 전역 이벤트 후보 블록만 끄고, 합작용·발현분기·내부근거는
                 # **렌더링된 기간을 뒷받침하는 후보 범위로** 복구한다(2026-07-30).
                 lines += data.luck_block(
-                    list(res.support_candidates), include_event_candidates=False
+                    list(res.support_candidates), include_event_candidates=False,
+                    career_lecture=False,  # 직업 섹션은 말미 lecture_block 이 간지당 1회 담당
                 )
                 lines += list(res.lines)
                 # 이동 주체 미상(2026-10-15) — named view 경로는 luck_block 의 후보 블록을 끄므로
@@ -4029,10 +4088,20 @@ def build_section_context(
             lines += data.luck_block(
                 data.domain_candidates(section_domain), domain=section_domain,
                 love_notes=sid not in _NO_LOVE_NOTE_SECTIONS,
+                career_lecture=False,  # 도메인 섹션은 말미 lecture_block(직업·재물·관계)이 담당
             )
         else:
             # 2부 과거·메타 섹션은 [대운표]만 — 미래 이벤트 후보가 섞이는 시간범위 불일치 차단.
-            lines += data.luck_block(daewoon_only=sid in _DAEWOON_ONLY_SECTIONS)
+            lines += data.luck_block(
+                daewoon_only=sid in _DAEWOON_ONLY_SECTIONS,
+                career_lecture=sid.split("-Y")[0] in _CAREER_LECTURE_GENERAL_SECTIONS,
+            )
+        # 테마 기간 섹션 — 운 간지별 강의 문구(직장 운 결·재물 운 결·이별운 운 문구, 2026-10-30
+        # 배선). 정책 분기(J-05 등)·일반 도메인 분기 모두 같은 도메인 후보를 쓴다.
+        if section_domain in ("career", "wealth", "relationship"):
+            _dom_lec = data.lecture_block(section_domain, data.domain_candidates(section_domain))
+            if _dom_lec:
+                lines += ["", *_dom_lec]
         # 재물 섹션 — 원국 횡재 그릇(운 분리 잠재구조) 표면화(Phase 1).
         if sid in _WEALTH_CAPACITY_SECTIONS:
             lines += ["", *data.wealth_capacity_block()]

@@ -147,7 +147,12 @@ def test_seeds_merge_to_one_candidate_and_skip_other_layers() -> None:
         TransitSignal(TenGod.JIECAI, LuckLayer.WOLWOON, "branch_main"),
     ]
     out = produce_love_separation_seeds(sig, LuckLayer.WOLWOON, chart, "2026-10", flags)
-    assert len(out) <= 1
+    # 2026-10-30 강화: 규칙 ①(관성 약 × 상관)·④(정재 × 겁재)가 같은 시점에 성립해도 시드는 1건으로
+    # 병합되고, 근거 코드에 두 규칙이 모두 남는다(시드 0건이어도 통과하던 `<= 1` 단언 교체).
+    assert len(out) == 1
+    seed = out[0]
+    assert seed.event_key is EventKeyV2.RELATIONSHIP_CHANGE and seed.period == "2026-10"
+    assert {"LOVE_SEP_OFFICER_OUTPUT", "LOVE_SEP_ZHENGCAI_PEER"} <= set(seed.reason_codes)
     assert produce_love_separation_seeds(sig, LuckLayer.ILWOON, chart, "2026-10-01", flags) == []
 
 

@@ -44,6 +44,30 @@ def test_non_daewoon_questions_unchanged() -> None:
     assert parse_time("올해 운세 어때?", _T)[1] is TimeScope.MID_TERM
 
 
+@pytest.mark.parametrize(("q", "scope", "start", "end"), [
+    # 2026-10-30 점검: 대운 낱말이 섞여도 명시 시점이 창이다(C14/C14b 가 C5·C6·C12 보다 뒤).
+    ("지금 대운이 안 좋은 거 같은데 내년엔 괜찮아질까요?", TimeScope.MID_TERM, "2027", "2027"),
+    ("요즘 대운이 바뀐 것 같은데 올해 이직 될까요?", TimeScope.MID_TERM, "2026", "2026"),
+    ("2028년에 좋은 대운이 오나요?", TimeScope.MID_TERM, "2028", "2028"),
+    ("내년에 대운 들어오나요?", TimeScope.MID_TERM, "2027", "2027"),
+    ("좋은 대운은 지나갔고 올해는 어때요?", TimeScope.MID_TERM, "2026", "2026"),
+    ("2030년 3월에 대운이 바뀌나요?", TimeScope.SHORT_TERM, "2030-03", "2030-03"),
+    ("40대에 대운이 바뀌나요?", TimeScope.LIFE_STAGE, "2013", "2022"),
+])
+def test_explicit_time_beats_daewoon_regexes(
+    q: str, scope: TimeScope, start: str, end: str,
+) -> None:
+    tr, sc = parse_time(q, _T, birth_year=1973)
+    assert sc is scope and tr is not None and (tr.start, tr.end) == (start, end), (q, sc, tr)
+
+
+def test_prefixed_daewoon_word_is_not_when_question() -> None:
+    """'역마대운이 들어오는 시기'의 '대운'은 낱말 '대운'이 아니다 — 오해 교정 지시 금지."""
+    q = "역마대운이 들어오는 시기에 해외 갈까요?"
+    assert is_daewoon_when_question(q) is False
+    assert parse_time(q, _T, birth_year=1973)[1] is TimeScope.TIMELESS
+
+
 def test_lifetime_regex_covers_my_life_phrases() -> None:
     for q in ("제 인생에 좋은 대운은 언제 와요?", "저의 인생에서 큰 변화", "내 인생 전체"):
         assert chat_service._LIFETIME_RE.search(q), q
