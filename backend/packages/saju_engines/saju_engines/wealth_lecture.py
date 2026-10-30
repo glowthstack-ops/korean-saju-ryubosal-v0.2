@@ -163,8 +163,14 @@ def _luck_gods(dm: Stem, ganji: str) -> tuple[str, str] | None:
         return None
 
 
-def wealth_period_texts(result: ManseV2Result, ganji: str, wealth_score: int | None) -> list[str]:
-    """운 간지 1개(그 기간 재물 후보 최고점 포함)에 붙는 문구 — 조건 성립분만."""
+def wealth_period_texts(
+    result: ManseV2Result, ganji: str, wealth_score: int | None, *, include_dosik: bool = True,
+) -> list[str]:
+    """운 간지 1개(그 기간 재물 후보 최고점 포함)에 붙는 문구 — 조건 성립분만.
+
+    ``include_dosik=False`` 면 편인 도식 문구를 빼고 돌려준다(블록이 끝에 1회만 붙인다 —
+    2026-10-30).
+    """
     v = wealth_vessel(result)
     p = result.pillars
     if v is None or p is None or len(ganji) < 2:
@@ -187,7 +193,7 @@ def wealth_period_texts(result: ManseV2Result, ganji: str, wealth_score: int | N
         cell = f"satisfaction_{v.size}_{inflow}" if inflow and v.size != "mid" else ""
         if cell in t:
             out.append(t[cell])
-    if "편인" in gods:
+    if "편인" in gods and include_dosik:
         # 편인 도식(2026-10-29 강의) — 원국 식신 기준 문구(경제 활동 제약·큰 결정 조언·몰입 상담).
         from .chart_interpretation import dosik_texts
 
@@ -214,15 +220,27 @@ def wealth_period_block(
         result: 본인 명식.
         periods: (기간 라벨, 운 간지, 그 기간 재물 후보 최고점 또는 None).
     """
+    from .chart_interpretation import dosik_texts, luck_has_pianyin
+
     seen: set[str] = set()
     lines: list[str] = []
+    pianyin_seen = False
     for period, ganji, score in periods:
         if not ganji or ganji in seen:
             continue
         seen.add(ganji)
-        texts = wealth_period_texts(result, ganji, score)
+        texts = wealth_period_texts(result, ganji, score, include_dosik=False)
         if texts:
             lines.append(f"- {period} {ganji}: " + " ".join(texts))
+        p = result.pillars
+        pianyin_seen = pianyin_seen or (p is not None and luck_has_pianyin(p.day_master, ganji))
+    # 편인 도식 문구는 원국 상수 문구 — 간지마다 되풀이하지 않고 블록 끝에 1회(2026-10-30 점검).
+    if pianyin_seen:
+        dosik = dosik_texts(result)
+        if dosik:
+            lines.append(
+                "- 편인 운 공통(원국 식신 기준, 위 편인 기간 전체에 1회): " + " ".join(dosik)
+            )
     if not lines:
         return []
     return [

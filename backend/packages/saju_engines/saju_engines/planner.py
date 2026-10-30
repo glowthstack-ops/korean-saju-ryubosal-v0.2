@@ -20,6 +20,8 @@ _DOMAIN_GRAPH_SCOPE: dict[Domain, list[EventKey]] = {
         EventKey.CAREER_CHANGE, EventKey.JOB_GAIN, EventKey.PROMOTION,
         EventKey.BUSINESS_START, EventKey.BUSINESS_EXPANSION,
         EventKey.CREATIVE_OUTPUT, EventKey.PUBLIC_EXPOSURE, EventKey.CONTRACT_DOCUMENT,
+        # 휴직(복귀 전제) — intent_event_filter 의 career·health include 와 정합(2026-10-30).
+        EventKey.CAREER_LEAVE,
     ],
     Domain.RELATIONSHIP: [
         EventKey.RELATIONSHIP_CHANGE, EventKey.NEW_RELATIONSHIP,
@@ -33,7 +35,7 @@ _DOMAIN_GRAPH_SCOPE: dict[Domain, list[EventKey]] = {
         EventKey.EDUCATION_ADMISSION, EventKey.EDUCATION_COMPLETION,
         EventKey.CONTRACT_DOCUMENT,
     ],
-    Domain.HEALTH: [EventKey.HEALTH_ATTENTION],
+    Domain.HEALTH: [EventKey.HEALTH_ATTENTION, EventKey.CAREER_LEAVE],  # 병가·휴직(2026-10-30)
     Domain.GENERAL: [],
 }
 

@@ -3065,6 +3065,17 @@ _YEAR_DIGEST_DIRECTIVE = (
     "지정하면 그때 그 해의 월별 상세를 풀어주겠다고 안내하라."
 )
 
+# 대운 단위 질문(2026-10-30) — '지금·다음 대운' 창을 대운표로 확정했을 때의 응답 형식. 10년 digest
+# 지시와 같은 결(연 단위·월 단정 금지)이지만 구간을 그 대운으로 고정하고 '시점 막연' 문구를 쓰지
+# 않는다.
+_DAEWOON_UNIT_DIRECTIVE_TMPL = (
+    "[응답 형식 — 대운 단위] 이 질문은 {label} 하나를 묻는다 — 대상 구간은 {lo}–{hi}년이다. "
+    "이 대운 전체를 하나의 환경(계절)으로 먼저 총평하고, 그 안의 해들을 '연(세운) 단위'로 큰 "
+    "줄기만 짚어라. 12개월 월별 나열·특정 달 단정은 하지 말 것. 구간 밖 연도는 교운(대운 교체) "
+    "배경으로만 짧게 언급한다. 마무리 질문 하나의 소재는 '어느 해를 더 자세히 보고 싶은지'로 "
+    "삼아 — 사용자가 연도를 지정하면 그 해의 월별 상세를 풀어주겠다고 안내하라."
+)
+
 # 전 생애/인생 단계 스캔(2026-08-07 데굴님 승인) — 발동 키워드. C13 단계 어휘(초년/청년/
 # 중년/말년/평생)는 파서의 time_range.life_stage로 들어오고, 아래 정규식은 파서가 단계
 # 어휘로 잡지 않는 전 생애 표현('살면서', '내 인생에서' 등)을 보강한다.
@@ -3796,6 +3807,44 @@ _DAEWOON_KEYS = (
 def _is_daewoon_question(intent: IntentJson, question: str) -> bool:
     """대운·장기 인생 흐름 질문 여부 — 명시 키워드 기반(막연한 장기 질문은 호출부에서 OR 보강)."""
     return any(k in question for k in _DAEWOON_KEYS)
+
+
+_NEXT_DAEWOON_RE = re.compile(r"다음\s*(?:의\s*)?대운")
+
+
+def _daewoon_unit_window(
+    question: str, intent: IntentJson, result: ManseV2Result, today: date,
+) -> tuple[int, int, str] | None:
+    """대운 단위 질문('지금·이번·다음 대운', 교운·교체)의 연 창 — (시작연, 끝연, 라벨) 또는 None.
+
+    time_parser C14 는 대운표를 모르므로 start/end 없이 ``DAEWOON_UNIT`` 만 표시한다. 그래서
+    '지금 대운은 어때요?'와 '다음 대운은 어때요?'가 둘 다 '시점 미명시 → 올해부터 10년' digest 로
+    풀려 다음 대운 질문이 현재 대운 창으로 답해졌다(2026-10-30 점검). '다음'이면 다음 대운, 그 외
+    (지금·이번·현재·요즘·교운·교체)는 현재 대운. 현재 대운 창은 오늘 연도부터, 끝은 대운 끝 연도
+    (교운일이 그 해 안에 있어 끝 해 포함). 대운표·현재 대운 판정이 없으면 None(기존 digest 유지).
+    점수·판정 불변 — 창과 지시문만 바꾼다.
+    """
+    if intent.time_scope is not TimeScope.DAEWOON_UNIT:
+        return None
+    if intent.time_range is not None and intent.time_range.start:
+        return None
+    lc = result.luck_cycles
+    if lc is None or not lc.daewoon_table or lc.current_daewoon_index is None:
+        return None
+    is_next = bool(_NEXT_DAEWOON_RE.search(question))
+    idx = lc.current_daewoon_index + (1 if is_next else 0)
+    if not 0 <= idx < len(lc.daewoon_table):
+        return None
+    dw = lc.daewoon_table[idx]
+    start_y, end_y = dw.approx_start_date.year, dw.approx_end_date.year
+    lo = start_y if is_next else max(today.year, start_y)
+    if lo > end_y:
+        return None
+    label = (
+        f"{'다음' if is_next else '현재'} 대운 {dw.ganji}"
+        f"({start_y}–{end_y}, {dw.start_age}–{dw.start_age + 9}세)"
+    )
+    return lo, end_y, label
 
 
 # ── 기간 미지정 + '달/날짜' 입도 명시 질문(2026-07-03 데굴님 지적) ────────────────
@@ -6053,6 +6102,14 @@ def chat(
         re.search(r"언제|몇\s*월|몇\s*년|어느\s*(해|달|연도|월|시기)|타이밍|이사\s*시기", question)
     )
     relo_decided = _relo_dest and not _asks_move_timing
+    # 대운 단위 질문 창(2026-10-30) — '지금/다음 대운'을 대운표로 확정. start/end 는 비워 둬
+    # vague_future(연 단위 digest) 경로는 그대로 타고, digest 연도·후보 창·지시문·[기준 시점]
+    # 라벨만 그 대운으로 바꾼다(점수·판정 불변).
+    _dw_unit = _daewoon_unit_window(question, intent, result, today)
+    if _dw_unit is not None and intent.time_range is not None:
+        intent = intent.model_copy(update={
+            "time_range": intent.time_range.model_copy(update={"label_ko": _dw_unit[2]}),
+        })
     # 전 생애/인생 단계 스캔(2026-08-07 데굴님 승인) — C13 단계 어휘(파서 life_stage)
     # 또는 전 생애 키워드(_LIFETIME_RE)로 발동한다. 기존 10년 digest·원거리 12년 창보다
     # 먼저 분기하며, 근거 데이터는 이미 계산된 대운표의 sewoon(전 생애 세운)을 재사용한다.
@@ -6107,8 +6164,12 @@ def chat(
         else:
             default_period = (current_month, month_add(current_month, horizon.months_detail))
     elif vague_future:
-        year_digest_years = list(range(today.year, today.year + 10))
-        default_period = (str(today.year), str(today.year + 9))
+        if _dw_unit is not None:
+            year_digest_years = list(range(_dw_unit[0], _dw_unit[1] + 1))
+            default_period = (str(_dw_unit[0]), str(_dw_unit[1]))
+        else:
+            year_digest_years = list(range(today.year, today.year + 10))
+            default_period = (str(today.year), str(today.year + 9))
         if result.luck_cycles is not None:
             have = {pl.label for pl in result.luck_cycles.yearly_luck}
             missing = [y for y in year_digest_years if str(y) not in have]
@@ -6229,7 +6290,11 @@ def chat(
         bundles = _get_graph().retrieve(scope_lt)
     elif vague_future:
         # 세운(연) 중심 — 월 후보는 빼서 LLM이 10년 연 단위 흐름에 집중하게 한다.
-        lo, hi = str(today.year), str(today.year + 9)
+        # 대운 단위 질문이면 그 대운의 연 창(2026-10-30).
+        lo, hi = (
+            (str(_dw_unit[0]), str(_dw_unit[1])) if _dw_unit is not None
+            else (str(today.year), str(today.year + 9))
+        )
         candidates = [c for c in year_scored if len(c.period) == 4 and lo <= c.period <= hi]
         candidates = _get_intent_filter().filter(
             candidates, str(intent.domain), _event_filter_context,
@@ -7412,9 +7477,14 @@ def chat(
         )
     elif vague_future and not _relo_dest:
         # 지평 정책이 잡힌 질문은 10년 digest 대신 지평 강제 지시(밖 서술 금지 + 한 줄 안내).
-        trailing.append(
-            horizon_directive(horizon) if horizon is not None else _YEAR_DIGEST_DIRECTIVE
-        )
+        if horizon is not None:
+            trailing.append(horizon_directive(horizon))
+        elif _dw_unit is not None:
+            trailing.append(_DAEWOON_UNIT_DIRECTIVE_TMPL.format(
+                label=_dw_unit[2], lo=_dw_unit[0], hi=_dw_unit[1],
+            ))
+        else:
+            trailing.append(_YEAR_DIGEST_DIRECTIVE)
     elif gran_no_period and not _relo_dest:
         trailing.append(_MONTH_PICK_DIRECTIVE if timing_gran == "month" else _DAY_PICK_DIRECTIVE)
     elif overview is not None and event_monthly and not monthly_explicit:

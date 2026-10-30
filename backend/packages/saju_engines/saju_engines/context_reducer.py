@@ -163,6 +163,8 @@ _DOMAIN_EVENT_KEYS: dict[str, set[str]] = {
     "career": {
         "career_change", "job_gain", "promotion", "business_start",
         "business_expansion", "contract_document",
+        # 휴직·휴가(복귀 전제) — 2026-10-29 신설 키, 도메인 필터 누락 보완(2026-10-30).
+        "career_leave",
     },
     "wealth": {"wealth_change", "windfall"},
     "relationship": {"relationship_change", "new_relationship", "marriage_signal", "childbirth"},
@@ -1821,6 +1823,7 @@ def _to_llm_candidate(
     sinsal_modifiers: list[LlmSinsalModifier] | None = None,
     sinsal_channel_note: str = "",
     domain: str | None = None,
+    career_lecture: bool = True,
 ) -> LlmEventCandidate:
     period_ganji = ganji.get(c.period, "")
     # 관계 단계(Step 2) — MT reason_codes(evidence_path)에서 도출. 비-MT 후보는 빈값(무영향).
@@ -1845,7 +1848,12 @@ def _to_llm_candidate(
     if day_master and period_ganji:
         # 후보별 note 는 operational guard 미적용(후보 다수 → 토큰 과증, Phase 5b-1 조건 5/7).
         # 운세 해석 operational guard 는 단일 기간 build_luck_grounding 에서만 붙인다.
-        note = incoming_ten_god_note(day_master, period_ganji, fav_map or {})
+        # 직장 강의 문구(겁재 천간·편인 휴직)는 일반·직업 질문에만(2026-10-30 — 관계 질문 후보
+        # note 누출 교정).
+        note = incoming_ten_god_note(
+            day_master, period_ganji, fav_map or {},
+            career_lecture=career_lecture and domain in (None, "general", "career"),
+        )
         # 표현 결(12운성 유입) — 흐름·결과 서술의 결. 문체 전용(daily §23 이식, 2026-09-10).
         stage_note = incoming_stage_note(day_master, period_ganji)
     # 교차 작용(2026-10-01 데굴님 승인) — 유입 십성 × 질문 도메인 기준 십성의 생극 1줄.
@@ -2054,9 +2062,14 @@ def build_reference_frame(
         except ValueError:
             end = None
     period = f"{start} – {end}" if start and end and start != end else (start or "")
+    # 대운 단위 질문(start/end 없음)은 chat_service 가 채운 라벨로 창을 밝힌다(2026-10-30 점검:
+    # '지금 대운은 어때요?'가 '시점이 명시되지 않았다'로 표기되던 결함).
+    _label = intent.time_range.label_ko if intent.time_range is not None else None
     note = (
         f"질문의 시점 표현은 {period} 구간으로 해석되었다."
         if period
+        else f"질문의 시점 표현은 {_label} 구간으로 해석되었다."
+        if _label
         else "질문에 시점이 명시되지 않았다 — 오늘 기준 흐름으로 안내."
     )
     # P3(2026-06-14): 의도(event)·기간 유형을 명시해 LLM이 기간/사건을 재해석하지 않게 한다.
@@ -2533,7 +2546,7 @@ def build_llm_input(
     if _specific and period_v2_config.DOMAIN_FAMILY_SCOPE_ENABLED:
         family_extra = [
             _to_llm_candidate(c, ganji, dw_by_year, day_master, fav_map, result,
-                              domain=str(intent.domain.value))
+                              domain=str(intent.domain.value), career_lecture=False)
             for c in family_extra_candidates(
                 candidates, graph_scope, period_start, period_end, month_bounds,
             )
@@ -2592,8 +2605,15 @@ def build_llm_input(
     _max_cand = _sinsal_cfg.SINSAL_PAYLOAD_MAX_CANDIDATES
 
     _domain_key = intent.domain.value if intent.domain is not Domain.GENERAL else None
-    llm_candidates = [
-        _to_llm_candidate(
+    # 직장 강의 문구(겁재 천간·편인 휴직)는 같은 운 간지의 첫 후보에만 — 같은 달 후보 수만큼
+    # 반복되던 토큰 낭비 교정(2026-10-30, 점검 잔여 항목).
+    _lecture_seen: set[str] = set()
+    llm_candidates: list[LlmEventCandidate] = []
+    for i, c in enumerate(selected):
+        _gj = ganji.get(c.period, "")
+        _first_for_ganji = _gj not in _lecture_seen
+        _lecture_seen.add(_gj)
+        llm_candidates.append(_to_llm_candidate(
             c,
             ganji,
             dw_by_year,
@@ -2603,9 +2623,9 @@ def build_llm_input(
             sinsal_mods if i < _max_cand else None,
             _channel_notes.get(i, "") if i < _max_cand else "",
             domain=_domain_key,
-        )
-        for i, c in enumerate(selected)
-    ]
+            # 직업 질문은 말미 [직장 운 결] 블록이 간지당 1회 담당 — note 에는 붙이지 않는다.
+            career_lecture=_first_for_ganji and _domain_key != "career",
+        ))
     # 총운형 반복 신호 노트(2026-07-14) — 클러스터 대표에 보조 기간·반복 횟수 병기.
     for _ri, _rnote in recurrence_notes.items():
         if 0 <= _ri < len(llm_candidates):

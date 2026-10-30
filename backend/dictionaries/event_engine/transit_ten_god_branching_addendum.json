@@ -378,6 +378,24 @@
   ],
   "event_disambiguation_rules": [
     {
+      "id": "CAREER_LEAVE_VS_CAREER_CHANGE",
+      "confused_events": [
+        "career_leave",
+        "career_change"
+      ],
+      "career_leave_if": [
+        "편인이 중심(도식 — 식신이 눌림)",
+        "복귀를 전제로 쉬는 형태(휴직·육아휴직·병가·안식년)",
+        "상관·겁재·편관의 이탈 신호가 약함"
+      ],
+      "career_change_if": [
+        "상관 또는 편관이 중심",
+        "겁재 천간 운(재성=내 자리·무대를 흔듦)",
+        "기존 직장 상태에서 역할·조직·계약 변화(완전 이탈)"
+      ],
+      "note": "2026-10-29 데굴님 결정 — 휴직은 다시 그 회사로 돌아가는 긴 휴가, 완전 이탈이 아니다(휴직≠퇴사). 2026-10-30 등재"
+    },
+    {
       "id": "CAREER_CHANGE_VS_JOB_GAIN",
       "confused_events": [
         "career_change",
@@ -572,7 +590,8 @@
         "business_start",
         "career_change",
         "creative_output",
-        "public_exposure"
+        "public_exposure",
+        "career_leave"
       ],
       "interpretation": "본인이 먼저 움직이거나 선택하는 사건"
     },
@@ -586,7 +605,8 @@
         "career_change",
         "legal_conflict",
         "health_attention",
-        "social_conflict"
+        "social_conflict",
+        "career_leave"
       ],
       "interpretation": "외부 규칙·조직·경쟁·압박에 의해 발생하는 사건"
     },
@@ -675,7 +695,8 @@
         "preparation_delay",
         "contract_document",
         "education_completion",
-        "career_change"
+        "career_change",
+        "career_leave"
       ],
       "description": "진행이 막히거나 조건부로 지연되는 사건"
     },

@@ -17,7 +17,7 @@
     "purpose": "사건을 즉효성, 진행형, 결과형, 구조형, 반복형으로 분류한다(일운 풀이의 과잉 해석 방지).",
     "event_duration_types": {
       "instant": {"description": "당일 또는 며칠 안에 체감되는 사건", "events": ["windfall", "social_conflict", "contract_document", "health_attention", "public_exposure"], "main_layers": ["wolwoon", "ilwoon"]},
-      "progressive": {"description": "몇 달 이상 진행되는 사건", "events": ["career_change", "business_start", "relationship_change", "relocation"], "main_layers": ["sewoon", "wolwoon"]},
+      "progressive": {"description": "몇 달 이상 진행되는 사건", "events": ["career_change", "business_start", "relationship_change", "relocation", "career_leave"], "main_layers": ["sewoon", "wolwoon"], "note_career_leave": "휴직은 몇 달~1년 단위(2024년 육아휴직 평균 8.8개월, 고용노동부 통계) — 2026-10-30 등재"},
       "structural": {"description": "대운·세운에서 형성되는 큰 구조 변화", "events": ["job_gain", "marriage_signal", "education_admission", "relocation", "business_expansion"], "main_layers": ["daewoon", "sewoon"]},
       "result": {"description": "이미 준비된 일이 결과로 드러나는 사건", "events": ["education_completion", "promotion", "contract_document", "creative_output"], "main_layers": ["sewoon", "wolwoon", "ilwoon"]},
       "repeating": {"description": "복음·병존·자형 등으로 반복되는 사건", "events": ["social_conflict", "health_attention", "relationship_change", "career_change"], "main_signals": ["fueum", "byeongjon", "self_punishment"]}

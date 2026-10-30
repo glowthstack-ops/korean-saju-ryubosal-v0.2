@@ -236,7 +236,7 @@
           "충:",
           "해지"
         ],
-        "event_keys": [],
+        "event_keys": ["career_leave"],
         "favorability": "adverse"
       },
       "loss_is_conclusion": false,
@@ -855,7 +855,7 @@
           "제살",
           "합거"
         ],
-        "event_keys": [],
+        "event_keys": ["career_leave"],
         "favorability": "favorable"
       },
       "loss_is_conclusion": false,

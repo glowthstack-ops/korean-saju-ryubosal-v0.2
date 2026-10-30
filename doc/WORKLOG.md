@@ -13147,3 +13147,48 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 
 **구현**: `daewoon_turn.py` — 좋음→나쁨 = 일이 더 잘 풀려 보일 때 무리한 확장·대출 투자 경계(전문가·주변·배우자 상의, 감당 가능선), 나쁨→좋음 = 마지막 고비는 길지 않으니 준비. 범위는 엔진 교운 가중 e^-1(앞뒤 1년 핵심)·e^-2(앞뒤 2년 여파), 혼합·평운·트리거운 제외. 채팅 대운 흐름 블록·리포트 십년 페이지. 교체기 체감 신호 지시에 징조 구절. 점수 불변, 테스트 추가.
 
+
+## 2026-10-30 — 2026-10-29 작업 점검 후속: 보강 권고 5건 (데굴님 "보강권고 내용들을 진행해줘. 자료가 부족한 부분은 검색을 통해서 보강해")
+
+**배경**: 어제 커밋 2건(fc15ce9·abcd477)을 게이트(VALID_SUITE_PASS·ruff·production mypy·maintained scripts)·라이브 dry-run 7종·커밋별 코드 리뷰로 점검. 결함 3건(대운 정규식이 명시 시점을 덮어씀 / `_period_level` 대운 키 `~`→`–` 불일치 / 금지 패턴 오탐·누락)은 **결정 대기**, 보강 권고 5건을 이번에 반영.
+
+**반영**
+- **편인 도식 문구 블록당 1회**: `career_exit_lecture_texts`·`wealth_period_texts` 에 `include_dosik` 인자, `career_exit_lecture_block`·`wealth_period_block` 은 간지별 줄에서 빼고 블록 끝 "편인 운 공통(원국 식신 기준…)" 1줄(`luck_has_pianyin` 신설). 실측 편인 간지 3개 → 3회 반복이 1회로. 후보별 note(`incoming_ten_god_note`, 단일 기간)는 그대로.
+- **career_leave 레지스트리 보완**: `context_reducer._DOMAIN_EVENT_KEYS["career"]`·`planner._DOMAIN_GRAPH_SCOPE`(CAREER·HEALTH), `conflict_resolver_duration.json` progressive, `transit_ten_god_branching_addendum.json` volition 2종·delayed_or_blocked·`CAREER_LEAVE_VS_CAREER_CHANGE`, `event_process_types.json` separation·relief. 검색 근거: 2024년 육아휴직 평균 사용 기간 8.8개월(여 9.4·남 7.5, 고용노동부) — 몇 달~1년 단위라 progressive. 질의어 '휴직' → career_leave 는 `EVENT_WORDS` 에 이미 있었음(점검 보고 오인 정정). 점수층 플래그 OFF 상태에서는 후보가 생기지 않아 출력 불변.
+- **'지금/다음 대운' 창 확정**: `chat_service._daewoon_unit_window` — `DAEWOON_UNIT`(start/end 없음)이면 대운표로 현재(오늘 연도부터 대운 끝 해) 또는 '다음' 대운 창을 잡아 digest 연도·후보 창·`_DAEWOON_UNIT_DIRECTIVE_TMPL`("[응답 형식 — 대운 단위]")·[기준 시점] 라벨(`TimeRange.label_ko` 신설, 파서는 채우지 않음)을 바꾼다. 실측: '다음 대운은 어때요?'가 현재 대운 10년 digest 로 답해지던 결함 교정(이제 癸巳 2035–2045). vague_future 경로·점수·판정 불변.
+- **물결표**: `yearly_environment` 머리줄 자리표시 `~` → `…`(10-29 정리 누락), `prompt_notation` 에 단위 붙은 범위(`2026년~2027년`·`10월~12월`·`3개월~6개월`·`30%~40%`) 규칙 추가.
+- **약한 테스트 교체**: `test_far_window_has_no_block` `== []` 고정(2060–2061·2050–2051), `test_seeds_merge_to_one_candidate…` 1건 병합 + 두 규칙 근거 코드 단언.
+- 테스트 `tests/unit/test_review_followups_20261030.py` 12건.
+
+**남음(결정 대기)**: 결함 3건 교정안, 후보별 note 의 pianyin_leave 반복(같은 간지 후보 수만큼), 운 역마 조언이 연 총운 줄마다 반복(`build_luck_grounding`), 리포트 십년 페이지 경계 교운 양쪽 중복.
+
+## 2026-10-30 — 점검 결함 3건 교정 (데굴님 "결함 처리 진행하자")
+
+- **대운 정규식이 명시 시점을 덮어쓰던 결함**: `time_parser` C14(대운 단위)·C14b(대운 시기)를 C5(월)·C6(연)·C12(나이) 등 명시 시점 규칙 **뒤**, 개방형 '언제'(C2) 앞으로 이동. '지금 대운이 안 좋은데 내년엔?'→2027, '2028년에 좋은 대운이 오나요?'→2028, '2030년 3월에 대운이 바뀌나요?'→2030-03, '40대에 대운이 바뀌나요?'→십년대 창. 대운 관점 지시는 chat_service 가 '대운' 키워드로 따로 붙이므로 유지. `DAEWOON_WHEN_RE` 둘째 가지에 한글 뒤 '대운' 제외(`(?<![가-힣])`) — '역마대운이 들어오는 시기'에 오해 교정 지시가 붙던 오탐 제거. 기존 라우팅 표 8건 불변, 반례 8건 추가(`test_daewoon_lecture_20261029.py`).
+- **`scoring_operational._period_level`**: 10-29 물결표 정리가 식별자 비교까지 `–`로 바꿔 대운 후보(`YYYY~YYYY`)가 year 레벨로 분류되던 잠복 결함 — `~`·`–` 둘 다 daewoon. near_tie_demotion OFF 라 운영 출력 불변. 회귀 `test_scoring_near_tie.py::test_period_level_accepts_engine_and_display_daewoon_keys`.
+- **`report_checks._PROHIBITED_PATTERNS`**: 가능성형 '당첨될 것 같아요·것으로 보여요' 오탐 제거(확정 어미 `_CERTAIN_ENDING`: 것입니다·이다·겁니다·거예요·거야·거다·테니), 누락 보강 — '당첨될 거야'·'이번 시험은 떨어진다'(조사 생략)·'경쟁/승진/심사/채용/선발에서 떨어진다'·'반드시/무조건 ~합니다·됩니다'·'불합격/탈락/낙선/낙방한다'·'합격/당선할 거예요'. 하드 범위는 ASSERTION_POLICY 예외(당락·승패·당첨 확정·수명)와 확정 부사 어미뿐 — 승진·취업 '~한다'는 추가하지 않음. 반례·정례 각 5·8건 추가(`test_assertion_policy_20261029.py`).
+
+## 2026-10-30 — 테마사주·AI 채팅 적용 점검 + 테마 리포트 기간 섹션에 운 간지별 강의 문구 배선 (데굴님 "제대로 적용되었는지 체크해줘… intent에 맞게" · "그래 제대로 배선해")
+
+**점검(라이브 dry-run)**: 테마 5종(총운·한해풀이·애정관계·직장·금전횡재) × 기본 명식 + 조건 성립 픽스처 4명식, 채팅 intent 9종. 채팅은 어제·오늘 층이 intent 별로 전부 실렸다(재물=그릇·재물 운 결·식상 제약 / 휴직=휴직·도식 / 관계·궁합=관계 결·무인성·다름·이별 강의 / 이사=역마 / 지금 대운=대운 단위 창). 리포트는 원국 해설층(재물 그릇 W-04/W-05·관계 결·무인성 R-03/R-05)·십년 페이지(역할 라벨·교운 방향·받을 준비)·단정 규칙 5·'조건부' 금지·D-15 가 intent 에 맞게 실렸으나, **운 간지별 문구층 3종(직장 운 결·재물 운 결·이별운 운 문구+다름의 인정)이 채팅 말미 블록 전용**이라 테마 기간 섹션에 없었다(1978-01-02 픽스처: J-06 의 2026-03 辛卯 자기형·2026-04 壬辰 휴직 조건이 후보 줄에 없음).
+
+**배선**: `report_service.ReportData.lecture_block(domain, cands)` — 섹션 도메인 후보의 (기간, 운 간지)를 채팅과 같은 함수(`career_exit_lecture_block`·`wealth_period_block`(만족도 칸=기간 재물 후보 최고점)·`love_separation_block`+`RELATIONSHIP_DIFFERENCE_PERSPECTIVE`)에 넘긴다. 부착 자리 ①도메인 섹션(정책 분기 J-05 포함·일반 분기) 후보 블록 뒤 ②테마 연도별 상세·월별 분할 페이지(`month_page_windows`)는 그 해 구간 후보만. 원국 섹션·세 도메인 밖 섹션은 미부착. 실측: career J-05/J-05-Y2026/J-06, wealth W-06/W-06-Y2026/W-07, relationship R-05/R-05-Y2026/R-06, 총운 F-15/F-16/F-17/F-17c — 다른 테마로 새지 않음. 점수·판정 불변.
+
+**참고 관찰(미변경)**: 총운·한해풀이의 세운·월운 한 줄 근거(`build_luck_grounding`)가 모든 운 섹션에 공유돼 직장 강의 문구(휴직·겁재 천간·도식)가 관계 섹션에도 실린다. 한해풀이 `11~12월은`·`2025~2027`은 숫자 범위라 LLM 경계에서 `–`로 정규화된다.
+
+- 테스트 `tests/unit/test_report_theme_lecture_blocks_20261030.py` 4건(직장·재물·관계 테마 부착 + 교차 누출 없음 + 원국 섹션 미부착).
+
+## 2026-10-30 — 직장 강의 문구 도메인 게이트 — 관계·건강·방위 섹션/관계 질문에 '휴직·이직' 문구 누출 교정 (데굴님 "문제가 있을까? 있다면 수정하는게 좋겠어")
+
+**문제**: 리포트 후보 클러스터의 '운 결(문체 전용)' 줄(`report_event_input._tone_line`)이 원국을 넘겨 모든 섹션(F-10~F-20b·Y-*)에 직장 강의 문구(환경형·자기형·겁재 천간·편인 휴직·도식)를 붙였고, 채팅 후보 note(`context_reducer`)와 단일 기간 근거(`build_luck_grounding`)도 질문 도메인과 무관하게 붙였다. 관계·건강·방위 섹션과 연애 질문에 '휴직·이직' 서사가 섞일 수 있고 섹션당 수백 자가 반복됐다. 10-29 기록("후보별 note 엔 넘기지 않는다")과도 어긋난 상태.
+
+**교정**: `incoming_ten_god_note(career_lecture=, include_dosik=)` — 직장 문구는 일반(총운)·직업 도메인에만. 호출자 게이트: `build_luck_grounding`(domain_key None/career), `precise_candidate_clusters(career_lecture=domain in (None,"career"), include_dosik=domain is None)` — 도식은 일반 섹션 클러스터 목록 안에서 1회, 직업·재물 섹션은 말미 강의 블록(`lecture_block`)이 1줄 담당, 채팅 후보 note(`domain in (None,"general","career")`). 실측: 관계 테마(1978-01-02) 전 섹션 0건, 총운 1974-01-12 F-11(일반) 유지·관계/건강 섹션 0건·섹션당 도식 ≤1, 채팅 '2027년 연애운' 0건·'2027년 직장운' 유지. 점수·판정 불변.
+- 테스트 `tests/unit/test_career_lecture_domain_gate_20261030.py` 4건.
+- 후속 정밀화(같은 날): ① 리포트 클러스터 줄의 직장 문구는 **일반 총운 섹션 집합** `_CAREER_LECTURE_GENERAL_SECTIONS`(F-10·F-11·F-13·F-14·Y-01·Y-03·Y-04·Y-05)에만 — 도메인 미매핑이지만 총운이 아닌 부모·가족(F-17b)·행동 전략(F-19/Y-10)·개운(F-20/Y-11)·방위(F-20b/Y-11b)는 제외, 직업·재물·관계 도메인 섹션은 말미 `lecture_block` 이 간지당 1회 담당(클러스터 줄 OFF). ② 채팅 후보 note 는 같은 운 간지의 첫 후보에만(`_lecture_seen`), 직업 질문은 말미 [직장 운 결] 블록이 담당하므로 note OFF, 같은 영역 다른 사건 후보(family_extra)도 OFF. 실측: '2027년 직장운' 휴직 문구 3→1, 총운 1974 F-17b/F-19/F-20/F-20b 0건, J-06 1건.
+
+## 2026-10-30 — 채팅 화면 자동 스크롤 교정 — 답변 도착 시 스크롤 이동 제거 (데굴님 "질문입력 상태에서 시스템적인 스크롤 변화없이 답변이 출력되도록")
+
+- **문제**: `app/chat/page.tsx` 의 effect 가 `messages`/`busy` 변화마다 `bottomRef.scrollIntoView` 를 호출해, 화면을 넘는 긴 답변이 오면 답변 끝으로 내려가 처음부터 읽을 수 없었다.
+- **교정**: 스크롤을 사용자 동작에만 묶는다 — 질문 전송 직후(질문+작성 중 스켈레톤이 보이게 1회)·대화 이어보기(최근 메시지로 1회). 답변 도착(직접 응답·pending→완료 폴링)에는 스크롤하지 않아 답변이 그 자리에서 아래로 펼쳐지고 첫 줄부터 읽힌다(`scrollTick` 상태 + effect).
+- 검증: `tsc` clean · production build 통과. 개발 서버는 HMR 로 반영.
+- 후속(같은 날, 데굴님 "아래 스크롤 가능한 영역이 남아 있을 때 최하단 바로 가기 버튼… 최신 항목까지 내려온 이후에는 보여선 안 돼"): `canScrollDown`(문서 끝까지 남은 높이 > 48px, scroll/resize + `ResizeObserver(document.body)` 로 답변 도착 등 본문 길이 변화 감지) 일 때만 입력란 바로 위 오른쪽에 '맨 아래로' 원형 버튼(`absolute -top-11 right-0`, 본문 pb-24 여백 안) — 클릭 시 `scrollToBottom()`, 맨 아래 도달하면 자동으로 숨김. tsc·build 통과.

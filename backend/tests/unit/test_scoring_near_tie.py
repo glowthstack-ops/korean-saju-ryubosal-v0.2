@@ -15,7 +15,7 @@ import saju_manse_analysis.yongsin.operational_role_config as cfg
 
 from saju_api.services import chat_service
 from saju_api.services.manse_service import calculate
-from saju_engines.scoring_operational import near_tie_demotion_order
+from saju_engines.scoring_operational import _period_level, near_tie_demotion_order
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.events import EventCandidate
 
@@ -148,3 +148,13 @@ def test_wiring_chat_path(monkeypatch) -> None:
     on = chat_service.chat(birth, "올해 직업운 어때?", date(2026, 6, 11),
                            dry_run=True).prompt_preview or ""
     assert on  # flag on 에서도 조립·직렬화 무예외(재배열은 후보 구성에 따라 0회 가능)
+
+
+def test_period_level_accepts_engine_and_display_daewoon_keys() -> None:
+    """대운 키는 엔진 `YYYY~YYYY`·표기 `YYYY–YYYY` 둘 다 daewoon(2026-10-30 점검: `~` 비교가
+    `–` 로 바뀌어 대운 후보가 year 로 분류되던 잠복 결함)."""
+    assert _period_level("2025~2035") == "daewoon"
+    assert _period_level("2025–2035") == "daewoon"
+    assert _period_level("2026") == "year"
+    assert _period_level("2026-10") == "month"
+    assert _period_level("2026-10-01") == "day"

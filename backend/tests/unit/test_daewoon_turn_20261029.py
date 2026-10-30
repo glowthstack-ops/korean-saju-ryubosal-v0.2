@@ -72,9 +72,10 @@ def test_direction_and_span(d: str, lo: int, hi: int, direction: str, span: str)
 
 
 def test_far_window_has_no_block() -> None:
-    assert daewoon_turn_lines(_chart("1967-01-12"), 2060, 2061) == [] or all(
-        "2034년" not in x for x in daewoon_turn_lines(_chart("1967-01-12"), 2060, 2061)
-    )
+    """교운일(2055-01·2065-01)에서 2년 넘게 떨어진 창은 블록이 없다 — e^-2 밖(2026-10-30 강화)."""
+    chart = _chart("1967-01-12")
+    assert daewoon_turn_lines(chart, 2060, 2061) == []
+    assert daewoon_turn_lines(chart, 2050, 2051) == []
 
 
 def test_omen_clause_in_transition_signals() -> None:
