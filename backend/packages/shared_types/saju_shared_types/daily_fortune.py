@@ -32,7 +32,11 @@ ENGINE_VERSION = "engine.v1"
 #   결정 보류·부탁 얽힘·반복 실수·평가 누락·지급 지연·가족 일정·민원·기기 말썽) 추가, 동의어 그룹
 #   6건 재배정,
 #   문구 템플릿 18종 추가. 날짜 경계(CATALOG_EXPANSION_3_EFFECTIVE_FROM)로 계약을 고른다.
-DICT_VERSION = "dict.v1.14"
+# v1.15(2026-11-01): 12운성 끝 문장 폐지(docs/17 §23-7, 데굴님 지적·승인) — 사건을 보지 않는
+#   풀이라 카드 맥락을 흐트렸다. 헤드라인·연애 줄이 사건+행동 2문장이 되고, 사건 문장·행동
+#   문장의 마침표 누락 102건을 보정했다. 날짜 경계(HEADLINE_CLOSING_REMOVAL_EFFECTIVE_FROM)로
+#   계약을 고른다.
+DICT_VERSION = "dict.v1.15"
 PROMPT_VERSION = "polish.v1"
 #: 서사 family 회전 계약(OA-8b). 값이 바뀌면 새 epoch 이 시작되며 **캐시만** 무효화된다
 #: — 선택 seed 에는 들어가지 않으므로 사건 배정은 흔들리지 않는다(OA-6d1).
@@ -65,6 +69,12 @@ DICT_VERSION_BEFORE_CATALOG_EXPANSION = "dict.v1.12"
 CATALOG_EXPANSION_3_EFFECTIVE_FROM = date(2026, 9, 20)
 #: 그 기준일 이전(9/12~9/19)에 적용되는 사전 버전.
 DICT_VERSION_BEFORE_CATALOG_EXPANSION_3 = "dict.v1.13"
+#: 12운성 끝 문장 폐지(v1.15, docs/17 §23-7) 활성화 기준일 — 11/1 보드는 이미 생성·교정돼
+#: v1.14 를 유지하고 11/2 보드(11/1 20시 선생성)부터 2문장 카드를 쓴다. 문장만 바뀌고
+#: 사건 배정은 그대로지만, 당일 보드 재생성·재교정을 막으려고 날짜로 계약을 고른다.
+HEADLINE_CLOSING_REMOVAL_EFFECTIVE_FROM = date(2026, 11, 2)
+#: 그 기준일 이전(9/20~11/1)에 적용되는 사전 버전.
+DICT_VERSION_BEFORE_HEADLINE_CLOSING_REMOVAL = "dict.v1.14"
 
 
 def active_dict_version(target_date: date) -> str:
@@ -74,8 +84,8 @@ def active_dict_version(target_date: date) -> str:
         target_date: 운세 대상 날짜(KST 기준).
 
     Returns:
-        7/30 이전 v1.10 → 9/3 이전 v1.11 → 9/12 이전 v1.12 → 9/20 이전 v1.13 → 이후 현재
-        `DICT_VERSION`(v1.14).
+        7/30 이전 v1.10 → 9/3 이전 v1.11 → 9/12 이전 v1.12 → 9/20 이전 v1.13 → 11/2 이전
+        v1.14 → 이후 현재 `DICT_VERSION`(v1.15).
     """
     if target_date < SMALL_FIND_HEADLINE_REVERT_EFFECTIVE_FROM:
         return PREVIOUS_DICT_VERSION
@@ -85,6 +95,8 @@ def active_dict_version(target_date: date) -> str:
         return DICT_VERSION_BEFORE_CATALOG_EXPANSION
     if target_date < CATALOG_EXPANSION_3_EFFECTIVE_FROM:
         return DICT_VERSION_BEFORE_CATALOG_EXPANSION_3
+    if target_date < HEADLINE_CLOSING_REMOVAL_EFFECTIVE_FROM:
+        return DICT_VERSION_BEFORE_HEADLINE_CLOSING_REMOVAL
     return DICT_VERSION
 
 

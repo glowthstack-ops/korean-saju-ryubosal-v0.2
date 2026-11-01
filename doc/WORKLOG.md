@@ -13192,3 +13192,10 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - **교정**: 스크롤을 사용자 동작에만 묶는다 — 질문 전송 직후(질문+작성 중 스켈레톤이 보이게 1회)·대화 이어보기(최근 메시지로 1회). 답변 도착(직접 응답·pending→완료 폴링)에는 스크롤하지 않아 답변이 그 자리에서 아래로 펼쳐지고 첫 줄부터 읽힌다(`scrollTick` 상태 + effect).
 - 검증: `tsc` clean · production build 통과. 개발 서버는 HMR 로 반영.
 - 후속(같은 날, 데굴님 "아래 스크롤 가능한 영역이 남아 있을 때 최하단 바로 가기 버튼… 최신 항목까지 내려온 이후에는 보여선 안 돼"): `canScrollDown`(문서 끝까지 남은 높이 > 48px, scroll/resize + `ResizeObserver(document.body)` 로 답변 도착 등 본문 길이 변화 감지) 일 때만 입력란 바로 위 오른쪽에 '맨 아래로' 원형 버튼(`absolute -top-11 right-0`, 본문 pb-24 여백 안) — 클릭 시 `scrollToBottom()`, 맨 아래 도달하면 자동으로 숨김. tsc·build 통과.
+
+## 2026-11-01 — 오늘의 운세 12운성 끝 문장 폐지 (데굴님 "A안으로 진행하자")
+
+- **문제**: 카드 끝 문장이 사건을 보지 않는 12운성 풀(`stage_results_by_stage`)에서 나와 맥락을 흐트렸다("… 같이 움직여 보세요. 작게 시작한 생각이 크게 자랍니다."). 11/1 보드 60장 전부 3문장이고 끝 문장은 이 풀을 LLM이 다듬은 것이었다. 지적 문장은 사전에 그대로 없어 원문 grep 으로는 안 잡혔다.
+- **교정**: dict.v1.15 — `headline_closing="none"`, 12운성 결과 풀·채널 제외 키 제거, 헤드라인·연애 줄 2문장(사건+행동). 경계 `HEADLINE_CLOSING_REMOVAL_EFFECTIVE_FROM=2026-11-02`, 11/1 이전은 v1.14 스냅샷 재생. 규격 docs/17 §23-7.
+- **같은 계열**: ①주의 사건 fragment·action 마침표 누락 102문장 보정(앞뒤 문장이 붙어 1문장으로 보임) ②교정 상한이 3문장이라 LLM이 2문장 카드에 끝 문장을 되살릴 수 있어, 11/2 이후 보드는 원문 문장 수 초과 시 폐기(프롬프트 규칙 5 개정, PROMPT_REVISION 만 상승).
+- 테스트 `tests/unit/test_daily_headline_closing.py` 신규(판정 불변·7일 보드 끝 문장 부재·LLM 재부착 반례·과거 계약 상한 유지), `test_daily_tone_layer.py` 는 v1.14 재생 불변 검증으로 고정.

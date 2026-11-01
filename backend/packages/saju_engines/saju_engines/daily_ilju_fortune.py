@@ -886,6 +886,11 @@ def _headline(
     스테이지도 함께 제외돼 결과 문장은 사건 기본 풀에서 고른다(§23-2 — 채널 뜻이 사건과
     반대인 조합의 감수 결과).
 
+    **끝 문장 폐지(docs/17 §23-7)**: 사전이 `headline_closing="none"` 이면 결과 문장을
+    붙이지 않는다(사건 + 행동 2문장). 12운성 풀이 사건을 보지 않아 카드 맥락을 흐트렸기
+    때문이다. 행동 문장의 십성 결은 그대로 쓰며, 이 키가 없는 과거 계약(dict.v1.14 이하)은
+    바이트 불변이다.
+
     Args:
         romance_scope: 연애 전용 신호가 **강할 때만** True. 관계 계열 사건의 기본
             표현은 일반 관계(대화·접점)이고, 연애 맥락은 이 게이트를 통과한 카드에서만
@@ -934,13 +939,14 @@ def _headline(
             .get(generic_kind)
         )
         stage_excluded = tone.stage_channel in (ev.get("stage_result_exclude") or ())
-    tone_active = bool(tone_actions) and bool(stage_results)
+    closing_off = dicts.templates.get("headline_closing") == "none"
+    tone_active = bool(tone_actions) and (closing_off or bool(stage_results))
     if tone_active:
-        assert tone_actions is not None and stage_results is not None  # narrow
+        assert tone_actions is not None  # narrow
         base_actions, base_results = actions, results
         actions = list(tone_actions)
         # 제외 채널이면 결과 문장은 사건 기본 풀 그대로(채널 풀 미사용).
-        results = base_results if stage_excluded else list(stage_results)
+        results = base_results if stage_excluded or not stage_results else list(stage_results)
         if salt >= 3:  # 중복 지속 시 사건 풀을 합류시킨다(기존 사다리와 같은 문턱)
             actions += base_actions
             if not stage_excluded:
@@ -953,7 +959,7 @@ def _headline(
         fragments += generic["fragments"]
     s = _stable_hash(f"{seed_base}|headline|{salt}")
     parts = [_pick(fragments, s), _pick(actions, s // 7)]
-    if tone_active or band in ("s5", "s4", "s1") or salt >= 3:
+    if not closing_off and (tone_active or band in ("s5", "s4", "s1") or salt >= 3):
         parts.append(_pick(results, s // 31))
     return " ".join(parts)
 

@@ -23,8 +23,8 @@ from saju_engines.daily_fortune_v2 import (
 )
 from saju_shared_types.daily_fortune import (
     CATALOG_EXPANSION_3_EFFECTIVE_FROM,
-    DICT_VERSION,
     DICT_VERSION_BEFORE_CATALOG_EXPANSION_3,
+    DICT_VERSION_BEFORE_HEADLINE_CLOSING_REMOVAL,
     active_dict_version,
 )
 from saju_shared_types.daily_fortune_v2 import (
@@ -91,7 +91,9 @@ def test_synonym_groups_pair_new_and_reassigned_events() -> None:
 
 def test_third_boundary_is_shared_by_v1_and_v2() -> None:
     assert active_dict_version(_BEFORE) == DICT_VERSION_BEFORE_CATALOG_EXPANSION_3 == "dict.v1.13"
-    assert active_dict_version(_AFTER) == DICT_VERSION == "dict.v1.14"
+    assert (
+        active_dict_version(_AFTER) == DICT_VERSION_BEFORE_HEADLINE_CLOSING_REMOVAL == "dict.v1.14"
+    )
     assert active_model_v2_version(_BEFORE) == MODEL_V2_VERSION_BEFORE_EXPANSION_3 == "model.v2.1"
     assert active_model_v2_version(_AFTER) == MODEL_V2_VERSION == "model.v2.2"
     assert content_version_v2_for(_BEFORE).endswith("model.v2.1")

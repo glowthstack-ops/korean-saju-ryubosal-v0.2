@@ -3,6 +3,9 @@
 결 층은 **문체 전용**이다: 행동 문장은 오늘 천간의 십성군, 결과 문장은 오늘 천간이
 일지에서 갖는 12운성 채널이 고른다. 사건 선발·점수는 건드리지 않고, 결 풀이 없는
 사전(과거 계약 스냅샷)에서는 이전 조합과 바이트 단위로 같아야 한다.
+
+12운성 끝 문장은 dict.v1.15 에서 폐지됐다(§23-7). 여기 테스트는 그 풀이 살아 있는 과거
+계약(dict.v1.14)의 재생 불변을 지킨다 — 현행 계약은 `test_daily_headline_closing.py`.
 """
 
 from __future__ import annotations
@@ -16,6 +19,7 @@ from saju_engines.daily_fortune_v2 import compute_board_v2, load_catalog_v2
 from saju_manse_core.calendar.sexagenary_cycle import ganzi_from_index
 from saju_shared_types.daily_fortune import (
     CATALOG_EXPANSION_EFFECTIVE_FROM,
+    HEADLINE_CLOSING_REMOVAL_EFFECTIVE_FROM,
     DayGanjiContext,
 )
 from saju_shared_types.enums import Branch, Stem
@@ -40,7 +44,8 @@ def _result_pool(templates: dict, tone: M.DayTone, kind: str) -> list[str]:
 
 @pytest.fixture(scope="module")
 def dicts() -> M.DailyFortuneDicts:
-    return M.load_daily_dicts()
+    """결과 풀이 남아 있는 마지막 계약(dict.v1.14)."""
+    return M.load_daily_dicts_for(HEADLINE_CLOSING_REMOVAL_EFFECTIVE_FROM - dt.timedelta(days=1))
 
 
 def _ctx(day_stem: str, day_branch: str) -> DayGanjiContext:
