@@ -203,6 +203,7 @@ def test_lucky_places_revision_date_gate() -> None:
         DICT_VERSION_BEFORE_CATALOG_EXPANSION_3,
         DICT_VERSION_BEFORE_HEADLINE_CLOSING_REMOVAL,
         HEADLINE_CLOSING_REMOVAL_EFFECTIVE_FROM,
+        WORDING_REVISION_EFFECTIVE_FROM,
     )
 
     assert active_dict_version(EFF_CAT) == DICT_VERSION_BEFORE_CATALOG_EXPANSION_3 == "dict.v1.13"
@@ -210,10 +211,8 @@ def test_lucky_places_revision_date_gate() -> None:
         active_dict_version(CATALOG_EXPANSION_3_EFFECTIVE_FROM)
         == DICT_VERSION_BEFORE_HEADLINE_CLOSING_REMOVAL == "dict.v1.14"
     )
-    assert (
-        active_dict_version(HEADLINE_CLOSING_REMOVAL_EFFECTIVE_FROM)
-        == DICT_VERSION == "dict.v1.15"
-    )
+    assert active_dict_version(HEADLINE_CLOSING_REMOVAL_EFFECTIVE_FROM) == "dict.v1.16"
+    assert active_dict_version(WORDING_REVISION_EFFECTIVE_FROM) == DICT_VERSION == "dict.v1.17"
     for ver in (
         PREVIOUS_DICT_VERSION, DICT_VERSION_BEFORE_LUCKY_PLACES_REVISION,
         DICT_VERSION_BEFORE_CATALOG_EXPANSION, DICT_VERSION_BEFORE_HEADLINE_CLOSING_REMOVAL,

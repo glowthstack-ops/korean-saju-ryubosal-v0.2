@@ -339,7 +339,7 @@
       ]
     },
     "love_spark": {
-      "label": "설레는 기류가 생길 확률",
+      "label": "설레는 일이 생길 확률",
       "domain": "love",
       "valence": "good",
       "slots": [
@@ -1075,7 +1075,7 @@
       "headline_revert_note": "OA-6a2 — 90일 5,400카드에서 원시 1위 0회·2~3위 0회·base 42(최저)로 비경쟁 filler임이 확인돼 support 전용으로 복귀. narrative family 는 삭제하지 않고 비활성 보존한다 (점수 계약 변경이나 생활형 헤드라인 계층 신설 시 재사용)."
     },
     "rest_recharge": {
-      "label": "쉬어가면 좋은 날일 확률",
+      "label": "쉬어 가면 도움이 될 확률",
       "domain": "health",
       "valence": "good",
       "slots": [
@@ -1586,7 +1586,7 @@
       }
     },
     "love_deepening": {
-      "label": "관계가 한 뼘 가까워질 확률",
+      "label": "관계가 더 가까워질 확률",
       "domain": "love",
       "valence": "good",
       "slots": [

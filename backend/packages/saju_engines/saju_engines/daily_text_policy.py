@@ -79,7 +79,10 @@ def sanitize_board(board: DailyFortuneBoard) -> DailyFortuneBoard:
     """
     fields = []
     for f in board.fortunes:
-        fields += [f.headline, f.love_line or "", f.lotto_phrase or "", f.lucky_place.phrase]
+        fields += [
+            f.headline, f.love_line or "", f.advice or "", f.lotto_phrase or "",
+            f.lucky_place.phrase,
+        ]
     if not any(has_symbols(x) for x in fields):
         return board
     out = board.model_copy(deep=True)
@@ -87,6 +90,8 @@ def sanitize_board(board: DailyFortuneBoard) -> DailyFortuneBoard:
         f.headline = strip_symbols(f.headline)
         if f.love_line:
             f.love_line = strip_symbols(f.love_line)
+        if f.advice:
+            f.advice = strip_symbols(f.advice)
         if f.lotto_phrase:
             f.lotto_phrase = strip_symbols(f.lotto_phrase)
         f.lucky_place.phrase = strip_symbols(f.lucky_place.phrase)

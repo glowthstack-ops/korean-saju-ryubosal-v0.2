@@ -18,8 +18,8 @@ from saju_api.services import daily_fortune_polish as polish
 from saju_engines import daily_ilju_fortune as M
 from saju_engines.daily_fortune_v2 import compute_board_v2, load_catalog_v2
 from saju_shared_types.daily_fortune import (
-    DICT_VERSION,
     DICT_VERSION_BEFORE_HEADLINE_CLOSING_REMOVAL,
+    DICT_VERSION_BEFORE_WORDING_REVISION,
     HEADLINE_CLOSING_REMOVAL_EFFECTIVE_FROM,
     DailyFortuneBoard,
     active_dict_version,
@@ -57,7 +57,7 @@ def board_new() -> DailyFortuneBoard:
 
 def test_boundary_keeps_old_board_on_old_contract() -> None:
     assert active_dict_version(_LAST_OLD) == DICT_VERSION_BEFORE_HEADLINE_CLOSING_REMOVAL
-    assert active_dict_version(_FIRST_NEW) == DICT_VERSION
+    assert active_dict_version(_FIRST_NEW) == DICT_VERSION_BEFORE_WORDING_REVISION
     old = _board(_LAST_OLD)
     assert sum(len(_SENTENCE_BREAK.split(f.headline)) == 3 for f in old.fortunes) > 50
 
