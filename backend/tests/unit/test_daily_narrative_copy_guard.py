@@ -88,10 +88,10 @@ def test_relation_bans_are_domain_scoped(dicts) -> None:
 
 
 def test_rest_recharge_break_wording_is_not_flagged(dicts) -> None:
-    """휴식 사건의 '끊어가다'는 관계 단절이 아니다 — 오탐 회귀."""
+    """휴식 사건의 '쉬어 가다'는 관계 단절이 아니다 — 오탐 회귀."""
     assert dicts.catalog["events"]["rest_recharge"]["domain"] not in _RELATION_DOMAINS
     joined = " ".join(_sentences(dicts, "rest_recharge"))
-    assert "끊어가는" in joined  # 표현은 살아 있고
+    assert "쉬어 가면서" in joined  # 표현은 살아 있고
     for rx in _RELATION_BANS.values():
         assert not rx.search(joined)  # 관계 금지 패턴에는 걸리지 않는다
 

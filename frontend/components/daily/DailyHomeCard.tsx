@@ -64,7 +64,14 @@ export function DailyHomeCard() {
         <p className="mt-1 text-sm font-semibold text-gray-700">
           {selected?.label ? `${selected.label}님 | ${f.ilju_ko}일주` : `${f.ilju_ko}일주`}
         </p>
-        <p className="mt-2 text-sm leading-relaxed">{f.headline}</p>
+        <p className="mt-2 text-xs font-semibold text-gray-500">오늘의 제안</p>
+        <p className="mt-0.5 text-sm leading-relaxed">{f.headline}</p>
+        {f.advice && (
+          <>
+            <p className="mt-2 text-xs font-semibold text-gray-500">조언</p>
+            <p className="mt-0.5 text-sm leading-relaxed text-gray-700">{f.advice}</p>
+          </>
+        )}
         <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
           {f.events.map((e) => (
             <li key={e.event_key}>

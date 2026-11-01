@@ -36,7 +36,13 @@ ENGINE_VERSION = "engine.v1"
 #   풀이라 카드 맥락을 흐트렸다. 헤드라인·연애 줄이 사건+행동 2문장이 되고, 사건 문장·행동
 #   문장의 마침표 누락 102건을 보정했다. 날짜 경계(HEADLINE_CLOSING_REMOVAL_EFFECTIVE_FROM)로
 #   계약을 고른다.
-DICT_VERSION = "dict.v1.15"
+# v1.16(2026-11-01): 이번 달 흐름·조언 층(docs/17 §24) + 헤드라인 행동을 사건 전용 풀로 교체
+#   (데굴님 지적 — 십성 행동 문장이 앞 사건과 어긋나 뭘 하라는 건지 알 수 없었다). v1.15 는
+#   11/2 선생성에만 쓰였고 사용자 노출 전에 대체됐다 — 경계는 같은 11/2 를 그대로 쓴다.
+# v1.17(2026-11-01): 오늘의 운세 전체 문구 교정(docs/17 §24-6, 데굴님 지시 — 비유·직역투 제거,
+#   어미는 문장별 선택) + 일주별 흐름을 12운성 기본으로 60일주 전부 채움. 문장만 바뀌고 판정은
+#   같다. 11/2 보드는 이미 생성·export 돼 v1.16 을 유지하고 11/3 보드부터 쓴다.
+DICT_VERSION = "dict.v1.17"
 PROMPT_VERSION = "polish.v1"
 #: 서사 family 회전 계약(OA-8b). 값이 바뀌면 새 epoch 이 시작되며 **캐시만** 무효화된다
 #: — 선택 seed 에는 들어가지 않으므로 사건 배정은 흔들리지 않는다(OA-6d1).
@@ -75,6 +81,11 @@ DICT_VERSION_BEFORE_CATALOG_EXPANSION_3 = "dict.v1.13"
 HEADLINE_CLOSING_REMOVAL_EFFECTIVE_FROM = date(2026, 11, 2)
 #: 그 기준일 이전(9/20~11/1)에 적용되는 사전 버전.
 DICT_VERSION_BEFORE_HEADLINE_CLOSING_REMOVAL = "dict.v1.14"
+#: 전체 문구 교정(v1.17, docs/17 §24-6) 활성화 기준일 — 11/2 보드(11/1 20시 선생성·재생성)는
+#: v1.16 을 유지하고 11/3 보드(11/2 20시 선생성)부터 새 문구를 쓴다.
+WORDING_REVISION_EFFECTIVE_FROM = date(2026, 11, 3)
+#: 그 기준일 이전(11/2)에 적용되는 사전 버전.
+DICT_VERSION_BEFORE_WORDING_REVISION = "dict.v1.16"
 
 
 def active_dict_version(target_date: date) -> str:
@@ -85,7 +96,7 @@ def active_dict_version(target_date: date) -> str:
 
     Returns:
         7/30 이전 v1.10 → 9/3 이전 v1.11 → 9/12 이전 v1.12 → 9/20 이전 v1.13 → 11/2 이전
-        v1.14 → 이후 현재 `DICT_VERSION`(v1.15).
+        v1.14 → 11/3 이전 v1.16 → 이후 현재 `DICT_VERSION`(v1.17).
     """
     if target_date < SMALL_FIND_HEADLINE_REVERT_EFFECTIVE_FROM:
         return PREVIOUS_DICT_VERSION
@@ -97,6 +108,8 @@ def active_dict_version(target_date: date) -> str:
         return DICT_VERSION_BEFORE_CATALOG_EXPANSION_3
     if target_date < HEADLINE_CLOSING_REMOVAL_EFFECTIVE_FROM:
         return DICT_VERSION_BEFORE_HEADLINE_CLOSING_REMOVAL
+    if target_date < WORDING_REVISION_EFFECTIVE_FROM:
+        return DICT_VERSION_BEFORE_WORDING_REVISION
     return DICT_VERSION
 
 
@@ -166,7 +179,25 @@ class DailyIljuFortune(BaseModel):
     # 일일 연애운 한 줄(확장·beta) — 그 일주의 love 도메인 대표 신호를 사건 서술형으로.
     # 없으면 None(love 신호 미미). 미평가·판정 없음(오늘의 연애 흐름 서술만).
     love_line: str | None = None
+    # 조언 줄(docs/17 §24) — 사전 원문, LLM 교정 대상 아님. 과거 계약·베타 풀은 None.
+    advice: str | None = None
     polished: bool = False  # LLM 교정 반영 여부(단건)
+
+
+class DailyMonthIljuFlow(BaseModel):
+    """일주별 흐름 한 줄 — 월운 천간의 일지 12운성 + 관계 문장."""
+
+    ilju: str  # 한자 2자
+    ilju_ko: str  # 한글 2자
+    note: str
+
+
+class DailyMonthStemFlow(BaseModel):
+    """일간 하나의 이번 달 흐름 — /daily 일간 탭과 카드 사이 고정 패널(docs/17 §24)."""
+
+    day_stem_ko: str  # 일간 한글 1자 — 탭 그룹핑 키와 같다
+    common: str  # 천간 공통 흐름
+    ilju_notes: list[DailyMonthIljuFlow] = Field(default_factory=list)
 
 
 class DailyTop5(BaseModel):
@@ -199,3 +230,6 @@ class DailyFortuneBoard(BaseModel):
     polish_status: PolishStatus = "RAW"
     top5: DailyTop5
     fortunes: list[DailyIljuFortune] = Field(min_length=60, max_length=60)
+    # 이번 달 층(docs/17 §24) — 오늘 카드 바깥 영역. 과거 계약·베타 풀은 None.
+    season_band: str | None = None  # 12절기 입절일에만
+    month_flow: list[DailyMonthStemFlow] | None = None  # 10일간, 월운 간지가 바뀔 때까지 고정

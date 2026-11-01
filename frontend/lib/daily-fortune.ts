@@ -27,7 +27,20 @@ export interface DailyIljuFortune {
   lucky_place: LuckyPlace;
   lotto_phrase: string | null;
   love_line: string | null; // 강한 love 전용 신호일 때만(게이트) — 없으면 미표시
+  advice: string | null; // 조언 줄 — 과거 계약 보드는 null
   polished: boolean;
+}
+
+export interface DailyMonthIljuFlow {
+  ilju: string;
+  ilju_ko: string;
+  note: string;
+}
+
+export interface DailyMonthStemFlow {
+  day_stem_ko: string;
+  common: string; // 천간 공통 흐름
+  ilju_notes: DailyMonthIljuFlow[]; // 일주별 흐름 — 그 일간의 6일주 전부
 }
 
 export interface DailyTop5 {
@@ -44,6 +57,8 @@ export interface DailyFortuneBoard {
   polish_status: string;
   top5: DailyTop5;
   fortunes: DailyIljuFortune[];
+  season_band: string | null; // 12절기 입절일에만
+  month_flow: DailyMonthStemFlow[] | null; // 과거 계약 보드는 null
 }
 
 export interface DailyFortuneSingle {

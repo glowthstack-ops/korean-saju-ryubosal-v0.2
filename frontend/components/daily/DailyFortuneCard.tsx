@@ -1,6 +1,6 @@
 "use client";
 
-// 일주 1개의 오늘 운세 카드 — 헤드라인·사건 3개(%게이지)·오늘의 연애(강한 신호 시)·행운 장소·로또 문구.
+// 일주 1개의 오늘 운세 카드 — 오늘의 제안·조언·사건 3개(%게이지)·오늘의 연애(강한 신호 시)·행운 장소·로또 문구.
 
 import type { DailyIljuFortune } from "@/lib/daily-fortune";
 
@@ -25,9 +25,18 @@ export function DailyFortuneCard({
           {fortune.ilju_ko}일주 <span className="text-xs text-gray-400">{fortune.ilju}</span>
         </h3>
       </div>
-      <p className="mt-2 whitespace-pre-line text-sm font-medium leading-relaxed">
+      <p className="mt-2 text-xs font-semibold text-gray-500">오늘의 제안</p>
+      <p className="mt-0.5 whitespace-pre-line text-sm font-medium leading-relaxed">
         {fortune.headline}
       </p>
+      {fortune.advice && (
+        <>
+          <p className="mt-2 text-xs font-semibold text-gray-500">조언</p>
+          <p className="mt-0.5 whitespace-pre-line text-sm leading-relaxed text-gray-700">
+            {fortune.advice}
+          </p>
+        </>
+      )}
 
       <ul className="mt-3 space-y-2">
         {fortune.events.map((e) => (

@@ -891,6 +891,11 @@ def _headline(
     때문이다. 행동 문장의 십성 결은 그대로 쓰며, 이 키가 없는 과거 계약(dict.v1.14 이하)은
     바이트 불변이다.
 
+    **사건 전용 행동(docs/17 §24-5)**: 사전이 `headline_action_pool="event"` 이면 십성 풀을
+    쓰지 않고 사건 자기 행동 풀에서 고른다. 십성 뜻을 살린 행동이 앞 사건과 어긋나 뭘 하라는
+    건지 알 수 없었기 때문이다. 어긋나는 짝은 `action_exclude[사건 문장]` 으로 뺀다. 중복
+    회피(salt≥3)는 범용 풀 대신 그 사건의 십성 풀을 합류시킨다.
+
     Args:
         romance_scope: 연애 전용 신호가 **강할 때만** True. 관계 계열 사건의 기본
             표현은 일반 관계(대화·접점)이고, 연애 맥락은 이 게이트를 통과한 카드에서만
@@ -922,7 +927,8 @@ def _headline(
     tone_actions: list[str] | None = None
     stage_results: list[str] | None = None
     stage_excluded = False
-    if tone is not None:
+    event_pool = dicts.templates.get("headline_action_pool") == "event"
+    if tone is not None and not event_pool:
         ev = event_tpl or {}
         tone_actions = (
             (ev.get("sipseong_actions") or {}).get(tone.sipseong)
@@ -953,12 +959,23 @@ def _headline(
                 results += base_results
 
     if salt >= 3:  # 중복 지속 시 행동 풀 확장
-        actions += generic["actions"]
+        event_extra: list[str] = []
+        if event_pool and tone is not None:
+            ev = event_tpl or {}
+            event_extra = list(
+                (ev.get("sipseong_actions") or {}).get(tone.sipseong)
+                or (ev.get("tone_actions") or {}).get(tone.sipseong_group)
+                or ()
+            )
+        actions += event_extra or generic["actions"]
         results += generic["results"]
     if salt >= 6:  # 그래도 중복이면 사건 풀까지 확장
         fragments += generic["fragments"]
     s = _stable_hash(f"{seed_base}|headline|{salt}")
-    parts = [_pick(fragments, s), _pick(actions, s // 7)]
+    fragment = _pick(fragments, s)
+    excluded = ((event_tpl or {}).get("action_exclude") or {}).get(fragment, ())
+    actions = [a for a in actions if a not in excluded] or actions
+    parts = [fragment, _pick(actions, s // 7)]
     if not closing_off and (tone_active or band in ("s5", "s4", "s1") or salt >= 3):
         parts.append(_pick(results, s // 31))
     return " ".join(parts)

@@ -20,6 +20,7 @@ import math
 import os
 from dataclasses import dataclass
 from datetime import date as DateType
+from datetime import timedelta
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -27,6 +28,7 @@ from typing import Any
 from saju_manse_analysis.sinsal import sinsal_catalog as _sc
 
 from saju_engines import daily_ilju_fortune as v1
+from saju_engines.daily_month_layer import attach_month_layer
 from saju_manse_core.pillars.gongmang import gongmang_branches
 from saju_manse_core.pillars.twelve_unseong import twelve_unseong
 from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT
@@ -556,6 +558,26 @@ def active_content_version(target_date: DateType) -> str:
     return content_version_for(target_date)
 
 
+def _day_bands(target_date: DateType) -> dict[str, str]:
+    """그 날짜의 일주별 밴드 — 어제·내일 연결 문장(§24-3) 판정 전용.
+
+    보드 재배정 전 슬롯 선발까지만 돌린다. 밴드는 슬롯 선발이 정하기 때문이다.
+    """
+    from saju_manse_core.calendar.sexagenary_cycle import ganzi_from_index
+
+    ctx = v1.build_day_context(target_date)
+    cat = load_catalog_v2_for(target_date)
+    bands: dict[str, str] = {}
+    for idx in range(60):
+        stem, branch = ganzi_from_index(idx)
+        ilju = f"{stem.value}{branch.value}"
+        pool, _eligible, _fallback = build_pool_v2(cat, day_channels(stem, branch, ctx))
+        seed_base = f"{target_date.isoformat()}|{ilju}|{v1.EVENT_SELECTION_COMPAT_SALT}"
+        good, caution, _support = v1._select_slots(pool, seed_base)
+        bands[ilju] = v1._band(good, caution)
+    return bands
+
+
 def compute_board_v2(
     ctx: DayGanjiContext,
     dicts: v1.DailyFortuneDicts,
@@ -585,6 +607,13 @@ def compute_board_v2(
         pool, _eligible, _fallback = build_pool_v2(cat, ch)
         scored_rows[f"{stem.value}{branch.value}"] = pool
     board = v1.compute_board(ctx, dicts, scored_rows=scored_rows)
+    layer = dicts.templates.get("month_layer")
+    if layer:
+        d = ctx.the_date
+        attach_month_layer(
+            board, ctx, layer, _day_bands(d),
+            _day_bands(d - timedelta(days=1)), _day_bands(d + timedelta(days=1)),
+        )
     return board.model_copy(
         update={"content_version": content_version_v2_for(ctx.the_date)}
     )

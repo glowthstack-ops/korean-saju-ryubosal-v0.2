@@ -6,6 +6,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DailyFortuneCard } from "@/components/daily/DailyFortuneCard";
+import { MonthFlowPanel } from "@/components/daily/MonthFlowPanel";
 import { StemTabs } from "@/components/daily/StemTabs";
 import { Top5Strip } from "@/components/daily/Top5Strip";
 import {
@@ -54,6 +55,7 @@ export function DailyBoardClient({ initial }: { initial: DailyFortuneBoard | nul
   };
 
   const visible = board.fortunes.filter((f) => f.day_stem_ko === stem);
+  const monthFlow = board.month_flow?.find((m) => m.day_stem_ko === stem);
 
   return (
     <div className="space-y-4">
@@ -76,12 +78,18 @@ export function DailyBoardClient({ initial }: { initial: DailyFortuneBoard | nul
           </Link>
           를 이용해 보세요.
         </p>
+        {board.season_band && (
+          <p className="mt-3 rounded bg-gray-50 px-3 py-2 text-sm text-gray-700">
+            {board.season_band}
+          </p>
+        )}
       </section>
 
       <Top5Strip board={board} onSelect={scrollTo} />
 
       <section className="space-y-3">
         <StemTabs active={stem} onChange={(s) => { setStem(s); setHighlight(null); }} />
+        {monthFlow && <MonthFlowPanel key={stem} flow={monthFlow} myIlju={myIlju} />}
         <div className="grid gap-4 sm:grid-cols-2">
           {visible.map((f) => (
             <DailyFortuneCard
