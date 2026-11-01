@@ -25,6 +25,7 @@ from saju_engines.daily_fortune_cache import DailyFortuneCache
 from saju_engines.daily_fortune_v2 import active_content_version
 from saju_engines.daily_text_policy import strip_symbols
 from saju_shared_types.daily_fortune import (
+    HEADLINE_CLOSING_REMOVAL_EFFECTIVE_FROM,
     PROMPT_VERSION,
     DailyFortuneBoard,
 )
@@ -43,7 +44,8 @@ _CALL_TYPE = "daily_fortune_polish"
 # namespace·베타 풀 대조)의 구성 요소라 문구 개정만으로 올리면 당일 보드가 재생성·재교정되고
 # 동결된 베타 풀과 어긋난다. 개정은 다음 교정 호출부터 자연 적용된다.
 # 2026-09-18: 체감→관찰 가능 사건 번역·12운성 가드(데굴님 지시)
-PROMPT_REVISION = "2026-10-19.ai-tell-style"
+# 2026-11-01: 끝 문장 폐지(docs/17 §23-7)에 맞춰 문장 수를 입력 이하로 제한
+PROMPT_REVISION = "2026-11-01.no-added-sentence"
 MAX_HEADLINE_CHARS = 120
 MAX_PLACE_CHARS = 60
 MAX_LOTTO_CHARS = 80
@@ -70,7 +72,8 @@ _SYSTEM = (
     "2) 숫자·금액·퍼센트를 쓰지 않는다.\n"
     "3) 사주·명리 전문 용어를 쓰지 않는다.\n"
     "4) '반드시·무조건·확실히' 같은 결과 확정 표현을 쓰지 않는다.\n"
-    "5) headline 은 최대 3문장, 짧고 구체적으로. place_phrase 에는 장소 이름을 "
+    "5) headline 은 짧고 구체적으로, 입력보다 문장을 늘리지 않는다(마무리 문장을 새로 "
+    "덧붙이지 않는다). place_phrase 에는 장소 이름을 "
     "그대로 남긴다. lotto 가 null 이면 null 로 유지한다.\n"
     "5-1) ilju 값은 입력의 ilju 를 한 글자도 바꾸지 말고 그대로 복사한다(괄호·독음 "
     "추가 금지).\n"
@@ -115,6 +118,18 @@ def build_polish_payload(board: DailyFortuneBoard) -> str:
             "lotto": f.lotto_phrase,
         }, ensure_ascii=False))
     return "\n".join(lines)
+
+
+def _max_sentences(board: DailyFortuneBoard, raw_headline: str) -> int:
+    """교정 headline 의 문장 수 상한 — 끝 문장 폐지 계약에서는 원문을 넘길 수 없다.
+
+    2문장 카드에 모델이 마무리 문장을 지어 붙이면 폐지한 끝 문장이 되살아난다(docs/17 §23-7).
+    폐지 전 계약의 보드는 종전대로 3문장까지 허용한다.
+    """
+    raw_count = len(_SENTENCE_END.findall(raw_headline))
+    if board.fortune_date >= HEADLINE_CLOSING_REMOVAL_EFFECTIVE_FROM:
+        return raw_count
+    return max(3, raw_count)
 
 
 def _reject_reason(text: str, raw: str, max_chars: int) -> str | None:
@@ -189,8 +204,8 @@ def validate_and_apply(
             lotto = strip_symbols(lotto)
         rec = {**rec, "headline": headline, "place_phrase": place_phrase, "lotto": lotto}
         reason = _reject_reason(headline, raw.headline, MAX_HEADLINE_CHARS)
-        if reason is None and len(_SENTENCE_END.findall(headline)) > max(
-            3, len(_SENTENCE_END.findall(raw.headline))
+        if reason is None and len(_SENTENCE_END.findall(headline)) > _max_sentences(
+            board, raw.headline
         ):
             reason = "too_many_sentences"
         if reason is None:
