@@ -64,6 +64,11 @@ _DOMAIN_MODULE: dict[Domain, str] = {
     Domain.GENERAL: "M15",
 }
 
+# 사업 계열 사건 키 — Q2 에서 도메인 모듈 대신 M08 business 를 고른다(2026-11-03).
+BUSINESS_EVENT_KEYS: frozenset[EventKey] = frozenset({
+    EventKey.BUSINESS_START, EventKey.BUSINESS_EXPANSION,
+})
+
 # 비분석 라우트 정책 (T3.8 — docs/03 B4 Q11~Q14).
 _POLICY_ROUTES: dict[QueryType, str] = {
     QueryType.TERMINOLOGY_EDUCATION: "terminology",  # 용어 사전 + 적용 예시, 엔진 미호출
@@ -162,8 +167,12 @@ def build_execution_plan(
             EngineCall(engine="past_validation:summary"),
         ]
     elif qt is QueryType.DOMAIN_ANALYSIS:  # Q2
+        # 사업 계열 사건 키(창업·진행 중 사업)는 M08 business 로(2026-11-03) — 그 전까지 M08 은
+        # 어떤 경로에서도 선택되지 않았고 career 도메인은 항상 M07(이직·채용) 이었다.
+        _keys = {intent.event_key, *intent.event_keys}
+        _module = "M08" if _keys & BUSINESS_EVENT_KEYS else _DOMAIN_MODULE[intent.domain]
         calls += [EngineCall(
-            engine=f"topic:{_DOMAIN_MODULE[intent.domain]}",
+            engine=f"topic:{_module}",
             params={"domain": str(intent.domain)},
         )]
     elif qt is QueryType.TIMING_SEARCH:  # Q3 (progress)

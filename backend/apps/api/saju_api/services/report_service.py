@@ -31,6 +31,7 @@ from saju_engines.chart_interpretation import (
     build_chart_interpretation,
     build_luck_grounding,
     career_exit_lecture_block,
+    mobility_marker_flip_lines,
 )
 from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
 from saju_engines.context_reducer import (
@@ -1649,8 +1650,13 @@ class _ReportData:
         - wealth: `wealth_period_block`(식상·재성 보완·그릇×유입 만족도·재성×겁재 경계·도식 1회) —
           만족도 칸은 그 기간 재물 후보(재물 변화·횡재) 최고점으로 채팅과 같은 기준
         - relationship: `love_separation_block`(이별운 강의 운 문구 4종) + 다름의 인정 관점
-        세 도메인 밖이거나 후보가 없으면 빈 목록. 점수·판정 불변(서술 전용).
+        - relocation: `mobility_marker_flip_lines`(이동지 양면 1줄, 후보 무관 — 2026-11-03)
+        네 도메인 밖이거나(이사 제외) 후보가 없으면 빈 목록. 점수·판정 불변(서술 전용).
         """
+        if domain == "relocation":
+            # 이동지 양면 줄(2026-11-03) — 후보 유무와 무관하게 보유 글자가 있으면 항상(채팅과
+            # 같은 줄).
+            return mobility_marker_flip_lines(self.result)
         if domain not in ("career", "wealth", "relationship") or not cands:
             return []
         periods = [(c.period, self._ganji_by_label.get(c.period, "")) for c in cands]
@@ -3947,6 +3953,12 @@ def build_section_context(
                 *_facts,
                 _PROFILE_FACTS_INSTRUCTION,
             ]
+        # 이사 도메인 섹션(F-18b·RL-04·RL-06) — 이동지 양면 줄을 항상 동반(2026-11-03 데굴님,
+        # 채팅 이사 질문 블록과 같은 함수). 연도별 상세 페이지는 lecture_block 이 담당.
+        if _sd == "relocation":
+            _mm = mobility_marker_flip_lines(data.result)
+            if _mm:
+                lines += ["", *_mm]
     # 궁합(RP-*) 전 섹션 — 사용자가 지정한 '상대와의 관계'를 풀이 방향으로 주입
     # (2026-07-03 데굴님 지시: 상사/연인/결혼예정/이혼예정 등 관계에 맞는 풀이).
     # 미지정이면 빈 목록 — 기존 중립 궁합 톤 그대로(하위호환·판정 불변).

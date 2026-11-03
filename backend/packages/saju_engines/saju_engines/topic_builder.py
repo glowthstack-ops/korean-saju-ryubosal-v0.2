@@ -80,7 +80,10 @@ M01_EVENT_KEYS: frozenset[str] = frozenset({"new_relationship", "relationship_ch
 M01_LEGACY_EXCLUDE_KEYS: frozenset[str] = frozenset({"family_change"})
 M02_EVENT_KEYS: frozenset[str] = frozenset({"marriage_signal", "childbirth"})
 M02_LEGACY_COMPAT_KEYS: frozenset[str] = frozenset({"family_change"})
-M08_EVENT_KEYS: frozenset[str] = frozenset({"business_start", "contract_document"})
+# business_expansion 은 진행 중 사업 발화의 앵커 키(2026-11-03) — M08 이 소비한다.
+M08_EVENT_KEYS: frozenset[str] = frozenset({
+    "business_start", "business_expansion", "contract_document",
+})
 
 # 빌더 공통 시그니처: (subjects, period, composites, **extras) → TopicContext.
 BuilderFn = Callable[..., TopicContext]

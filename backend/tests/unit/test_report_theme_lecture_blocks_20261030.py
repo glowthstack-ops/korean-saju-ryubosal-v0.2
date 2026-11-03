@@ -76,3 +76,15 @@ def test_natal_sections_do_not_carry_lecture_blocks() -> None:
     b = _bodies("career", "1978-01-02")
     for sid in ("J-01", "J-02"):
         assert "[직장 운 결" not in b[sid], sid
+
+
+def test_relocation_theme_sections_carry_mobility_marker_flip_line() -> None:
+    """1995-11-28 여 — 亥×4(이동지만, 역마살 없음): 이사 도메인 섹션(RL-04·RL-06)에 이동지 양면 줄이
+    항상 붙고(2026-11-03 데굴님), 다른 테마 섹션에는 새지 않는다."""
+    b = _bodies("relocation", "1995-11-28", "female")
+    flip = "합(육합·삼합·방합)으로 묶이면 발이 묶이듯"
+    hit = [sid for sid, body in b.items() if "[이동지 양면" in body]
+    assert hit and {"RL-04", "RL-06"} <= set(hit), hit
+    assert all(flip in b[sid] for sid in hit)
+    career = _bodies("career", "1995-11-28", "female")
+    assert all("[이동지 양면" not in body for body in career.values())

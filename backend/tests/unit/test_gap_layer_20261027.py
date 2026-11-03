@@ -717,3 +717,31 @@ def test_period_other_directive_present_and_absent() -> None:
 def test_chat_trailing_carries_other_domain_directive() -> None:
     p = _love_prompt("2027년 2월에 새로운 인연이 생길까?")
     assert "[같은 기간 다른 영역 신호 — 엔진 확정]" in p
+
+
+# ── 비겁 다자 갈래 기울기(1.1.0, 2026-11-03 데굴님 "인성 부재·관성 부재면 ① 쪽으로 기울 수 있다")
+def test_peer_group_lean_a_when_resource_and_officer_absent() -> None:
+    """亥×4·癸癸 여성(비겁 5·인성 0·관성 0) — ① 순응 경향 문구가 붙는다.
+
+    관성·인성이 보이는 명식에는 붙지 않는다.
+    """
+    from datetime import date, time
+
+    from saju_api.services.manse_service import calculate
+    from saju_engines.chart_interpretation import build_chart_interpretation
+    from saju_shared_types.birth_input import BirthInput
+
+    def _group_text(birth_date: date) -> str:
+        r = calculate(BirthInput(
+            birth_date=birth_date, birth_time=time(22, 0), birth_place_name="서울", gender="female",
+            reference_date=date(2026, 11, 3),
+        ))
+        ex = [e for e in build_chart_interpretation(r).excerpts if e.kind == "ten_god_group"]
+        return " ".join(e.text for e in ex)
+
+    hae4 = _group_text(date(1995, 11, 28))  # 乙亥 丁亥 癸亥 癸亥 — 비겁 5·인성 0·관성 0
+    assert "이 명식: 인성·관성이 표면에 모두 없는 명식은 ① 쪽으로 기울 수 있다" in hae4
+    # 대조: 비겁 3·관성 1·인성 2 — 두 갈래 문구는 그대로, 기울기 문구는 붙지 않는다.
+    other = _group_text(date(1990, 1, 24))
+    assert "두 갈래로 드러날 수 있다" in other
+    assert "이 명식: 인성·관성이 표면에" not in other

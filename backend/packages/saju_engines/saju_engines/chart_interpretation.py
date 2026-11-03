@@ -814,7 +814,10 @@ def _repetition_excerpts(result: ManseV2Result) -> list[InterpretationExcerpt]:
     if not groups:
         return []
     pr = load_repetition_text()["principles"]
-    rule = f" ※ {pr['no_event']} {pr['no_fixed_fortune']} {pr['group_not_pairs']}"
+    rule = (
+        f" ※ {pr['no_event']} {pr['no_fixed_fortune']} {pr['group_not_pairs']}"
+        + (f" {pr['ten_god_first']}" if pr.get("ten_god_first") else "")
+    )
     out: list[InterpretationExcerpt] = []
     for i, g in enumerate(groups):
         out.append(InterpretationExcerpt(
@@ -1022,13 +1025,22 @@ def _group_trait_excerpts(pillars: object) -> list[InterpretationExcerpt]:
         item = traits.get(g)
         if item is None:
             continue
+        # 갈래 기울기 조건(1.1.0, 2026-11-03 데굴님 승인) — 사전이 지정한 군이 모두 표면 0
+        # 이면 ① 쪽 경향 문구를 덧붙인다(예: 비겁 다자 + 인성·관성 부재 → 순응 쪽).
+        # 경향 서술·판정 비개입.
+        absent = item.get("leanAWhenAbsent") or []
+        lean = (
+            f" 이 명식: {item['leanA']}"
+            if item.get("leanA") and absent and all(counts.get(a, 0) == 0 for a in absent)
+            else ""
+        )
         out.append(InterpretationExcerpt(
             kind="ten_god_group",
             key=f"{g} 다자({counts[g]}글자)",
             text=(
                 f"같은 군이 많아도 두 갈래로 드러날 수 있다 — ①{item['faceA']} ②{item['faceB']}. "
                 "어느 쪽으로 드러나는지는 사람·환경에 따라 달라 명식만으로 한쪽을 단정하지 말 것. "
-                f"참기 어려워하기 쉬운 상황: {item['trigger']}"
+                f"참기 어려워하기 쉬운 상황: {item['trigger']}" + lean
             ),
         ))
     return out
@@ -1079,12 +1091,124 @@ _YEOKMA = "역마살"
 _YEOKMA_PERIOD_MAX = 6
 
 
+_MOBILITY_MARKER = "이동지"
+
+
+def mobility_marker_flip_lines(result: ManseV2Result) -> list[str]:
+    """이동지(寅申巳亥 보유 표지) 양면 1줄 — 보유 글자가 있으면 **항상** 싣는다(2026-11-03 데굴님).
+
+    "같은 계절 글자와 묶이면 오히려 한자리에 머무는 결로 나타나기도 한다"는 양면 서술이 반드시
+    함께 표시되도록 한다. 계기: 亥×4 여성·申亥亥巳 남성 모두 한 곳에 오래 살았고, 계절 묶임 측정
+    (var/season_bound_measure_20261103)에서 묶임이 머묾·이사 어느 쪽도 가르지 못해 규칙 승격 대신
+    양면 서술 동반으로 결정. 역마 성립 여부와 무관하며 서술 전용(점수·판정 비개입).
+    """
+    sinsal = result.traditional_extras.sinsal if result.traditional_extras else None
+    item = _sinsal_text_by_name().get(_MOBILITY_MARKER)
+    if sinsal is None or item is None or result.pillars is None:
+        return []
+    pos = [
+        p for p in ("year", "month", "day", "hour")
+        if _MOBILITY_MARKER in sinsal.by_pillar.get(p, [])
+    ]
+    if not pos:
+        return []
+    return [
+        "[이동지 양면 — 寅申巳亥 보유 표지(역마 성립 아님), 서술 전용] "
+        f"{_mobility_marker_facts(result, pos)} — {item['meaning']} 양면: {item['flipSide']} "
+        "보유만으로 이동을 단정하지 말 것 — 같은 글자 반복은 이동 횟수 가산이 아니라 기운의 "
+        "집중·반복이며, 충은 촉발 후보이지 거주 이동 확정이 아니다."
+    ]
+
+
+_MOBILITY_GLYPHS = "寅申巳亥"
+#: 계절(방합) 세 글자 — 이동지가 속한 계절의 방합 완성 여부를 사실로만 적는다(정착 판정 아님).
+_SEASON_OF: dict[str, str] = {"寅": "寅卯辰", "巳": "巳午未", "申": "申酉戌", "亥": "亥子丑"}
+
+
+def _mobility_marker_facts(result: ManseV2Result, pos: list[str]) -> str:
+    """이동지 양면 줄의 엔진 사실 병기(2026-11-03 데굴님 "예외 사례라면 거기까지 보여주는 게 맞지").
+
+    값만 적는다 — 보유 자리(십성·12운성), 같은 글자 반복(자형 여부), 역마 성립(연지·일지 삼합 기준,
+    미성립이면 그 글자의 12신살 이름), 이동지 충·형, 방합 완성 여부. 점수·판정 비개입.
+    계기: 亥×4(전부 지살·제왕) 여성이 출생지에 계속 거주 — '역마 다수 정착'이 아니라 '지살 극단
+    중첩'
+    사례라 구조 사실이 함께 보여야 LLM 이 통설(多馬=분주)로 단정하지 않는다.
+    """
+    from collections import Counter
+
+    from saju_shared_types.enums import Branch
+    from saju_shared_types.twelve_sinsal import branch_of_sinsal, relative_twelve_sinsal
+
+    pil = result.pillars
+    assert pil is not None
+    label = {p: _SINSAL_PALACE_LABEL[p].split("(")[0] for p in ("year", "month", "day", "hour")}
+    held = [(p, getattr(pil, p)) for p in pos if getattr(pil, p, None) is not None]
+    natal = [
+        getattr(pil, p).branch for p in ("year", "month", "day", "hour") if getattr(pil, p, None)
+    ]
+    parts: list[str] = []
+    parts.append("보유: " + "·".join(
+        f"{label[p]} {x.branch}({x.branch_main_ten_god}·{x.twelve_unseong})" for p, x in held
+    ))
+    rep = [(g, n) for g, n in Counter(x.branch for _p, x in held).items() if n >= 2]
+    if rep:
+        parts.append("같은 글자 반복: " + "·".join(
+            f"{g}×{n}" + ("(자형 1그룹)" if g == "亥" else "(1그룹)") for g, n in rep
+        ))
+    # 역마 성립 — 연지·일지 기준. 미성립이면 보유 글자의 12신살 이름(예: 亥=지살)을 밝힌다.
+    refs = [("연지", pil.year.branch), ("일지", pil.day.branch)]
+    est: list[str] = []
+    for ref_ko, ref in refs:
+        try:
+            ym = branch_of_sinsal(Branch(ref), "역마살").value
+        except (ValueError, KeyError):
+            continue
+        for p, x in held:
+            if x.branch == ym:
+                est.append(f"{label[p]} {ym}({ref_ko} {ref} 기준)")
+    if est:
+        parts.append("역마 성립: " + "·".join(dict.fromkeys(est)))
+    else:
+        names: list[str] = []
+        for g in dict.fromkeys(x.branch for _p, x in held):
+            try:
+                names.append(f"{g}={relative_twelve_sinsal(Branch(pil.year.branch), Branch(g))}")
+            except (ValueError, KeyError):
+                continue
+        parts.append(f"역마 성립: 없음(연지 {pil.year.branch} 기준 " + "·".join(names) + ")")
+    # 이동지 충·형(원국 관계 목록) — 자형은 반복 항목이 담당.
+    sa = result.structure_analysis
+    hits: list[str] = []
+    seen_dir: list[str] = []
+    for it in (sa.interactions if sa is not None else []):
+        mem = list(it.members)
+        if it.relation_type in ("clash", "punishment") and any(m in _MOBILITY_GLYPHS for m in mem):
+            tag = "충" if it.relation_type == "clash" else "형"
+            key = "".join(sorted(mem)) + " " + tag
+            if key not in hits:
+                hits.append(key)
+        if it.relation_type == "directional":
+            seen_dir.append("".join(mem))
+    parts.append("이동지 충·형: " + ("·".join(hits) if hits else "없음"))
+    if seen_dir:
+        parts.append("방합: 완성 " + "·".join(seen_dir))
+    else:
+        miss: list[str] = []
+        for g in dict.fromkeys(x.branch for _p, x in held):
+            season = _SEASON_OF[g]
+            absent = "".join(c for c in season if c not in natal)
+            miss.append(f"{g}: {absent} 부재" if absent else f"{g}: 글자는 있으나 미성립")
+        parts.append("방합: 미완성(" + " / ".join(miss) + ")")
+    return " · ".join(parts)
+
+
 def yeokma_natal_lines(result: ManseV2Result) -> list[str]:
     """원국 역마 성립(연지·일지 삼합 기준 12신살) 1블록 — 이사·직업 질문 전용(2026-10-29).
 
     원국 신살 발췌(`_sinsal_excerpts`)는 고정 prefix 라 질문과 무관하게 같아야 하고, 중립 신살인
     역마는 5개 상한에 자주 밀린다(표본 96명식: 시주 43·연주 9·일주 6 성립, 발췌 노출은 드묾). 그래서
-    이동이 주제인 질문에서만 이 블록으로 따로 싣는다. 이동지(寅申巳亥 보유) 표지는 쓰지 않는다.
+    이동이 주제인 질문에서만 이 블록으로 따로 싣는다. 이동지(寅申巳亥 보유) 표지는 역마로 쓰지 않되,
+    그 양면 줄(`mobility_marker_flip_lines`)은 보유 글자가 있으면 항상 뒤에 붙인다(2026-11-03).
     """
     sinsal = result.traditional_extras.sinsal if result.traditional_extras else None
     item = _sinsal_text_by_name().get(_YEOKMA)
@@ -1092,7 +1216,7 @@ def yeokma_natal_lines(result: ManseV2Result) -> list[str]:
         return []
     pos = [p for p in ("year", "month", "day", "hour") if _YEOKMA in sinsal.by_pillar.get(p, [])]
     if not pos:
-        return []
+        return mobility_marker_flip_lines(result)
     where = ", ".join(
         f"{_SINSAL_PALACE_LABEL[p].split('(')[0]}({getattr(result.pillars, p).branch})"
         for p in pos if getattr(result.pillars, p, None) is not None
@@ -1110,6 +1234,7 @@ def yeokma_natal_lines(result: ManseV2Result) -> list[str]:
         f"위치: {where} — {item['meaning']}"
         + (" 위치별: " + " / ".join(pos_texts) if pos_texts else "")
         + _sinsal_branch_advice_note(item, branches),
+        *mobility_marker_flip_lines(result),
     ]
 
 
@@ -1186,8 +1311,10 @@ def _sinsal_excerpts(result: ManseV2Result) -> list[InterpretationExcerpt]:
             names.append(name)
     # 역마 성립(상대 12신살)이 있으면 같은 글자 보유 표지(이동지)는 뺀다 — 성립이 보유를 포함하고,
     # 표지가 발췌 슬롯을 먼저 차지해 성립한 역마가 밀리던 결함(2026-10-29 역마살 강의 대조).
+    carry_marker_flip = False
     if "역마살" in names and "이동지" in names:
         names.remove("이동지")
+        carry_marker_flip = True  # 양면 문장은 역마살 줄에 실어 보존(2026-11-03 데굴님)
     texts = _sinsal_text_by_name()
     excerpts: list[InterpretationExcerpt] = []
     for name in names:
@@ -1218,6 +1345,10 @@ def _sinsal_excerpts(result: ManseV2Result) -> list[InterpretationExcerpt]:
         bypos_note += _sinsal_branch_advice_note(item, [
             getattr(getattr(result.pillars, p, None), "branch", "") for p in pos
         ] if result.pillars is not None else [])
+        # 이동지 표지를 역마살에 흡수할 때도 "같은 계절 글자와 묶이면 한자리에 머무는 결" 양면은
+        # 반드시 함께 보이게 한다(2026-11-03 데굴님 — 계절 묶임 측정 후 규칙 대신 서술 동반 결정).
+        if name == "역마살" and carry_marker_flip and (texts.get("이동지") or {}).get("flipSide"):
+            bypos_note += f" · 이동지 양면: {texts['이동지']['flipSide']}"
         # 양면 해석 동반(2026-06-12 사용자 확정) — 길신의 그림자·흉성의 빛을 함께.
         excerpts.append(InterpretationExcerpt(
             kind="sinsal", key=name,

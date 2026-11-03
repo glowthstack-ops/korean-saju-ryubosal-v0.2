@@ -132,3 +132,26 @@ def test_chart_term_questions_are_not_swallowed(question: str) -> None:
 def test_ordinary_requests_keep_their_routes(question: str) -> None:
     """한탄이 아닌 요청은 그대로 둔다 — too_broad 메뉴 자체는 유효한 계약이다."""
     assert _intent(question).query_type is not QueryType.EMOTIONAL_SUPPORT
+
+
+# ── 성향형 감정 질문은 B13 아님(2026-11-03 데굴님 "그래 그렇게 하자") ──
+@pytest.mark.parametrize("question", [
+    "나 우울증 같은 거 있을 성향이야? 감정 기복은 어때?",   # 실사례 — B13 공감 템플릿으로 빠졌다
+    "내가 스트레스를 잘 받는 기질이야?",
+])
+def test_trait_questions_with_emotion_words_are_not_emotional_support(question: str) -> None:
+    """'그런 성향이냐'는 토로가 아니라 명식 성향 질문이다 — 성향·기질 표지로 Q8 명식 구조에 간다."""
+    assert _intent(question).query_type is QueryType.CHART_ANALYSIS
+
+
+def test_trait_ending_without_q8_word_is_still_not_emotional_support() -> None:
+    """'~편이야?' 어미만 있어도 토로는 아니다(Q8 어휘가 없어 명식 구조까지는 아니고 일반 경로)."""
+    assert _intent("우울에 잘 빠지는 편이야?").query_type is not QueryType.EMOTIONAL_SUPPORT
+
+
+@pytest.mark.parametrize("question", [
+    "요즘 너무 우울해",
+    "스트레스 받아서 힘들어",
+])
+def test_plain_distress_still_emotional_support(question: str) -> None:
+    assert _intent(question).query_type is QueryType.EMOTIONAL_SUPPORT

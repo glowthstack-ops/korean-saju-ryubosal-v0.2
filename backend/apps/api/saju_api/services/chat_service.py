@@ -156,7 +156,7 @@ from saju_engines.period_fortune_signals import (
 from saju_engines.period_role_summary import build_period_role_summary
 from saju_engines.period_safe_template import build_safe_period_answer
 from saju_engines.persona import PersonaEngine
-from saju_engines.planner import build_execution_plan
+from saju_engines.planner import BUSINESS_EVENT_KEYS, build_execution_plan
 from saju_engines.policy_echo_audit import detect_policy_echo, strip_policy_echo
 from saju_engines.precompute import CompositeBuilder
 from saju_engines.prediction import PredictionEngines
@@ -170,6 +170,7 @@ from saju_engines.query_parser import (
     SEVERE_CODE_QUESTION_RE,
     detect_kin_axis,
     implies_self_counterpart,
+    is_business_in_progress,
     parse_message,
     parse_pillar_claim,
 )
@@ -2620,7 +2621,13 @@ def _topic_module_context(
     future_floor('YYYY-MM')가 주어지면 그 달 이전의 월 findings를 버린다 — 미래지향 질문('언제
     들어올까')에서 토픽 참고 신호가 이미 지난 달을 메인처럼 노출하던 시점 오류 차단(2026-06-30).
     """
-    module_id = _kin_axis_module(intent, question) or _DOMAIN_TOPIC_MODULE.get(intent.domain)
+    # 사업 계열 사건 키(창업·진행 중 사업·동업)는 M08 business(2026-11-03) — planner 와 같은 기준.
+    _business = bool({intent.event_key, *intent.event_keys} & BUSINESS_EVENT_KEYS)
+    module_id = (
+        _kin_axis_module(intent, question)
+        or ("M08" if _business else None)
+        or _DOMAIN_TOPIC_MODULE.get(intent.domain)
+    )
     if module_id is None:
         return []
     try:
@@ -5909,6 +5916,19 @@ def chat(
         employment_form, occupation_status, relationship_status, occupation_category = (
             profile_event_signals(subject_id)
         )
+
+    # ── 발화 유래 사업 맥락(2026-11-03 데굴님 승인) ───────────────────────────
+    # 기준 사주가 본인이고 프로필 직업 상태가 없을 때만, '사업을 하고 있는데/동업' 발화에서
+    # business_owner 를 **요청 한정**으로 파생한다(저장 안 함 — 규칙 11, 프로필 값이 있으면
+    # 프로필 우선).
+    # 효과: 충돌 해결기의 'wealth_change > business_start' 강등 해제 · 사업 계열 LIFE_FIT ·
+    # career_context 플래그. 실사례: 자매 동업 질문이 이직·채용 제안 후보로 흘렀다.
+    if (
+        occupation_status is None
+        and not (companion_only or compare_mode or ranking_mode)
+        and is_business_in_progress(question)
+    ):
+        occupation_status = "business_owner"
 
     # ── P2-3a 요청 스코프 진행 사실 컨텍스트 ────────────────────────────────
     # subject_id 확정 직후 · 후보 축소 전에 만든다. 저장소 조회와 발화 파싱은 요청당

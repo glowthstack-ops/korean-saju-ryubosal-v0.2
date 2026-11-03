@@ -251,21 +251,35 @@ def group_line(group: RepetitionGroup) -> str:
         + (f"·관계 쌍 {len(group.pairs)}" if len(group.pairs) > 1 else "")
         + f", 설명용 구조 강도 {group.structural_strength:.2f}){tg}{role}"
     )
+    # 1.2.0(2026-11-03, 데굴님 '십성 문구를 우선'): 십성 문구가 1차, 글자(오행) 결은 보조.
+    # 실사례 亥×4·癸癸(겁재·비견 반복)에서 水 글자 문구(숙고·결정 지연)가 실제(즉결·즉행)와
+    # 반대였다.
+    tg_item = next(
+        (x for x in text.get("ten_gods", []) if x["char"] == group.ten_god), None,
+    ) if group.ten_god else None
+    if tg_item:
+        head += (
+            f" — 기본 방향(십성 {group.ten_god}): {tg_item['base']} / "
+            f"과할 때: {tg_item['excess']}"
+        )
+    # 글자 결 — 십성 문구가 있으면 '(보조)' 라벨로 뒤에, 없으면 현행대로 1차.
+    sep = " · " if tg_item else " — "
+    aux = "(보조)" if tg_item else ""
     if group.is_self_punishment:
         sp = next((x for x in text["self_punishment"] if x["char"] == group.char), None)
         if sp:
             head += (
-                f" — 중심: {sp['center']} / 살아나면 {sp['positive']} / "
+                f"{sep}자형 결{aux}: 중심 {sp['center']} / 살아나면 {sp['positive']} / "
                 f"지나치면 {sp['negative']}"
             )
     elif group.kind in ("stem", "pillar"):
         st = next((x for x in text["stems"] if x["char"] == group.char[0]), None)
         if st:
-            head += f" — 기본 방향: {st['base']} / 과할 때: {st['excess']}"
+            head += f"{sep}글자 결{aux}: {st['base']} / 과할 때 {st['excess']}"
     else:
         br = next((x for x in text["branches"] if x["char"] == group.char), None)
         if br:
-            head += f" — 해석 후보: {br['base']}"
+            head += f"{sep}글자 결{aux}: {br['base']}"
     return head
 
 

@@ -757,6 +757,18 @@ class RepetitionBranchItem(_AliasModel):
     reviewed: bool
 
 
+class RepetitionTenGodItem(_AliasModel):
+    """십성 반복 해석 후보 1건(1.2.0, 2026-11-03) — 반복 글자의 일간 기준 십성(지지는 본기) 문구.
+
+    글자(오행) 문구보다 먼저 쓰는 1차 결이다(데굴님 '십성 문구를 우선').
+    """
+
+    char: Literal["비견", "겁재", "식신", "상관", "편재", "정재", "편관", "정관", "편인", "정인"]
+    base: str = Field(min_length=4)
+    excess: str = Field(min_length=4)
+    reviewed: bool
+
+
 class SelfPunishmentItem(_AliasModel):
     """자형 1건 — 辰·午·酉·亥 만. activation 은 운 활성화 공통 결(가능성 서술, 2026-10-28)."""
 
@@ -784,6 +796,8 @@ class RepetitionTextFile(_AliasModel):
     version: str
     note: str | None = None
     principles: dict[str, str]
+    # 십성 10종 — 글자 문구보다 먼저 읽는 1차 결(1.2.0).
+    ten_gods: list[RepetitionTenGodItem] = Field(min_length=10, max_length=10)
     stems: list[RepetitionStemItem] = Field(min_length=10, max_length=10)
     branches: list[RepetitionBranchItem] = Field(min_length=12, max_length=12)
     self_punishment: list[SelfPunishmentItem] = Field(min_length=4, max_length=4)
@@ -801,6 +815,12 @@ class TenGodGroupTraitItem(_AliasModel):
     face_a: str = Field(alias="faceA", min_length=5)
     face_b: str = Field(alias="faceB", min_length=5)
     trigger: str = Field(min_length=10)
+    # 갈래 기울기 조건(1.1.0, 2026-11-03) — 나열한 십성군이 모두 표면(가시 글자) 0 이면
+    # ① 쪽 경향 문구를 덧붙인다.
+    lean_a_when_absent: list[Literal["비겁", "식상", "재성", "관성", "인성"]] = Field(
+        default_factory=list, alias="leanAWhenAbsent",
+    )
+    lean_a: str | None = Field(default=None, alias="leanA", min_length=10)
     reviewed: bool
 
 
@@ -3589,6 +3609,11 @@ def _lint_love_types(file: LoveTypesFile) -> list[str]:
     return errors
 
 
+_REPETITION_TEN_GODS = (
+    "비견", "겁재", "식신", "상관", "편재", "정재", "편관", "정관", "편인", "정인",
+)
+
+
 def _lint_repetition_text(file: RepetitionTextFile) -> list[str]:
     """repetition_text.json — 글자 정확 커버리지·필수 원칙·단정 어휘 금지."""
     errors: list[str] = []
@@ -3599,10 +3624,15 @@ def _lint_repetition_text(file: RepetitionTextFile) -> list[str]:
         errors.append(f"{head}: 지지 12종 각 1건이어야 한다")
     if sorted(i.char for i in file.self_punishment) != sorted("辰午酉亥"):
         errors.append(f"{head}: 자형은 辰·午·酉·亥 4종이어야 한다")
-    for key in ("no_event", "no_fixed_fortune", "group_not_pairs", "luck_activation"):
+    if sorted(i.char for i in file.ten_gods) != sorted(_REPETITION_TEN_GODS):
+        errors.append(f"{head}: 십성 10종(비견~정인) 각 1건이어야 한다")
+    for key in (
+        "no_event", "no_fixed_fortune", "group_not_pairs", "luck_activation", "ten_god_first",
+    ):
         if key not in file.principles:
             errors.append(f"{head}: principles.{key} 필수")
     texts = [i.base for i in file.stems] + [i.excess for i in file.stems]
+    texts += [i.base for i in file.ten_gods] + [i.excess for i in file.ten_gods]
     texts += [i.base for i in file.branches]
     texts += [t for i in file.self_punishment for t in (i.center, i.positive, i.negative)]
     texts += [i.activation for i in file.self_punishment if i.activation]
@@ -3629,7 +3659,9 @@ def _lint_ten_god_group_traits(file: TenGodGroupTraitsFile) -> list[str]:
     if sorted(i.group for i in file.items) != sorted(_DOHWA_GROUP_TEN_GODS):
         errors.append(f"{head}: 십성군 5종(비겁·식상·재성·관성·인성) 각 1건이어야 한다")
     for i in file.items:
-        text = " ".join((i.face_a, i.face_b, i.trigger))
+        text = " ".join((i.face_a, i.face_b, i.trigger, i.lean_a or ""))
+        if (i.lean_a is None) != (not i.lean_a_when_absent):
+            errors.append(f"{head}: {i.group} leanA 와 leanAWhenAbsent 는 함께 있어야 한다")
         for w in _LOVE_TYPE_BANNED:
             if w in text:
                 errors.append(f"{head}: {i.group} 문구에 금지 어휘 '{w}'")

@@ -125,10 +125,12 @@ def month_flow(ctx: DayGanjiContext, layer: dict[str, Any]) -> list[DailyMonthSt
             DailyMonthIljuFlow(
                 ilju=f"{ilju_stem.value}{ilju_branch.value}",
                 ilju_ko=f"{STEM_KO[ilju_stem]}{BRANCH_KO[ilju_branch]}",
-                note=_ilju_note(ilju_branch, ctx, layer),
+                note=note,
             )
             for ilju_stem, ilju_branch in map(ganzi_from_index, range(60))
-            if ilju_stem == stem and _ilju_note(ilju_branch, ctx, layer)
+            if ilju_stem == stem
+            # v1.16 계약은 관계 없는 일주가 빈 문자열 — 한 번 조립한 값으로 걸러낸다.
+            and (note := _ilju_note(ilju_branch, ctx, layer))
         ]
         flows.append(DailyMonthStemFlow(
             day_stem_ko=STEM_KO[stem],
