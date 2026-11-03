@@ -43,3 +43,33 @@ def test_sales_and_profit_map_to_wealth() -> None:
 def test_gage_verb_form_not_career() -> None:
     """'가게 될까'(가다)는 상점이 아니므로 직업 도메인으로 오분류하지 않는다."""
     assert _intent("가게 될까?").domain is Domain.GENERAL
+
+
+# ── 진행 중 사업·동업 발화 → business_expansion 앵커(2026-11-03 데굴님 "그렇게 진행하는게 맞아") ──
+def test_business_in_progress_anchors_business_expansion() -> None:
+    """실사례: 자매 동업 질문이 career 도메인이지만 사건 키가 없어 이직·채용 제안 후보로 흘렀다."""
+    from saju_shared_types.events import EventKey
+    for q in ["언니랑 같이 작은 사업을 하고 있는데 동업 괜찮아?", "가게를 운영 중인데 올해 어때?",
+              "동업 괜찮을까?", "장사하고 있는데 내년은 어떨까", "카페 차렸는데 잘 될까"]:
+        it = _intent(q)
+        assert it.event_key is EventKey.BUSINESS_EXPANSION, q
+        assert it.domain is Domain.CAREER, q
+
+
+def test_business_start_and_relocation_unchanged() -> None:
+    """창업·개업은 기존 business_start, 사업장 이전은 거주 도메인(사업 사건 아님)."""
+    from saju_shared_types.events import EventKey
+    assert _intent("내년에 창업해도 될까?").event_key is EventKey.BUSINESS_START
+    it = _intent("사업장 이전 시기가 언제가 좋을까?")  # 변경 전부터 career + domains[relocation]
+    assert Domain.RELOCATION in (it.domain, *it.domains)
+    assert it.event_key is not EventKey.BUSINESS_EXPANSION
+    assert _intent("사업 운이 어때?").event_key is None  # '사업' 단독은 도메인 어휘로만
+
+
+def test_business_in_progress_routes_to_m08() -> None:
+    from saju_engines.planner import build_execution_plan
+    plan = build_execution_plan(_intent("언니랑 같이 작은 사업을 하고 있는데 동업 괜찮아?"))
+    engines = [c.engine for c in plan.engine_calls]
+    assert "topic:M08" in engines and "topic:M07" not in engines
+    plan2 = build_execution_plan(_intent("올 겨울 작업 수주가 잘될까?"))
+    assert "topic:M07" in [c.engine for c in plan2.engine_calls]

@@ -35,20 +35,26 @@ def test_directional_full_is_strong(make_pillars) -> None:
     assert b.royal_branch == "午" and b.storage_branch == "戌"
 
 
-def test_repeat_birth_branch_is_moderate(make_pillars) -> None:
-    """巳巳 반복(월지는 다른 계절) → moderate, 근거 repeat_birth_branch."""
+def test_repeat_birth_branch_alone_is_not_binding(make_pillars) -> None:
+    """巳巳 반복(월지는 다른 계절) → 묶임 없음, 반복은 관측 플래그로만(亥亥는 방합이 아니다)."""
     b = _bound(make_pillars, _p(B.SA), _p(B.JA), _p(B.SA), _p(B.YU))
-    assert b.tier == "moderate" and b.season == "여름" and b.anchor == "巳"
-    assert b.evidence == ["repeat_birth_branch"]
-    assert b.royal_branch == "酉"
+    assert b.tier == "none" and b.season is None and b.evidence == []
+    assert "repeat_birth_branch" in b.flags
 
 
-def test_season_dominance_is_strong(make_pillars) -> None:
-    """申·酉·酉 + 앵커 申(세 글자 중 두 종류) → 편중 3개 → strong."""
+def test_season_dominance_without_full_is_moderate_only_with_month(make_pillars) -> None:
+    """申·酉·酉 + 월지 酉(두 종류 + 월지) → moderate(partial_with_month), 편중은 플래그."""
     b = _bound(make_pillars, _p(B.SIN), _p(B.YU), _p(B.YU), _p(B.JA))
-    assert b.tier == "strong" and b.season == "가을"
-    assert "season_dominance" in b.evidence and "directional_full" not in b.evidence
+    assert b.tier == "moderate" and b.season == "가을"
+    assert b.evidence == ["directional_partial_with_month"]
+    assert "season_dominance" in b.flags
     assert b.royal_branch == "子" and b.storage_branch == "辰"
+
+
+def test_four_hae_is_not_binding(make_pillars) -> None:
+    """亥×4(실사례 1995-11-28 여성) — 방합(亥子丑) 미완성이라 묶임 없음, 반복·편중은 플래그."""
+    b = _bound(make_pillars, _p(B.HAE), _p(B.HAE), _p(B.HAE), _p(B.HAE))
+    assert b.tier == "none" and {"repeat_birth_branch", "season_dominance"} <= set(b.flags)
 
 
 def test_partial_with_month_is_moderate(make_pillars) -> None:
@@ -67,11 +73,11 @@ def test_no_anchor_means_no_binding(make_pillars) -> None:
 def test_storage_month_and_anchor_clash_and_royal_flags(make_pillars) -> None:
     """辰월(고지) 보류 플래그, 앵커 寅이 申 충을 받음, 대응 왕지 午 원국 보유 — 모두 관측값.
 
-    寅·辰·寅은 봄 글자 3개라 편중(strong)이며 생지 반복 근거도 함께 기록된다.
+    寅·辰·寅은 두 종류 + 월지 辰이라 moderate(partial_with_month)이며 반복·편중은 플래그로 남는다.
     """
     b = _bound(make_pillars, _p(B.IN), _p(B.JIN), _p(B.IN), _p(B.SIN))
-    assert b.tier == "strong"
-    assert {"repeat_birth_branch", "season_dominance"} <= set(b.evidence)
+    assert b.tier == "moderate" and b.evidence == ["directional_partial_with_month"]
+    assert {"repeat_birth_branch", "season_dominance"} <= set(b.flags)
     assert {"month_is_storage", "month_in_season", "anchor_clashed"} <= set(b.flags)
     assert "natal_royal_present" not in b.flags
     b2 = _bound(make_pillars, _p(B.IN), _p(B.MYO), _p(B.IN), _p(B.O))
@@ -79,7 +85,7 @@ def test_storage_month_and_anchor_clash_and_royal_flags(make_pillars) -> None:
 
 
 def test_higher_tier_wins_then_month_season(make_pillars) -> None:
-    """두 계절이 동시에 걸리면 등급 높은 쪽 — 寅寅(moderate) vs 巳午未(strong) → 여름."""
+    """두 계절이 동시에 걸리면 등급 높은 쪽 — 寅(반복 없음·none) vs 巳午未(strong) → 여름."""
     b = _bound(make_pillars, _p(B.SA), _p(B.O), _p(B.MI), _p(B.IN))
     assert b.season == "여름" and b.tier == "strong"
 

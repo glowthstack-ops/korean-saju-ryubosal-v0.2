@@ -115,28 +115,35 @@ def _natal_branches(pillars: FourPillarsResult) -> list[Branch]:
 
 def _evaluate_season(
     season: str, natal: Sequence[Branch], month_branch: Branch,
-) -> tuple[str, list[str]]:
-    """한 계절의 묶임 등급·근거. 앵커(생지)가 없으면 ('none', [])."""
+) -> tuple[str, list[str], list[str]]:
+    """한 계절의 묶임 등급·근거·관측 플래그. 앵커(생지)가 없으면 ('none', [], []).
+
+    등급은 방합 완성(strong) / 두 글자 + 월지(moderate)만. 같은 생지 반복·계절 편중은 세 번째
+    반환값(관측)으로만 돌려준다(2026-11-03 — 亥亥는 방합이 아니다).
+    """
     members = SEASONS[season]
     anchor = SEASON_ANCHOR[season]
     counts = Counter(b for b in natal if b in members)
     if counts[anchor] == 0:
-        return "none", []
+        return "none", [], []
     evidence: list[str] = []
+    observed: list[str] = []
     distinct = set(counts)
     if len(distinct) == 3:
         evidence.append("directional_full")
+    # 2026-11-03 데굴님 결정(고전 대조·측정 후): 같은 생지 반복(亥亥)·계절 편중은 방합이 아니라
+    # 묶임 근거에서 뺀다 — 관측 플래그로만 남긴다. 묶임은 방합 완성 또는 '두 글자 + 월지'만.
     if counts[anchor] >= 2:
-        evidence.append("repeat_birth_branch")
+        observed.append("repeat_birth_branch")
     if sum(counts.values()) >= 3:
-        evidence.append("season_dominance")
+        observed.append("season_dominance")
     if "directional_full" not in evidence and len(distinct) >= 2 and month_branch in members:
         evidence.append("directional_partial_with_month")
-    if "directional_full" in evidence or "season_dominance" in evidence:
-        return "strong", evidence
+    if "directional_full" in evidence:
+        return "strong", evidence, observed
     if evidence:
-        return "moderate", evidence
-    return "none", []
+        return "moderate", evidence, observed
+    return "none", [], observed
 
 
 _TIER_RANK = {"none": 0, "moderate": 1, "strong": 2}
@@ -151,8 +158,12 @@ def detect_season_bound(pillars: FourPillarsResult) -> SeasonBound:
     natal = _natal_branches(pillars)
     month_branch = Branch(pillars.month.branch)
     best: tuple[int, int, int, str, list[str]] | None = None
+    observed_all: list[str] = []
     for season in SEASONS:
-        tier, evidence = _evaluate_season(season, natal, month_branch)
+        tier, evidence, observed = _evaluate_season(season, natal, month_branch)
+        for o in observed:
+            if o not in observed_all:
+                observed_all.append(o)
         if tier == "none":
             continue
         members = SEASONS[season]
@@ -162,7 +173,7 @@ def detect_season_bound(pillars: FourPillarsResult) -> SeasonBound:
         )
         if best is None or key > best[:3]:
             best = (*key, season, evidence)
-    flags: list[str] = []
+    flags: list[str] = list(observed_all)  # 반복·편중 관측 플래그(묶임 근거 아님, 2026-11-03)
     if month_branch in _STORAGE:
         flags.append("month_is_storage")  # 영상 §4 — 辰戌丑未월은 월지 하나로 설명 보류
     if best is None:

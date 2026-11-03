@@ -114,3 +114,66 @@ def test_luck_yeokma_lines_month_expands_to_year_and_caps() -> None:
     assert block[-1].startswith("조언: ") and sum(x.startswith("조언") for x in block) == 1
     many = yeokma_period_lines(pillars, [str(y) for y in range(2000, 2100)])
     assert len([x for x in many if x.startswith("- ")]) <= _YEOKMA_PERIOD_MAX
+
+
+# ── 이동지 양면 서술 상시 동반(2026-11-03 데굴님 "양면 서술이 반드시 함께 표시되는 정도로 충분") ──
+_FLIP = "합(육합·삼합·방합)으로 묶이면 발이 묶이듯"  # 2026-11-03 고전 대조 문구
+
+
+def test_marker_flip_side_survives_when_marker_absorbed_into_yeokma() -> None:
+    """역마살 성립으로 이동지 발췌를 뺄 때도 양면 문장은 역마살 줄에 남는다."""
+    r = calculate(_birth("1984-01-12"))
+    ex = {e.key: e.text for e in _sinsal_excerpts(r)}
+    assert "이동지" not in ex and _FLIP in ex["역마살"]
+
+
+def test_marker_flip_line_in_movement_block_without_yeokma() -> None:
+    """亥×4(역마살 없음, 이동지만) — 이사·직업 질문 블록에 이동지 양면 줄이 선다."""
+    from saju_engines.chart_interpretation import mobility_marker_flip_lines, yeokma_natal_lines
+
+    b = BirthInput(birth_date=date(1995, 11, 28), birth_time="22:00:00",
+                   birth_place_name="서울", gender="female")
+    r = calculate(b)
+    lines = yeokma_natal_lines(r)
+    assert lines == mobility_marker_flip_lines(r) and len(lines) == 1
+    assert lines[0].startswith("[이동지 양면") and _FLIP in lines[0]
+    # 사실 병기(2026-11-03 데굴님 "예외 사례라면 거기까지") — 값 그대로.
+    held = "보유: 연주 亥(겁재·제왕)·월주 亥(겁재·제왕)·일주 亥(겁재·제왕)·시주 亥(겁재·제왕)"
+    assert held in lines[0]
+    assert "같은 글자 반복: 亥×4(자형 1그룹)" in lines[0]
+    assert "역마 성립: 없음(연지 亥 기준 亥=지살)" in lines[0]
+    assert "이동지 충·형: 없음" in lines[0] and "방합: 미완성(亥: 子丑 부재)" in lines[0]
+    assert "같은 계절 글자와 묶이면" not in lines[0]
+
+
+def test_marker_flip_line_follows_yeokma_block() -> None:
+    """역마살 성립 명식(1984-01-12)도 역마 블록 뒤에 이동지 양면 줄이 따라온다."""
+    from saju_engines.chart_interpretation import yeokma_natal_lines
+
+    lines = yeokma_natal_lines(calculate(_birth("1984-01-12")))
+    assert lines[0].startswith("[역마 — 원국 성립") and lines[-1].startswith("[이동지 양면")
+
+
+def test_marker_flip_line_reaches_chat_movement_question() -> None:
+    from saju_api.services import chat_service
+
+    b = BirthInput(
+        calendar_type="solar", birth_date="1995-11-28", birth_time="22:00",
+        birth_place_name="서울", gender="female", reference_date="2026-11-03",
+    )
+    move = chat_service.chat(b, "나는 이사나 이동수가 있어?", date(2026, 11, 3), dry_run=True)
+    assert "[이동지 양면" in (move.prompt_preview or "") and _FLIP in (move.prompt_preview or "")
+
+
+def test_marker_facts_for_clash_and_established_yeokma_chart() -> None:
+    """申亥亥巳(1980-11-22 09:40 남) — 역마 성립(일지 亥 기준 巳)·巳亥 충·亥×2 반복이 실린다."""
+    from saju_engines.chart_interpretation import mobility_marker_flip_lines
+
+    b = BirthInput(
+        birth_date=date(1980, 11, 22), birth_time="09:40:00", birth_place_name="서울 구로구",
+        gender="male", latitude=37.4944, longitude=126.8563, timezone="Asia/Seoul",
+    )
+    line = mobility_marker_flip_lines(calculate(b))[0]
+    assert "역마 성립: 시주 巳(일지 亥 기준)" in line
+    assert "亥巳 충" in line and "같은 글자 반복: 亥×2(자형 1그룹)" in line
+    assert "방합: 미완성" in line

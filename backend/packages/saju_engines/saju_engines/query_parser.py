@@ -196,6 +196,15 @@ _EMOTION_WORDS = re.compile(
     r"스트레스|힘들(?:어(?![지질])|[다지네고])|힘드[네니]|고장나서|우울|지치|버겁"
 )
 
+#: 성향 질문 표지(2026-11-03 데굴님 승인) — 감정어가 있어도 '그런 성향이냐'를 묻는 문장은 토로가
+#: 아니라 명식 성향 질문이다. 실사례 "나 우울증 같은 거 있을 성향이야? 감정 기복은 어때?"가
+#: B13 공감 템플릿으로 빠져 명식 답을 하지 않았다. 표지는 성향·기질형 명사와 '~편이야' 어미,
+#: '걸리기 쉬운' 류 경향 어법으로 좁힌다 — "요즘 너무 우울해" 같은 토로는 그대로 B13.
+_TRAIT_QUESTION_RE = re.compile(
+    r"성향|기질|경향|타입|편이(?:야|니|에요|예요|지|라)|편인(?:가|지)|편일까"
+    r"|걸리기\s*쉬|오기\s*쉬|감정\s*기복|있는\s*사주|있을\s*사주"
+)
+
 #: B13 한탄·자조 어법. **도메인·명리 용어가 없을 때만** 적용한다(호출부 가드).
 #:
 #: `왜 이렇게` 단독은 넣지 않는다 — "지금 대운은 왜 이렇게 흘러가?" 처럼 흐름 **설명
@@ -692,6 +701,22 @@ def is_real_estate_trade(text: str) -> bool:
     return is_real_estate_sale(text) or is_real_estate_purchase(text)
 
 
+# 진행 중 사업·동업 발화(2026-11-03 데굴님 승인 — 실사례 '언니랑 같이 작은 사업을 하고 있는데
+# 동업 괜찮아?'가 career 도메인이지만 사건 키가 없어 이직·채용 제안 후보로 흘렀다).
+# 사업 명사 + 진행 서술(하고 있/운영/하는 중/중이/차렸) 또는 '동업' 단독. '사업' 단독은 도메인
+# 어휘로만 남긴다('사업장 이전'은 거주 도메인). 창업·개업은 EVENT_WORDS(business_start) 그대로.
+_BUSINESS_IN_PROGRESS_RE = re.compile(
+    r"(?:사업|장사|자영업|매장|가게|식당|카페|공방|쇼핑몰|스토어|학원|회사)\s*(?:을|를|도|은|는)?"
+    r"\s*(?:같이\s*|함께\s*)?(?:하고\s*있|운영|하는\s*중|중이|차렸|차려서|열었|하고\s*계)"
+    r"|동업"
+)
+
+
+def is_business_in_progress(text: str) -> bool:
+    """진행 중인 사업·동업 발화인가 — business_expansion 앵커·요청 한정 business_owner 의 근거."""
+    return bool(_BUSINESS_IN_PROGRESS_RE.search(text or ""))
+
+
 # 주의점 어휘 — chart_caution 플래그(관리 프레임 지시문·시점 미승계).
 _CAUTION_RE = re.compile(r"주의|조심|약점|단점|취약|리스크|문제점")
 
@@ -967,7 +992,8 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
     #   "왜 나는 연애운이 없을까"      사용자가 이미 분야를 지목 → domain_analysis 유지
     #   "내 대운은 왜 이렇게 안 좋아?"  명식 구조 질문 → 공감으로 대체하면 안 된다
     # B13 파생 규칙도 "도메인 연결은 사용자가 원할 때만" 이다.
-    if _EMOTION_WORDS.search(text) or (
+    # 성향형('우울증 있을 성향이야?')은 토로가 아니다 — 아래 Q8(성향·기질)로 흘러 명식으로 답한다.
+    if (_EMOTION_WORDS.search(text) and not _TRAIT_QUESTION_RE.search(text)) or (
         _LAMENT.search(text)
         and not _detect_domains(text)
         and not is_term
@@ -1420,6 +1446,11 @@ def parse_message(
             event_key = EventKey.CONTRACT_DOCUMENT
             if not event_keys:
                 event_keys = [EventKey.WEALTH_CHANGE]
+        # 진행 중 사업·동업(2026-11-03) — 다른 사건 키가 없을 때 '사업 확장'(진행 중 사업) 키로
+        # 앵커해 사업 계열 후보·M08 토픽으로 가게 한다. 창업·개업(business_start)은 EVENT_WORDS 가
+        # 먼저 잡는다.
+        if event_key is None and is_business_in_progress(piece or text):
+            event_key = EventKey.BUSINESS_EXPANSION
         domains = _detect_domains(piece) or _detect_domains(text)
         if real_estate_trade and not domains:
             domains = [Domain.WEALTH]  # EVENT_DOMAIN[contract_document]=career 를 쓰지 않는다

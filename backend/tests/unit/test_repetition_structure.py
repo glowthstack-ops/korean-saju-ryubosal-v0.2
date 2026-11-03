@@ -223,3 +223,37 @@ def test_report_month_tables_without_repetition() -> None:
         if "[반복 구조 활성화(월)" in b and ln.startswith("20")
     ]
     assert all("운끼리" in ln for ln in rows)
+
+
+# ── 1.2.0 십성 문구 우선(2026-11-03 데굴님 "십성 문구를 우선하는게 나을 것 같아") ──
+def test_ten_god_text_comes_before_char_text() -> None:
+    """亥×4·癸癸(겁재·비견 반복) — 십성 문구가 1차, 글자(자형·오행) 결은 '(보조)' 라벨로 뒤에.
+
+    실사례: 水 글자 문구(숙고·결정 지연)가 실제(즉결·즉행)와 반대였고 십성 결이 맞았다.
+    """
+    r = _result(["乙亥", "丁亥", "癸亥", "癸亥"])
+    lines = {g.char: group_line(g) for g in detect_repetition_groups(r, {"水": "기신"})}
+    hae = lines["亥"]
+    assert "기본 방향(십성 겁재)" in hae and "자형 결(보조)" in hae
+    assert hae.index("기본 방향(십성 겁재)") < hae.index("자형 결(보조)")
+    assert "몸이 먼저 움직이는 실행력" in hae
+    gye = lines["癸"]
+    assert "기본 방향(십성 비견)" in gye and "글자 결(보조)" in gye
+    assert gye.index("기본 방향(십성 비견)") < gye.index("글자 결(보조)")
+    assert lines["癸亥"].index("기본 방향(십성 비견)") < lines["癸亥"].index("글자 결(보조)")
+
+
+def test_ten_god_dictionary_covers_ten_gods_and_principle() -> None:
+    from saju_engines.repetition_structure import load_repetition_text
+    text = load_repetition_text()
+    assert sorted(i["char"] for i in text["ten_gods"]) == sorted(
+        ["비견", "겁재", "식신", "상관", "편재", "정재", "편관", "정관", "편인", "정인"]
+    )
+    assert "ten_god_first" in text["principles"]
+    # 원국 해석 발췌 첫 줄의 사용 원칙에 십성 우선 원칙이 실린다.
+    birth = BirthInput.model_validate(json.loads(_FIXTURE.read_text(encoding="utf-8")))
+    r = calculate(birth.model_copy(update={"reference_date": date(2026, 11, 3)}))
+    ci = build_chart_interpretation(r)
+    reps = [e for e in ci.excerpts if e.kind == "repetition"]
+    if reps:
+        assert text["principles"]["ten_god_first"] in reps[0].text

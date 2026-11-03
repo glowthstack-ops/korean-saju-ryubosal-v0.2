@@ -171,7 +171,7 @@ CREATE INDEX idx_lc_subject_level ON luck_composites (subject_id, level);
 | M05 | children | 자녀운, 자녀 사주 | natal 십성 축(남명=관살, 여명=식상, 성별 미상=식상은 호환용 기본값·확정 해석 아님, C7 D2) + 자녀 subject. 시주는 서술 보조 | relation_profiles, events/education | 자녀 이벤트 + 부모-자녀 축 |
 | M06 | workplace_relations | 직장 내 관계(상사/동료) | natal(관성·비겁) + month | relation_profiles | 갈등/협력 신호 시계열 |
 | M07 | career | 취업/이직/승진/퇴사 | natal + daewoon + year + month | events/career_change | 이벤트 후보 + 타임라인 단계 |
-| M08 | business | 창업/사업/동업 | natal + daewoon + year | events/wealth, relation_profiles | 사업 적합 구조 + 시기 |
+| M08 | business | 창업/사업/동업 | natal + daewoon + year | events/wealth, relation_profiles | 사업 적합 구조 + 시기 — 선택 기준: 사건 키가 business_start/business_expansion 일 때(2026-11-03 배선 전엔 어떤 경로에서도 선택되지 않았음) |
 | M09 | wealth | 재물/유산/횡재/투기 | natal + year + month (+day: 횡재) | events/wealth | 재물 흐름 + windfall 제한 신호 |
 | M10 | relocation_composite | **이사 (복합)** | 그룹 전원의 month + day | events/relocation, calendar/*, region_elements, housing_rules | 7장 전체 사양 참조 |
 | M11 | health | 건강/수술 시기 | natal + year + month + day(수술일) | events/health | 리스크 시기 + 회피일 |

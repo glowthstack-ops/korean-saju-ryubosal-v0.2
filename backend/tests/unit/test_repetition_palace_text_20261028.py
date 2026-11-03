@@ -23,7 +23,8 @@ def _act(char: str, positions: list[str], kind: str = "period_new") -> Repetitio
 
 def test_dictionary_has_hae_palace_entries_and_activation() -> None:
     d = load_repetition_text()
-    assert d["version"] == "1.1.0" and "palace_possibility" in d["principles"]
+    assert d["version"] >= "1.1.0"  # 1.2.0 에서 십성 문구 절이 더해졌다
+    assert "palace_possibility" in d["principles"]
     hae = {x["palace"] for x in d["palace"] if x["char"] == "亥"}
     assert hae == {"year", "month", "day", "hour"}
     entry = next(x for x in d["self_punishment"] if x["char"] == "亥")
