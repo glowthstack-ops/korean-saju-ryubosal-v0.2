@@ -3,6 +3,8 @@
 eligibility(required_signature) → evidence(channel×weight) → prior → ranking.
 
 - 채널 신호는 (일주, 오늘 일진) 만으로 계산한다(개인 명식 불사용 — §10 제외 원칙 유지).
+- 12운성 채널은 2026-11-05 보드부터 '일간→오늘 지지'(통설)다. 그 이전 날짜는 '오늘 천간→일지'
+  로 재생된다(docs/17 §25 — 날짜가 방향을 고른다).
 - expr_confidence 는 evidence 에 곱하지 않는다(§22-1 — 문구 톤 전용).
 - 공망일은 合則不能空 을 따른다: 일지-일진 육합 0.4 감쇄 / 반합 0.6 / 충발 1.0 유지
   (SSOT: doc/v2_2/GONGMANG_HAP_SEMANTICS.md).
@@ -36,6 +38,7 @@ from saju_shared_types.daily_fortune import (
     DailyFortuneBoard,
     DayGanjiContext,
     content_version_for,
+    stage_direction_forward,
 )
 from saju_shared_types.daily_fortune_v2 import (
     MODEL_V2_VERSION,
@@ -200,8 +203,15 @@ def day_channels(
             gm = 1.0
     ch["gongmang"] = gm
 
-    # 12운성 기능 채널 (오늘 일진 천간의 내 일지 12운성)
-    stage_key = str(TWELVE_STAGE_KO_TO_KEY.get(twelve_unseong(ds, ilju_branch), ""))
+    # 12운성 기능 채널 — 방향은 날짜가 고른다(docs/17 §25, STAGE_DIRECTION_EFFECTIVE_FROM):
+    # 경계부터 '일간→오늘 지지'(통설·만세력 엔진 luck_cycles 와 동일), 이전 날짜는 종전
+    # '오늘 천간→일지'로 재생된다. 같은 일간 6일주가 같은 날 같은 12운성을 갖는 것은 설계대로다
+    # (수렴 지표: 6장 전부 같은 헤드라인 3/140, §25 측정).
+    if stage_direction_forward(ctx.the_date):
+        stage_name = twelve_unseong(ilju_stem, db)
+    else:
+        stage_name = twelve_unseong(ds, ilju_branch)
+    stage_key = str(TWELVE_STAGE_KO_TO_KEY.get(stage_name, ""))
     stage_values = _STAGE_CHANNEL_VALUES.get(stage_key, {})
     for name in STAGE_CHANNELS_V2:
         ch[name] = stage_values.get(name, 0.0)

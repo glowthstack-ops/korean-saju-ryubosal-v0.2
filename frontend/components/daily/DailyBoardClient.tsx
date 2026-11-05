@@ -89,7 +89,15 @@ export function DailyBoardClient({ initial }: { initial: DailyFortuneBoard | nul
 
       <section className="space-y-3">
         <StemTabs active={stem} onChange={(s) => { setStem(s); setHighlight(null); }} />
-        {monthFlow && <MonthFlowPanel key={stem} flow={monthFlow} myIlju={myIlju} />}
+        {monthFlow && (
+          <MonthFlowPanel
+            key={stem}
+            flow={monthFlow}
+            myIlju={myIlju}
+            monthLabel={board.month_label}
+            nextMonthLabel={board.next_month_label}
+          />
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           {visible.map((f) => (
             <DailyFortuneCard

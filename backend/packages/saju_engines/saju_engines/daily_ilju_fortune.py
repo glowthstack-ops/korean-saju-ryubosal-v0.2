@@ -52,6 +52,7 @@ from saju_shared_types.daily_fortune import (
     DayGanjiContext,
     LuckyPlace,
     content_version_for,
+    stage_direction_forward,
 )
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.event_engine import TWELVE_STAGE_KO_TO_KEY
@@ -823,9 +824,10 @@ class DayTone:
     """(일주, 날짜)의 표현 결 — 문체 전용, 판정에 관여하지 않는다 (docs/17 §23)."""
 
     sipseong_group: str  # 오늘 천간 → 일간 십성의 군(비겁·식상·재성·관성·인성)
-    stage_channel: str  # 오늘 천간이 일지에서 갖는 12운성의 대표 기능 채널
+    stage_channel: str  # 12운성의 대표 기능 채널(방향은 §25 — 날짜가 고른다)
     sipseong: str = ""  # 오늘 천간 → 일간 십성(10종, §23-1 2차) — 비어 있으면 군 풀로 물러난다
-    stage: str = ""  # 오늘 천간→일지 12운성 키(§23-1 3차) — 비어 있으면 채널 풀로 물러난다
+    # 12운성 키(§23-1 3차) — 11/5 부터 일간→오늘 지지, 이전 날짜는 오늘 천간→일지(재생 불변).
+    stage: str = ""
 
 
 def day_tone(ilju_stem: Stem, ilju_branch: Branch, ctx: DayGanjiContext) -> DayTone:
@@ -837,14 +839,19 @@ def day_tone(ilju_stem: Stem, ilju_branch: Branch, ctx: DayGanjiContext) -> DayT
         ctx: 오늘 일진 간지.
 
     Returns:
-        십성군·십성(오늘 천간 기준)과 12운성 채널·스테이지(오늘 천간 → 일지).
+        십성군·십성(오늘 천간 기준)과 12운성 채널·스테이지. 12운성 방향은 날짜가 고른다
+        (docs/17 §25): 2026-11-05 부터 일간→오늘 지지, 이전은 오늘 천간→일지(과거 계약 재생).
     """
     day_stem = Stem(ctx.day_stem)
     if day_stem == ilju_stem:
         sipseong = "비견"
     else:
         sipseong = ten_god(ilju_stem, day_stem).value
-    stage_key = str(TWELVE_STAGE_KO_TO_KEY.get(twelve_unseong(day_stem, ilju_branch), ""))
+    if stage_direction_forward(ctx.the_date):
+        stage_name = twelve_unseong(ilju_stem, Branch(ctx.day_branch))
+    else:
+        stage_name = twelve_unseong(day_stem, ilju_branch)
+    stage_key = str(TWELVE_STAGE_KO_TO_KEY.get(stage_name, ""))
     return DayTone(
         sipseong_group=_SIPSEONG_GROUP[sipseong],
         stage_channel=_STAGE_TONE_CHANNEL.get(stage_key, "activity_up"),

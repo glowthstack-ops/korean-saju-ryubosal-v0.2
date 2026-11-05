@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from saju_shared_types.daily_fortune import (
     CATALOG_EXPANSION_3_EFFECTIVE_FROM,
     CATALOG_EXPANSION_EFFECTIVE_FROM,
+    STAGE_DIRECTION_EFFECTIVE_FROM,
     DailyDomain,
     DailySlot,
 )
@@ -27,7 +28,12 @@ from saju_shared_types.daily_fortune import (
 #: v2.2(2026-09-18): 카탈로그 64→82종 3차 확장(docs/17 §22-7 3차).
 #: 경계는 CATALOG_EXPANSION_3_EFFECTIVE_FROM. 같은 날 4차(§22-9 신살 채널 8종, evidence 전용)를
 #: 경계(9/20) 이전에 in-place 반영 — v2.2 보드는 아직 생성된 적이 없어 재생성 문제가 없다.
-MODEL_V2_VERSION = "model.v2.2"
+#: v2.3(2026-11-03): 12운성 채널 방향 교정(docs/17 §25) — '오늘 천간→일지'에서 통설·만세력
+#: 엔진과 같은 '일간→오늘 지지'로. 카탈로그 내용은 v2.2 와 같고 채널 계산만 바뀌므로 경계
+#: (STAGE_DIRECTION_EFFECTIVE_FROM, 11/5)로 버전을 고른다 — 11/4 보드까지는 v2.2 로 재생된다.
+MODEL_V2_VERSION = "model.v2.3"
+#: 12운성 방향 교정 경계 이전(9/20~11/4)에 적용되는 v2 모델 버전(82종, 역방향 12운성).
+MODEL_V2_VERSION_BEFORE_STAGE_DIRECTION = "model.v2.2"
 #: 3차 경계 이전(9/12~9/19)에 적용되는 v2 모델 버전(64종). 스냅샷 model.v2.1 이 커밋돼 있다.
 MODEL_V2_VERSION_BEFORE_EXPANSION_3 = "model.v2.1"
 #: 기준일 이전 날짜에 적용되는 v2 모델 버전(48종). 스냅샷
@@ -42,13 +48,15 @@ def active_model_v2_version(target_date: date) -> str:
         target_date: 운세 대상 날짜(KST 기준).
 
     Returns:
-        9/12 이전 `PREVIOUS_MODEL_V2_VERSION`(48종) → 9/20 이전 model.v2.1(64종) → 이후
-        `MODEL_V2_VERSION`(82종).
+        9/12 이전 `PREVIOUS_MODEL_V2_VERSION`(48종) → 9/20 이전 model.v2.1(64종) → 11/5 이전
+        model.v2.2(82종, 역방향 12운성) → 이후 `MODEL_V2_VERSION`(82종, 일간→오늘 지지 12운성).
     """
     if target_date < CATALOG_EXPANSION_EFFECTIVE_FROM:
         return PREVIOUS_MODEL_V2_VERSION
     if target_date < CATALOG_EXPANSION_3_EFFECTIVE_FROM:
         return MODEL_V2_VERSION_BEFORE_EXPANSION_3
+    if target_date < STAGE_DIRECTION_EFFECTIVE_FROM:
+        return MODEL_V2_VERSION_BEFORE_STAGE_DIRECTION
     return MODEL_V2_VERSION
 
 #: prior 3등급 → 사전확률 가산치 (§22-1: signature=출전권, prior=순위만).

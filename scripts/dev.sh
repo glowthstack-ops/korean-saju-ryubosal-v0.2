@@ -37,6 +37,11 @@ fi
 
 # 질문 이해 층 로컬 모델(Ollama) — 플래그 ON 일 때만 기동·모델 확인, 실패해도 백엔드는 뜬다(docs/03 B6).
 "$ROOT/scripts/ensure_ollama.sh" || true
+# ensure_ollama 가 임시 포트로 폴백했으면(예약 포트 회피, var/ollama_base_url) 그 주소를 백엔드에 넘긴다.
+if [ -f "$ROOT/var/ollama_base_url" ]; then
+  SAJU_OLLAMA_BASE_URL="$(cat "$ROOT/var/ollama_base_url")"
+  export SAJU_OLLAMA_BASE_URL
+fi
 
 echo "[run] backend  → http://localhost:$API_PORT"
 "$VENV/uvicorn" saju_api.main:app --reload --port "$API_PORT" &

@@ -116,8 +116,18 @@ def test_resolver_applies_the_date_boundary_dictionary() -> None:
         resolve_day_contracts(HEADLINE_CLOSING_REMOVAL_EFFECTIVE_FROM).active_dict_version
         == DICT_VERSION_BEFORE_WORDING_REVISION
     )
+    # 11/3~11/4 는 v1.17, 11/5 부터 v1.18(§25 12운성 방향 교정).
+    from saju_shared_types.daily_fortune import (
+        DICT_VERSION_BEFORE_STAGE_DIRECTION,
+        STAGE_DIRECTION_EFFECTIVE_FROM,
+    )
+
     assert (
         resolve_day_contracts(WORDING_REVISION_EFFECTIVE_FROM).active_dict_version
+        == DICT_VERSION_BEFORE_STAGE_DIRECTION
+    )
+    assert (
+        resolve_day_contracts(STAGE_DIRECTION_EFFECTIVE_FROM).active_dict_version
         == DICT_VERSION
     )
     # 경계 이전은 strict 로 막히지만, 완화 모드에서 이전 버전을 가리키는지 확인한다.
