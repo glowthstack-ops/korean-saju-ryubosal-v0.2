@@ -95,7 +95,8 @@ def test_third_boundary_is_shared_by_v1_and_v2() -> None:
         active_dict_version(_AFTER) == DICT_VERSION_BEFORE_HEADLINE_CLOSING_REMOVAL == "dict.v1.14"
     )
     assert active_model_v2_version(_BEFORE) == MODEL_V2_VERSION_BEFORE_EXPANSION_3 == "model.v2.1"
-    assert active_model_v2_version(_AFTER) == MODEL_V2_VERSION == "model.v2.2"
+    # 9/20~11/4 는 v2.2(역방향 12운성), 11/5 부터 현재 MODEL_V2_VERSION(§25 교정).
+    assert active_model_v2_version(_AFTER) == "model.v2.2" != MODEL_V2_VERSION
     assert content_version_v2_for(_BEFORE).endswith("model.v2.1")
     assert content_version_v2_for(_AFTER).endswith("model.v2.2")
 

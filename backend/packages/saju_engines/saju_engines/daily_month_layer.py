@@ -7,10 +7,16 @@
 사전 키 `month_layer` 가 없는 계약(dict.v1.15 이하·베타 풀)에서는 아무것도 붙지 않는다 —
 과거 날짜와 동결 풀의 바이트 불변을 키 유무로 지킨다. 새 문장은 사전 원문을 그대로 쓰며
 LLM 교정 대상이 아니다.
+
+12운성 방향 교정(docs/17 §25, dict.v1.18): 12운성 문장은 '일간→월운 지지'로 천간 공통 흐름에
+싣고(`stem_stage`), 일주별 흐름은 일지↔월운 지지·내년 세운 지지 관계만 남긴다. `ilju_stage`
+키가 있는 v1.17 계약(11/3~11/4)은 종전대로 '월운 천간→일지' 문장을 일주별로 낸다. 패널 라벨
+(월 이름·기간)과 다음 달 미리보기(월운 전환 7일 전부터)도 `stem_stage` 가 있는 계약에만 붙는다.
 """
 
 from __future__ import annotations
 
+from datetime import date, timedelta
 from typing import Any
 
 from saju_engines import daily_ilju_fortune as v1
@@ -81,6 +87,11 @@ def _stem_common_line(day_master: Stem, ctx: DayGanjiContext, layer: dict[str, A
     branch_god = _branch_sipseong(day_master, month_branch)
     stem_group, branch_group = _GROUP[stem_god], _GROUP[branch_god]
     parts = [layer["month_tone"][f"{stem_group}+{branch_group}"], layer["month_action"][stem_god]]
+    # 12운성 — 일간이 월운 지지에서 갖는 힘(통설·만세력 엔진 luck_cycles 와 같은 방향, §25).
+    # 같은 일간 6일주가 같은 문장을 공유하는 것은 설계대로다(일주 차이는 관계 문장이 맡는다).
+    stem_stage = layer.get("stem_stage")
+    if stem_stage:
+        parts.append(stem_stage[str(twelve_unseong(day_master, month_branch))])
     year_group = _GROUP[_sipseong(day_master, Stem(ctx.year_stem))]
     if year_group in (stem_group, branch_group):
         parts.append(layer["year_overlap"])
@@ -96,14 +107,15 @@ def _stem_common_line(day_master: Stem, ctx: DayGanjiContext, layer: dict[str, A
 def _ilju_note(
     ilju_branch: Branch, ctx: DayGanjiContext, layer: dict[str, Any]
 ) -> str:
-    """일주별 흐름 — 월운 천간의 일지 12운성 문장 + (있으면) 관계 문장.
+    """일주별 흐름 — 일지↔월운 지지(연말 구간은 내년 세운 지지) 관계 문장. 관계가 없으면 빈 문자열.
 
-    12운성은 같은 일간 6일주가 전부 달라 60일주를 빠짐없이 가른다(지지 관계만으로는 연평균
-    19.2/60). 관계는 일지와 월운 지지, 연말 구간은 내년 세운 지지까지 본다.
+    §25 교정(dict.v1.18)부터 12운성 문장은 천간 공통 줄로 옮겨 갔다 — 통설은 같은 일간에 같은
+    달 풀이를 주고 일주 차이는 巳亥충 같은 지지 관계로만 둔다(연평균 19.2/60 일주에 관계 있음).
+    `ilju_stage` 키가 있는 v1.17 계약(11/3~11/4)만 종전 '월운 천간→일지' 12운성 문장을 앞에 둔다.
     """
     month_stem, month_branch = Stem(ctx.month_stem), Branch(ctx.month_branch)
     year_branch = Branch(ctx.year_branch)
-    # dict.v1.16(11/2 보드)은 12운성 풀이 없다 — 재생성해도 그날 계약대로 관계 문장만 낸다.
+    # v1.16(11/2)은 12운성 풀이 없고 v1.18 부터는 공통 줄로 옮겨 갔다 — v1.17 만 일주별 12운성.
     stage_pool = layer.get("ilju_stage")
     parts = [stage_pool[str(twelve_unseong(month_stem, ilju_branch))]] if stage_pool else []
     kind = _relation_kind(month_branch, ilju_branch, (year_branch,))
@@ -117,8 +129,74 @@ def _ilju_note(
     return " ".join(parts)
 
 
-def month_flow(ctx: DayGanjiContext, layer: dict[str, Any]) -> list[DailyMonthStemFlow]:
-    """10일간의 이번 달 흐름 — 천간 공통 1문단 + 6일주 전부의 일주별 문장."""
+def month_span(ctx: DayGanjiContext) -> tuple[date, date, tuple[str, str] | None]:
+    """오늘이 속한 월운 간지의 (시작일, 종료일, 다음 달 간지) — 엔진 달력(정오 기준) 그대로.
+
+    입절 시각이 오후면 엔진의 월운 전환일이 입절일 다음 날이라 패널 기간도 그 날짜를 쓴다
+    (2026 입동 11/7 18:52 → 기해월 11/8 시작). 내용과 라벨이 같은 달력을 봐야 하기 때문이다.
+    """
+    d = ctx.the_date
+    ganji_of: dict[date, tuple[str, str]] = {}
+    for offset in (-1, 0, 1):
+        year, month = d.year, d.month + offset
+        if month < 1:
+            year, month = year - 1, 12
+        elif month > 12:
+            year, month = year + 1, 1
+        for day in build_month(year, month)["days"]:
+            ganji_of[day["date"]] = (day["month_ganji"][0], day["month_ganji"][1])
+    current = ganji_of[d]
+    start = end = d
+    while ganji_of.get(start - timedelta(days=1)) == current:
+        start -= timedelta(days=1)
+    while ganji_of.get(end + timedelta(days=1)) == current:
+        end += timedelta(days=1)
+    return start, end, ganji_of.get(end + timedelta(days=1))
+
+
+def _month_name(stem: str, branch: str) -> str:
+    """월운 간지 표기 — '기해월(己亥)'."""
+    return f"{STEM_KO[Stem(stem)]}{BRANCH_KO[Branch(branch)]}월({stem}{branch})"
+
+
+def month_label(ctx: DayGanjiContext) -> str:
+    """패널 라벨 — '기해월(己亥) 11월 8일~12월 6일'."""
+    start, end, _next = month_span(ctx)
+    return (
+        f"{_month_name(ctx.month_stem, ctx.month_branch)} "
+        f"{start.month}월 {start.day}일~{end.month}월 {end.day}일"
+    )
+
+
+#: 다음 달 미리보기를 켜는 전환 전 일수(§25-3 — 입절 전 주).
+PREVIEW_DAYS_BEFORE = 7
+
+
+def next_month_preview_context(ctx: DayGanjiContext) -> DayGanjiContext | None:
+    """월운 전환이 7일 안이면 다음 달 첫날의 간지 컨텍스트, 아니면 None."""
+    _start, end, _next = month_span(ctx)
+    next_start = end + timedelta(days=1)
+    if not 0 < (next_start - ctx.the_date).days <= PREVIEW_DAYS_BEFORE:
+        return None
+    return v1.build_day_context(next_start)
+
+
+def next_month_label(next_ctx: DayGanjiContext) -> str:
+    """미리보기 라벨 — '기해월(己亥) 11월 8일부터'."""
+    d = next_ctx.the_date
+    return f"{_month_name(next_ctx.month_stem, next_ctx.month_branch)} {d.month}월 {d.day}일부터"
+
+
+def month_flow(
+    ctx: DayGanjiContext, layer: dict[str, Any], preview_ctx: DayGanjiContext | None = None
+) -> list[DailyMonthStemFlow]:
+    """10일간의 이번 달 흐름 — 천간 공통 1문단 + 관계가 있는 일주의 일주별 문장(+ 미리보기).
+
+    Args:
+        ctx: 오늘 일진·월운·세운 간지.
+        layer: 사전의 `month_layer`.
+        preview_ctx: 다음 달 첫날 컨텍스트(전환 7일 전부터). None 이면 미리보기 없음.
+    """
     flows: list[DailyMonthStemFlow] = []
     for stem in Stem:
         notes = [
@@ -136,6 +214,9 @@ def month_flow(ctx: DayGanjiContext, layer: dict[str, Any]) -> list[DailyMonthSt
             day_stem_ko=STEM_KO[stem],
             common=_stem_common_line(stem, ctx, layer),
             ilju_notes=notes,
+            next_preview=(
+                _stem_common_line(stem, preview_ctx, layer) if preview_ctx is not None else None
+            ),
         ))
     return flows
 
@@ -199,7 +280,14 @@ def attach_month_layer(
         bands: 일주 → 오늘 밴드. yesterday·tomorrow 는 전날·다음 날 밴드.
     """
     board.season_band = season_band(ctx, layer)
-    board.month_flow = month_flow(ctx, layer)
+    # 라벨·미리보기는 §25 계약(stem_stage)부터 — v1.16·v1.17 보드는 재생해도 필드가 None 이다.
+    preview_ctx = next_month_preview_context(ctx) if layer.get("stem_stage") else None
+    board.month_flow = month_flow(ctx, layer, preview_ctx)
+    if layer.get("stem_stage"):
+        board.month_label = month_label(ctx)
+        board.next_month_label = (
+            next_month_label(preview_ctx) if preview_ctx is not None else None
+        )
     for fortune in board.fortunes:
         ilju = fortune.ilju
         fortune.advice = day_advice(

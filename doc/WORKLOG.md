@@ -13238,3 +13238,19 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - **반영:** `sinsal_text.json` 이동지 flipSide 교체·지살 flipSide 1문장 추가. `mobility_marker_flip_lines` 사실 병기(보유 자리 십성·12운성, 같은 글자 반복·자형, 역마 성립/12신살명, 이동지 충·형, 방합 완성). `movement_timing_shadow._evaluate_season` 묶임 근거 = 방합 완성·두 글자+월지만, 반복·편중은 flags(비노출 유지). 1995F·1980M 모두 `none`.
 - **미반영 확정:** 정착성 보정 점수·이동성/결속도/촉발도 3변수 모델·계절별 결속 서술 4종(거주 결과값 축적 전 실증 불가). 명세 §2·§5-2·§5-3.
 - **테스트:** `test_movement_timing_shadow`(반복 단독 none·편중+월지 moderate·亥×4 none), `test_yeokma_lecture_20261029`(사실 병기 1995F·1980M), `test_report_theme_lecture_blocks_20261030`(문구 갱신).
+
+
+## 2026-11-03 — 오늘의 운세 12운성 방향 교정 + 이번 달 패널 라벨·미리보기 (데굴님 "11월 기토일간 운세가 통설과 크게 다르다, 전체 로직 점검" → "그래 진행해")
+
+- **점검:** 십성·관계·공망·신살·오행 5방향은 표준. 어긋난 곳 = ① 12운성 방향(오늘/월운 천간→일지; 통설·`luck_cycles`·간지달력은 일간→운 지지. 11/3 己 일간이 간지달력 巳 제왕 vs 오늘의 운세 己巳 死) ② 11/1~11/7 "이번 달 흐름"이 10월 戊戌 내용(월 이름·기간 없음) ③ 일주별 흐름이 같은 역방향 12운성으로 같은 일간 6장에 정반대 문장. 측정(11/8~21): 방향 일치 34.8%·정반대 20.6%, 통설 방향 전환 시 헤드라인 47.6%·3사건 76.7% 변경, 6장 수렴 1→3/140(명분 약함). 외부 대조 = 영상 3편 표(己 비견+정재)·新浪 己土篇.
+- **반영(dict.v1.18·model.v2.3, 경계 `STAGE_DIRECTION_EFFECTIVE_FROM`=11/5 — 11/4 보드는 11/3 20시 선생성이라 v1.17·v2.2 유지):** `day_channels`·`day_tone` 12운성 = 일간→오늘 지지(날짜 분기 `stage_direction_forward`). 이번 달 층: `stem_stage`(일간→월운 지지) 공통 줄, 일주별은 관계 문장만, `month_label`·`next_month_label`·`next_preview`(전환 7일 전). 프론트 `MonthFlowPanel` 라벨·미리보기·"갈리는 흐름 없음" 표시. 스냅샷 `daily_fortune_dict.v1.18`·`daily_fortune_v2_model.v2.3` 빌드. 규격 docs/17 §25(+§22-2·§23-1·§24-3·§24-4 주석).
+- **테스트:** `test_daily_stage_direction_20261103.py` 신규(경계·채널 방향 전후·day_tone·공통 줄 12운성·라벨·미리보기·연도 경계·과거 계약 null), `test_daily_month_layer`(stem_stage·관계 전용·v1.17 재생 보존), `test_daily_headline_slots`·`test_daily_catalog_expansion_3` 버전 리터럴.
+- **미반영:** 월운 십성 점수 복원(shadow 측정 후), 천간합 채널.
+
+
+## 2026-11-05 — 질문 이해 층 Ollama 예약 포트 폴백 + 11-03 작업 검수·병합 (데굴님 "이런 케이스에 한해 임시로 포트 변경해서 진행" · "그래 승인할께")
+
+- **문제:** WSL2 Windows 예약 포트 범위가 재부팅마다 옮겨 다닌다. 11/5 실측 11471–11570 에 `.env` 의 Ollama 11500 이 들어가 `ollama serve` 가 `bind: address already in use` 로 죽고, 백엔드는 룰만으로 떴다(`question_frame warm-up failed: Connection refused`). systemd ollama(11434)는 살아 있지만 시스템 계정 저장소라 모델이 비어 있어 대체가 안 된다.
+- **반영(스크립트 3개, 소스·.env 불변):** `scripts/ensure_ollama.sh` — 지정 포트가 응답도 없고 실제 bind 도 안 되는 케이스에 한해 후보 포트(`SAJU_OLLAMA_FALLBACK_PORTS`, 기본 11700 11800 11900 12100)를 차례로 "이미 떠 있으면 사용 → bind 되면 기동"으로 시도하고, 실제 주소를 `var/ollama_base_url` 에 기록(매 실행 시 삭제 후 성공 시에만 재기록). `dev.sh`·`restart_backend.sh` 는 `.env` 로드 뒤 그 파일로 `SAJU_OLLAMA_BASE_URL` 을 덮어써 백엔드에 넘긴다. bind 판정은 `ss` 가 아니라 실제 socket bind(예약 범위는 리스너 없이 EADDRINUSE).
+- **검증:** `.env` 11500 그대로 `restart_backend.sh` → `[ollama] 127.0.0.1:11500 는 bind 불가 … 임시 포트 서버 응답 확인 http://127.0.0.1:11700`, 새 uvicorn 프로세스 env `SAJU_OLLAMA_BASE_URL=…:11700`, `question_frame warm-up ok 510ms`. 주의: 재기동 스크립트를 부르는 셸 명령줄에 `uvicorn saju_api.main:app` 문자열이 있으면 graceful stop 의 `pgrep -f` 에 자기 셸이 잡혀 exit 144 — `[u]vicorn` 패턴으로 쓴다.
+- **11-03 검수(12운성 방향 교정·패널 라벨):** 코드 대조 결함 없음 — `day_channels`·`day_tone`·`_stem_common_line` 모두 `stage_direction_forward(the_date)` 한 경계, `active_dict_version`/`active_model_v2_version` 경계 일치, 컴파일 스냅샷 v1.18 은 v1.17 대비 `ilju_stage→stem_stage` 키 이동·버전만, model.v2.3 은 버전·시각만 차이(채널 계산은 코드). 실답 11/5 보드 = `dict.v1.18|model.v2.3`, `month_label` "무술월(戊戌) 10월 9일~11월 7일", `next_month_label` "기해월(己亥) 11월 8일부터", 己 일간 `next_preview` 존재·일주별 己卯(卯戌 육합)만.

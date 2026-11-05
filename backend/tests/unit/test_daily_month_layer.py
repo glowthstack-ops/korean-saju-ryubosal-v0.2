@@ -21,13 +21,15 @@ from saju_engines import daily_month_layer as L
 from saju_engines.daily_fortune_v2 import compute_board_v2
 from saju_shared_types.daily_fortune import (
     HEADLINE_CLOSING_REMOVAL_EFFECTIVE_FROM,
+    STAGE_DIRECTION_EFFECTIVE_FROM,
     WORDING_REVISION_EFFECTIVE_FROM,
     DailyFortuneBoard,
 )
 from saju_shared_types.enums import Branch, Stem
 
-_FIRST = WORDING_REVISION_EFFECTIVE_FROM
-_LAST_V116 = _FIRST - dt.timedelta(days=1)
+_FIRST = STAGE_DIRECTION_EFFECTIVE_FROM  # dict.v1.18 — 12운성 방향 교정(§25) 이후 계약
+_FIRST_V117 = WORDING_REVISION_EFFECTIVE_FROM  # 11/3~11/4 — 일주별 12운성(ilju_stage) 계약
+_LAST_V116 = _FIRST_V117 - dt.timedelta(days=1)
 _GIHAE = dt.date(2026, 11, 8)  # 일진 丙戌, 월운 간지 己亥
 
 
@@ -71,7 +73,7 @@ def test_layer_coverage() -> None:
     assert len(layer["month_action"]) == 10
     assert set(layer["next_month"]) == set(layer["next_year"]) == set(groups)
     assert len(layer["season_band"]) == 12
-    assert len(layer["ilju_stage"]) == 12
+    assert len(layer["stem_stage"]) == 12 and "ilju_stage" not in layer  # §25 — 공통 줄로 이동
     for key in ("stem_hap", "own_pillar", "flow_relief", "flow_defer"):
         assert len(layer[key]) == L._VARIANTS
 
@@ -146,32 +148,51 @@ def test_board_headlines_stay_unique() -> None:
         assert len({f.headline for f in fortunes}) == 60
 
 
-def test_every_ilju_has_a_note_and_stem_tab_is_all_distinct() -> None:
-    """일주별 흐름이 빈 일주가 없어야 한다(데굴님 지적) — 12개월 전부."""
+def test_stage_sentence_lives_in_common_line_and_notes_are_relation_only() -> None:
+    """§25 — 12운성은 일간→월운 지지로 천간 공통 줄에, 일주별은 관계가 있는 일주만(12개월 전부)."""
     layer = _layer()
     for month in range(12):
         d = dt.date(2026 + (10 + month) // 12, (10 + month) % 12 + 1, 20)
-        flows = L.month_flow(M.build_day_context(d), layer)
+        ctx = M.build_day_context(d)
+        flows = L.month_flow(ctx, layer)
         assert len(flows) == 10
+        assert len({flow.common for flow in flows}) == 10
         for flow in flows:
-            assert len(flow.ilju_notes) == 6
-            assert len({n.note for n in flow.ilju_notes}) == 6
+            stem = next(s for s in Stem if L.STEM_KO[s] == flow.day_stem_ko)
+            stage = str(L.twelve_unseong(stem, Branch(ctx.month_branch)))
+            assert layer["stem_stage"][stage] in flow.common
+            assert 0 <= len(flow.ilju_notes) <= 6
+            assert all(n.note in layer["ilju_note"].values() for n in flow.ilju_notes)
+            assert len({n.ilju for n in flow.ilju_notes}) == len(flow.ilju_notes)
 
 
-def test_relation_sentence_follows_stage_sentence() -> None:
+def test_relation_sentence_is_the_whole_note() -> None:
     layer = _layer()
     ctx = M.build_day_context(_GIHAE)  # 월운 간지 己亥, 내년 세운 지지 未
     note = L._ilju_note
-    assert note(Branch("巳"), ctx, layer).endswith(layer["ilju_note"]["month_chung"])
-    assert note(Branch("寅"), ctx, layer).endswith(layer["ilju_note"]["month_yukhap"])
-    assert note(Branch("卯"), ctx, layer).endswith(layer["ilju_note"]["month_samhap"])
-    assert note(Branch("丑"), ctx, layer).endswith(layer["ilju_note"]["year_chung"])
-    assert note(Branch("午"), ctx, layer).endswith(layer["ilju_note"]["year_yukhap"])
-    # 일지 子 는 亥·未 어느 쪽과도 충·합이 없어 12운성 문장만 남는다
-    assert note(Branch("子"), ctx, layer) in layer["ilju_stage"].values()
+    assert note(Branch("巳"), ctx, layer) == layer["ilju_note"]["month_chung"]
+    assert note(Branch("寅"), ctx, layer) == layer["ilju_note"]["month_yukhap"]
+    assert note(Branch("卯"), ctx, layer) == layer["ilju_note"]["month_samhap"]
+    assert note(Branch("丑"), ctx, layer) == layer["ilju_note"]["year_chung"]
+    assert note(Branch("午"), ctx, layer) == layer["ilju_note"]["year_yukhap"]
+    # 일지 子 는 亥·未 어느 쪽과도 충·합이 없어 일주별 줄이 없다(공통 줄 그대로)
+    assert note(Branch("子"), ctx, layer) == ""
     spring = M.build_day_context(dt.date(2027, 3, 20))  # 연말 구간 아님
     year_notes = [v for k, v in layer["ilju_note"].items() if k.startswith("year_")]
     assert not any(y in note(b, spring, layer) for b in Branch for y in year_notes)
+
+
+def test_v117_board_keeps_per_ilju_stage_notes() -> None:
+    """11/3·11/4 보드(dict.v1.17)는 재생해도 그날 계약 — 월운 천간→일지 12운성 문장이 일주별로."""
+    dicts = M.load_daily_dicts_for(_FIRST_V117)
+    assert dicts.templates["version"] == "dict.v1.17"
+    layer = dicts.templates["month_layer"]
+    assert "ilju_stage" in layer and "stem_stage" not in layer
+    board = _board(_FIRST_V117)
+    assert board.month_flow is not None and board.month_label is None
+    for flow in board.month_flow:
+        assert len(flow.ilju_notes) == 6 and flow.next_preview is None
+        assert not any(s in flow.common for s in layer["ilju_stage"].values())
 
 
 def test_v116_board_keeps_relation_only_notes() -> None:
