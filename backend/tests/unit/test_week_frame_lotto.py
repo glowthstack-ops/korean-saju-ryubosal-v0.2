@@ -20,6 +20,7 @@ from saju_api.services.llm_client import _sanitize_output
 from saju_engines.conversation import ConversationEngine
 from saju_engines.output_wealth_term import fix_wealth_generation_term
 from saju_engines.time_parser import WEEK_FRAME_SUN_SAT, parse_time
+from saju_engines.week_label_audit import audit_week_labels, week_label_closing_directive
 from saju_shared_types.conversation import ConversationState
 from saju_shared_types.events import EventKey
 from saju_shared_types.intent import Granularity, QueryType, TimeRange
@@ -290,3 +291,81 @@ def test_lotto_round_directive() -> None:
     # 로또가 아니면 없음.
     (other, _), = _turns(_SAT, "이번주 연금복권 운 어때?")
     assert _lotto_round_directive(other, "이번주 연금복권 운 어때?", _SAT, None) is None
+
+
+# ── 주 호칭 정합 감사(2026-11-06) — '다음 주' 질문에 '이번 주'로 답한 실답 교정 ─────────
+
+_NEXT_WEEK = ("2026-11-08", "2026-11-14")  # 2026-11-06(금) 기준 '다음 주' 일~토 회차
+_REAL_ANSWER = (
+    "데굴님 이번 주에는 나를 돕는 기운이 강해지면서 예상치 못한 재물 흐름이 평소보다 유연하게 "
+    "들어오는 시기입니다.\n\n"
+    "가장 추천해 드리고 싶은 날은 11월 11일 수요일입니다. 이날은 己丑(기축)일로 재물을 취할 수 "
+    "있는 내적인 힘이 단단해지는 날입니다.\n\n"
+    "이번 주는 그러한 보조적인 힘이 들어오는 시기이므로 가벼운 마음으로 임하신다면 더욱 즐거운 "
+    "한 주가 될 것입니다.\n\n"
+    "이번 주에 본인의 직관이 유독 날카로워지는 순간이 있다면 그 느낌을 믿고 소소한 즐거움을 "
+    "찾아보시는 건 어떨까요?"
+)
+
+
+def test_week_label_audit_fixes_real_answer() -> None:
+    """실답(web-mw4qaqc3-mx3muj): '다음주' 질문 답의 '이번 주' 전부 → '다음 주', 날짜·본문 보존."""
+    audit = audit_week_labels(_REAL_ANSWER, "다음 주", *_NEXT_WEEK)
+    assert "이번 주" not in audit.text
+    assert audit.text.count("다음 주") == 3 and len(audit.fixes) == 3
+    assert "11월 11일 수요일" in audit.text and "己丑(기축)일" in audit.text
+    assert audit.text.endswith("어떨까요?") and audit.forward_refs == []
+
+
+def test_week_label_audit_forward_reference_is_log_only() -> None:
+    """'이번 주' 질문의 '다음 주에 다시' 같은 뒤 주 호칭은 정당할 수 있어 교정하지 않고 센다."""
+    text = "이번 주는 11월 4일 수요일이 좋아요. 결과는 다음 주에 다시 물어봐 주세요."
+    audit = audit_week_labels(text, "이번 주", "2026-11-01", "2026-11-07")
+    assert audit.text == text and audit.fixes == [] and audit.forward_refs == ["다음 주"]
+
+
+def test_week_label_audit_skips_sentences_about_other_weeks() -> None:
+    """창 밖 날짜·과거 단서가 있는 문장은 실제로 다른 주를 말할 수 있어 건드리지 않는다."""
+    text = (
+        "11월 7일 토요일까지인 이번 주는 쉬어 가세요. "
+        "이번 주 수요일 11월 11일이 가장 좋아요. "
+        "이번 주 초반은 이미 지났으니 남은 날 중에서 고르면 돼요."
+    )
+    audit = audit_week_labels(text, "다음 주", *_NEXT_WEEK)
+    assert audit.text == (
+        "11월 7일 토요일까지인 이번 주는 쉬어 가세요. "
+        "다음 주 수요일 11월 11일이 가장 좋아요. "
+        "이번 주 초반은 이미 지났으니 남은 날 중에서 고르면 돼요."
+    )
+    assert audit.fixes == ["이번 주→다음 주"]
+
+
+def test_week_label_audit_spacing_weekend_and_false_friends() -> None:
+    """붙여쓰기·주말·금주(今週)는 바꾸고 주식·금주(禁酒)는 둔다.
+
+    다다음 주 질문은 두 호칭 모두 교정한다.
+    """
+    text = (
+        "이번주 토요일과 이번 주말, 금주에는 복권을 사세요. "
+        "이번 주식 시장은 보지 말고 금주하세요."
+    )
+    audit = audit_week_labels(text, "다음 주", *_NEXT_WEEK)
+    assert audit.text == (
+        "다음 주 토요일과 다음 주말, 다음 주에는 복권을 사세요. "
+        "이번 주식 시장은 보지 말고 금주하세요."
+    )
+    assert audit.fixes == ["이번주→다음 주", "이번 주→다음 주", "금주→다음 주"]
+    two = audit_week_labels(
+        "이번 주와 다음 주 모두 좋아요.", "다다음 주", "2026-11-15", "2026-11-21",
+    )
+    assert two.text == "다다음 주와 다다음 주 모두 좋아요."
+    none = audit_week_labels(_REAL_ANSWER, None, *_NEXT_WEEK)
+    assert none.text == _REAL_ANSWER and none.fixes == []
+
+
+def test_week_label_closing_directive_pins_label_and_span() -> None:
+    d = week_label_closing_directive("다음 주", *_NEXT_WEEK)
+    assert "'다음 주'" in d and "2026-11-08 – 2026-11-14" in d and "이번 주" in d
+    assert "말미 고정" in d
+    this = week_label_closing_directive("이번 주", "2026-11-01", "2026-11-07")
+    assert "오답" not in this
