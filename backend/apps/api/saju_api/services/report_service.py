@@ -1372,7 +1372,10 @@ class _ReportData:
         # 섹션별 도메인 후보·12개월 표가 surface하는 점수를 모두 허용(검사3 — 미제공 점수 차단은
         # '엔진이 산출하지 않은' 점수만 막으면 됨). 전 scored 점수는 모두 실제 엔진 산출값이다.
         self.allowed_scores = sorted({c.score for c in scored})
-        # 생애 연표(F-14)가 surface하는 세운 간지·점수도 허용 목록에 합류(검사 2·3).
+        # 생애 연표(F-14)·대운 페이지(F-14-D*)가 surface하는 세운 간지·점수·연도도 허용 목록에
+        # 합류(검사 2·3). 연도까지 합류하는 이유(2026-11-07 실답): 첫 대운 페이지는 출생~유년
+        # (첫 대운 시작 전 해)을 세운 표에 싣는데 허용 연도가 대운표 범위부터라 1981~1984년이
+        # "입력에 없는 연도"로 2회 실패 → on_hold(F-14b·F-21 연쇄 미생성).
         if self.lifetime_pool:
             self.allowed_ganji = sorted(
                 set(self.allowed_ganji) | set(self._lifetime_year_ganji.values())
@@ -1380,6 +1383,7 @@ class _ReportData:
             self.allowed_scores = sorted(
                 set(self.allowed_scores) | {c.score for c in self.lifetime_pool}
             )
+            self.allowed_years = sorted(set(self.allowed_years) | set(self._lifetime_year_ganji))
         # 직전 생성 섹션들의 첫 문장(최근 _MAX_RECENT_OPENINGS개) — 섹션은 순차 생성되므로
         # 다음 섹션 프롬프트에 '서두 반복 금지' 재료로 주입한다(2026-07-06 테스터 지적:
         # 매 페이지가 비슷한 '나' 공통 묘사로 시작). 서술 전용 — 점수·판정 불변.

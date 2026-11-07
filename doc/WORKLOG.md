@@ -13306,3 +13306,11 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - **검증:** SKIP(잔여 167h)·`--force --dry-run`·post-check 정상(RENEWED)·post-check 변조 해시(CORPUS_DRIFT → lease 복원, exit 1)·lease 해시 불변 확인 → `--force` 실제 실행 1회 합격(RENEWED, 운영 artifact 디렉터리 불변, 새 lease 만료 2026-11-14 10:12 UTC, /health `risk_token_counter_validation=VALID`). 실행 중 서버는 기동 시점 lease로 VALIDATED 유지 — 갱신 후 재기동 불필요.
 - **crontab(degool):** `10 4 * * * …/scripts/risk_lease_renew.sh >> …/var/risk_lease_cron.log 2>&1` (매일 04:10 KST). WSL이 꺼져 있으면 돌지 않는다 — 장기 미기동 후에는 수동 1회 또는 cron 첫 실행을 로그로 확인.
 - **관리자 에러로그 완료 처리(system_errors, 미해결 175 → 0):** ①`RISK_EXPOSE_BYPASS_FIRST` UNVALIDATED 109건(08-13~11-07) — 금일 lease 복구로 해소 ②같은 종류 `adapter_state=VALIDATED` chat 단발 1건(08-25) — 로그 미보존·재발 없음·현재 INJECTED 확인(근본 원인 미특정, 재발 시 재조사) ③`TokenBudgetExceeded` full 18k/focus 15k 9건(10-02~10-08) — 상한 26k(2026-10-27) 뒤 재발 0 ④`llm_primary_failover`·http 503 56건(07-17~08-03) — Gemini 일시 장애·08-03 테스트 유래(현재 conftest가 `<db>_test` 로 격리, 이후 유입 없음).
+
+## 2026-11-07 — 총운 v3 실답 결함: 첫 대운 페이지 유년 연도가 허용 연도에 없어 on_hold (데굴님 "준비중인 내용 어쩌고 되어있는건 대체 뭐야?" → "그래 진행해")
+
+- **현상:** 총운 발행 상단 "현재 준비 중인 내용이 있어 일부만 표시됩니다"(= `ReportResult.status=on_hold` 프론트 안내). job b3cb6447: 25장 중 F-14-D1 이 정합성 검사 3 "입력에 없는 연도: 1981·1982·1983·1984년"으로 2회 실패 → 의존 섹션 F-14b·F-21 "선행 섹션 실패로 미생성".
+- **원인:** `_ReportData._collect_years` 는 후보 연도·기간 양끝·대운표 범위(첫 대운 1985~)만 모았는데, v3 첫 대운 페이지는 출생~유년(1980~1984)을 `[십년 세운 흐름]` 표에 싣는다(데굴님 결정 2 — 과거 대운 포함). 표에 있는 해를 LLM이 그대로 짚었는데 검사가 오판. v3 테스트는 mock 생성이라 실제 연도 검사를 거치지 않았다.
+- **수정:** `report_service._ReportData.__init__` 생애 풀 합류 블록에서 간지·점수처럼 **연도**도 합류(`allowed_years |= _lifetime_year_ganji.keys()`, 출생~90세). 테스트 `test_allowed_years_cover_first_decade_page_rows`(첫 대운 페이지 연도 전부 + 생애 창 전체 ⊆ allowed_years).
+- **복구:** 백엔드 재기동(pid 101953) 후 같은 job 을 통과 22장 재사용(`prior_sections`)·실패 3장만 재생성(LLM 3회) → F-14-D1·F-14b·F-21 모두 1회 통과, `result.status=completed`(F-21 페르소나 비율 78% 소프트 경고만).
+- **게이트:** report 테스트 40건 통과 · `All checks passed` · `production mypy gate clean`.
