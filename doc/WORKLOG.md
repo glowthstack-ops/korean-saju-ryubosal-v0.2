@@ -13380,3 +13380,9 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - **원인:** `POST /report/jobs` 가 `len(build_section_plans(spec))`(고정 목차 수)로 잡을 만들고, 빌더가 확장 후 `update_progress`로 분모를 바꿔 총운이 1/16으로 시작해 2/25로 뛰었다. 한해풀이(Y-05 반기 2페이지)·테마(연도별 상세 페이지)도 같은 구조.
 - **반영:** `report_service.expected_section_total(birth, spec, today)` — `_expand_report_plans` 규칙을 점수화 없이 재현(총운=고정+90세 창 대운 수, 한해=고정+1, 테마=고정+예측 창 연도 수; 실패 시 고정 수). 라우터가 이 값으로 잡 생성. 프론트 변경 없음.
 - **테스트:** `tests/unit/test_report_job_total_20261107.py`(세 상품 모두 확장 결과와 일치), `test_report_jobs_api.py` 기대값 갱신. `All checks passed` · `production mypy gate clean`.
+
+## 2026-11-07 — PR #21 CI 실패 7건 교정 + 전체 스위트 (데굴님 "병합까지 완료해줘")
+
+- **원인·교정:** ①`test_relation_phrase_pairwise` 4건 — 채팅 간지달력 대운 줄 접미 "[배우자성 대운 …]"이 비연애 프레임 가드(`'[배우자성' not in prompt`)에 걸림 → 블록이 아니라 행 접미이므로 괄호 표기(`PARTNER_STAR_DAEWOON_TAG`) ②`test_event_taxonomy_v2` 2건 — 궁위별 합 라벨 도입에 따른 기대값 갱신 ③`test_entry_slots_assignment` 1건 — 결혼 실험 ON 뒤 2027-04 최상위 사건이 '계약·문서'→'결혼 신호'로 바뀐 스냅샷 → 최상위 사건명 가변(정규식), 검증 대상은 '질문 사건 격하 금지' 처리.
+- **교훈:** 표적 테스트만 돌리고 푸시해 CI에서 잡혔다 — 직렬화 라벨·프롬프트 접미처럼 전역 문자열을 바꾸면 전체 스위트를 먼저 돌린다.
+- **게이트:** `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(start=end head 350fb8a, 지문 동일, exit 0) · `All checks passed` · `production mypy gate clean`.
