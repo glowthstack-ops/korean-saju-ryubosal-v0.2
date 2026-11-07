@@ -7,10 +7,17 @@
 원칙:
 - 점수·사건은 전 생애 연 단위 재채점(`lifetime_scan`, 대운표 sewoon 재사용)의 후보를 그대로
   쓴다 — 여기서 재계산하지 않는다(절대원칙 9).
-- 마커 종류는 데굴님이 든 5종으로 고정: 결혼·취업·이직·이사·위기(건강/금전 두 갈래).
+- 마커 종류: 결혼·취업·이직·이사·재물 유입·위기(건강/금전 두 갈래) — 데굴님 확정 5종 + 같은 날
+  "돈 들어오는 시기도 표시" 요청으로 재물 유입(재물 변화 길 방향) 추가.
 - 선별은 대운 단위(한 대운 안의 세운이 그 대운의 주요 이벤트를 정한다): 대운당 최대
-  `PER_DAEWOON_CAP`, 같은 종류 최대 `PER_KIND_CAP`, 품질 게이트 `SCORE_GATE`(총운 다변화의
-  절대 게이트와 같은 55). 빈 대운은 비워 둔다(무신호 강제 충원 금지).
+  `PER_DAEWOON_CAP`, 같은 종류 최대 `PER_KIND_CAP`, 위기(건강+금전) 합산 `CRISIS_PER_DAEWOON_CAP`,
+  품질 게이트 `SCORE_GATE`(총운 다변화의 절대 게이트와 같은 55). **좌석 보장**: 종류별 최고
+  후보를 먼저 앉히고 남는 자리를 점수순으로 채운다 — 점수순만으로는 금전 위기 99·96이 결혼 92를
+  밀어내 "76세에나 결혼"만 남던 실답(2026-11-07) 교정. 빈 대운은 비워 둔다(무신호 강제 충원 금지).
+- 결혼 마커는 길·혼합 방향만(주의 방향 결혼 신호는 관계 갈등 신호라 '결혼'으로 보이면 혼란),
+  위기 마커는 주의·혼합 방향만 — 대칭.
+- 앞으로의 긍정 창(`positive_windows`): 오늘 이후 길·혼합 방향 후보(게이트 이상)를 **마커 상한과
+  무관하게** 연속 연도로 묶어 가장 가까운 창부터 제공 — 해설·종합·요약 카드가 희망 창을 먼저 쓴다.
 - 위험 엔진(건강·금전 family)은 **섞어 쓰되** 마커를 만들지 않고 같은 해 위기 후보의 우선순위를
   올리고 '위험 신호 동반' 메모를 단다(2026-11-07 결정 3 — 정확도가 오르는 방향으로만).
 """
@@ -24,6 +31,7 @@ from saju_shared_types.life_graph import (
     LifeGraph,
     LifeGraphDaewoon,
     LifeGraphMarker,
+    LifeGraphWindow,
     LifeGraphYear,
     MarkerKind,
 )
@@ -31,7 +39,8 @@ from saju_shared_types.manse_result import ManseV2Result
 
 from .context_reducer import overview_cluster_key
 
-#: 사건 키 → 마커 종류. 금전 위기는 재물 변화 중 흉 방향만(아래 `_marker_kind`).
+#: 사건 키 → 마커 종류. 재물 변화는 방향으로 갈린다 — 길=재물 유입 / 주의·혼합=금전 위기
+#: (아래 `_marker_kind`).
 _EVENT_TO_KIND: dict[str, MarkerKind] = {
     "marriage_signal": MarkerKind.MARRIAGE,
     "job_gain": MarkerKind.JOB,
@@ -50,23 +59,36 @@ KIND_KO: dict[MarkerKind, str] = {
     MarkerKind.JOB: "취업",
     MarkerKind.CAREER_CHANGE: "이직",
     MarkerKind.RELOCATION: "이사",
+    MarkerKind.WEALTH_GAIN: "재물 유입",
     MarkerKind.CRISIS_HEALTH: "건강 위기",
     MarkerKind.CRISIS_MONEY: "금전 위기",
 }
 _TONE_KO = {"pos": "길", "neg": "주의", "mixed": "혼합"}
 SCORE_GATE = 55
-PER_DAEWOON_CAP = 4
+PER_DAEWOON_CAP = 5  # 2026-11-07: 재물 유입 추가·좌석 보장으로 4→5
 PER_KIND_CAP = 2
+#: 위기(건강+금전) 합산 상한 — 한 대운이 위기 마커로만 채워지지 않게
+#: (2026-11-07 데굴님 "너무 극단적").
+CRISIS_PER_DAEWOON_CAP = 2
+#: 좌석 보장 대상이 아닌 종류(없음) — 자리는 종류별 최고 후보 우선순위순으로 배정한다.
+_CRISIS_KINDS = frozenset({MarkerKind.CRISIS_HEALTH, MarkerKind.CRISIS_MONEY})
+#: 긍정 창 대상 종류(길·혼합 방향만) — 위기는 창을 만들지 않는다.
+_POSITIVE_KINDS = (
+    MarkerKind.MARRIAGE, MarkerKind.JOB, MarkerKind.CAREER_CHANGE,
+    MarkerKind.WEALTH_GAIN, MarkerKind.RELOCATION,
+)
 #: 위험 신호 동반 시 게이트 판정에 더하는 우선순위(저장 점수는 불변).
 RISK_PRIORITY_BONUS = 10
 #: 종류별 나이 타당성(만 나이, 서술 현실성 규칙 — 명리 판정 아님). 범위 밖은 마커에서 뺀다.
 #: 결혼·취업은 성인부터, 이직은 첫 직장 이후, 취업·이직은 통상 경제활동 연령 안에서만
 #: (2026-11-07 dry-run: 만 6세 이직·88세 이직 마커가 나와 추가). 이사·위기는 전 연령.
 KIND_AGE_RANGE: dict[MarkerKind, tuple[int, int]] = {
-    MarkerKind.MARRIAGE: (18, 100),
+    # 2026-11-07: 76세 결혼 마커 실답 → 취업·이직과 같은 현실성 상한.
+    MarkerKind.MARRIAGE: (18, 70),
     MarkerKind.JOB: (18, 70),
     MarkerKind.CAREER_CHANGE: (20, 70),
     MarkerKind.RELOCATION: (0, 100),
+    MarkerKind.WEALTH_GAIN: (18, 100),
     MarkerKind.CRISIS_HEALTH: (0, 100),
     MarkerKind.CRISIS_MONEY: (0, 100),
 }
@@ -76,14 +98,20 @@ MINOR_NOTE = "미성년 — 가족(부모) 단위의 이동·형편으로 읽을
 
 
 def _marker_kind(c: EventCandidate, age: int) -> MarkerKind | None:
-    """후보의 마커 종류 — 위기(건강·금전)는 흉 방향(주의·혼합)만, 종류별 나이 범위 밖은 제외."""
+    """후보의 마커 종류 — 방향·나이 규칙.
+
+    재물 변화는 길=재물 유입 / 주의·혼합=금전 위기. 건강 위기는 주의·혼합만. 결혼은 길·혼합만
+    (주의 방향 결혼 신호는 관계 갈등 쪽이라 마커로 두지 않는다). 종류별 나이 범위 밖은 제외.
+    """
     kind = _EVENT_TO_KIND.get(str(c.event_key))
     if kind is None:
         return None
-    if (
-        kind in (MarkerKind.CRISIS_MONEY, MarkerKind.CRISIS_HEALTH)
-        and overview_cluster_key(c)[1] == "pos"
-    ):
+    direction = overview_cluster_key(c)[1]
+    if kind is MarkerKind.CRISIS_MONEY and direction == "pos":
+        kind = MarkerKind.WEALTH_GAIN
+    elif kind is MarkerKind.CRISIS_HEALTH and direction == "pos":
+        return None
+    elif kind is MarkerKind.MARRIAGE and direction == "neg":
         return None
     lo, hi = KIND_AGE_RANGE[kind]
     if not lo <= age <= hi:
@@ -99,6 +127,7 @@ def build_life_graph(
     hi_year: int,
     *,
     risk_years: Mapping[int, set[str]] | None = None,
+    today_year: int | None = None,
 ) -> LifeGraph | None:
     """전 생애 후보 풀 → 인생 그래프 데이터.
 
@@ -108,6 +137,7 @@ def build_life_graph(
         pool: 전 생애 연 단위 후보(기간 라벨 4자리).
         lo_year: 출생 연도(창 시작). hi_year: 창 끝(90세).
         risk_years: 연도 → 위험 도메인 집합(위험 엔진 shadow, 선택).
+        today_year: 오늘 연도 — 앞으로의 긍정 창(`positive_windows`)의 시작. None이면 창 생략.
 
     Returns:
         LifeGraph — 대운표가 없으면 None.
@@ -116,6 +146,7 @@ def build_life_graph(
     lt = lifetime_result.luck_cycles
     if lc is None or lt is None or not lc.daewoon_table:
         return None
+    pool = list(pool)
     cur = lc.current_daewoon_index
     years_by_label = {p.label: p for p in lt.yearly_luck if p.label.isdigit()}
     cands_by_year: dict[int, list[EventCandidate]] = {}
@@ -161,10 +192,28 @@ def build_life_graph(
         for y in range(lo_year, hi_year + 1)
         if (p := years_by_label.get(str(y))) is not None
     ]
-    return LifeGraph(
-        birth_year=lo_year, end_year=hi_year, current_daewoon_index=cur,
-        daewoons=daewoons, years=years, markers=all_markers,
+    windows = (
+        build_positive_windows(pool, lo_year, today_year, hi_year)
+        if today_year is not None else []
     )
+    return LifeGraph(
+        birth_year=lo_year, end_year=hi_year, today_year=today_year, current_daewoon_index=cur,
+        daewoons=daewoons, years=years, markers=all_markers, positive_windows=windows,
+    )
+
+
+def when_tag(year: int, today_year: int | None) -> str:
+    """연도의 시제 표식 — ' [지남]' / ' [올해]' / ' [예정]'(오늘 연도 미상이면 빈 문자열).
+
+    LLM이 지난 해를 '내년·다가올'로 쓰는 오류를 입력 단계에서 막는다(채팅·리포트 공용 가능).
+    """
+    if today_year is None:
+        return ""
+    if year < today_year:
+        return " [지남]"
+    if year == today_year:
+        return " [올해]"
+    return " [예정]"
 
 
 def _select_markers(
@@ -193,21 +242,40 @@ def _select_markers(
         }
         return (-(c.score + (RISK_PRIORITY_BONUS if risk_hit else 0)), y, kind.value)
 
+    # 게이트 통과분만, 우선순위순.
+    ranked = [
+        item for item in sorted(best.items(), key=priority)
+        if item[1].score + (RISK_PRIORITY_BONUS if _risk_hit(item[0], risk_map) else 0)
+        >= SCORE_GATE
+    ]
+    # 1차(좌석 보장): 종류별 최고 후보 1건씩을 우선순위순으로 — 위기가 자리를 독점하지 않게.
+    # 2차: 남는 자리를 우선순위순으로(종류 상한·위기 합산 상한 안에서).
+    first_of_kind: list[tuple[tuple[int, MarkerKind], EventCandidate]] = []
+    seen_kind: set[MarkerKind] = set()
+    for item in ranked:
+        if item[0][1] not in seen_kind:
+            seen_kind.add(item[0][1])
+            first_of_kind.append(item)
+    order = first_of_kind + [item for item in ranked if item not in first_of_kind]
+
     picked: list[LifeGraphMarker] = []
     per_kind: dict[MarkerKind, int] = {}
-    for (y, kind), c in sorted(best.items(), key=priority):
-        risk_hit = kind in {
-            _RISK_DOMAIN_TO_KIND[d] for d in risk_map.get(y, set()) if d in _RISK_DOMAIN_TO_KIND
-        }
-        if c.score + (RISK_PRIORITY_BONUS if risk_hit else 0) < SCORE_GATE:
-            continue
+    crisis_n = 0
+    for (y, kind), c in order:
+        if len(picked) >= PER_DAEWOON_CAP:
+            break
         if per_kind.get(kind, 0) >= PER_KIND_CAP:
             continue
+        if kind in _CRISIS_KINDS and crisis_n >= CRISIS_PER_DAEWOON_CAP:
+            continue
+        risk_hit = _risk_hit((y, kind), risk_map)
         pillar = years_by_label.get(str(y))
         age = y - birth_year
         note = (
             MINOR_NOTE
-            if age < MINOR_AGE and kind in (MarkerKind.RELOCATION, MarkerKind.CRISIS_MONEY)
+            if age < MINOR_AGE and kind in (
+                MarkerKind.RELOCATION, MarkerKind.CRISIS_MONEY, MarkerKind.WEALTH_GAIN,
+            )
             else ""
         )
         picked.append(LifeGraphMarker(
@@ -220,9 +288,88 @@ def _select_markers(
             note=note,
         ))
         per_kind[kind] = per_kind.get(kind, 0) + 1
-        if len(picked) >= PER_DAEWOON_CAP:
-            break
+        if kind in _CRISIS_KINDS:
+            crisis_n += 1
     return sorted(picked, key=lambda m: (m.year, m.kind.value))
+
+
+def _risk_hit(key: tuple[int, MarkerKind], risk_map: Mapping[int, set[str]]) -> bool:
+    """같은 해 위험 엔진(건강·금전 family) 신호가 그 마커 종류와 맞물리는지."""
+    y, kind = key
+    return kind in {
+        _RISK_DOMAIN_TO_KIND[d] for d in risk_map.get(y, set()) if d in _RISK_DOMAIN_TO_KIND
+    }
+
+
+def build_positive_windows(
+    pool: Iterable[EventCandidate], birth_year: int, from_year: int, hi_year: int,
+) -> list[LifeGraphWindow]:
+    """앞으로의 긍정 창 — from_year 이후 길·혼합 방향 후보(게이트 이상, 나이 규칙 적용)를 종류별로
+    연속 연도(공백 1년까지 허용)로 묶는다. 마커 상한과 무관. 가장 가까운 창부터."""
+    years_by_kind: dict[MarkerKind, dict[int, int]] = {}
+    for c in pool:
+        y = int(c.period[:4]) if c.period[:4].isdigit() else -1
+        if y < from_year or y > hi_year or c.score < SCORE_GATE:
+            continue
+        kind = _marker_kind(c, y - birth_year)
+        if kind is None or kind not in _POSITIVE_KINDS:
+            continue
+        if overview_cluster_key(c)[1] == "neg":
+            continue
+        bucket = years_by_kind.setdefault(kind, {})
+        bucket[y] = max(bucket.get(y, 0), c.score)
+    out: list[LifeGraphWindow] = []
+    for kind, bucket in years_by_kind.items():
+        ys = sorted(bucket)
+        groups: list[list[int]] = [[ys[0]]]
+        for y in ys[1:]:
+            if y - groups[-1][-1] <= 2:
+                groups[-1].append(y)
+            else:
+                groups.append([y])
+        for span in groups:
+            start, end = span[0], span[-1]
+            peak = max(span, key=lambda k: (bucket[k], -k))
+            out.append(LifeGraphWindow(
+                kind=kind, kind_ko=KIND_KO[kind],
+                start_year=start, end_year=end,
+                start_age=start - birth_year, end_age=end - birth_year,
+                peak_year=peak, peak_score=bucket[peak], years_count=len(span),
+            ))
+    return sorted(out, key=lambda w: (w.start_year, w.kind.value))
+
+
+def positive_window_lines(graph: LifeGraph, *, per_kind: int = 3) -> list[str]:
+    """[앞으로의 긍정 창] 프롬프트 줄 — 종류별 가장 가까운 창부터 최대 per_kind개."""
+    if not graph.positive_windows:
+        return []
+    by_kind: dict[MarkerKind, list[LifeGraphWindow]] = {}
+    for w in graph.positive_windows:
+        by_kind.setdefault(w.kind, []).append(w)
+    out = [
+        "[앞으로의 긍정 창 — 엔진 확정값. 오늘 이후 결혼·취업·이직·재물 유입·이사의 길·혼합 방향 "
+        "후보(게이트 이상)를 연속 연도로 묶은 것. 마커 표에 없어도 창 안의 해는 서술 재료로 쓸 수 "
+        "있다. 종류마다 **가장 가까운 창부터** 먼저 쓰고, 먼 창만 남겨 늦은 시기만 강조하지 말 것. "
+        "연도·점수는 그대로]",
+    ]
+    for kind in _POSITIVE_KINDS:
+        ws = by_kind.get(kind)
+        if not ws:
+            continue
+        parts = []
+        for w in ws[:per_kind]:
+            span = (
+                f"{w.start_year}년" if w.start_year == w.end_year
+                else f"{w.start_year}–{w.end_year}년"
+            )
+            ages = (
+                f"만 {w.start_age}세" if w.start_age == w.end_age
+                else f"만 {w.start_age}–{w.end_age}세"
+            )
+            parts.append(f"{span}({ages}, 최고 {w.peak_year}년 {w.peak_score}점)")
+        more = f" 외 {len(ws) - per_kind}개" if len(ws) > per_kind else ""
+        out.append(f"- {KIND_KO[kind]}: " + " / ".join(parts) + more)
+    return out
 
 
 def marker_lines(graph: LifeGraph, daewoon_index: int | None = None) -> list[str]:
@@ -234,7 +381,8 @@ def marker_lines(graph: LifeGraph, daewoon_index: int | None = None) -> list[str
         risk = " · 위험 신호 동반" if m.risk_backed else ""
         note = f" ({m.note})" if m.note else ""
         out.append(
-            f"- {m.year}년(만 {m.age}세, {m.ganji}) {m.kind_ko} — {m.tone} {m.score}점{risk}{note}"
+            f"- {m.year}년(만 {m.age}세, {m.ganji}){when_tag(m.year, graph.today_year)} "
+            f"{m.kind_ko} — {m.tone} {m.score}점{risk}{note}"
         )
     return out
 

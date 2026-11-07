@@ -13314,3 +13314,20 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - **수정:** `report_service._ReportData.__init__` 생애 풀 합류 블록에서 간지·점수처럼 **연도**도 합류(`allowed_years |= _lifetime_year_ganji.keys()`, 출생~90세). 테스트 `test_allowed_years_cover_first_decade_page_rows`(첫 대운 페이지 연도 전부 + 생애 창 전체 ⊆ allowed_years).
 - **복구:** 백엔드 재기동(pid 101953) 후 같은 job 을 통과 22장 재사용(`prior_sections`)·실패 3장만 재생성(LLM 3회) → F-14-D1·F-14b·F-21 모두 1회 통과, `result.status=completed`(F-21 페르소나 비율 78% 소프트 경고만).
 - **게이트:** report 테스트 40건 통과 · `All checks passed` · `production mypy gate clean`.
+
+## 2026-11-07 — 성별별 답변 형태: 헤더 육친 줄·F-06b 서술 형태 디렉티브·육친 성별 감사 (데굴님 "사주를 보는 사람이 남자인지 여자인지에 따라 답변형태를 다르게 해야해" → "제안대로 진행하자")
+
+- **실답(총운 F-06b, 남성 명식):** 입력에 `[배우자성 — 성별 기준]`(남=재성 아내·관성 자녀)과 남성용 결혼 자원 블록이 있었는데도 산출문은 중성 호칭("상대·배우자·분")에 "관성이 드러나지 않아 결혼 책임을 무겁게 느낀다"(여성 기준)를 섞었다. 공용 헤더 `[원국·명식 구조]`엔 성별이 없어 F-02·F-03·F-05·F-06·대운 페이지(배우자 19건·자녀 9건 언급)는 주인공 성별을 모른 채 썼다. 결혼 자원 블록의 "상대 나이대 경향(여성 명식에 더 유효)"이 남성에게 그대로 실렸다.
+- **반영:** ① `BirthChartSummary.gender` + `serialize_chart_prefix` 2행 `gender_kin_line`(SSOT `structural_context`, 채팅·전 리포트 공용, 사용자별 상수라 prefix 캐시 안전) ② `spouse_form_directive`(남/여/미상) — F-06b·F-17(RPT_FULL) 기혼·미혼 모두 부착 ③ 나이대 라벨 성별화 ④ `saju_engines/gender_kin_audit.py` + 검사 9(soft, `SectionContext.gender`) + 채팅 `_audit_gender_kin_answer` 로그(위반 시 warning) — 재발 빈도 측정 후 패치 여부 결정.
+- **불변:** 점수·판정·마커·기존 `spouse_star_directive`·결혼 자원 산출. 제목 "배우자상" 유지.
+- **테스트:** `tests/unit/test_gender_form_20261107.py` 6건(3갈래 줄·prefix 2행 캐시 안전·디렉티브 문구·총운 프롬프트 F-03/F-06b/F-14-D1 성별 줄+F-06b 전용 디렉티브+F-06c 미부착·나이대 라벨·감사 반례 4종). 기존 prefix/report/chat 테스트 220건 통과.
+- **게이트:** `All checks passed` · `production mypy gate clean`.
+- **실답 복구:** 데굴님 총운 job F-06b 1장만 재생성(통과 24장 재사용) → "아내" 3회·관성 언급 0·1회 통과(페르소나 비율 soft 경고만). 백엔드 재기동 pid 108859. docs/10 §3-3 보강.
+
+## 2026-11-07 — 인생 그래프 개편: 재물 유입 마커·좌석 보장·결혼 길/혼합만·앞으로의 긍정 창·시제 표식 (데굴님 "제안대로 진행 + 돈 들어오는 시기도 표시되어야")
+
+- **실측(데굴님 명식):** 마커 33개 중 주의 26개, 결혼은 76세(길)만 글에 남음. 현재 대운(2025~2034)의 결혼 후보가 있어도 점수순 선별에서 취업 93·금전 위기 99·96·이직 95가 4자리를 독점. 주의 방향 marriage_signal(관계 갈등 쪽)이 "결혼(주의)"로 표시돼 혼란. 재물 변화 길 방향(2026~2030 79~92점)은 마커 종류가 없어 그래프에 전무.
+- **반영(선별·서술만, 점수·판정 불변):** ① `MarkerKind.WEALTH_GAIN`(재물 유입 = wealth_change 길 방향; 주의·혼합은 기존 금전 위기) ② 좌석 보장 — 종류별 최고 후보를 우선순위순으로 먼저 앉히고 남는 자리를 점수순(`_select_markers` 2단계), `PER_DAEWOON_CAP` 4→5, 위기(건강+금전) 합산 `CRISIS_PER_DAEWOON_CAP=2` ③ 결혼 마커는 길·혼합만, 나이 18~70(`KIND_AGE_RANGE`) ④ `LifeGraph.positive_windows`(`build_positive_windows` — 오늘 이후 결혼·취업·이직·재물 유입·이사 길·혼합 후보 ≥55를 공백 2년까지 연속 창으로, 마커 상한 무관) + `[앞으로의 긍정 창]` 블록(F-14·F-14b·F-21, 종류별 가까운 창 3개) + 가이드 "가장 가까운 창부터" ⑤ `LifeGraph.today_year` + `when_tag`로 마커 줄·대운 페이지 세운 행에 `[지남]/[올해]/[예정]`, 그래프 블록·현재 대운 계약에 "오늘은 N년 — [지남]을 내년으로 쓰지 말 것"(재생성 실답: "당장 내년인 2025년" → 교정 후 4섹션 모두 회고형) ⑥ 프론트 `LifeGraph.tsx` 재물 유입 범례(◆)·"앞으로 기대할 시기" 목록·오늘 점선 ⑦ F-21 요약 카드에 그래프 블록 부착(docs/10 §3 규격대로).
+- **결과(데굴님 명식 재생성):** 마커 42개(길 17·주의 25, 이전 7·26), 재물 유입 9건(현재 대운 2028년 포함), 긍정 창 13개(재물 유입 2026–2030이 첫 창). 결혼 길 방향 후보는 2045년(65세)이 가장 이른 해 — 엔진 신호 자체가 그 이전엔 주의 방향뿐이라 창도 2045부터(76세 마커는 나이 상한으로 제외). 13섹션(F-07·F-14·F-14-D1~9·F-14b·F-21) 1회 통과 → 시제 교정 후 4섹션 재생성 1회 통과.
+- **테스트:** `test_full_report_v3_20261107.py` — 상한·위기 합산·방향·나이·재물 유입 존재·현재 대운 4종 이상·긍정 창(가까운 순·결혼 2045)·시제 표식·합성 풀 좌석 보장/창 묶음 반례. 관련 suite 통과.
+- **게이트:** `All checks passed` · `production mypy gate clean` · frontend `tsc`·production build 통과. 백엔드 재기동 pid 116495. docs/10 §3-1 개정(마커 6종·좌석 보장·긍정 창·시제 표식).

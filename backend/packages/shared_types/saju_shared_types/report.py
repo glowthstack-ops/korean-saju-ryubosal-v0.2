@@ -68,6 +68,7 @@ class SectionContext(BaseModel):
     yongsin_element: str | None = None  # F-04 확정 — 이후 섹션 일관 검사 기준
     evidence_paths: list[str] = Field(default_factory=list)
     multi_subject: bool = False
+    gender: str = "unknown"  # 주인공 성별 — 검사 9(육친 성별 기준 soft 감사, 2026-11-07)
     body_prompt: str = ""  # 직렬화된 LLM 입력(docs/06 계약 + 분량 목표)
 
 
