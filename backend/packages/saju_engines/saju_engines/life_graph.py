@@ -441,8 +441,7 @@ def daewoon_summary_lines(graph: LifeGraph) -> list[str]:
             f"{d.start_age}–{d.end_age}세({d.start_year}–{d.end_year}년)"
             f"{' [' + tag + ']' if tag else ''}"
             f" 〈{d.label or '역할 미상'}〉"
-            + (" [배우자성 대운 — 결혼·이성 인연이 본격 거론되는 10년(통설)]"
-               if d.partner_star_daewoon else "")
+            + (PARTNER_STAR_DAEWOON_TAG if d.partner_star_daewoon else "")
             + f": {kinds}"
         )
     return out

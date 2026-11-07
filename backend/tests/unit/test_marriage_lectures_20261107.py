@@ -265,9 +265,9 @@ def test_romance_markers_partner_star_daewoon_and_failure_decay() -> None:
     # 현재 대운 壬辰(정재) — 남성 배우자성 대운 라벨.
     cur = next(d for d in g.daewoons if d.status == "current")
     assert cur.partner_star_daewoon is True
-    from saju_engines.life_graph import daewoon_summary_lines
+    from saju_engines.life_graph import PARTNER_STAR_DAEWOON_TAG, daewoon_summary_lines
 
-    assert any("[배우자성 대운" in ln for ln in daewoon_summary_lines(g))
+    assert any(PARTNER_STAR_DAEWOON_TAG in ln for ln in daewoon_summary_lines(g))
     ctx = {c.section_id: c for c in report_service.plan_report(_birth("male"), spec, _TODAY)}
     cur_page = next(
         c for c in ctx.values()

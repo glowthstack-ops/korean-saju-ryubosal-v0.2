@@ -81,7 +81,8 @@ def test_prohibitions_cover_competition_and_exam() -> None:
 
 def test_reason_codes_ko_dedup() -> None:
     out = reason_codes_ko(["REL_HAP_month_pillar", "REL_CHUNG_day_pillar", "FLOW_GEN"])
-    assert out == ["관계 발동", "상생 흐름"]
+    # 2026-11-07: 합은 궁위별 인연 성격 라벨(월지 합=부모 주선·직장 인연), 충은 일반 '관계 발동'.
+    assert out[0].startswith("월지 합") and out[1:] == ["관계 발동", "상생 흐름"]
 
 
 def test_serialize_enriched_fields() -> None:
@@ -98,5 +99,6 @@ def test_serialize_enriched_fields() -> None:
     assert d["quality_ko"] == "성취·결실"
     palace_ko, signals_ko = d["palace_ko"], d["signals_ko"]
     assert isinstance(palace_ko, str) and palace_ko.startswith("시주")
-    assert isinstance(signals_ko, list) and "관계 발동" in signals_ko
+    # 2026-11-07: 시지 합은 궁위별 라벨("시지 합 — 자녀 자리…")로 나온다.
+    assert isinstance(signals_ko, list) and any(s.startswith("시지 합") for s in signals_ko)
     assert d["prohibitions"]  # 당락 단정 금지 부착

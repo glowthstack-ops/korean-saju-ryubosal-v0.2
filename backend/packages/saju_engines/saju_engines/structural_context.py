@@ -225,7 +225,7 @@ PARTNER_STAR_GODS: dict[str, frozenset[str]] = {
     "female": frozenset({"정관", "편관"}),
 }
 
-PARTNER_STAR_DAEWOON_TAG = " [배우자성 대운 — 결혼·이성 인연이 본격 거론되는 10년(통설)]"
+PARTNER_STAR_DAEWOON_TAG = " (배우자성 대운 — 결혼·이성 인연이 본격 거론되는 10년이라는 통설)"
 
 
 def partner_star_daewoon_tag(day_master: str, ganji: str, gender: str | None) -> str:
