@@ -106,6 +106,7 @@ from saju_engines.love_separation import love_separation_block, love_separation_
 from saju_engines.love_type import age_from_result
 from saju_engines.manifestation_branch import branch_summary
 from saju_engines.marriage_resource import analyze_marriage_resource
+from saju_engines.marriage_windows import marriage_window_lines
 from saju_engines.mobility_agency import (
     MOBILITY_AGENCY_DIRECTIVE,
     has_mobility_candidate,
@@ -2141,32 +2142,12 @@ class _ReportData:
 
     def partner_marriage_window_block(self, *, limit: int = 5) -> list[str]:
         """[상대 결혼·인연 신호 창] — 궁합 리포트에서 상대 명식의 결혼·새 인연 후보 연도(오늘 이후,
-        게이트 55 이상, 주의 방향 제외)를 연도별 최고 점수로 묶는다(2026-11-07 결혼운 강의 5 —
-        '둘 중 한쪽만 운이 들어와도 결혼 가능'). 점수·판정 무관 서술 재료."""
+        게이트 55 이상, 주의 방향 제외). 채팅 궁합과 같은 헬퍼(`marriage_windows`, 2026-11-07)."""
         if self.partner_result is None or self.partner_scored is None:
             return []
-        best: dict[int, tuple[int, str]] = {}
-        for c in self.partner_scored:
-            key = str(c.event_key)
-            if key not in ("marriage_signal", "new_relationship") or c.score < 55:
-                continue
-            if not c.period[:4].isdigit():
-                continue
-            year = int(c.period[:4])
-            if year < self.today.year or overview_cluster_key(c)[1] == "neg":
-                continue
-            label = "결혼 신호" if key == "marriage_signal" else "새 인연"
-            if year not in best or c.score > best[year][0]:
-                best[year] = (c.score, label)
-        if not best:
-            return []
-        rows = [f"- {y}년 {lbl} {sc}점" for y, (sc, lbl) in sorted(best.items())[:limit]]
-        return [
-            f"[상대({self.partner_label}) 결혼·인연 신호 창 — 엔진 확정값. 결혼은 둘이 하므로 본인 "
-            "창이 약해도 상대 창이 열려 있으면 가능성을 열어 둘 것(한쪽 운 따라감). 연도·점수 "
-            "그대로]",
-            *rows,
-        ]
+        return marriage_window_lines(
+            self.partner_label, self.partner_scored, self.today.year, limit=limit,
+        )
 
     def partner_year_spectrum_block(
         self, domain: str | None = None, *, notable_only: bool = False

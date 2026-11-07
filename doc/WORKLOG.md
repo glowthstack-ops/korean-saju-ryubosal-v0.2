@@ -13367,3 +13367,10 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - **배선:** 채팅 — `LlmEventCandidate.wealth_form_notes` + `_to_llm_candidate(peers=)` + 후보 블록 "재물 입출 형태" 줄 + 범례 / 리포트 — `_ReportData.wealth_form_block()`을 재물 도메인 섹션(Y-07·F-16·W-06·W-07)에 부착.
 - **프로필 태그(사건 종류 불변):** 학생 취업 신호 `PROFILE_student_job_parttime`(아르바이트·근로장학·인턴) / 은퇴자 취업·이직 `PROFILE_retired_late_career`(재취업·아르바이트·자문, 늦은 나이 취업 배제 안 함). `user_profile_event_gate.json` 규칙 문구·implemented_by 갱신.
 - **테스트:** `test_marriage_lectures_20261107.py` +1(형태 산출·비재물 공집합·Y-07 블록·학생/은퇴자 태그). 관련 99건 통과 · `All checks passed` · `production mypy gate clean`.
+
+## 2026-11-07 — 채팅 궁합(동반자)에 상대 결혼·인연 신호 창 — 로맨스 관계 한정 (데굴님 "동반자 궁합에 결혼 인연 신호 필요하지 않아?" · "연인·불륜 등 로맨스 포함 관계에 한해")
+
+- `saju_engines/marriage_windows.py`(신규, 공용 헬퍼): 상대 세운 후보 중 결혼·새 인연(게이트 55·주의 방향 제외·오늘 이후)을 연도별 최고점으로 묶는 `marriage_window_lines`. 리포트 `partner_marriage_window_block`도 이 헬퍼로 위임.
+- 채팅 `_compat_prompt_block(..., romantic=)`: 상대 명식을 연 단위로만 점수화(`score_legacy_personalized(levels={YEAR})`, 개인화 없음)해 창을 붙인다. **로맨스 관계에만** — 호출부에서 `romantic=not is_non_romantic_relation(_relation_frame)`(부모·자녀·친구·직장 동반자는 제외, 미등록 인라인 상대는 로맨스로 간주). 실패는 비차단 로그.
+- 동반자 단독 모드("엄마 결혼운")는 그 사람 명식으로 전체 파이프라인이 돌아 결혼 층이 이미 전부 적용된다(성별 헤더도 그 사람 기준).
+- 테스트 +1(로맨스 블록에 창 포함·비연애 romantic=False 제외·빈 입력). 관련 54건 통과 · `All checks passed` · `production mypy gate clean`.

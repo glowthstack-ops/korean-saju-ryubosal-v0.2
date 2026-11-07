@@ -4276,8 +4276,14 @@ def _compat_prompt_block(
     partner_birth: BirthInput,
     today: date,
     partner_label: str,
+    *,
+    romantic: bool = True,
 ) -> str | None:
-    """본인↔상대 궁합 신호 블록(채팅 pairwise). 엔진 계산값만 + LLM 서술 가드."""
+    """본인↔상대 궁합 신호 블록(채팅 pairwise). 엔진 계산값만 + LLM 서술 가드.
+
+    romantic: 연인·배우자 등 로맨스가 포함된 관계일 때만 상대 결혼·인연 신호 창을 싣는다
+    (부모·자녀·친구·직장 동반자에는 결혼 신호를 붙이지 않는다 — 2026-11-07 데굴님).
+    """
     partner_result = calculate(partner_birth.model_copy(update={"reference_date": today}))
     self_sum = build_birth_summary(result)
     partner_sum = build_birth_summary(partner_result)
@@ -4297,6 +4303,18 @@ def _compat_prompt_block(
     # 두 사람 각각의 관계 결(2026-10-29 관계 강의 — 비낙인, 명식 근거).
     lines += relationship_tendency_lines(result, "본인")
     lines += relationship_tendency_lines(partner_result, partner_label)
+    # 상대 결혼·인연 신호 창(2026-11-07 데굴님 "동반자 궁합에 결혼 인연 신호") — 로맨스 관계에만,
+    # 상대 세운만 점수화(연 단위, 개인화 없음). 실패해도 궁합 블록을 막지 않는다.
+    if romantic:
+        try:
+            from saju_engines.marriage_windows import marriage_window_lines
+
+            _partner_scored = _get_scorer().score_legacy_personalized(
+                partner_result, levels={GanjiLevel.YEAR},
+            )
+            lines += marriage_window_lines(partner_label, _partner_scored, today.year)
+        except Exception:  # noqa: BLE001 — 보조 블록 실패는 비차단
+            _logger.exception("partner marriage window 실패(비차단) partner=%s", partner_label)
     # 시주 미상 궁합 고지(2026-10-06) — 시주가 없는 쪽은 3기둥 기준이며 시지 상호작용은 미산출.
     _missing = [
         label for label, res in (("본인", result), (partner_label, partner_result))
@@ -7775,7 +7793,11 @@ def chat(
         trailing.append(_DIVORCE_SEVERITY_DIRECTIVE)
     # 궁합(pairwise) — 상대가 첨부되면 엔진 계산 궁합 신호 블록을 입력에 덧붙인다.
     if partner_birth is not None:
-        compat = _compat_prompt_block(result, partner_birth, today, partner_label)
+        # 상대 결혼·인연 창은 로맨스 관계(연인·배우자·미등록 상대)에만 — 부모·자녀·친구·직장 제외.
+        compat = _compat_prompt_block(
+            result, partner_birth, today, partner_label,
+            romantic=not is_non_romantic_relation(_relation_frame),
+        )
         if compat:
             trailing.append(compat)
 

@@ -414,3 +414,24 @@ def test_wealth_form_notes_and_profile_tags() -> None:
     assert str(ret.event_key) == "career_change"
     assert "PROFILE_retired_late_career" in ret.reason_codes
 
+
+def test_chat_pair_block_includes_partner_marriage_windows() -> None:
+    """채팅 궁합(동반자) 블록에 상대 결혼·인연 신호 창이 실린다(2026-11-07)."""
+    from saju_api.services.chat_service import _compat_prompt_block
+    from saju_engines.marriage_windows import marriage_window_lines
+
+    me = calculate(_birth("male"))
+    partner = BirthInput(
+        calendar_type="solar", birth_date="1985-03-15", birth_time="14:00",
+        birth_place_name="서울", gender="female", reference_date="2026-11-07",
+    )
+    block = _compat_prompt_block(me, partner, _TODAY, "여친")
+    assert block is not None and "[궁합 분석" in block
+    # 창이 없으면 헤더도 없다 — 1985-03-15 여성은 2026~ 후보가 있다.
+    assert "결혼·인연 신호 창" in block
+    # 비연애 관계(부모·자녀·친구·직장)엔 결혼 신호 창을 싣지 않는다(2026-11-07 데굴님).
+    family = _compat_prompt_block(me, partner, _TODAY, "어머니", romantic=False)
+    assert family is not None and "결혼·인연 신호 창" not in family
+    # 헬퍼 — 주의 방향·게이트 미달·과거 연도 제외.
+    assert marriage_window_lines("x", [], 2026) == []
+
