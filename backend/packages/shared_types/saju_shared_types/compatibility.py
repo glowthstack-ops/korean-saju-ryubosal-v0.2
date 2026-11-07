@@ -22,6 +22,7 @@ class CompatSignalKind(StrEnum):
     DAY_BRANCH_BREAK = "day_branch_break"      # 일지 파
     DAY_BRANCH_HARM = "day_branch_harm"        # 일지 해
     DAY_BRANCH_DUPLICATE = "day_branch_dup"    # 일지 복음(같은 글자)
+    DAY_PILLAR_SAME = "day_pillar_same"        # 일주 전체 동일(천간·지지) — 동질감·급소(2026-11-07)
     TEN_GOD_TO_PARTNER = "ten_god_to_partner"  # 본인 일간 기준 상대 일간의 십성
     TEN_GOD_TO_SELF = "ten_god_to_self"        # 상대 일간 기준 본인 일간의 십성
     TEN_GOD_COMPLEMENT = "ten_god_complement"  # 내게 약한 십성군을 상대가 채워줌(보완 끌림)

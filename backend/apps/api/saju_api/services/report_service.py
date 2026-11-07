@@ -176,6 +176,7 @@ from saju_engines.structural_context import (
     GONGMANG_ACTIVATION_DIRECTIVE,
     KEYWORD_COMBO_TRANSLATION_DIRECTIVE,
     MANAGE_NOT_OVERCOME_DIRECTIVE,
+    MARRIAGE_TWO_AXIS_DIRECTIVE,
     NON_NORMATIVE_REASSURANCE_DIRECTIVE,
     RELATIONSHIP_DIFFERENCE_PERSPECTIVE,
     RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
@@ -194,6 +195,7 @@ from saju_engines.structural_context import (
     hour_unknown_directive,
     load_remedy_action_map,
     marriage_age_prior_lines,
+    marriage_alt_views_lines,
     marriage_resource_lines,
     preparation_context_lines,
     remedy_action_lines,
@@ -1909,7 +1911,9 @@ class _ReportData:
             "재물 유입·건강 위기·금전 위기 — 품질 게이트 통과분, 대운당 최대 "
             f"{PER_DAEWOON_CAP}, 종류별 최고 후보 우선 배정)가 온다. 오늘은 "
             f"{self.today.year}년 — [지남] 표식이 붙은 해는 이미 지난 해이므로 '내년·다가올·"
-            "앞으로'로 쓰지 말고 회고형으로, [올해]는 진행형, [예정]만 앞으로의 창으로 쓸 것]",
+            "앞으로'로 쓰지 말고 회고형으로, [올해]는 진행형, [예정]만 앞으로의 창으로 쓸 것. 결혼 "
+            "마커의 메모 '운의 결 주의'는 결혼 불가가 아니라 '시기는 열리나 운이 유리하지 않음 → "
+            "숙고·궁합 확인'으로 쓸 것]",
             *daewoon_summary_lines(g),
         ]
         markers = marker_lines(g)
@@ -2120,6 +2124,35 @@ class _ReportData:
         if partner:
             return f"[아래 표는 상대({self.partner_label}) 기준]"
         return f"[아래 표는 본인({self.self_label}) 기준]"
+
+    def partner_marriage_window_block(self, *, limit: int = 5) -> list[str]:
+        """[상대 결혼·인연 신호 창] — 궁합 리포트에서 상대 명식의 결혼·새 인연 후보 연도(오늘 이후,
+        게이트 55 이상, 주의 방향 제외)를 연도별 최고 점수로 묶는다(2026-11-07 결혼운 강의 5 —
+        '둘 중 한쪽만 운이 들어와도 결혼 가능'). 점수·판정 무관 서술 재료."""
+        if self.partner_result is None or self.partner_scored is None:
+            return []
+        best: dict[int, tuple[int, str]] = {}
+        for c in self.partner_scored:
+            key = str(c.event_key)
+            if key not in ("marriage_signal", "new_relationship") or c.score < 55:
+                continue
+            if not c.period[:4].isdigit():
+                continue
+            year = int(c.period[:4])
+            if year < self.today.year or overview_cluster_key(c)[1] == "neg":
+                continue
+            label = "결혼 신호" if key == "marriage_signal" else "새 인연"
+            if year not in best or c.score > best[year][0]:
+                best[year] = (c.score, label)
+        if not best:
+            return []
+        rows = [f"- {y}년 {lbl} {sc}점" for y, (sc, lbl) in sorted(best.items())[:limit]]
+        return [
+            f"[상대({self.partner_label}) 결혼·인연 신호 창 — 엔진 확정값. 결혼은 둘이 하므로 본인 "
+            "창이 약해도 상대 창이 열려 있으면 가능성을 열어 둘 것(한쪽 운 따라감). 연도·점수 "
+            "그대로]",
+            *rows,
+        ]
 
     def partner_year_spectrum_block(
         self, domain: str | None = None, *, notable_only: bool = False
@@ -4415,7 +4448,14 @@ def build_section_context(
             *data.marriage_resource_block(),
             RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
             TENDENCY_SHIFT_DIRECTIVE,
+            # 결혼 2축 계약 + 참고 통설(2026-11-07 결혼운 강의 7편) — 시기 ≠ 길흉, 불리하면 숙고.
+            MARRIAGE_TWO_AXIS_DIRECTIVE,
+            *marriage_alt_views_lines(data.result),
         ]
+        # 동반자(상대) 결혼·인연 신호 창 — 둘 중 한쪽만 들어와도 결혼 가능(강의: 배우자 운 따라감).
+        _pw = data.partner_marriage_window_block()
+        if _pw:
+            lines += ["", *_pw]
         # 외적 인상·매력 신호 — notable 이상일 때만 표면화(미해당이면 빈 목록 → 무언급).
         impression = data.external_impression_block()
         if impression:

@@ -142,13 +142,14 @@ def test_life_graph_markers_follow_caps_and_gate() -> None:
             assert m.score + (10 if m.risk_backed else 0) >= SCORE_GATE
             assert d.start_year <= m.year <= d.end_year
             assert m.kind_ko == KIND_KO[m.kind]
-    # 위기(건강·금전)는 흉·혼합 방향만, 재물 유입은 길 방향만, 결혼은 길·혼합만(주의 방향 제외).
+    # 위기(건강·금전)는 흉·혼합 방향만, 재물 유입은 길 방향만.
     assert all(
         m.tone != "길" for m in g.markers
         if m.kind in (MarkerKind.CRISIS_MONEY, MarkerKind.CRISIS_HEALTH)
     )
     assert all(m.tone == "길" for m in g.markers if m.kind is MarkerKind.WEALTH_GAIN)
-    assert all(m.tone != "주의" for m in g.markers if m.kind is MarkerKind.MARRIAGE)
+    # 결혼 마커는 방향 무관(2026-11-07 결혼운 강의 정정) — 2축 메모는 test_marriage_lectures 가
+    # 검사.
     for m in g.markers:
         lo, hi = KIND_AGE_RANGE[m.kind]
         assert lo <= m.age <= hi, (m.kind, m.age)

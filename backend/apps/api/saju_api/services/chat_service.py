@@ -213,6 +213,7 @@ from saju_engines.structural_context import (
     GONGMANG_ACTIVATION_DIRECTIVE,
     LOVE_MARRIAGE_UNIFIED_DIRECTIVE,
     MANAGE_NOT_OVERCOME_DIRECTIVE,
+    MARRIAGE_TWO_AXIS_DIRECTIVE,
     NON_NORMATIVE_REASSURANCE_DIRECTIVE,
     PARTNER_APPEARANCE_REFERENT_DIRECTIVE,
     PARTNER_SOURCE_DIRECTIVE,
@@ -230,6 +231,7 @@ from saju_engines.structural_context import (
     hour_unknown_directive,
     is_appearance_question,
     load_remedy_action_map,
+    marriage_alt_views_lines,
     remedy_action_lines,
     spouse_star_directive,
 )
@@ -4640,6 +4642,9 @@ def _structural_context(
             analyze_marriage_resource(result, _useful, age=age_from_result(result, today))
         )
         out += marriage_age_prior_lines(result)  # MT6 혼기 static prior(프로파일 off면 빈 줄)
+        # 결혼 2축 계약 + 참고 통설(2026-11-07 결혼운 강의 7편) — 시기 ≠ 길흉, 불리하면 숙고·궁합.
+        out.append(MARRIAGE_TWO_AXIS_DIRECTIVE)
+        out += marriage_alt_views_lines(result)
         # 이별운 강의 원국 분류 해설(2026-10-29) — 무인성·정인 약함. 판정이 아니라 원국 분류 설명.
         out += love_separation_natal_lines(result)
         # 궁위 관계망(P3) — 연·월·일·시 궁위 간 관계질(설명 레이어, 점수 미개입).

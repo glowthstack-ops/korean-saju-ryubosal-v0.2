@@ -33,7 +33,20 @@ _UNFAVORABLE = frozenset({"기신", "구신"})
 
 _CLASH_NOTE = (
     "일지(배우자 자리)를 충하는 운 — 이때 시작되는 인연은 급작스럽게 시작돼 빠르게 진행될 수 있고, "
-    "안정감은 덜해도 끌림이 강해 운명처럼 느껴질 수 있으며, 끝난 뒤에도 여운이 오래 남을 수 있다"
+    "안정감은 덜해도 끌림이 강해 운명처럼 느껴질 수 있으며, 끝난 뒤에도 여운이 오래 남을 수 있다. "
+    "통설은 배우자 자리의 변동·지연 쪽으로 보고, 주변 상황에 떠밀린 갑작스런 결정으로 풀이하기도 "
+    "한다(두 갈래 병기 — 단정 금지)"
+)
+#: 운 지지가 일공망 글자(2026-11-07 결혼운 강의 6 참고 통설 — 소수 견해·통설 병기, 점수 무관).
+_VOID_NOTE = (
+    "운 지지가 일주 공망 글자 — 통설은 공망 해에 결혼 성사가 어렵다고 보고, 비어 있던 자리를 "
+    "채우려 인연을 당기는 때로 풀이하는 견해도 있다(참고만 — 어느 쪽도 단정하지 말 것)"
+)
+#: 여성 명식 식상 운 — 강의 간 충돌 병기(공통보감: 식신 왕=결혼 多 / 다른 통설: 관살을 흔들어 조율
+# 필요).
+_FEMALE_OUTPUT_NOTE = (
+    "식상 운(여성 명식) — 표현이 늘어 만남이 수월해지는 때로 보는 풀이와, 관성(남편 자리)을 흔들어 "
+    "진행 중인 결혼은 조율이 필요하다고 보는 풀이가 함께 있다(병기 — 단정 금지)"
 )
 _HARD_NOTE = (
     "흐름이 무거운(기·구신) 운 — 이때 만난 인연은 빠르게 빠져들고 운명처럼 느껴질 수 있으며, "
@@ -103,6 +116,8 @@ def love_period_note_items(
     items: list[tuple[str, str]] = []
     if frozenset({branch, day_branch}) in BRANCH_CLASHES:
         items.append(("일지 충 인연", _CLASH_NOTE))
+    if branch.value in set(result.pillars.gongmang_branches or []):
+        items.append(("공망 글자 운(참고)", _VOID_NOTE))
     stem_el = str(STEM_ELEMENT[stem])
     branch_el = str(BRANCH_ELEMENT[branch])
     fav = fav_map or {}
@@ -117,7 +132,11 @@ def love_period_note_items(
             items.append((f"약한 {joined} 운의 인연", _WEAK_ELEMENT_NOTE.format(el=joined)))
     tg = str(ten_god(day_master, stem))
     if tg in _TEN_GOD_NOTE:
-        items.append((_TEN_GOD_LABEL[tg], _TEN_GOD_NOTE[tg]))
+        gender = str((result.input_summary or {}).get("gender") or "")
+        if gender == "female" and tg in ("식신", "상관"):
+            items.append((_TEN_GOD_LABEL[tg], _FEMALE_OUTPUT_NOTE))
+        else:
+            items.append((_TEN_GOD_LABEL[tg], _TEN_GOD_NOTE[tg]))
     return items
 
 

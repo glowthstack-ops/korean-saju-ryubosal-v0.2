@@ -76,6 +76,23 @@ _REASON_PREFIX_KO: dict[str, str] = {
         "원국 관살이 많거나 혼잡 — 인연과 함께 갈등·선택 폭 확대 주의(이별 단정 아님)"
     ),
     "LOVE_PARTNER_ELEMENT_DAEWOON": "배우자성 오행이 약한데 대운이 그 오행을 보강(결혼 배경)",
+    # 결혼운 강의 7편(2026-11-07) — 실험 4종 코드 + 합 궁위별 인연 성격(서술 전용).
+    "LOVE_PARTNER_HAP_CONFLUENCE": "배우자성 운과 배우자궁(일지) 합이 같은 때 겹침(결혼 신호 합류)",
+    "LOVE_FEMALE_OFFICER_RESOURCE": (
+        "관성은 있고 인성이 없는 여성 명식에 인성 운 — 관이 인성을 타고 들어오는 '사랑받는' 결"
+    ),
+    "LOVE_MALE_PEER_BREAKS_WEALTH": (
+        "재성이 있는 남성 명식에 비겁 운 — 진행 중인 인연·결혼 조율이 흔들리기 쉬운 때(결렬 단정 "
+        "아님)"
+    ),
+    "LOVE_MONTH_CLASH_ENV_SHIFT": "월지 충 동반 — 직장·환경 변화와 맞물려 인연이 움직일 수 있는 결",
+    "REL_HAP_day_pillar": (
+        "배우자궁(일지) 합 — 배우자 자리에 직접 닿는 인연(육합=끌림·삼합=가족 확장 결)"
+    ),
+    "REL_HAP_month_pillar": "월지 합 — 부모 주선·직장·사회 쪽에서 닿는 인연 결",
+    "REL_HAP_year_pillar": "연지 합 — 집안·윗세대 쪽에서 닿는 인연 결",
+    "REL_HAP_hour_pillar": "시지 합 — 자녀 자리가 먼저 움직이는(아이 먼저) 결도 포함",
+    "REL_BOKEUM_day_pillar": "일지 복음(배우자궁과 같은 글자 해) — 결혼·관계 자극 보조",
     "ROLE_SEED_SHANGGUAN_YONG": "상관 용신 운(재능 발휘·표현·발표 쪽 전환)",
     "ROLE_SEED_QISHA_YONG": "편관 용신 운(책임 있는 역할·직책 쪽 전환)",
     "ROLE_SEED_PIANYIN_YONG": "편인 용신 운(자격·전문 연구·산출 쪽 전환)",

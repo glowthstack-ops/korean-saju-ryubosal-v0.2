@@ -439,6 +439,10 @@ def main() -> int:
     # 2026-10-25 — 연애운 실험 플래그(love_timing.LOVE_EXPERIMENT_KEYS) 비교 재생용(반복 가능).
     ap.add_argument("--love-experiment", action="append", default=[],
                     choices=list(LOVE_EXPERIMENT_KEYS))
+    ap.add_argument("--love-experiment-off", action="append", default=[],
+                    choices=list(LOVE_EXPERIMENT_KEYS),
+                    help="기본 ON 실험(2026-11-07 결혼운 강의 4종)을 끈다 — 기준선 재생용, "
+                         "반복 가능")
     args = ap.parse_args()
     for name in args.hap_experiment:
         _hm.HAP_EXPERIMENTS[name] = True
@@ -459,6 +463,7 @@ def main() -> int:
         enable_wealth_natal_complement=args.wealth_natal_complement,
         tamhap_mangchung_mode=args.tamhap_mode,
         love_experiments=args.love_experiment,
+        love_experiments_off=args.love_experiment_off,
         clash_direction_mode=args.clash_direction_mode,
     )
     rows = []

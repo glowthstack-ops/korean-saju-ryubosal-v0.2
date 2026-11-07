@@ -106,9 +106,13 @@ from .life_fit_ranker import LifeFitRanker
 from .llm_event_serializer import reason_codes_ko
 from .love_separation import produce_love_separation_seeds
 from .love_timing import (
+    apply_month_clash_partner_tag,
     apply_partner_element_daewoon,
+    apply_partner_star_hap_confluence,
     hap_overload_damping,
+    produce_female_officer_resource_seeds,
     produce_female_qisha_seeds,
+    produce_male_peer_breaks_wealth_seeds,
     resolve_love_experiments,
 )
 from .marriage_awareness_seed import produce_mt1_awareness_seeds
@@ -274,6 +278,7 @@ class EventEngineV2:
         career_exit_rule_ids: Collection[str] | None = None,
         tamhap_mangchung_mode: str = "shadow",
         love_experiments: Collection[str] | None = None,
+        love_experiments_off: Collection[str] | None = None,
         clash_direction_mode: str | None = None,
     ) -> None:
         """재설계 6계층 + 만세 신호 추출에 필요한 사전을 로드한다.
@@ -358,7 +363,8 @@ class EventEngineV2:
         )
         # 세운 육신별 사건 신호(2026-10-15, 교재 6장 대조) — 사전 절 부재·OFF면 불변.
         self._tamhap_mode = tamhap_mangchung_mode
-        self._love = resolve_love_experiments(love_experiments)
+        # 기본 ON 실험(2026-11-07 결혼운 강의 P1 4종)은 off 목록으로만 끈다.
+        self._love = resolve_love_experiments(love_experiments, off=love_experiments_off)
         self._tamhap_rules = (
             load_tamhap_rules(dictionaries_dir) if tamhap_mangchung_mode != "off" else {}
         )
@@ -897,6 +903,22 @@ class EventEngineV2:
                     signals, target_layer, result, marriage_flow.gender, label,
                 ),
             )
+        # 결혼운 강의 7편(2026-11-07, 기본 ON): 여성 관인상생 인성 운 시드 / 남성 비겁 운 관계 변동
+        # 시드.
+        if self._love["female_officer_resource"]:
+            cands = merge_role_event_seeds(
+                cands,
+                produce_female_officer_resource_seeds(
+                    signals, target_layer, result, marriage_flow.gender, label,
+                ),
+            )
+        if self._love["male_peer_breaks_wealth"]:
+            cands = merge_role_event_seeds(
+                cands,
+                produce_male_peer_breaks_wealth_seeds(
+                    signals, target_layer, result, marriage_flow.gender, label,
+                ),
+            )
         # 이별운 강의(2026-10-29, 실험 OFF) — 원국 글자 × 운 글자 관계 변동 시드.
         # 켜진 키가 없으면 무동작.
         cands = merge_role_event_seeds(
@@ -1038,6 +1060,12 @@ class EventEngineV2:
         # 연애운 P1-3(2026-10-25, 실험): 배우자성 약 + 대운 오행이 배우자성 오행 → 결혼 배경 가산.
         if self._love["partner_element_daewoon"]:
             cands = apply_partner_element_daewoon(cands, stack, result, marriage_flow.gender)
+        # 결혼운 강의 7편(2026-11-07, 기본 ON): 배우자성 운 × 일지 합 동반 ×1.15 / 월지 충 동반
+        # 태그.
+        if self._love["partner_star_hap_confluence"]:
+            cands = apply_partner_star_hap_confluence(cands, marriage_flow.gender)
+        if self._love["month_clash_partner_tag"]:
+            cands = apply_month_clash_partner_tag(cands, marriage_flow.gender)
         # 운↔운 충(대운↔월운 등) — 이동형 후보 보조 가산(2026-10-15 승인, 기본 OFF). 궁위 관계
         # 보정과 같은 raw 단계에 둔다(용신 배율 앞). 후보당 1회·쌍 전부를 reason 1건에 기록.
         if self._transit_clash_rule is not None:
