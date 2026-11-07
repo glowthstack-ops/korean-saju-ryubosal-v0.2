@@ -7,7 +7,7 @@ export interface LifeGraphMarker {
   year: number;
   age: number;
   ganji: string;
-  kind: string; // marriage | job | career_change | relocation | crisis_health | crisis_money
+  kind: string; // marriage | job | career_change | relocation | wealth_gain | crisis_health | crisis_money
   kind_ko: string;
   event_key: string;
   score: number;
@@ -40,6 +40,18 @@ export interface LifeGraphYear {
   label: string;
 }
 
+export interface LifeGraphWindow {
+  kind: string;
+  kind_ko: string;
+  start_year: number;
+  end_year: number;
+  start_age: number;
+  end_age: number;
+  peak_year: number;
+  peak_score: number;
+  years_count: number;
+}
+
 export interface LifeGraphData {
   birth_year: number;
   end_year: number;
@@ -47,6 +59,8 @@ export interface LifeGraphData {
   daewoons: LifeGraphDaewoon[];
   years: LifeGraphYear[];
   markers: LifeGraphMarker[];
+  positive_windows?: LifeGraphWindow[]; // 오늘 이후 긍정 창(결혼·취업·이직·재물 유입·이사)
+  today_year?: number | null; // 오늘 연도 — '오늘' 세로선
 }
 
 const MARKER_STYLE: Record<string, { symbol: string; color: string }> = {
@@ -54,10 +68,19 @@ const MARKER_STYLE: Record<string, { symbol: string; color: string }> = {
   job: { symbol: "●", color: "#2563eb" },
   career_change: { symbol: "➤", color: "#0891b2" },
   relocation: { symbol: "⌂", color: "#16a34a" },
+  wealth_gain: { symbol: "◆", color: "#ca8a04" },
   crisis_health: { symbol: "✚", color: "#dc2626" },
   crisis_money: { symbol: "₩", color: "#ea580c" },
 };
-const KIND_ORDER = ["marriage", "job", "career_change", "relocation", "crisis_health", "crisis_money"];
+const KIND_ORDER = [
+  "marriage",
+  "job",
+  "career_change",
+  "relocation",
+  "wealth_gain",
+  "crisis_health",
+  "crisis_money",
+];
 
 /** 데이터 형태가 맞는지 최소 검증 — 아니면 그리지 않는다(마크다운 본문만 표시). */
 export function isLifeGraphData(v: unknown): v is LifeGraphData {
@@ -152,6 +175,30 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
           )}
           {/* 세운 선 */}
           {yearPath && <path d={yearPath} fill="none" stroke="#1f2937" strokeWidth={1.2} opacity={0.85} />}
+          {/* 오늘 — 지난 시기와 앞으로의 시기를 가르는 세로선 */}
+          {typeof data.today_year === "number" &&
+            data.today_year - data.birth_year >= ageMin &&
+            data.today_year - data.birth_year <= ageMax && (
+              <g>
+                <line
+                  x1={x(data.today_year - data.birth_year)}
+                  x2={x(data.today_year - data.birth_year)}
+                  y1={padT}
+                  y2={padT + plotH}
+                  stroke="#111827"
+                  strokeWidth={1}
+                  strokeDasharray="2 2"
+                />
+                <text
+                  x={x(data.today_year - data.birth_year) + 3}
+                  y={padT + 10}
+                  fontSize="9"
+                  fill="#111827"
+                >
+                  오늘
+                </text>
+              </g>
+            )}
           {/* 마커 */}
           {data.markers.map((m, i) => {
             const st = MARKER_STYLE[m.kind] ?? { symbol: "•", color: "#111827" };
@@ -229,6 +276,30 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
             })}
           </tbody>
         </table>
+      )}
+      {/* 앞으로의 긍정 창 — 마커 상한과 무관한 게이트 통과 연도 묶음(가장 가까운 창부터) */}
+      {(data.positive_windows?.length ?? 0) > 0 && (
+        <div className="mt-2 text-xs text-gray-700">
+          <div className="font-medium">앞으로 기대할 시기</div>
+          <ul className="mt-1 list-disc pl-4">
+            {KIND_ORDER.filter((k) => data.positive_windows!.some((w) => w.kind === k)).map((k) => {
+              const ws = data.positive_windows!.filter((w) => w.kind === k).slice(0, 3);
+              return (
+                <li key={k}>
+                  <span style={{ color: MARKER_STYLE[k]?.color }}>{MARKER_STYLE[k]?.symbol}</span>{" "}
+                  {ws[0].kind_ko}:{" "}
+                  {ws
+                    .map((w) =>
+                      w.start_year === w.end_year
+                        ? `${w.start_year}년(만 ${w.start_age}세)`
+                        : `${w.start_year}–${w.end_year}년(만 ${w.start_age}–${w.end_age}세)`,
+                    )
+                    .join(" · ")}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
     </figure>
   );

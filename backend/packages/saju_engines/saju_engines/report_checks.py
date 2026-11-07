@@ -12,6 +12,7 @@ from pathlib import Path
 from saju_shared_types.profile import PersonaConfig
 from saju_shared_types.report import SectionContext, SectionPlan
 
+from .gender_kin_audit import audit_gender_kin_claims
 from .llm_event_serializer import INTERNAL_JARGON_LABELS
 from .persona import PersonaEngine
 
@@ -123,5 +124,12 @@ class ReportChecker:
                 leaked.append(marker)
         if leaked:
             violations.append("내부용어 노출(순화 필요): " + ", ".join(leaked))
+
+        # 9. 육친 성별 기준 — 남성 명식에 관성=배우자/결혼, 여성 명식에 재성=배우자
+        # (soft, 2026-11-07).
+        # 사실 위반이 아니라 서술 축 오류라 재생성하지 않고 기록만 한다(실답 재발 빈도 측정용).
+        kin = audit_gender_kin_claims(text, context.gender)
+        if kin:
+            violations.append("육친 성별 기준 위반(soft): " + " / ".join(kin[:3]))
 
         return violations

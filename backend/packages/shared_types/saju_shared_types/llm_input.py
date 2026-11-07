@@ -43,6 +43,9 @@ class BirthChartSummary(BaseModel):
     """원국 요약 (docs/06 birthChartSummary)."""
 
     day_master: str
+    # 주인공 성별('male'|'female'|'unknown') — 고정 prefix 2행 [주인공] 육친 기준 줄의 원천
+    # (2026-11-07 데굴님 "남자인지 여자인지에 따라 답변 형태를 다르게"). 사용자별 상수라 캐시 안전.
+    gender: str = "unknown"
     pillars: dict[str, str]  # {'year': '庚申', ...} — 시주 미상이면 hour 생략
     void_branches: list[str] = Field(default_factory=list)
     # 확장 공망 사실(2026-10-23) — '일주 甲子旬'·'절로공망(시간 壬)'·'호환공망 연↔일' 등.

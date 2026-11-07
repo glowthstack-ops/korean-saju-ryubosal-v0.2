@@ -124,7 +124,7 @@ from .sinsal_direction import (
 )
 from .sinsal_modifier import derive_natal_sinsal_modifiers, select_llm_sinsal_modifiers
 from .sinsal_numeric_scoring import apply_sinsal_channel_shadow, channel_note_ko
-from .structural_context import TONE_LAYER_DIRECTIVE
+from .structural_context import TONE_LAYER_DIRECTIVE, gender_kin_line
 from .structure_patterns import detect_structure_patterns, select_llm_patterns
 from .yongsin_color import (
     YONGSIN_COLOR_INSTRUCTION,
@@ -1748,6 +1748,7 @@ def build_birth_summary(result: ManseV2Result) -> BirthChartSummary:
     _gm_facts = list(_gm.extended.facts_ko) if _gm is not None and _gm.extended is not None else []
     return BirthChartSummary(
         day_master=p.day_master,
+        gender=str((result.input_summary or {}).get("gender") or "unknown"),
         pillars=pillars,
         void_branches=list(p.gongmang_branches),
         gongmang_facts=_gm_facts,
@@ -2918,6 +2919,10 @@ def serialize_chart_prefix(summary: BirthChartSummary, ci: ChartInterpretation |
         + (" · 시주 미상: 3기둥 기준, '미확정' 표기 항목은 확정값 아님"
            if summary.hour_unknown else "")
         + "]",
+        # 2행: 주인공 성별 + 육친 기준(2026-11-07) — 모든 섹션·채팅 턴이 남=재성 아내·관성 자녀 /
+        # 여=관성 남편·식상 자녀를 같은 줄로 받는다(F-06b 한 곳의 가드만으로는 F-03 십성 육친이
+        # 성별 없이 서술되던 결함). 사용자별 상수라 prefix 캐시 조건을 깨지 않는다.
+        gender_kin_line(summary.gender),
         f"일간 {summary.day_master} · 명식 {pillar_txt}"
         + f" · 공망 {''.join(summary.void_branches) or '없음'}"
         + (

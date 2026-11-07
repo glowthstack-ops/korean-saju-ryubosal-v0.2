@@ -102,6 +102,7 @@ from saju_engines.entry_slots import (
 )
 from saju_engines.event_engine_config import build_event_engine_v2
 from saju_engines.event_lexicon import event_narration_directive
+from saju_engines.gender_kin_audit import audit_gender_kin_claims
 from saju_engines.gongmang_claim_audit import audit_gongmang_claims
 from saju_engines.horizon import (
     ENTRY_WINDOW_DIRECTIVE,
@@ -2077,6 +2078,8 @@ def finalize_answer_full(
         answer = _audit_ilju_mention_answer(answer, ctx, thread_id)
         # 주 호칭 감사(2026-11-06) — '다음 주' 질문의 '이번 주·금주' 호칭을 질문 호칭으로 교정.
         answer = _audit_week_label_answer(answer, ctx, thread_id)
+        # 육친 성별 기준 감사(2026-11-07) — 로그 전용(재발 빈도 측정 후 패치 여부 결정).
+        _audit_gender_kin_answer(answer, ctx.payload, thread_id)
         if ctx.entry_window and answer:
             _has_done, _has_move = entry_window_labels_present(answer)
             _logger.info(
@@ -2139,6 +2142,20 @@ def _audit_layer_labels_answer(answer: str, payload: LlmInput, thread_id: str | 
             len(audit.fixes), audit.fixes, thread_id,
         )
     return audit.text
+
+
+def _audit_gender_kin_answer(answer: str, payload: LlmInput, thread_id: str | None) -> None:
+    """육친 성별 기준 위반 문장 로그(2026-11-07) — 남성 명식에 관성=배우자/결혼, 여성에 재성=배우자.
+
+    교정·재호출 없음. 위반이 있을 때만 warning 으로 남긴다(검수는 실사용 답변으로).
+    """
+    gender = getattr(payload.birth_chart_summary, "gender", "unknown")
+    hits = audit_gender_kin_claims(answer, gender)
+    if hits:
+        _logger.warning(
+            "gender_kin_claim_audit result=violation gender=%s n=%d sample=%r thread=%s",
+            gender, len(hits), hits[0], thread_id,
+        )
 
 
 def _audit_gongmang_claims_answer(
