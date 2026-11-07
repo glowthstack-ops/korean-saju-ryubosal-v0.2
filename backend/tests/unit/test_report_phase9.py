@@ -42,13 +42,15 @@ def _spec(product: str = "RPT_FULL", topic: str | None = None) -> ReportSpec:
 # ── 목차 규격(3·4장 — 임의 변경 금지) ────────────────────────────
 
 
-def test_full_toc_is_26_sections_in_fixed_order() -> None:
-    """생애 개편(2026-08-13) 25섹션 + F-20b 방위 활용(2026-09-20, docs/18) = 26섹션."""
+def test_full_toc_is_16_fixed_sections_in_order() -> None:
+    """총운 개편(2026-11-07) — 1부 나(F-01~F-06c) · 2부 흐름(F-07·F-14·F-14b) · 3부 조언·부록."""
     plans = build_section_plans(_spec("RPT_FULL"))
-    expected = [f"F-{n:02d}" for n in range(1, 18)]  # F-01~F-17
-    expected += ["F-17b", "F-17c", "F-18", "F-18b", "F-19", "F-20", "F-20b", "F-21", "F-22"]
+    expected = [
+        "F-01", "F-02", "F-03", "F-04", "F-05", "F-06", "F-06b", "F-06c",
+        "F-07", "F-14", "F-14b", "F-19", "F-20", "F-20b", "F-21", "F-22",
+    ]
     assert [p.section_id for p in plans] == expected
-    # 분량 합계 목표 FULL_TOTAL_TARGET ±10% — 캘리브레이션 min/max 평균 기준.
+    # 분량 합계 목표 FULL_TOTAL_TARGET ±10% — 캘리브레이션 min/max 평균 기준(대운별 페이지 별도).
     mid = sum((p.target_chars.min + p.target_chars.max) / 2 for p in plans)
     assert abs(mid - FULL_TOTAL_TARGET) <= FULL_TOTAL_TARGET * 0.10
 
@@ -62,15 +64,11 @@ def test_year_toc_total_within_target() -> None:
 
 
 def test_full_depends_on_rules() -> None:
-    """F-04 → F-10~F-20(신규 접미 포함) 선행, F-21 → 4·5부 완료 후(3장 규칙)."""
+    """F-04 → 1부 신설·2부·3부 선행, F-21 → F-14b·3부 완료 후(3장 규칙, 2026-11-07)."""
     plans = {p.section_id: p for p in build_section_plans(_spec("RPT_FULL"))}
-    for n in range(10, 21):
-        assert plans[f"F-{n:02d}"].depends_on == ["F-04"]
-    for sid in ("F-17b", "F-17c", "F-18b", "F-20b"):
-        assert plans[sid].depends_on == ["F-04"]
-    assert plans["F-21"].depends_on == [
-        *[f"F-{n:02d}" for n in range(13, 21)], "F-17b", "F-17c", "F-18b", "F-20b",
-    ]
+    for sid in ("F-06b", "F-06c", "F-07", "F-14", "F-14b", "F-19", "F-20", "F-20b"):
+        assert plans[sid].depends_on == ["F-04"], sid
+    assert plans["F-21"].depends_on == ["F-14b", "F-19", "F-20", "F-20b"]
     assert plans["F-01"].depends_on == []
 
 
@@ -293,7 +291,7 @@ def test_pipeline_on_hold_after_hard_violation() -> None:
 
 
 def test_full_dependency_skips_after_f04_failure() -> None:
-    """F-04 실패 시 F-10~F-20은 미생성(용신 일관성 보호)."""
+    """F-04 실패 시 의존 섹션(F-07 등)은 미생성(용신 일관성 보호)."""
     def gen(plan, context, attempt):
         if plan.section_id == "F-04":
             return "반드시 된다.", 100, 10
@@ -302,7 +300,7 @@ def test_full_dependency_skips_after_f04_failure() -> None:
     result = _focus_builder(gen).build(_spec("RPT_FULL"))
     by_id = {s.section_id: s for s in result.sections}
     assert not by_id["F-04"].passed
-    assert by_id["F-10"].violations == ["선행 섹션 실패로 미생성"]
+    assert by_id["F-07"].violations == ["선행 섹션 실패로 미생성"]
     assert by_id["F-01"].passed  # 선행 무관 섹션은 정상
 
 

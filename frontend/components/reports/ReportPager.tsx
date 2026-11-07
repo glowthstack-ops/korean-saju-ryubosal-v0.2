@@ -10,11 +10,14 @@ import remarkGfm from "remark-gfm";
 import { sectionBlurb, sectionLabel } from "@/lib/section-display";
 import { readingFontClasses } from "@/lib/storage";
 import { useReadingFontSize } from "@/lib/useReadingFontSize";
+import { LifeGraph, isLifeGraphData } from "./LifeGraph";
 
 export interface ReportSection {
   section_id: string;
   title: string;
   text: string;
+  /** 엔진 확정 구조 데이터(총운 F-14 인생 그래프, 2026-11-07) — 없으면 마크다운 본문만. */
+  data?: unknown;
 }
 
 export function ReportPager({
@@ -61,6 +64,8 @@ export function ReportPager({
           {i === page && blurb && (
             <p className="mb-3 text-xs text-gray-400 print:hidden">{blurb}</p>
           )}
+          {/* 인생 그래프(총운 F-14) — 엔진 데이터만 그린다. 형태가 맞지 않으면 본문만 표시. */}
+          {s.section_id === "F-14" && isLifeGraphData(s.data) && <LifeGraph data={s.data} />}
           <div
             className={`prose ${proseFontCls} max-w-none leading-relaxed
               prose-p:my-2 prose-li:my-0.5 prose-headings:mt-4 prose-headings:mb-1

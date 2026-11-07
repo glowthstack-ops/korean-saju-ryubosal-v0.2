@@ -69,7 +69,7 @@ export const THEMES: Theme[] = [
     productCode: "RPT_FULL",
     topic: null,
     companionMode: "none",
-    desc: "타고난 기질부터 인생의 변곡점, 결혼·직업·재물·부모·자녀·이사·건강까지 — 출생부터 90세까지 내 인생 전체를 한 권으로 읽어보세요.",
+    desc: "타고난 기질·관계 성향·적성으로 나를 먼저 깊이 이해하고, 첫 대운부터 90세까지의 흐름과 결혼·취업·이직·이사·위기 시기를 인생 그래프로 읽어보세요.",
   },
   {
     slug: "year",

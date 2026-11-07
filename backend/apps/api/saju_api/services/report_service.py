@@ -33,6 +33,7 @@ from saju_engines.chart_interpretation import (
     career_exit_lecture_block,
     mobility_marker_flip_lines,
 )
+from saju_engines.clash_relief import luck_clash_relief_block
 from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
 from saju_engines.context_reducer import (
     _DOMAIN_EVENT_KEYS,
@@ -82,6 +83,7 @@ from saju_engines.health_vulnerability import analyze_health_vulnerability
 from saju_engines.horizon import ENTRY_WINDOW_DIRECTIVE
 from saju_engines.impossible_relation_audit import strip_impossible_relation_claims
 from saju_engines.intent_event_filter import IntentEventFilter
+from saju_engines.life_graph import build_life_graph, daewoon_summary_lines, marker_lines
 from saju_engines.lifetime_scan import (
     PER_CLUSTER_CAP,
     REPORT_TABLE_MAX_YEARS,
@@ -129,6 +131,11 @@ from saju_engines.report_plan import (
     YONGSIN_SECTIONS,
     build_section_plans,
     is_pair_relationship,
+)
+from saju_engines.report_style_audit import (
+    hedge_retrospective,
+    strip_month_detail,
+    unify_haeyo,
 )
 from saju_engines.section_claim_audit import (
     CLAIM_POLICY_RELOCATION_CHECK,
@@ -226,6 +233,7 @@ from saju_shared_types.event_taxonomy_v2 import event_facets
 from saju_shared_types.events import EventCandidate, EventPolarity
 from saju_shared_types.ganji_calendar import GanjiLevel
 from saju_shared_types.intent import Domain, IntentJson, QueryType, SubjectKind
+from saju_shared_types.life_graph import LifeGraph
 from saju_shared_types.llm_input import LlmEventCandidate
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.report import (
@@ -408,6 +416,8 @@ _LIFETIME_DOMAIN_KO: dict[str, str] = {
 }
 # 길흉 결 라벨 — overview_cluster_key의 방향 축(pos/neg/mixed)을 사용자 어휘로.
 _LIFETIME_TONE_KO: dict[str, str] = {"pos": "길", "neg": "주의", "mixed": "혼합"}
+# 인생 그래프 대운 상태(지남/현재/예정) 한글 — 종합·요약 카드 표기(2026-11-07).
+_STATUS_KO: dict[str, str] = {"past": "지남", "current": "현재", "future": "예정"}
 # 예측(향후 N년) 테마 — 과거가 아닌 오늘 이후를 앵커링할 주제(총운/궁합 비교는 제외).
 _FORECAST_TOPICS = {"career", "wealth", "relationship"}
 
@@ -506,14 +516,22 @@ _SECTION_GUIDES: dict[str, str] = {
     "평생 이어진다(초년 길성이 중년에 사라진다고 보지 말 것). 운이 그 자리를 합·충·형으로 "
     "건드리면 재활성되며, 그래도 단독 사건 단정은 금지(길성=완충·도움, 흉살=리스크·주의).",
     "F-06": "앞 섹션들의 재료를 종합해 성격·취향·행동 패턴의 이야기로 묶을 것.",
+    # 1부 신설(2026-11-07 총운 개편) — 원국 전용. 대운·세운·연도·'언제'는 쓰지 않는다(2부 몫).
+    "F-06b": "원국만으로 관계·연애의 결(사랑을 대하는 방식·연애 유형·배우자궁·배우자성 축)과 "
+    "[미혼 배우자상](재미로 보는 겉모습 포함)을 서술할 것. 만남·결혼의 '시기'는 쓰지 말 것 — "
+    "언제의 이야기는 2부 인생 그래프·대운별 상세 몫이다. 결혼 강요·낙인 표현 금지.",
+    "F-06c": "원국만으로 적성·일하는 방식·재물 그릇을 서술할 것 — [직업 분야 근거]와 [직업 분야 "
+    "지침]을 따르고 [조직 규모 적합]으로 어울리는 조직 결을 짚으며, [원국 횡재 그릇]과 부/귀 "
+    "지향으로 돈을 담는 그릇의 크기·방식을 설명할 것. 취업·이직·재물의 '시기'는 쓰지 말 것"
+    "(2부 몫).",
     # 2부 과거(F-07~F-09) — 시간범위를 '출생~현재'로 한정. 미래 연·월 사건 디테일은 3·4부
     # (현재 대운 정밀·향후 로드맵·고점 연도)의 몫이므로 여기서 끌어오지 말 것(데이터-목적 정합).
-    "F-07": "출생부터 현재까지 거쳐 온 각 대운(10년)의 색깔과 전환점을 순서대로 짚어 인생 궤적을 "
-    "그릴 것. 대운표의 '발현' 모드(계기 선인식→현실화 누적 경향과 그 예외)로 시기감을 주되, "
-    "전반·후반 연차로 나눠 단정하지 말고, 특정 미래 연도·월의 사건 디테일(예: 몇 년 몇 월 "
-    "이직)은 다루지 말 것 — 그건 뒤의 '현재 대운 정밀'·'향후 대운 로드맵' 섹션 몫이다. "
-    "여기서는 대운 단위의 큰 흐름만. 범위는 [지남] 대운들과 '현재 대운' 표기 행까지 — "
-    "[예정] 대운은 이 섹션에서 서술하지 말 것(향후 로드맵 몫).",
+    "F-07": "첫 대운부터 90세까지 전체 대운(10년 단위)의 색깔·주제·전환점을 순서대로 짚어 인생 "
+    "궤적의 큰 모양을 그릴 것 — [지남] 대운은 '이런 흐름이 지나갔을 시기'로 회고하며 적중 확인을 "
+    "유도(단정 금지), '현재 대운' 표기 행은 진행형, [예정] 대운은 활성화 창으로. 대운표의 '발현' "
+    "모드(계기 선인식→현실화 누적 경향과 그 예외)로 시기감을 주되 전반·후반 연차로 나눠 단정하지 "
+    "말고, 특정 연도·월의 사건 디테일은 다루지 말 것 — 그건 뒤의 인생 그래프·대운별 상세 몫이다. "
+    "[대운 전수 체크리스트]의 대운을 하나도 빠뜨리지 말 것.",
     "F-08": "과거 검증 신호(M14)를 토대로 지나온 시기의 주요 사건 가능성을 연도대별로 복원해 "
     "서술할 것. 대운표는 그 사건이 어느 대운기였는지 맥락으로만 쓰고, 미래 시점은 다루지 "
     "말 것.",
@@ -524,13 +542,17 @@ _SECTION_GUIDES: dict[str, str] = {
     "F-13": "현재 이후 잔여 생애의 모든 대운을 순서대로 로드맵화할 것 — 각 대운의 색깔·주제·"
     "전환점을 짚되, 특정 연·월 사건 디테일은 생애 변곡점 연표(다음 섹션) 몫이므로 대운 단위 "
     "큰 흐름만 서술할 것.",
-    "F-14": "아래 [생애 변곡점 연표]가 이 섹션의 골격이다 — 표의 연도를 시기 순으로 풀어 인생 "
-    "전체의 변곡점을 조망할 것. 과거 연도는 '이런 흐름이 지나갔을 시기'로 회고하며 적중 확인을 "
-    "유도하고(단정 금지), 미래 연도는 사건명을 그대로 쓰되 '…할 수 있는 해'로 서술할 것(확정 "
-    "어미만 금지). "
-    "표에 없는 해를 '아무 일 없는 해'로 단정하지 말 것. 월별 상세는 변곡 연도당 최대 1–2개 "
-    "달만. [연도별 흐름] 표는 가까운 몇 해의 해상도 보강용 보조 자료다. 90세 이후는 '풀이는 "
+    "F-14": "이 섹션은 화면에 엔진이 그린 인생 그래프(대운 띠·해마다의 운 선·주요 이벤트 마커)와 "
+    "함께 보인다. 아래 [인생 그래프 데이터]를 근거로 그래프 읽는 법(띠=대운의 결, 선=해마다의 운, "
+    "마커=결혼·취업·이직·이사·위기 후보)과 대운 흐름의 큰 모양(상승·하강·전환이 어느 대운에서 "
+    "오는지)만 짧게 해설할 것. 연도별 상세·개별 사건 서술은 하지 말 것 — 그건 다음 대운별 상세 "
+    "페이지 몫이다. 마커가 없는 대운을 '아무 일 없는 시기'로 단정하지 말 것. 90세 이후는 '풀이는 "
     "90세까지를 기준으로 본다'고 한 줄로만 안내할 것.",
+    "F-14b": "아래 [대운별 주요 이벤트 정리]와 [대운별 페이지 요약]을 통합해, 초년·청년·중년·말년 "
+    "단계별로 내 인생이 어떤 모양으로 진행되는지 한 번에 정리할 것. 앞 페이지와 다른 연도·사건을 "
+    "새로 만들지 말고, 과거는 회고·적중 확인 유도(단정 금지), 미래는 활성화 창(사건명은 그대로, "
+    "확정 어미만 금지)으로. 단계마다 흐름의 결(상승·정체·전환)과 그 단계의 주요 이벤트를 짝지어 "
+    "서술하고, 마지막에 전체를 한 문단으로 요약할 것.",
     "F-15": "직업 구조(관성·식상·재성)와 적합 분야·추구 방향을 서술하되 적합 분야는 [직업 분야 "
     "근거](십성 기능 표)와 [직업 분야 지침]을 따르고, [조직 규모 적합] 지침에 따라 어울리는 조직 "
     "결(대기업/중견·중소/스타트업 등)을 짚을 것 — 합격·승진은 가능성형으로(확정 어미만 금지).",
@@ -664,6 +686,8 @@ _NATAL_SECTIONS = {
     "F-04",
     "F-05",
     "F-06",
+    "F-06b",  # 총운 개편(2026-11-07) — 관계·연애 성향·배우자상(원국 전용)
+    "F-06c",  # 총운 개편(2026-11-07) — 적성·일 방식·재물 그릇(원국 전용)
     "C-02",
     "W-02",
     "W-03",
@@ -775,13 +799,13 @@ def _section_call_type(base: str, data: _ReportData, sid: str) -> str:
     return base
 # 세운 연도별 전체 흐름 표(예측 창 전 연도)를 부착하는 섹션 — '향후 N년 종합'·고점 연도 스캔.
 # 테마 FOCUS 5년 종합 + generic FOCUS 기간 흐름 + 총운 고점 연도(F-14)(2026-06-23 보강).
-_YEAR_SPECTRUM_SECTIONS = {"W-06", "J-05", "R-05", "RP-06", "RL-06", "C-03", "F-14"}
+_YEAR_SPECTRUM_SECTIONS = {"W-06", "J-05", "R-05", "RP-06", "RL-06", "C-03"}
 
 # 조직 규모 적합(F-15 — docs/10 3-2, 2026-08-13 사용자 확정). 서술 전용 매핑: 점수·날짜·
 # 간지·판정에 관여하지 않는다. 표의 SSOT는 docs/10 3-2 — 어휘가 커지면 사전(JSON) 승격.
 # 직업 분야·적합 분야(2026-09-10 데굴님 제공 자료 — dictionaries/career_fields.json). 채팅의
 # _CAREER_FIELD_DIRECTIVE 와 같은 규칙을 섹션 길이에 맞춘 것. 점수·판정 불변(서술 근거 전용).
-_CAREER_FIELD_SECTIONS = frozenset({"F-15", "J-04", "J-07"})
+_CAREER_FIELD_SECTIONS = frozenset({"F-15", "F-06c", "J-04", "J-07"})
 _CAREER_FIELD_REPORT_DIRECTIVE = (
     "[직업 분야 지침 — 서술 전용] 위 [직업 분야 근거]의 두드러진 십성·배합을 근거로 어울리는 "
     "직업군 2–3개를 이름으로 짚고, 각각 '어떤 기능과 방식으로 일하는가'(생산·표현·거래·관리·"
@@ -815,12 +839,14 @@ _SPOUSE_MARRIED_DIRECTIVE = SPOUSE_MARRIED_DIRECTIVE
 # 십년 풀이 하위 페이지(F-14-D*) 서술 가이드 — docs/10 3-1(2026-08-13 사용자 제안
 # '10년 단위 페이지 분리' 채택). 동적 sid라 _SECTION_GUIDES 대신 접두 판정으로 적용.
 _DECADE_PAGE_GUIDE = (
-    "이 페이지는 제목의 대운 10년만 다룬다. 아래 [십년 세운 흐름]의 각 해를 하나도 "
-    "빠뜨리지 말고 1–3문장씩 짚되, ★주목 해는 더 자세히. 이 대운의 천간·지지 십성이 "
-    "만드는 환경을 배경으로 깔고 그 위에서 각 해를 서술할 것. 과거 연도는 '이런 흐름이 "
-    "지나갔을 시기'로 회고하며 적중 확인을 유도(단정 금지), 미래 연도는 사건명을 그대로 "
-    "쓰되 '…할 수 있는 해'로(확정 어미만 금지). 다른 대운·다른 연도의 사건을 끌어오지 말고, "
-    "이미 앞 페이지에서 다룬 해를 같은 문장으로 반복하지 말 것."
+    "이 페이지는 제목의 대운 10년만 다룬다(첫 대운 페이지는 출생~유년 포함). 이 대운의 "
+    "천간·지지 십성이 만드는 환경을 배경으로 깔고, [이 대운의 주요 이벤트 후보 — 그래프 마커]의 "
+    "해를 중심으로 아래 [십년 세운 흐름]의 각 해를 하나도 빠뜨리지 말고 1–3문장씩 짚되, 마커·"
+    "★주목 해는 더 자세히. [지남] 대운이면 각 해를 '이런 흐름이 지나갔을 시기'로 회고하며 "
+    "적중 확인을 유도(단정 금지), 현재 대운이면 지난 해는 회고·남은 해는 활성화 창, [예정] "
+    "대운이면 사건명을 그대로 쓰되 '…할 수 있는 해'로(확정 어미만 금지). 다른 대운·다른 "
+    "연도의 사건을 끌어오지 말고, 이미 앞 페이지에서 다룬 해를 같은 문장으로 반복하지 말 것. "
+    "입력은 연 단위뿐이므로 달(월) 단위로 내려가지 말 것 — '몇 년 몇 월에'를 쓰지 않는다."
 )
 
 # 한해풀이 반기 페이지(Y-05-H1/H2) 서술 가이드 — 12개월을 한 섹션에서 다루기 어렵던
@@ -858,7 +884,7 @@ _SINSAL_DIRECTION_TOPIC_PURPOSES: dict[str, tuple[str, ...]] = {
 }
 # 삼재 흐름 부착 섹션 — 값=연도 범위 종류. today3=오늘~+2년, forecast=예측 창, year=대상 연도.
 _SAMJAE_SECTIONS: dict[str, str] = {
-    "F-11": "today3", "F-14": "forecast", "Y-04": "year",
+    "F-11": "today3", "Y-04": "year",
     "W-06": "forecast", "J-05": "forecast", "R-05": "forecast", "RL-06": "forecast",
     "C-03": "forecast",
 }
@@ -869,7 +895,7 @@ _NO_LOVE_NOTE_SECTIONS = frozenset({"F-17c"})
 # 연표·월별 흐름. 부모·가족(F-17b)·행동 전략(F-19/Y-10)·개운(F-20/Y-11)·방위(F-20b/Y-11b)·달력표
 # (Y-12)처럼 도메인 미매핑이지만 총운이 아닌 섹션은 제외(2026-10-30 점검 — 관계 섹션 누출 교정).
 _CAREER_LECTURE_GENERAL_SECTIONS = frozenset({
-    "F-10", "F-11", "F-13", "F-14", "Y-01", "Y-03", "Y-04", "Y-05",
+    "F-10", "F-11", "F-13", "Y-01", "Y-03", "Y-04", "Y-05",
 })
 
 # 도메인 섹션 → 생애 도메인 변곡 행(장기 연동) 매핑 — 모든 도메인 섹션이 근접 5년만
@@ -894,7 +920,9 @@ _OFF_PEAK_DAEWOON_ADVICE_DIRECTIVE = (
 # 대운별 테마 / F-08 과거 이벤트 복원 / F-09 과거 검증)는 미래 후보가 섞이면 안 되고, 메타 섹션
 # (F-21 요약카드 / F-22 부록=간지달력·용어)도 원시 미래 클러스터가 부적절하다. 과거 데이터는 각
 # 섹션의 M14(과거 검증) 모듈이, 시간 backbone은 [대운표](과거 포함)가 담당한다. docs/10 2부·5부.
-_DAEWOON_ONLY_SECTIONS = {"F-07", "F-08", "F-09", "F-21", "F-22"}
+# 2026-11-07 총운 개편: 인생 그래프(F-14)·인생 흐름 종합(F-14b)도 [대운표]만 — 세운 후보 블록은
+# 총운 섹션에 싣지 않는다(세운은 대운별 페이지 연도 줄·그래프 마커 재료로만).
+_DAEWOON_ONLY_SECTIONS = {"F-07", "F-08", "F-09", "F-14", "F-14b", "F-21", "F-22"}
 # 간지 달력표(엔진 결정론적 표)를 본문 끝에 자동 첨부하고 terminology.json을 주입하는 섹션
 # (docs/10 F-22 부록 / Y-12 간지 달력표). 표는 LLM이 만들지 않고(절대원칙 1) 분량 캡도 면제한다.
 _GANJI_CALENDAR_SECTIONS = {"F-22", "Y-12"}
@@ -929,13 +957,25 @@ _DUP_GANJI_KO_RE = re.compile(
 )
 
 
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?。])\s+")
+
+
+def _first_sentences(text: str, n: int = 2) -> str:
+    """본문 첫 n문장(마크다운 제목·불릿 기호 제거) — 대운별 페이지 요약 재료(2026-11-07)."""
+    plain = " ".join(
+        ln.lstrip("#-*> ").strip() for ln in text.splitlines() if ln.strip()
+    )
+    parts = [p for p in _SENTENCE_SPLIT_RE.split(plain) if p]
+    return " ".join(parts[:n])[:400]
+
+
 def _dedupe_ganji_ko(text: str) -> str:
     """간지 독음이 겹친 병기를 한 번으로 — '癸丑(계축) (계축)'→'癸丑(계축)'. 결정론적 후처리."""
     return _DUP_GANJI_KO_RE.sub(r"\1(\2)", text)
 
 
 # 대운 framing 관점을 붙일 섹션(대운 개관·정밀·로드맵·한해 대운 맥락).
-_DAEWOON_FRAMING_SECTIONS = {"F-07", "F-10", "F-13", "Y-03"}
+_DAEWOON_FRAMING_SECTIONS = {"F-07", "F-10", "F-13", "F-14b", "Y-03"}
 # 교체기 체감 신호를 붙일 섹션(대운 흐름 개관 + 과거 검증 체크리스트).
 _DAEWOON_TRANSITION_SIGNAL_SECTIONS = {"F-07", "F-09"}
 # 안 맞는 대운 조언을 붙일 섹션(도메인·연·테마 행동 전략).
@@ -976,7 +1016,7 @@ def _remedy_action_map() -> dict:
 
 
 # 원국 횡재 그릇 블록을 부착하는 재물 섹션(Phase 1 — 횡재 잠재구조 표면화).
-_WEALTH_CAPACITY_SECTIONS = {"W-04", "W-05", "Y-07", "F-16"}
+_WEALTH_CAPACITY_SECTIONS = {"W-04", "W-05", "Y-07", "F-16", "F-06c"}
 # 결혼·자산 자원 구조 블록을 부착하는 관계·재물구조 섹션(중립 구조 신호 — 신규 키 없음).
 # 직업 테마(J-*)에는 부적합이라 미부착(개별 intent는 주제 적합 섹션만 — 선택적).
 _MARRIAGE_RESOURCE_SECTIONS = {
@@ -985,6 +1025,7 @@ _MARRIAGE_RESOURCE_SECTIONS = {
     "RP-03",
     "RP-04",
     "F-17",
+    "F-06b",  # 총운 개편(2026-11-07) — 원국 전용 관계·연애 성향
     "Y-08",
     "W-03",
 }
@@ -992,7 +1033,7 @@ _MARRIAGE_RESOURCE_SECTIONS = {
 _HEALTH_VULN_SECTIONS = {"Y-09", "F-18"}
 _HEALTH_TOPIC_SECTIONS = {"C-02", "C-06"}
 # 부/귀 지향 블록을 부착하는 명식 구조·직업 섹션.
-_WEALTH_STATUS_SECTIONS = {"F-04", "J-02", "J-03", "W-02"}
+_WEALTH_STATUS_SECTIONS = {"F-04", "J-02", "J-03", "W-02", "F-06c"}
 # (블록 한글화 매핑은 structural_context 단일 소스로 이관됨 — 누출 방지 포맷 일원화.)
 
 
@@ -1145,8 +1186,14 @@ class _ReportData:
         self._lifetime_year_ganji: dict[int, str] = {}
         #: 전 생애 세운이 병합된 결과(십년 풀이 페이지의 세운 스펙트럼 원천).
         self._lifetime_result: ManseV2Result | None = None
-        #: 십년 풀이 하위 페이지(sid → (시작년, 끝년, 간지, 시작나이)) — plan 확장이 채움.
+        #: 대운별 상세 페이지(sid → (시작년, 끝년, 간지, 시작나이)) — plan 확장이 채움.
         self.decade_windows: dict[str, tuple[int, int, str, int]] = {}
+        #: 대운별 상세 페이지(sid → 대운 index) — 그래프 마커를 그 대운으로 좁힐 때(2026-11-07).
+        self.decade_index: dict[str, int] = {}
+        #: 생성된 섹션 본문(sid → text) — 인생 흐름 종합(F-14b)이 대운 페이지 산출을 받는 통로.
+        self.section_texts: dict[str, str] = {}
+        #: 인생 그래프(총운 개편 2026-11-07) — 대운 곡선·세운 선·마커 5종. RPT_FULL 전용.
+        self.life_graph: LifeGraph | None = None
         #: 분할 월별 페이지(sid → (달 라벨 집합, 구간 라벨)) — 한해 상·하반기/테마 연도별
         #: 상세(2026-08-13 확정). plan 확장이 채움.
         self.month_page_windows: dict[str, tuple[set[str], str]] = {}
@@ -1201,6 +1248,20 @@ class _ReportData:
                 for p in _lt_result.luck_cycles.yearly_luck
                 if p.label.isdigit()
             }
+            # 전 생애 위험 shadow(건강·금전 family) — 그래프 위기 마커의 우선순위 보조(마커 생성
+            # 아님, 2026-11-07 결정 3). 적격 후보만, 연도 → 도메인 집합.
+            _lt_risk_years: dict[int, set[str]] = {}
+            for _rk in self.scorer.take_risk_shadow():
+                _pk = str(getattr(_rk, "period_key", ""))[:4]
+                if _pk.isdigit() and getattr(_rk, "eligibility_status", None) is not None and (
+                    str(getattr(_rk.eligibility_status, "value", _rk.eligibility_status))
+                    == "eligible"
+                ):
+                    _lt_risk_years.setdefault(int(_pk), set()).add(str(_rk.domain.value))
+            self.life_graph = build_life_graph(
+                self.result, _lt_result, self.lifetime_pool, _lt_lo, _lt_hi,
+                risk_years=_lt_risk_years,
+            )
         # 기간 연도 경계(섹션별 도메인 후보 스코핑용) — 후보 필터와 동일 기준.
         self._yr_lo = spec.period.start[:4]
         self._yr_hi = spec.period.end[:4]
@@ -1651,26 +1712,35 @@ class _ReportData:
           만족도 칸은 그 기간 재물 후보(재물 변화·횡재) 최고점으로 채팅과 같은 기준
         - relationship: `love_separation_block`(이별운 강의 운 문구 4종) + 다름의 인정 관점
         - relocation: `mobility_marker_flip_lines`(이동지 양면 1줄, 후보 무관 — 2026-11-03)
+        - 네 도메인 공통: `luck_clash_relief_block`(충 완화 글자 — 후보 기간 운 지지가 원국 용·희신
+          글자를 충할 때, 2026-11-07)
         네 도메인 밖이거나(이사 제외) 후보가 없으면 빈 목록. 점수·판정 불변(서술 전용).
         """
+        periods = [(c.period, self._ganji_by_label.get(c.period, "")) for c in cands]
+        # 충 완화 글자(2026-11-07) — 섹션 후보 기간의 운 지지가 원국 용·희신 글자를 충하면 채팅
+        # 말미와 같은 블록을 네 도메인 섹션 끝에 함께 싣는다(서술 전용).
+        relief = luck_clash_relief_block(self.result, periods) if cands else []
         if domain == "relocation":
             # 이동지 양면 줄(2026-11-03) — 후보 유무와 무관하게 보유 글자가 있으면 항상(채팅과
             # 같은 줄).
-            return mobility_marker_flip_lines(self.result)
+            return [*mobility_marker_flip_lines(self.result), *relief]
         if domain not in ("career", "wealth", "relationship") or not cands:
             return []
-        periods = [(c.period, self._ganji_by_label.get(c.period, "")) for c in cands]
         if domain == "career":
-            return career_exit_lecture_block(self.result, periods)
+            return [*career_exit_lecture_block(self.result, periods), *relief]
         if domain == "wealth":
             best: dict[str, int] = {}
             for c in cands:
                 if str(c.event_key) in ("wealth_change", "windfall"):
                     best[c.period] = max(best.get(c.period, 0), c.score)
-            return wealth_period_block(
-                self.result, [(p, g, best.get(p)) for p, g in periods],
-            )
-        return [*love_separation_block(self.result, periods), RELATIONSHIP_DIFFERENCE_PERSPECTIVE]
+            return [
+                *wealth_period_block(self.result, [(p, g, best.get(p)) for p, g in periods]),
+                *relief,
+            ]
+        return [
+            *love_separation_block(self.result, periods), RELATIONSHIP_DIFFERENCE_PERSPECTIVE,
+            *relief,
+        ]
 
     def domain_candidates(self, domain: str, n: int = 6) -> list[EventCandidate]:
         """섹션 도메인 후보 — 기간 내 같은 도메인 신호를 길·흉 모두 담아 시점순 top-n.
@@ -1776,25 +1846,116 @@ class _ReportData:
             *spectrum,
         ]
 
-    def remaining_daewoon_checklist(self) -> list[str]:
-        """[잔여 대운 체크리스트] — 현재 대운부터 표 끝까지 전수 나열(F-13 조기 종료 차단).
+    def remaining_daewoon_checklist(self, *, scope: str = "remaining") -> list[str]:
+        """[잔여/전수 대운 체크리스트] — 대운을 엔진이 나열해 조기 종료를 막는다.
 
         2026-08-13 데굴님 실사용 발견: 향후 대운 서술이 중간(65~75세 구간)에서 임의로
-        끊겼다. 잔여 대운을 엔진이 나열해 '하나도 빠뜨리지 말 것' 계약을 데이터로 강제한다.
+        끊겼다. scope="remaining"(F-13)은 현재 대운부터, scope="all"(F-07, 2026-11-07 총운
+        개편 — 첫 대운부터 90세까지 전 대운 담당)은 표 전체(지남·현재·예정 표기 포함).
         """
         lc = self.result.luck_cycles
-        if lc is None or lc.current_daewoon_index is None:
+        if lc is None:
             return []
-        rem = [d for d in lc.daewoon_table if d.index >= lc.current_daewoon_index]
-        if not rem:
+        cur = lc.current_daewoon_index
+        if scope == "all":
+            rows = list(lc.daewoon_table)
+            head = "[대운 전수 체크리스트 — 첫 대운부터 표 끝까지"
+        else:
+            if cur is None:
+                return []
+            rows = [d for d in lc.daewoon_table if d.index >= cur]
+            head = "[잔여 대운 체크리스트 — 현재 대운부터 표 끝까지"
+        if not rows:
             return []
+
+        def _tag(d) -> str:
+            if cur is None:
+                return ""
+            return " 현재" if d.index == cur else (" 지남" if d.index < cur else " 예정")
+
         items = " · ".join(
-            f"{d.ganji}({d.start_age}–{d.start_age + 9}세)" for d in rem
+            f"{d.ganji}({d.start_age}–{d.start_age + 9}세{_tag(d) if scope == 'all' else ''})"
+            for d in rows
         )
         return [
-            "[잔여 대운 체크리스트 — 현재 대운부터 표 끝까지, 아래 대운을 하나도 빠뜨리지 "
+            f"{head}, 아래 대운을 하나도 빠뜨리지 "
             f"말고 순서대로 모두 서술할 것(중간에 뭉뚱그려 끝내지 말 것): {items}]",
         ]
+
+    def life_graph_block(self) -> list[str]:
+        """[인생 그래프 데이터] — F-14 해설 근거(엔진 확정): 대운별 한 줄 + 마커 전체."""
+        g = self.life_graph
+        if g is None or not g.daewoons:
+            return []
+        lines = [
+            "[인생 그래프 데이터 — 엔진 확정값. 화면의 그래프와 같은 값이므로 숫자·연도·간지를 "
+            "바꾸거나 새로 만들지 말 것. 대운별 한 줄 뒤에 주요 이벤트 마커(결혼·취업·이직·이사·"
+            "건강 위기·금전 위기 — 품질 게이트 통과분, 대운당 최대 4)가 온다]",
+            *daewoon_summary_lines(g),
+        ]
+        markers = marker_lines(g)
+        if markers:
+            lines += ["", "주요 이벤트 마커(연도·만 나이·세운 간지·종류·결·점수):", *markers]
+        else:
+            lines.append(
+                "주요 이벤트 마커: 게이트를 넘는 후보 없음(빈 시기를 '아무 일 없음'으로 단정 금지)"
+            )
+        return lines
+
+    def life_summary_block(self) -> list[str]:
+        """[대운별 주요 이벤트 정리] + [대운별 페이지 요약] — F-14b 통합 근거(2026-11-07).
+
+        마커는 그래프와 같은 엔진값, 페이지 요약은 앞서 생성된 대운별 상세 본문의 첫 두 문장
+        (`section_texts` — dry-run 에서는 비어 있어 안내 문구만). 인생 단계 경계는
+        `time_parser.LIFE_STAGE_AGE_RANGES`(초년 0~25 / 청년 26~50 / 중년 51~75 / 말년 76~100).
+        """
+        from saju_engines.time_parser import LIFE_STAGE_AGE_RANGES
+
+        g = self.life_graph
+        if g is None or not g.daewoons:
+            return []
+        stages = " / ".join(
+            f"{name}({lo}–{hi}세)" for name, (lo, hi) in LIFE_STAGE_AGE_RANGES.items()
+            if name != "평생"
+        )
+        lines = [
+            "[대운별 주요 이벤트 정리 — 엔진 확정값(그래프 마커와 동일). 대운마다 마커를 그대로 "
+            f"쓰고 새 연도·사건을 만들지 말 것. 인생 단계 경계: {stages}]",
+        ]
+        for d in g.daewoons:
+            lines += [
+                f"- {d.ganji} 대운 {d.start_age}–{d.end_age}세({d.start_year}–{d.end_year}년)"
+                f" 〈{d.label or '역할 미상'}〉 [{_STATUS_KO.get(d.status, '')}]",
+                *[f"  {ln[2:]}" for ln in marker_lines(g, d.index)],
+            ]
+        pages = [
+            (sid, self.section_texts[sid])
+            for sid in sorted(self.decade_index, key=lambda k: self.decade_index[k])
+            if self.section_texts.get(sid)
+        ]
+        lines.append("")
+        if pages:
+            lines.append(
+                "[대운별 페이지 요약 — 앞서 생성된 대운별 상세 본문의 첫 두 문장. 이 결론과 "
+                "어긋나는 서술을 만들지 말 것]"
+            )
+            for sid, text in pages:
+                win = self.decade_windows.get(sid)
+                label = (
+                    f"{_ganji_ko(win[2])} 대운({win[3]}–{win[3] + 9}세)" if win else sid
+                )
+                lines.append(f"- {label}: {_first_sentences(text, 2)}")
+        else:
+            lines.append(
+                "[대운별 페이지 요약 — 생성 전(미리보기)이라 본문 요약 없음. 위 마커 정리만으로 "
+                "서술]"
+            )
+        return lines
+
+    def record_section_text(self, sid: str, text: str) -> None:
+        """생성된 섹션 본문 기록 — 인생 흐름 종합(F-14b)·요약 카드가 앞 페이지 산출을 받는 통로."""
+        if text:
+            self.section_texts[sid] = text
 
     def lifetime_table_block(self) -> list[str]:
         """[생애 변곡점 연표] — 출생~90세 연 단위 스캔의 선별 표(F-14 골격, docs/10 3-1).
@@ -2027,6 +2188,33 @@ class _ReportData:
                 f"[이 페이지의 대운] {dw.ganji}(천간 {dw.stem}={dw.stem_ten_god}/지지 "
                 f"{dw.branch}={dw.branch_ten_god}) {y0}-{y1}년, {age}-{age + 9}세{role}{tag}"
             )
+            # 총운 개편(2026-11-07) — 과거/현재/미래 대운별 서술 계약을 데이터 줄로 고정.
+            if _cur is not None:
+                if dw.index < _cur:
+                    lines.append(
+                        "[서술 계약] 지난 대운 — 각 해를 '이런 흐름이 지나갔을 시기'로 회고하며 "
+                        "적중 확인을 유도할 것(단정 금지). 미래형 어미 금지."
+                    )
+                elif dw.index == _cur:
+                    lines.append(
+                        f"[서술 계약] 현재 대운 — {self.today.year}년 이전 해는 회고, 이후 해는 "
+                        "활성화 창으로."
+                    )
+                else:
+                    lines.append(
+                        "[서술 계약] 예정 대운 — 활성화 창(사건명은 그대로, 확정 어미만 금지)."
+                    )
+            # 이 대운의 그래프 마커(엔진 확정) — 그림·종합·요약 카드와 같은 값.
+            _di = self.decade_index.get(sid)
+            if self.life_graph is not None and _di is not None:
+                _mk = marker_lines(self.life_graph, _di)
+                lines.append(
+                    "[이 대운의 주요 이벤트 후보 — 그래프 마커(엔진 확정, 결혼·취업·이직·이사·건강 "
+                    "위기·금전 위기). 이 해들을 중심으로 서술하되 연도·종류를 바꾸지 말 것]"
+                )
+                lines += _mk if _mk else [
+                    "- 게이트를 넘는 마커 없음(빈 대운을 '아무 일 없음'으로 단정 금지)"
+                ]
             # 재성 대운 받을 준비 — 앞 대운 끝 해와 겹치지 않게 이 대운 안쪽 해(y0+1)로 고정.
             lines += daewoon_readiness_lines(self.result, y0 + 1, y0 + 1)
             lines += daewoon_turn_lines(self.result, y0, y1)  # 교운 방향(2026-10-29 길흉 강의)
@@ -2927,10 +3115,12 @@ def _product_framing(spec: ReportSpec) -> str:
     """
     if spec.product_code == "RPT_FULL":
         return (
-            "[풀이 유형 — 인생총운] 출생–90세 생애 전체를 조망하는 풀이다(2026-08-13 생애 개편). "
-            "대운 단위의 큰 흐름과 생애 변곡점 연표가 골격이고, 월별 상세는 변곡 연도당 한두 달로 "
-            "제한한다. 특정 한 달·한 신호를 여러 섹션에 반복하지 말 것. 각 섹션은 자기 주제(원국·"
-            "성격·대운·직업·재물·연애결혼·부모·자녀·건강·이동 등)에 고유한 내용으로 채운다."
+            "[풀이 유형 — 인생총운] 출생–90세 생애 전체를 '나(원국) → 대운 흐름 → 인생 그래프' "
+            "순서로 조망하는 풀이다(2026-11-07 개편). 1부는 원국만으로 나를 설명하며 운·시기를 "
+            "쓰지 않고, 2부는 대운 단위의 큰 흐름과 대운별 상세(그 10년의 해마다 운과 주요 이벤트 "
+            "후보)로 인생이 어떤 모양으로 진행되는지 보여 준다. 세운(특정 해)은 대운별 상세 안에서"
+            "만 "
+            "다루고 다른 섹션에서 반복하지 말 것. 각 섹션은 자기 주제에 고유한 내용으로 채운다."
         )
     if spec.product_code == "RPT_YEAR":
         y = spec.period.start[:4]
@@ -3769,44 +3959,51 @@ def _expand_report_plans(plans: list[SectionPlan], data: _ReportData) -> list[Se
     lc = data.result.luck_cycles
     if (
         lc is None
-        or lc.current_daewoon_index is None
+        or not lc.daewoon_table
         or data.lifetime_window is None
         or not any(p.section_id == "F-14" for p in plans)
     ):
         return plans
-    _lo, hi_year = data.lifetime_window
-    rem = [
-        d
-        for d in lc.daewoon_table
-        if d.index >= lc.current_daewoon_index and d.approx_start_date.year <= hi_year
-    ]
-    if not rem:
+    lo_year, hi_year = data.lifetime_window
+    # 총운 개편(2026-11-07 데굴님 결정 2): **첫 대운부터** 90세 창 끝까지 대운당 1페이지 — 과거
+    # 대운도 포함해야 대운 단위 입력으로 그 10년 세운의 주요 이벤트를 잡아낸다. 첫 페이지는
+    # 출생~유년(첫 대운 이전)까지 창에 넣는다.
+    rows = [d for d in lc.daewoon_table if d.approx_start_date.year <= hi_year]
+    if not rows:
         return plans
+    _cur = lc.current_daewoon_index
     out = []
     decade_ids: list[str] = []
     for p in plans:
         out.append(p)
         if p.section_id != "F-14":
             continue
-        for k, d in enumerate(rem, start=1):
+        for k, d in enumerate(rows, start=1):
             sid = f"F-14-D{k}"
-            y0 = d.approx_start_date.year
+            y0 = lo_year if k == 1 else d.approx_start_date.year
             y1 = min(d.approx_end_date.year - 1, hi_year)
             data.decade_windows[sid] = (y0, y1, d.ganji, d.start_age)
+            data.decade_index[sid] = d.index
             decade_ids.append(sid)
+            status = (
+                "" if _cur is None
+                else " · 현재" if d.index == _cur
+                else " · 지남" if d.index < _cur
+                else " · 예정"
+            )
             out.append(
                 SectionPlan(
                     section_id=sid,
-                    title=f"십년 풀이 — {_ganji_ko(d.ganji)} 대운"
-                    f"({d.start_age}–{d.start_age + 9}세)",
+                    title=f"대운별 상세 — {_ganji_ko(d.ganji)} 대운"
+                    f"({d.start_age}–{d.start_age + 9}세{status})",
                     module_calls=[],
                     target_chars=TargetChars(min=900, max=2_900),
                     depends_on=["F-04"],
                 )
             )
-    # F-21 요약 카드가 십년 페이지 완료 후 생성되도록 의존성 확장(4부 전체 규칙).
+    # 인생 흐름 종합(F-14b)은 모든 대운 페이지 완료 후(산출 통합) — F-21은 F-14b 뒤(plan 규칙).
     for p in out:
-        if p.section_id == "F-21":
+        if p.section_id == "F-14b":
             p.depends_on = [*p.depends_on, *decade_ids]
     return out
 
@@ -4027,9 +4224,14 @@ def build_section_context(
         # 생애 변곡점 연표(F-14 골격, docs/10 3-1) — 근접 5년 스펙트럼 표보다 앞에 부착
         # (연표가 골격, 스펙트럼은 가까운 몇 해의 해상도 보강).
         if sid == "F-14":
-            _lt_block = data.lifetime_table_block()
-            if _lt_block:
-                lines += [*_lt_block, ""]
+            # 총운 개편(2026-11-07) — 인생 그래프 데이터(엔진 확정)만. 연표·근접 5년 스펙트럼 없음.
+            _lg_block = data.life_graph_block()
+            if _lg_block:
+                lines += [*_lg_block, ""]
+        elif sid == "F-14b":
+            _ls_block = data.life_summary_block()
+            if _ls_block:
+                lines += [*_ls_block, ""]
         # 전 구간 스펙트럼(반복·편향 차단) — 연도 표 → 월 표 순. 테마 섹션은 대표 사건을 주제로
         # 한정(운 품질 등급은 도메인 무관 표기). Y-05 등 도메인 없는 섹션은 교차도메인 그대로.
         _pair_luck = data.partner_scored is not None and _is_pair_luck_section(sid)
@@ -4143,9 +4345,9 @@ def build_section_context(
         if field_block:
             lines += ["", *field_block, _CAREER_FIELD_REPORT_DIRECTIVE]
     # 생애 개편 서술 디렉티브(docs/10 3-2·3-3) — 조직 규모 적합(F-15)·미혼 배우자상(F-17).
-    if sid == "F-15":
+    if sid in ("F-15", "F-06c"):
         lines += ["", _ORG_SCALE_DIRECTIVE]
-    if sid == "F-17" and spec.product_code == "RPT_FULL":
+    if sid in ("F-17", "F-06b") and spec.product_code == "RPT_FULL":
         _marital = getattr(data.extended_profile, "marital_status", None)
         lines += [
             "",
@@ -4235,6 +4437,11 @@ def build_section_context(
         _rem_dw = data.remaining_daewoon_checklist()
         if _rem_dw:
             lines += ["", *_rem_dw]
+    elif sid == "F-07":
+        # 총운 개편(2026-11-07) — F-07이 첫 대운부터 90세까지 전 대운을 담당(F-13 흡수).
+        _all_dw = data.remaining_daewoon_checklist(scope="all")
+        if _all_dw:
+            lines += ["", *_all_dw]
     # 대운 풀이 관점·교체기 신호·안 맞는 구간 조언(2026-06-23, 전문가 강의 참고 — 서술 가이드).
     if sid in _DAEWOON_FRAMING_SECTIONS:
         lines += ["", _DAEWOON_FRAMING_DIRECTIVE]
@@ -4804,7 +5011,9 @@ def generate_report(
                 section_id=plan.section_id,
                 available_section_ids=_available_risk_sections)
             if risk_text is not None:
+                risk_text = _apply_style_audits(plan.section_id, risk_text, data, spec)
                 data.record_opening(risk_text)
+                data.record_section_text(plan.section_id, risk_text)
                 return risk_text, 0, len(risk_text)
             if effective_prompt != context.body_prompt:
                 risk_prompt_override = effective_prompt  # SUPPRESSED guard
@@ -4886,7 +5095,10 @@ def generate_report(
                         "mobility_agency_audit surface=report result=violation section=%s hits=%s",
                         plan.section_id, _agency_hits[:6],
                     )
+                # 문체 통일·회고 어미·월 단위 감사(2026-11-07, 재호출 없음).
+                text = _apply_style_audits(plan.section_id, text, data, spec)
                 data.record_opening(text)  # 다음 섹션의 '서두 반복 금지' 재료(순차 생성)
+                data.record_section_text(plan.section_id, text)  # F-14b 통합 재료(2026-11-07)
                 return text, 0, len(text)  # 토큰은 llm_client 장부가 집계(cached 포함)
             except TokenBudgetExceeded as exc:
                 last_exc = exc  # 다음 단계로 더 축소해 재시도
@@ -4920,4 +5132,68 @@ def generate_report(
                 sec.text = f"{sec.text}\n\n{cal_md}".strip()
     if cal_md:
         result.total_chars = sum(len(s.text) for s in result.sections if s.passed)
+    attach_structured_sections(result, data)
     return result
+
+
+def apply_report_style_audits(
+    section_id: str, text: str, *, style: str, past_decade_page: bool, decade_page: bool,
+) -> str:
+    """섹션 본문의 문체·시제·단위 결정론 교정(2026-11-07 데굴님 "제안대로 + 문체 통일").
+
+    ① 페르소나 말투가 해요체면 하다체·합쇼체 종결을 해요체로(안전한 활용만, 나머지는 로그).
+    ② 대운별 페이지는 'YYYY년 M월'을 'YYYY년'으로(입력이 연 단위뿐). 연도 없는 'M월'은 로그.
+    ③ 지난 대운 페이지는 과거 사실 단정 종결을 '~을 수 있어요'(적중 확인 유도형)로.
+    순서는 ①→②→③ — ③의 패턴이 해요체 종결을 전제한다.
+    """
+    if style == "haeyo":
+        r = unify_haeyo(text)
+        if r.fixes or r.unresolved:
+            _logger.warning(
+                "style_unified surface=report section=%s fixes=%d unresolved=%s",
+                section_id, len(r.fixes), r.unresolved[:8],
+            )
+        text = r.text
+    if decade_page:
+        text, stripped, bare = strip_month_detail(text)
+        if stripped or bare:
+            _logger.warning(
+                "month_detail_audit surface=report section=%s stripped=%s bare=%s",
+                section_id, stripped[:6], bare[:6],
+            )
+    if past_decade_page:
+        text, hedged = hedge_retrospective(text)
+        if hedged:
+            _logger.warning(
+                "retro_tense_hedged surface=report section=%s fixes=%s",
+                section_id, hedged[:6],
+            )
+    return text
+
+
+def _apply_style_audits(
+    section_id: str, text: str, data: _ReportData, spec: ReportSpec,
+) -> str:
+    """generate_fn 배선 — 페르소나 말투·대운 페이지 상태(지남/현재/예정)를 데이터에서 읽는다."""
+    lc = data.result.luck_cycles
+    idx = data.decade_index.get(section_id)
+    cur = lc.current_daewoon_index if lc is not None else None
+    return apply_report_style_audits(
+        section_id, text,
+        style=spec.persona.speech.style,
+        decade_page=idx is not None,
+        past_decade_page=idx is not None and cur is not None and idx < cur,
+    )
+
+
+def attach_structured_sections(result: ReportResult, data: _ReportData) -> None:
+    """엔진 확정 구조 데이터를 섹션 결과에 붙인다(LLM 비생성, 검사·절단 대상 아님 — 절대원칙 1).
+
+    총운 F-14 인생 그래프(`LifeGraph`, 2026-11-07) — 프론트가 SVG로 그리고, 대운별 상세·종합·
+    요약 카드의 마커 목록과 같은 객체라 그림과 글이 어긋나지 않는다. 다른 상품·섹션은 None.
+    """
+    if data.life_graph is None:
+        return
+    for sec in result.sections:
+        if sec.section_id == "F-14":
+            sec.data = data.life_graph.model_dump(mode="json")

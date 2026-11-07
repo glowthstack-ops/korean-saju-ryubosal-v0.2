@@ -1,0 +1,235 @@
+"use client";
+
+// 인생 그래프(총운 2부 첫 화면, 2026-11-07) — 백엔드 엔진이 확정한 대운 곡선·세운 선·주요
+// 이벤트 마커를 인라인 SVG로 그린다. 차트 라이브러리 없이 동작하며, 값은 재계산하지 않는다.
+
+export interface LifeGraphMarker {
+  year: number;
+  age: number;
+  ganji: string;
+  kind: string; // marriage | job | career_change | relocation | crisis_health | crisis_money
+  kind_ko: string;
+  event_key: string;
+  score: number;
+  tone: string;
+  daewoon_index: number;
+  risk_backed?: boolean;
+  note?: string;
+}
+
+export interface LifeGraphDaewoon {
+  index: number;
+  ganji: string;
+  stem_ten_god: string;
+  branch_ten_god: string;
+  start_age: number;
+  end_age: number;
+  start_year: number;
+  end_year: number;
+  score: number;
+  label: string;
+  status: string; // past | current | future | unknown
+  markers: LifeGraphMarker[];
+}
+
+export interface LifeGraphYear {
+  year: number;
+  age: number;
+  ganji: string;
+  score: number;
+  label: string;
+}
+
+export interface LifeGraphData {
+  birth_year: number;
+  end_year: number;
+  current_daewoon_index?: number | null;
+  daewoons: LifeGraphDaewoon[];
+  years: LifeGraphYear[];
+  markers: LifeGraphMarker[];
+}
+
+const MARKER_STYLE: Record<string, { symbol: string; color: string }> = {
+  marriage: { symbol: "♥", color: "#d946ef" },
+  job: { symbol: "●", color: "#2563eb" },
+  career_change: { symbol: "➤", color: "#0891b2" },
+  relocation: { symbol: "⌂", color: "#16a34a" },
+  crisis_health: { symbol: "✚", color: "#dc2626" },
+  crisis_money: { symbol: "₩", color: "#ea580c" },
+};
+const KIND_ORDER = ["marriage", "job", "career_change", "relocation", "crisis_health", "crisis_money"];
+
+/** 데이터 형태가 맞는지 최소 검증 — 아니면 그리지 않는다(마크다운 본문만 표시). */
+export function isLifeGraphData(v: unknown): v is LifeGraphData {
+  if (!v || typeof v !== "object") return false;
+  const d = v as Partial<LifeGraphData>;
+  return (
+    typeof d.birth_year === "number" &&
+    typeof d.end_year === "number" &&
+    Array.isArray(d.daewoons) &&
+    Array.isArray(d.years) &&
+    Array.isArray(d.markers)
+  );
+}
+
+export function LifeGraph({ data }: { data: LifeGraphData }) {
+  const W = 920;
+  const H = 300;
+  const padL = 36;
+  const padR = 16;
+  const padT = 44;
+  const padB = 54;
+  const ageMin = 0;
+  const ageMax = Math.max(1, data.end_year - data.birth_year);
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const x = (age: number) => padL + ((age - ageMin) / (ageMax - ageMin)) * plotW;
+
+  const scores = [...data.years.map((y) => y.score), ...data.daewoons.map((d) => d.score)];
+  const sMin = scores.length ? Math.min(...scores) : -1;
+  const sMax = scores.length ? Math.max(...scores) : 1;
+  const span = sMax - sMin || 1;
+  const y = (s: number) => padT + (1 - (s - sMin) / span) * plotH;
+  const yZero = sMin <= 0 && sMax >= 0 ? y(0) : null;
+
+  const yearPath = data.years
+    .map((p, i) => `${i === 0 ? "M" : "L"}${x(p.age).toFixed(1)},${y(p.score).toFixed(1)}`)
+    .join(" ");
+
+  const current = data.current_daewoon_index ?? null;
+  const kindsPresent = KIND_ORDER.filter((k) => data.markers.some((m) => m.kind === k));
+
+  return (
+    <figure className="my-3 print:break-inside-avoid">
+      <div className="overflow-x-auto">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          role="img"
+          aria-label="인생 그래프 — 대운 흐름과 주요 이벤트 시기"
+          className="min-w-[640px] w-full"
+        >
+          {/* 대운 띠 — 점수에 따라 밝기, 현재 대운은 테두리 강조 */}
+          {data.daewoons.map((d) => {
+            const x0 = x(d.start_year - data.birth_year);
+            const x1 = x(Math.min(d.end_year + 1 - data.birth_year, ageMax));
+            const t = (d.score - sMin) / span; // 0..1
+            const fill = `hsl(${Math.round(120 * t)}, 60%, ${Math.round(88 - 18 * t)}%)`;
+            return (
+              <g key={d.index}>
+                <rect
+                  x={x0}
+                  y={padT}
+                  width={Math.max(0, x1 - x0)}
+                  height={plotH}
+                  fill={fill}
+                  stroke={current === d.index ? "#111827" : "#ffffff"}
+                  strokeWidth={current === d.index ? 2 : 1}
+                />
+                <text
+                  x={(x0 + x1) / 2}
+                  y={padT - 22}
+                  textAnchor="middle"
+                  fontSize="11"
+                  fill="#374151"
+                >
+                  {d.ganji}
+                </text>
+                <text
+                  x={(x0 + x1) / 2}
+                  y={padT - 9}
+                  textAnchor="middle"
+                  fontSize="9"
+                  fill="#6b7280"
+                >
+                  {d.start_age}–{d.end_age}세{current === d.index ? " · 현재" : ""}
+                </text>
+              </g>
+            );
+          })}
+          {/* 0선 */}
+          {yZero !== null && (
+            <line x1={padL} x2={W - padR} y1={yZero} y2={yZero} stroke="#9ca3af" strokeDasharray="4 3" />
+          )}
+          {/* 세운 선 */}
+          {yearPath && <path d={yearPath} fill="none" stroke="#1f2937" strokeWidth={1.2} opacity={0.85} />}
+          {/* 마커 */}
+          {data.markers.map((m, i) => {
+            const st = MARKER_STYLE[m.kind] ?? { symbol: "•", color: "#111827" };
+            const yr = data.years.find((p) => p.year === m.year);
+            const my = yr ? y(yr.score) : padT + plotH / 2;
+            const stack = data.markers.filter((o) => o.year === m.year && KIND_ORDER.indexOf(o.kind) < KIND_ORDER.indexOf(m.kind)).length;
+            return (
+              <g key={`${m.year}-${m.kind}-${i}`}>
+                <line x1={x(m.age)} x2={x(m.age)} y1={my} y2={padT + plotH} stroke={st.color} strokeWidth={0.6} opacity={0.5} />
+                <text
+                  x={x(m.age)}
+                  y={my - 8 - stack * 13}
+                  textAnchor="middle"
+                  fontSize="13"
+                  fill={st.color}
+                  fontWeight="bold"
+                >
+                  {st.symbol}
+                </text>
+              </g>
+            );
+          })}
+          {/* 나이 눈금 */}
+          {Array.from({ length: Math.floor(ageMax / 10) + 1 }, (_, k) => k * 10).map((age) => (
+            <g key={age}>
+              <line x1={x(age)} x2={x(age)} y1={padT + plotH} y2={padT + plotH + 4} stroke="#6b7280" />
+              <text x={x(age)} y={padT + plotH + 16} textAnchor="middle" fontSize="10" fill="#4b5563">
+                {age}세
+              </text>
+              <text x={x(age)} y={padT + plotH + 28} textAnchor="middle" fontSize="9" fill="#9ca3af">
+                {data.birth_year + age}
+              </text>
+            </g>
+          ))}
+          {/* 세로축 라벨 */}
+          <text x={padL - 4} y={padT + 10} textAnchor="end" fontSize="9" fill="#6b7280">좋음</text>
+          <text x={padL - 4} y={padT + plotH} textAnchor="end" fontSize="9" fill="#6b7280">부담</text>
+        </svg>
+      </div>
+      <figcaption className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600">
+        <span>띠 = 대운(밝을수록 좋은 흐름) · 선 = 해마다의 운</span>
+        {kindsPresent.map((k) => (
+          <span key={k} style={{ color: MARKER_STYLE[k].color }}>
+            {MARKER_STYLE[k].symbol} {data.markers.find((m) => m.kind === k)?.kind_ko}
+          </span>
+        ))}
+      </figcaption>
+      {/* 마커 표 — 그림과 같은 값, 인쇄·접근성용 */}
+      {data.markers.length > 0 && (
+        <table className="mt-2 w-full text-xs">
+          <thead>
+            <tr className="bg-gray-50">
+              <th className="border px-2 py-1 text-left">시기</th>
+              <th className="border px-2 py-1 text-left">이벤트</th>
+              <th className="border px-2 py-1 text-left">결</th>
+              <th className="border px-2 py-1 text-left">대운</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.markers.map((m, i) => {
+              const dw = data.daewoons.find((d) => d.index === m.daewoon_index);
+              return (
+                <tr key={`${m.year}-${m.kind}-${i}`}>
+                  <td className="border px-2 py-1">{m.year}년 · 만 {m.age}세 · {m.ganji}</td>
+                  <td className="border px-2 py-1">
+                    <span style={{ color: MARKER_STYLE[m.kind]?.color }}>{MARKER_STYLE[m.kind]?.symbol}</span>{" "}
+                    {m.kind_ko}
+                    {m.risk_backed ? " (주의 신호 동반)" : ""}
+                    {m.note ? ` — ${m.note}` : ""}
+                  </td>
+                  <td className="border px-2 py-1">{m.tone}</td>
+                  <td className="border px-2 py-1">{dw ? `${dw.ganji} ${dw.start_age}–${dw.end_age}세` : "-"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </figure>
+  );
+}

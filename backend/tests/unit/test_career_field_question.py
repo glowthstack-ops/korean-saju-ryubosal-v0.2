@@ -192,13 +192,14 @@ def test_report_career_sections_carry_field_block_and_directive() -> None:
     assert "[직업 분야 근거" not in ctx5.body_prompt
 
 
-def test_report_full_f15_has_block_and_org_scale_together() -> None:
+def test_report_full_f06c_has_block_and_org_scale_together() -> None:
+    """총운 개편(2026-11-07) — 적성·일 방식·재물 그릇(F-06c, 구 F-15)에 근거 블록·조직 규모 동반."""
     from saju_api.services.report_service import build_section_context
     from saju_engines.report_plan import build_section_plans
 
     spec, data = _report_data("RPT_FULL", None)
     plans = {p.section_id: p for p in build_section_plans(spec)}
-    ctx = build_section_context(plans["F-15"], spec, data)
+    ctx = build_section_context(plans["F-06c"], spec, data)
     assert "[직업 분야 근거" in ctx.body_prompt and "[직업 분야 지침" in ctx.body_prompt
     assert "[조직 규모 적합" in ctx.body_prompt
     other = build_section_context(plans["F-02"], spec, data)

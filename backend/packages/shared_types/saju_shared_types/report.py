@@ -82,6 +82,9 @@ class SectionResult(BaseModel):
     violations: list[str] = Field(default_factory=list)
     input_tokens: int = 0
     output_tokens: int = 0
+    # 엔진 확정 구조 데이터(LLM 비생성) — 총운 F-14 인생 그래프(`LifeGraph.model_dump`), 2026-11-07.
+    # 프론트가 그림으로 그리고 검사·절단 대상이 아니다. 없는 섹션은 None.
+    data: dict | None = None
 
 
 class ReportCost(BaseModel):

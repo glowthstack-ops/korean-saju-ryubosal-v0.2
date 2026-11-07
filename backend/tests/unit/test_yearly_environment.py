@@ -202,19 +202,16 @@ def test_report_y04_carries_sewoon_grounding_and_environment() -> None:
     assert "서술 순서: [월주 상대 관점]" in body
 
 
-def test_report_f11_uses_today_year() -> None:
+def test_report_full_has_no_yearly_grounding_after_restructure() -> None:
+    """총운 개편(2026-11-07) — 세운을 섹션으로 담지 않으므로 총운 섹션에 세운 grounding 이 없다."""
     spec = ReportSpec(
         product_code="RPT_FULL", subjects=[SubjectRef(kind=SubjectKind.SELF, label="본인")],
         period=ReportPeriod(start="2026-01", end="2031-12"),
     )
     data = _ReportData(_BIRTH_IMIN, spec, _TODAY, owner_id=None, subject_id=None)
-    plan = next(p for p in build_section_plans(spec) if p.section_id == "F-11")
-    body = build_section_context(plan, spec, data).body_prompt
-    assert "[해당 연 세운 grounding — 2026 丙午" in body
-    assert "午=壬의 태(胎)지" in body
-    # 다른 운 섹션(F-10 현재 대운)에는 붙지 않는다.
-    plan10 = next(p for p in build_section_plans(spec) if p.section_id == "F-10")
-    assert "[해당 연 세운 grounding" not in build_section_context(plan10, spec, data).body_prompt
+    for plan in build_section_plans(spec):
+        body = build_section_context(plan, spec, data).body_prompt
+        assert "[해당 연 세운 grounding" not in body, plan.section_id
 
 
 # ── ⑥ 계층 블록 천간 참여자 라벨 ───────────────────────────────────────────
