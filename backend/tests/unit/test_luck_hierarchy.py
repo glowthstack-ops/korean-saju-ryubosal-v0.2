@@ -386,3 +386,24 @@ def test_favorable_and_adverse_activation_get_signs(hierarchy):
     wood = next(i for i in h.interactions if i.interaction_id == "rel_寅卯辰方合")
     assert classify_relation_polarity(fire).score_polarity == 1  # 火 = 희신
     assert classify_relation_polarity(wood).score_polarity == -1  # 木 = 기신
+
+
+def test_structural_tension_line_carries_pair_texture(hierarchy):
+    """구조적 긴장 줄에 사전 `fromLuck` 쌍별 결을 병기한다(2026-11-07).
+
+    계층 블록 ON 이면 형충회합 줄이 대체돼 쌍별 문구가 LLM에 가지 않던 공백을 메운다.
+    """
+    from saju_engines.chart_interpretation import _first_sentence, _relation_text_by_id
+    from saju_engines.luck_hierarchy_render import render_hierarchy_narrative
+
+    h, _ = hierarchy
+    lines = render_hierarchy_narrative(h)
+    tension = [ln for ln in lines if ln.startswith("구조적 긴장: 丙壬沖")]
+    assert tension, lines
+    want = _first_sentence(_relation_text_by_id()["rel_丙壬沖"]["fromLuck"], 200)
+    assert all("결: " + want in ln for ln in tension)
+    assert all("유불리로 단정하지 말 것" in ln for ln in tension)
+    # 지지충은 극 방향 라벨까지 — 일진 寅(木) vs 원국 연지 申(金): 원국이 운을 극하는 쪽.
+    clash = [ln for ln in lines if ln.startswith("구조적 긴장: 寅申沖")]
+    assert clash and "원국 申(金)이 운 寅(木)을 극하는 쪽" in clash[0]
+    assert "체감이 큰 방향" not in clash[0]

@@ -62,16 +62,19 @@ def test_relationship_theme_has_no_career_lecture_texts() -> None:
 
 
 def test_full_report_gates_by_section_domain() -> None:
-    """1974-01-12 — 일반(총운) 세운 줄은 유지, 관계·건강 도메인 섹션은 제외, 도식은 섹션당 1회."""
+    """1974-01-12 — 총운 개편(2026-11-07) 후 총운엔 세운 후보 섹션이 없어 직장 운 결 문구가 어디에도
+    없고(세운은 대운별 페이지 연도 줄로만), 한해풀이 일반 섹션(Y-01)엔 유지, 도식은 섹션당 1회."""
     b = _bodies("RPT_FULL", None, "1974-01-12")
     dom = report_service._SECTION_DOMAIN
-    assert _LEAVE in b["F-11"]  # 연 총운(일반)
+    assert all(_LEAVE not in body for body in b.values())
     for sid, body in b.items():
         if dom.get(sid) in ("relationship", "health", "relocation", "education"):
             assert _LEAVE not in body, sid
-    # 도메인 미매핑이지만 총운이 아닌 섹션(부모·가족/행동 전략/개운/방위)도 제외.
-    for sid in ("F-17b", "F-19", "F-20", "F-20b"):
+    # 도메인 미매핑이지만 총운이 아닌 섹션(행동 전략/개운/방위)도 제외.
+    for sid in ("F-19", "F-20", "F-20b"):
         assert _LEAVE not in b[sid], sid
+    y = _bodies("RPT_YEAR", None, "1974-01-12")
+    assert _LEAVE in y["Y-01"]  # 한해풀이 일반 섹션엔 유지
     dosik = dosik_texts(calculate(_birth("1974-01-12")))
     if dosik:
         for sid, body in b.items():

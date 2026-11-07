@@ -430,6 +430,9 @@ def main() -> int:
                     help="강의 시드 규칙 id 만 적용(--career-exit-seed 와 함께, 반복 가능)")
     # 2026-10-25 — 탐합망충 shadow/apply 비교 재생용(기본 shadow: 기록만, 점수 불변).
     ap.add_argument("--tamhap-mode", default="shadow", choices=("off", "shadow", "apply"))
+    ap.add_argument("--clash-direction-mode", default="shadow",
+                    choices=("off", "shadow", "apply"),
+                    help="강충 방향(2026-11-07): shadow=기록만 / apply=점수 반영(측정용)")
     # 2026-10-25 — hap_modes 실험 플래그(trine_third_clash / stem_tougan) 비교 재생용(반복 가능).
     ap.add_argument("--hap-experiment", action="append", default=[],
                     choices=sorted(_hm.HAP_EXPERIMENTS))
@@ -456,6 +459,7 @@ def main() -> int:
         enable_wealth_natal_complement=args.wealth_natal_complement,
         tamhap_mangchung_mode=args.tamhap_mode,
         love_experiments=args.love_experiment,
+        clash_direction_mode=args.clash_direction_mode,
     )
     rows = []
     # --only 실행은 전수 결과를 덮어쓰지 않도록 별도 파일에 쓴다.
@@ -472,6 +476,11 @@ def main() -> int:
                     f"date={row['date_used']} err={row['error']}",
                     flush=True,
                 )
+    cd_shadow = engine.take_clash_direction_shadow()
+    print(
+        f"clash_direction mode={args.clash_direction_mode} periods={len(cd_shadow)} "
+        f"events={sum(len(s['events']) for s in cd_shadow)}"
+    )
     shadow = engine.take_tamhap_shadow()
     print(
         f"tamhap_mangchung mode={args.tamhap_mode} periods={len(shadow)} "

@@ -148,55 +148,21 @@ def test_plan_report_year_titles_use_selected_year() -> None:
 def test_plan_report_full_natal_sections() -> None:
     """RPT_FULL — F-02 일주 서사, F-04 용신 확정(이후 섹션 일관 검사 기준).
 
-    26섹션 = 생애 개편(2026-08-13, docs/10 3장) 25 + F-20b 방위 활용(2026-09-20, docs/18).
+    목차·대운별 페이지·그래프 블록 상세는 test_full_report_v3_20261107 이 담당(2026-11-07 개편).
     """
     contexts = report_service.plan_report(_BIRTH, _spec("RPT_FULL"), _TODAY)
-    # 고정 26섹션 + 십년 풀이 하위 페이지(현재 대운~90세 창, 잔여 대운 수 — docs/10 3-1).
     fixed = [c for c in contexts if not c.section_id.startswith("F-14-D")]
     decades = [c for c in contexts if c.section_id.startswith("F-14-D")]
-    assert len(fixed) == 26
-    assert decades, "십년 풀이 페이지가 최소 1개 생성돼야 한다"
-    # 십년 페이지 — 그 대운 정보 + 십년 세운 흐름 표, 근접 5년 스펙트럼·전역 후보 미부착.
-    d1 = decades[0]
-    assert "[이 페이지의 대운]" in d1.body_prompt
-    assert "· 역할: " in d1.body_prompt  # 대운 역할 라벨(2026-10-29 대운 강의)
-    assert "[십년 세운 흐름" in d1.body_prompt
-    assert "[연도별 흐름" not in d1.body_prompt
-    # F-14 바로 뒤에 연속 배치.
-    ids = [c.section_id for c in contexts]
-    f14_pos = ids.index("F-14")
-    assert ids[f14_pos + 1 : f14_pos + 1 + len(decades)] == [c.section_id for c in decades]
-    # 도메인 섹션 생애 연동 — 근접 5년 반복 결함 교정(후보가 있는 도메인엔 생애 행 부착).
-    domain_lt = [
-        c for c in contexts
-        if c.section_id in ("F-15", "F-16", "F-17", "F-18", "F-18b")
-        and "[생애 " in c.body_prompt
-    ]
-    assert domain_lt, "도메인 섹션에 생애 변곡 행이 최소 한 곳은 부착돼야 한다"
+    assert len(fixed) == 16
+    assert decades, "대운별 상세 페이지가 최소 1개 생성돼야 한다"
     f02 = next(c for c in contexts if c.section_id == "F-02")
     assert "노란 돼지" in f02.body_prompt  # interpretations/ilju.json 직렬화
     f04 = next(c for c in contexts if c.section_id == "F-04")
     assert f04.yongsin_element == "土"
-    f10 = next(c for c in contexts if c.section_id == "F-10")
-    assert f10.yongsin_element is None  # 빌더가 F-04 통과 후 전파
-    # 생애 변곡점 연표(F-14) — 표 골격 + 근접 5년 스펙트럼 보조가 함께 부착된다.
-    f14 = next(c for c in contexts if c.section_id == "F-14")
-    assert "[생애 변곡점 연표" in f14.body_prompt
-    assert "[연도별 흐름" in f14.body_prompt
-    # 신규 섹션 디렉티브 — 조직 규모 적합(F-15)·미혼 배우자상(F-17, 프로필 미입력 기본).
-    f15 = next(c for c in contexts if c.section_id == "F-15")
-    assert "[조직 규모 적합" in f15.body_prompt
-    f17 = next(c for c in contexts if c.section_id == "F-17")
-    assert "[미혼 배우자상" in f17.body_prompt
-    # 현재 대운 마커(2026-08-13 실사용 결함 교정) — 대운표 행에 엔진 판정 표기 +
-    # 재추정 금지 가드. F-07(대운 개관)은 [예정] 대운 서술 금지 스코프.
     f07 = next(c for c in contexts if c.section_id == "F-07")
+    assert f07.yongsin_element is None  # 빌더가 F-04 통과 후 전파
     assert "← 현재 대운(오늘 포함, 엔진 판정)" in f07.body_prompt
     assert "재추정하지 말고 표기를 그대로 따를 것" in f07.body_prompt
-    assert "[예정] 대운은 이 섹션에서 서술하지 말 것" in f07.body_prompt
-    # F-13 — 잔여 대운 전수 체크리스트(중간 절단 차단).
-    f13 = next(c for c in contexts if c.section_id == "F-13")
-    assert "[잔여 대운 체크리스트" in f13.body_prompt
 
 
 def test_f22_ganji_calendar_table_and_terminology() -> None:

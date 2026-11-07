@@ -362,6 +362,12 @@ compiled/
 - 사전 절: `label`·`narration` / `tenGodEnv[10]`(forward=시절이 환경에 들여오는 것, reverse=환경이 시절에게 어떤 자리인가) / `stageEnv[12]`(hanja 포함 상태 어휘 — 목욕=호기심·의외성, 건록=존재감 확립, 사=집중·몰입) / `relationEnv`(12키: stem_clash=긴장·관문(소멸 아님)…none) / `rootingEnv`(4상태 luck_only·both·month_only·neither) / `synthesis`(환경 한 문장 → 태도 한 문장 → 한 해 주제 합성 지시 + "비겁 운 = 무조건 극재 아님"). `YearlyEnvironmentFile` + `_lint_yearly_environment`(십성 10·운성 12 정확 커버리지, 관계/통근 키 집합, 단정 어휘). reviewed:false.
 - 배선: 채팅 '해당 연 총운'(`PeriodFortune.environment_lines`, `[세운:]`·운 요약 줄 뒤) + 리포트 F-11·Y-04(`_ReportData.yearly_sewoon_block` — 채팅 패리티로 `build_luck_grounding` 세운 줄·형충회합·신살·공망까지 함께 신설). `_YEARLY_INSTRUCTION` 에 환경→태도→주제 순서 지시. 같은 날 어휘 보강: 겁재 `incoming`/`asYongsin`(존재감 확립·영역 개척 결), 목욕 `incoming`(호기심·의외성), 건록 `incoming`(존재감 확립). 회귀 `tests/unit/test_yearly_environment.py`.
 
+### 지지충 쌍별 결·완화 글자 (2026-11-07 데굴님 "바로 진행하자" — 대조 기록 doc/v2_2/EXTERNAL_TEXT_GAP_CLASH_LECTURE.md)
+
+- `relations_text.json` `natalTrait`: 지지충 **6쌍 전부**(丑未·辰戌 신설) + 4천간충. `fromLuck` 는 첫 문장(≤200자)만 렌더되므로 쌍 결(水火충=심리·결판 속도 / 木金충=현실 사건·극 방향 / 土충=속의 동요)을 첫 문장에 둔다. 질환어 린트는 그대로.
+- `interpretations/clash_relief_text.json`(신규, `ClashReliefTextFile`): `principles`(adjacent_first·remote_weak·trine_revives·co_relation·no_score) + `items` 12건(6쌍 × 2글자) — `pair`·`target`·`glyph`·`mechanism`(육합|방합|상생)·`text`·`coRelation`(선택). 린트 `_lint_clash_relief_text`: target 12지지 각 1회, pair 는 6충, 기제 정합(육합 짝/방합 3자 안/상생), 상생 항목은 coRelation 필수, 단정 어휘(반드시·확실히·틀림없이·무조건·해소된다·없어진다·사라진다) 금지. 서술 전용 — 점수·사건 판정 비개입. 완화 서술은 맞는 글자가 용·희신일 때만.
+- `event_engine/relation_palace_modifier.json` `branch_relation_pairs` 삭제 — Python 소비자 없는 사문(쌍별 테마는 `relations_text` 가 담당).
+
 ### events/*.json (신호→이벤트 매핑 예)
 
 ```json

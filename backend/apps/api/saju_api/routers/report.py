@@ -1,6 +1,7 @@
 """풀이 상품(보고서) 엔드포인트 (v2.2.1 PR-E — Phase 9 운영 배선, docs/10).
 
-동기 POST는 dry-run 미리보기 전용으로 유지하고, 실제 생성(RPT_FULL 22섹션은 수 분)은
+동기 POST는 dry-run 미리보기 전용으로 유지하고, 실제 생성(RPT_FULL 고정 16섹션+대운별 페이지는
+수 분)은
 비동기 잡(POST /jobs) + 폴링(GET /jobs/{id})으로 처리한다(v2.2 프론트 확장 Phase 6).
 잡 실행기·상대 해석은 `services/report_job_runner.py`(관리자 재개 경로와 공유, 2026-10-06).
 """
@@ -63,7 +64,7 @@ class ReportDryRunResponse(BaseModel):
 
 @router.post("")
 def generate(req: ReportRequest) -> ReportResult | ReportDryRunResponse:
-    """보고서 생성(RPT_FULL 22섹션 / RPT_FOCUS 8섹션) 또는 dry-run 미리보기."""
+    """보고서 생성(RPT_FULL 고정 16섹션+대운별 페이지 / RPT_FOCUS 8섹션) 또는 dry-run 미리보기."""
     partner_birth = resolve_partner_birth(req.spec, None, None)
     if req.dry_run:
         contexts = report_service.plan_report(

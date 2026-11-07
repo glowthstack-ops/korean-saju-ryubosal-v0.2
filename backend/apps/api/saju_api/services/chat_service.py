@@ -59,6 +59,7 @@ from saju_engines.chart_interpretation import (
     yeokma_natal_lines,
     yeokma_period_lines,
 )
+from saju_engines.clash_relief import luck_clash_relief_block
 from saju_engines.commitment_audit import audit_answer
 from saju_engines.companion_alias import AliasEntry, merge_attached_partner
 from saju_engines.companion_similarity import augment_relation_type, augment_subject_mode
@@ -254,6 +255,7 @@ from saju_engines.wealth_lecture import (
     wealth_period_block,
     wealth_vessel_lines,
 )
+from saju_engines.week_label_audit import audit_week_labels, week_label_closing_directive
 from saju_engines.yearly_environment import (
     build_yearly_environment,
     render_yearly_environment,
@@ -1033,6 +1035,11 @@ class ChatPostprocessContext(BaseModel):
     # 후속 확인(delayed outcome) 후보 — 답변이 제시한 미래·당월 사건 상위 3건(지문 포함).
     # 라우터가 답변 메시지 메타에 남기고, 기간이 지나면 실제 발생 여부를 묻는다(2026-10-24).
     followup: list[dict] = Field(default_factory=list)
+    # 질문의 주 호칭·창(2026-11-06) — '다음 주' 질문의 답이 '이번 주'로 부르는 호칭 오류를
+    # 생성 후 결정론으로 교정한다(week_label_audit). 주 단위 창이 아니면 None.
+    week_label: str | None = None
+    week_start: str | None = None
+    week_end: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -1753,6 +1760,14 @@ def _date_selection_block(
     )
 
 
+def _week_label_ctx(intent: IntentJson) -> dict[str, str | None]:
+    """후처리 컨텍스트에 실을 질문 주 호칭·창(2026-11-06) — 주 단위 창이 아니면 전부 None."""
+    tr = intent.time_range
+    if tr is None or not tr.week_label or not (tr.start and tr.end):
+        return {"week_label": None, "week_start": None, "week_end": None}
+    return {"week_label": tr.week_label, "week_start": tr.start, "week_end": tr.end}
+
+
 def _week_frame_notes(tr: TimeRange | None, purpose: EventKey, today: date) -> list[str]:
     """택일 블록의 기간 기준 안내 — 주 호칭 고정과 로또 판매 회차 사실(2026-10-04).
 
@@ -2060,6 +2075,8 @@ def finalize_answer_full(
         answer = _audit_date_avoid_answer(answer, ctx.payload, thread_id)
         # 일주 소개 문장 감사(2026-10-19) — 총운·시기·택일 답의 '己亥 일주는 … 구조' 문장 제거.
         answer = _audit_ilju_mention_answer(answer, ctx, thread_id)
+        # 주 호칭 감사(2026-11-06) — '다음 주' 질문의 '이번 주·금주' 호칭을 질문 호칭으로 교정.
+        answer = _audit_week_label_answer(answer, ctx, thread_id)
         if ctx.entry_window and answer:
             _has_done, _has_move = entry_window_labels_present(answer)
             _logger.info(
@@ -2198,6 +2215,26 @@ def _audit_ilju_mention_answer(
     if audit.kept_referenced:
         _logger.warning(
             "ilju_mention_kept_referenced kept=%s thread=%s", audit.kept_referenced, thread_id,
+        )
+    return audit.text
+
+
+def _audit_week_label_answer(
+    answer: str, ctx: ChatPostprocessContext, thread_id: str | None,
+) -> str:
+    """주 호칭 정합 감사(2026-11-06) — 질문보다 앞선 주 호칭만 교정, 뒤 주 호칭은 로그만."""
+    if not ctx.week_label:
+        return answer
+    audit = audit_week_labels(answer, ctx.week_label, ctx.week_start, ctx.week_end)
+    if audit.fixes:
+        _logger.warning(
+            "week_label_fixed asked=%s count=%d fixes=%s thread=%s",
+            ctx.week_label, len(audit.fixes), audit.fixes, thread_id,
+        )
+    if audit.forward_refs:
+        _logger.info(
+            "week_label_forward_ref asked=%s refs=%s thread=%s",
+            ctx.week_label, audit.forward_refs, thread_id,
         )
     return audit.text
 
@@ -7090,6 +7127,13 @@ def chat(
     # 회고 질문 — 전체 답변 시제를 과거 추정형으로 강제(미래 예측 표현 차단, 2026-07-21).
     if is_retro:
         trailing.append(_RETRO_TENSE_DIRECTIVE)
+    # 주 호칭 말미 고정(2026-11-06) — [택일 결과] 블록 중간의 같은 문장이 밀려 '다음 주' 질문에
+    # '이번 주'로 답한 실답. 주 단위 창(week_label)이 있는 모든 턴에 붙인다(택일 외 주간 운세 포함).
+    _week_tr = intent.time_range
+    if _week_tr is not None and _week_tr.week_label and _week_tr.start and _week_tr.end:
+        trailing.append(
+            week_label_closing_directive(_week_tr.week_label, _week_tr.start, _week_tr.end)
+        )
     # P2b — companion_only: 이 풀이의 대상이 본인이 아니라 동반자임을 못박는다(본인 명식 혼동 차단).
     if companion_only:
         trailing.append(
@@ -7229,6 +7273,12 @@ def chat(
     # × 원국 천간(상관견관 환경형/자기형·정인 완화·겁재 역할 무관·편인 휴직)을 간지당 1회 싣는다.
     if intent.domain is Domain.CAREER and result is not None:
         trailing.extend(career_exit_lecture_block(
+            result, [(c.period, c.ganji) for c in payload.event_candidates],
+        ))
+    # 충 완화 글자(2026-11-07 충 강의 대조) — 후보 기간 운 지지가 원국 용·희신 글자를 충하면
+    # 묶어 주는 글자·시기를 서술 전용으로 싣는다(도메인 무관, 조건 없으면 블록 없음).
+    if result is not None:
+        trailing.extend(luck_clash_relief_block(
             result, [(c.period, c.ganji) for c in payload.event_candidates],
         ))
     # 상대 외모 지시 대상(2026-10-26) — 구조 블록 안의 지시만으로는 LLM 이 본인 외모를 답했다(실답
@@ -7963,6 +8013,7 @@ def chat(
                 entry_window=_entry_window_on, followup=_followup_meta,
                 entry_slots_engine=_entry_slots_engine,
                 partner_appearance=bool(_spouse_image_directive),
+                **_week_label_ctx(intent),
             ),
         )
 
@@ -8029,6 +8080,7 @@ def chat(
                 call_type=call_type, system=system, owner_id=owner_id, question=question,
                 entry_window=_entry_window_on, entry_slots_engine=_entry_slots_engine,
                 partner_appearance=bool(_spouse_image_directive),
+                **_week_label_ctx(intent),
             ),
             thread_id,
         )
