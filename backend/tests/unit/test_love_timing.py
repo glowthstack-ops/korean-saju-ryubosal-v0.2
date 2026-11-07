@@ -145,7 +145,10 @@ def test_male_qisha_only_downweighted() -> None:
 
 
 def test_resolve_love_experiments(monkeypatch: pytest.MonkeyPatch) -> None:
-    assert all(v is False for v in lt.resolve_love_experiments([]).values())
+    flags0 = lt.resolve_love_experiments([])
+    # 2026-11-07 결혼운 강의 4종은 기본 ON(off 목록으로만 끔) — 나머지는 전부 OFF.
+    assert all(flags0[k] for k in lt.LOVE_DEFAULT_ON)
+    assert all(v is False for k, v in flags0.items() if k not in lt.LOVE_DEFAULT_ON)
     monkeypatch.setenv("SAJU_LOVE_EXPERIMENTS", "female_qisha_partner, hap_overload_damping")
     flags = lt.resolve_love_experiments()
     assert flags["female_qisha_partner"] and flags["hap_overload_damping"]
@@ -156,8 +159,10 @@ def test_resolve_love_experiments(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_engine_default_all_off(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("SAJU_LOVE_EXPERIMENTS", raising=False)
+    monkeypatch.delenv("SAJU_LOVE_EXPERIMENTS_OFF", raising=False)
     eng = ev.EventEngineV2(_DICTS)
-    assert not any(eng._love.values())
+    assert not any(v for k, v in eng._love.items() if k not in lt.LOVE_DEFAULT_ON)
+    assert all(eng._love[k] for k in lt.LOVE_DEFAULT_ON)
 
 
 # ── P1-1: 여성 편관 시드 ──────────────────────────────────────────────────────

@@ -47,6 +47,12 @@ _AUTHORITY = {TenGod.ZHENGGUAN, TenGod.QISHA}
 _RESOURCE = {TenGod.ZHENGYIN, TenGod.PIANYIN}
 
 
+#: 기혼 경계 태그 임계 — 전환 전 새 인연·결혼 신호 점수(게이트 55 + 10).
+MARRIED_OUTSIDE_ATTRACTION_MIN = 65
+#: 재직자 취업 신호를 이직으로 읽는 '이동운 동반' 임계 — 같은 기간 이사·이동 후보 점수.
+EMPLOYEE_MOVE_WITH_JOB_MIN = 50
+
+
 @dataclass
 class GateContext:
     """게이트 평가 컨텍스트(엔진이 채움 — 미입력 필드는 게이트 미적용)."""
@@ -89,6 +95,11 @@ class AddendumGateModifier:
         self, candidates: list[EventCandidateV2], ctx: GateContext
     ) -> list[EventCandidateV2]:
         out: list[EventCandidateV2] = []
+        # 같은 기간에 이사·이동 후보가 함께 있는지(재직자 취업 신호 → 이직 판정용, 2026-11-07).
+        move_with = any(
+            c.event_key is EventKeyV2.RELOCATION and c.score >= EMPLOYEE_MOVE_WITH_JOB_MIN
+            for c in candidates
+        )
         for c in candidates:
             ek = c.event_key
             score = c.score
@@ -110,17 +121,36 @@ class AddendumGateModifier:
             if ek is EventKeyV2.CHILDBIRTH and no_partner_ctx:
                 new_key = EventKeyV2.CREATIVE_OUTPUT
                 reasons.append("GATE_childbirth_to_creative")
-            if ek is EventKeyV2.MARRIAGE_SIGNAL and ctx.relationship_status == "single":
-                score -= 12
-                reasons.append("GATE_marriage_signal_weak")
+            # 미혼 감점(구 GATE_marriage_signal_weak −12)은 2026-11-07 데굴님 결정으로 폐지 — 미혼은
+            # 결혼 가능성을 낮출 근거가 아니다(결혼 목적 만남은 3개월 만에도 성사). 기혼만 아래
+            # user_profile_event_gate 에서 새 인연·결혼 신호를 배우자·가정 이슈로 전환한다.
             if ek is EventKeyV2.JOB_GAIN and not (ctx.present_gods & (_RESOURCE | _WEALTH)):
                 score -= 8  # 관성 단독 — 인성·재성 보조 없음
                 reasons.append("GATE_job_gain_unsupported")
 
             # ── user_profile_event_gate ──────────────────────────
             if ek is EventKeyV2.JOB_GAIN and ctx.occupation_status == "employee":
-                new_key = EventKeyV2.PROMOTION  # 재직자 → 취업보다 승진·직무변경
-                reasons.append("PROFILE_job_gain_to_promotion")
+                if move_with:
+                    # 재직자 + 취업 신호 + 이동운 동반 = 이직(2026-11-07 데굴님: "직장이 있는 경우에
+                    # 이동운과 취업운이 함께 들어온다면 이직 운"). 점수 불변·사건 종류 전환.
+                    new_key = EventKeyV2.CAREER_CHANGE
+                    reasons.append("PROFILE_job_gain_to_career_change_move")
+                else:
+                    new_key = EventKeyV2.PROMOTION  # 재직자 → 취업보다 승진·직무변경
+                    reasons.append("PROFILE_job_gain_to_promotion")
+            if ek is EventKeyV2.JOB_GAIN and ctx.occupation_status == "student":
+                # 학생의 취업 신호 = 아르바이트·근로장학·인턴 등 단기 일자리로 읽음
+                # (2026-11-07, 태그만).
+                reasons.append("PROFILE_student_job_parttime")
+            _career_key = ek in (EventKeyV2.JOB_GAIN, EventKeyV2.CAREER_CHANGE)
+            if _career_key and ctx.occupation_status == "retired":
+                # 은퇴자의 취업·이직 신호 = 재취업·아르바이트·자문까지 폭넓게, 늦은 나이 취업도
+                # 배제하지 않음(2026-11-07, 태그만).
+                reasons.append("PROFILE_retired_late_career")
+            if ek is EventKeyV2.CAREER_CHANGE and ctx.occupation_status == "unemployed":
+                # 무직자의 이직 신호 = 취업(옮길 직장이 없다, 2026-11-07 데굴님).
+                new_key = EventKeyV2.JOB_GAIN
+                reasons.append("PROFILE_career_change_to_job_gain")
             # 공직자(O02): 재직 공직자의 취업 신호는 승진으로, 승진·인사는 발령·근무지 전보를
             # 동반한다(자료 7-3·12-4 — 공직 승진 = 승진시험 + 발령 + 이동). 사건 종류는 유지하고
             # 동반 가능성만 reason_code로 부여(LLM이 발령·이동을 함께 서술, 점수 불변).
@@ -134,6 +164,20 @@ class AddendumGateModifier:
             if ek is EventKeyV2.NEW_RELATIONSHIP and ctx.relationship_status == "married":
                 new_key = EventKeyV2.RELATIONSHIP_CHANGE  # 기혼 → 배우자 이슈
                 reasons.append("PROFILE_new_relationship_to_change")
+            if ek is EventKeyV2.MARRIAGE_SIGNAL and ctx.relationship_status == "married":
+                # 기혼의 결혼 신호 = 재혼이 아니라 배우자·가정 관계 이슈(2026-11-07 데굴님 결정:
+                # "기혼인 경우에 연애·결혼 가능성이 떨어지는 것"). 사건 종류 전환, 점수 불변.
+                new_key = EventKeyV2.RELATIONSHIP_CHANGE
+                reasons.append("PROFILE_marriage_to_change")
+            if (
+                ek in (EventKeyV2.NEW_RELATIONSHIP, EventKeyV2.MARRIAGE_SIGNAL)
+                and ctx.relationship_status == "married"
+                and score >= MARRIED_OUTSIDE_ATTRACTION_MIN
+            ):
+                # 기혼인데도 새 인연·결혼 신호가 강하면 배우자 외 인연·유혹이 걸리기 쉬운 해로
+                # 경계 주의를 안내한다(2026-11-07 데굴님 "바람 등에 대한 경고도 가능") — 외도 단정
+                # 금지, 가능성·경계 어미만. 점수 불변, 태그만.
+                reasons.append("PROFILE_married_outside_attraction_caution")
             if ek is EventKeyV2.WEALTH_CHANGE and ctx.occupation_status == "business_owner":
                 if ctx.present_gods & _OUTPUT:
                     new_key = EventKeyV2.BUSINESS_EXPANSION  # 사업자 + 식상 → 확장

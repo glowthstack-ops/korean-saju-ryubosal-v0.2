@@ -16,7 +16,6 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from saju_engines.report_job_store import ReportJobStore
-from saju_engines.report_plan import build_section_plans
 from saju_engines.subject_store import SubjectStore
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.report import ReportResult, ReportSpec
@@ -145,7 +144,9 @@ def create_job(
         raise HTTPException(status_code=503, detail=llm_service_state.SUSPENDED_REPORT_DETAIL)
     partner_birth = resolve_partner_birth(req.spec, subjects, owner_id)
     job_id = uuid.uuid4().hex
-    total = len(build_section_plans(req.spec))
+    # 진행률 분모 — 확장 후 섹션 수(총운 대운 페이지·한해 반기·테마 연도 페이지 포함). 이전엔 고정
+    # 목차 수(총운 16)로 시작해 생성 중 25로 바뀌었다(2026-11-07 데굴님 지적).
+    total = report_service.expected_section_total(record.birth, req.spec, req.today)
     jobs.create(job_id, owner_id, req.spec.model_dump(mode="json"), total)
     background.add_task(
         run_report_job, job_id, record.birth, req.spec, req.today, record.label,

@@ -219,6 +219,88 @@ LOVE_MARRIAGE_UNIFIED_DIRECTIVE = (
     "없이 이 관점으로 부드럽게 정리할 것."
 )
 
+#: 배우자성 십성(성별 기준) — 대운 천간/지지가 이것이면 '배우자성 대운' 라벨(통설, 점수 무관).
+PARTNER_STAR_GODS: dict[str, frozenset[str]] = {
+    "male": frozenset({"정재", "편재"}),
+    "female": frozenset({"정관", "편관"}),
+}
+
+PARTNER_STAR_DAEWOON_TAG = " (배우자성 대운 — 결혼·이성 인연이 본격 거론되는 10년이라는 통설)"
+
+
+def partner_star_daewoon_tag(day_master: str, ganji: str, gender: str | None) -> str:
+    """간지만으로 배우자성 대운 태그(채팅 간지달력·리포트 대운표 공용) — 아니면 빈 문자열.
+
+    대운 천간 십성 또는 지지 본기 십성이 성별 기준 배우자성(남=재성·여=관성)이면 통설 라벨.
+    """
+    from saju_shared_types.constants import main_hidden_stem
+    from saju_shared_types.constants import ten_god as _ten_god
+    from saju_shared_types.enums import Branch, Stem
+
+    gods = PARTNER_STAR_GODS.get(gender or "", frozenset())
+    if not gods or len(ganji) < 2:
+        return ""
+    try:
+        dm = Stem(day_master)
+        stem_god = str(_ten_god(dm, Stem(ganji[0])))
+        branch_god = str(_ten_god(dm, main_hidden_stem(Branch(ganji[1]))))
+    except ValueError:
+        return ""
+    return PARTNER_STAR_DAEWOON_TAG if {stem_god, branch_god} & gods else ""
+
+
+# 결혼 2축 답 계약(2026-11-07 결혼운 강의 7편 대조 — 사교쌤 핵심: 시기 ≠ 길흉). 엔진 결혼 후보의
+# '주의'는 충·형이 아니라 용기신 길흉이므로 "시기는 열리나 운이 유리하지 않음"이다. 불리할 때
+# '하지 마라'로 닫지 않고 숙고·궁합 확인·피할 오행을 안내한다. 점수·판정 무관(서술 계약).
+MARRIAGE_TWO_AXIS_DIRECTIVE = (
+    "[결혼 답 2축 계약] 결혼·인연 시기는 두 축으로 나눠 말할 것. ①시기 신호(배우자성 운·"
+    "배우자궁 합·복음·관대/건록/제왕 등 — 후보 목록의 결혼·새 인연 후보) ②그 운의 결(용기신 "
+    "길흉·관살/재성 혼잡·배우자궁 충형). 후보 결이 '주의'라도 '결혼운 없음·하지 마라'로 닫지 말 것 "
+    "— '인연 창은 열리나 운이 유리하지 않다'로 쓰고 숙고·상대 궁합 확인·원국 배우자운 약점·"
+    "피해야 할 기운(기·구신 오행이 강한 상대)을 안내할 것. 결이 '길'이면 시기와 운이 함께 받쳐 "
+    "준다고 쓸 것. 미혼은 결혼 가능성을 낮추는 근거가 아니다(결혼 목적 만남은 짧은 기간에도 성사) "
+    "— 인연 창과 결혼 창을 나란히 짚을 것. 기혼 프로필의 새 인연·결혼 신호는 배우자·가정 관계 "
+    "이슈로 읽고, '기혼인데 이성 인연 신호가 강한 해' 표기가 있으면 배우자 외 인연·유혹이 걸리기 "
+    "쉬운 때로 관계 경계를 권할 것(외도 단정·낙인 금지, 가능성 어미). 확정 어미·확률 단정 금지."
+)
+
+
+def marriage_alt_views_lines(result: ManseV2Result) -> list[str]:
+    """결혼 시기 참고 통설(안내 전용, 점수 무관 — 2026-11-07 데굴님 "그렇게 풀이하기도 한다 식
+    안내").
+
+    검색 대조(2026-11-07)에서 여러 출처가 공유한 통설만 싣는다: 신강약별 결혼 운 십성, 성사가 어려운
+    해. 출처 표기는 하지 않는다(정책). 성립 조건이 없으면 빈 목록.
+
+    Args:
+        result: 본인 명식 결과(강약 밴드·성별).
+
+    Returns:
+        LLM 입력 줄 목록(헤더 1 + 통설 1~2).
+    """
+    fa = result.force_analysis
+    band = str(getattr(getattr(fa, "strength", None), "band", "") or "")
+    if not band:
+        return []
+    gender = str((result.input_summary or {}).get("gender") or "")
+    lines = ["[결혼 시기 참고 통설 — '이렇게 풀이하기도 한다' 수준의 안내. 판정·점수 근거 아님]"]
+    if "중화" in band:
+        lines.append("- 중화 명식은 격국 용신에 해당하는 운에서 결혼이 많이 이뤄진다는 통설")
+    elif "신약" in band:
+        lines.append("- 신약 명식은 남녀 모두 인성 운에 결혼이 많다는 통설")
+    elif "신강" in band:
+        lines.append(
+            "- 신강 명식은 식상·재성 운"
+            + ("(여성은 재성·관살 운)" if gender == "female" else "")
+            + "에 결혼 운이 좋다는 통설"
+        )
+    lines.append(
+        "- 성사가 어려운 해로 꼽는 통설: 배우자궁(일지) 충의 해, 재성·관성이 충을 맞는 해, "
+        "신왕 명식의 겁재 운, 신약 명식의 식상 해 — 참고만(해당 해를 '불가'로 단정하지 말 것)"
+    )
+    return lines
+
+
 # 연애 자기인식(C) — 사주에 드러난 이상형 취향을 본인이 인정 않으면 연애가 어긋난다는 앵글(공용).
 # 남녀 차이 관점(2026-10-29 데굴님 결정 — 외부 강의 「남자와 여자는 어떻게 다른가」, 대조 문서
 # doc/v2_2/EXTERNAL_TEXT_GAP_GENDER_YINYANG.md). 강의의 결론(하늘과 땅은 끝내 서로를 다 이해하지
@@ -880,12 +962,14 @@ def marriage_resource_lines(mr: MarriageResourceProfile) -> list[str]:
     if mr.spouse_palace_stable:
         quality.append(
             "배우자궁(일지) 충·형·원진 없이 안정 — 관계 내구성이 좋아 갈등도 제자리로 돌아오는 결"
+            "(합으로 묶인 자리는 인내로 관계를 유지하는 결이기도 하다)"
         )
     else:
         quality.append(
             "배우자궁(일지) " + "·".join(mr.spouse_palace_afflictions)
             + " — 관계가 흔들리기 쉬운 결이나 개운·궁합·노력으로 보완 가능(이혼 단정 아님, "
-            "남·환경 탓보다 본인 대응이 관건)"
+            "남·환경 탓보다 본인 대응이 관건). 충·형은 관계를 고쳐 바꾸려는 '수정 의지'의 결로도 "
+            "읽는다 — 좋고 나쁨이 아니라 묶임(합)과 수정(충형)의 차이"
         )
         # 관계질 라벨(P4 — 중립 설명, 판정·점수 미개입): 각 살의 관계 결을 낙인 없이 병기.
         rel_notes = [

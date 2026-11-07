@@ -84,10 +84,12 @@ from saju_engines.horizon import ENTRY_WINDOW_DIRECTIVE
 from saju_engines.impossible_relation_audit import strip_impossible_relation_claims
 from saju_engines.intent_event_filter import IntentEventFilter
 from saju_engines.life_graph import (
+    PARTNER_STAR_GODS,
     PER_DAEWOON_CAP,
     build_life_graph,
     daewoon_summary_lines,
     marker_lines,
+    partner_star_daewoon_tag,
     positive_window_lines,
     when_tag,
 )
@@ -104,6 +106,7 @@ from saju_engines.love_separation import love_separation_block, love_separation_
 from saju_engines.love_type import age_from_result
 from saju_engines.manifestation_branch import branch_summary
 from saju_engines.marriage_resource import analyze_marriage_resource
+from saju_engines.marriage_windows import marriage_window_lines
 from saju_engines.mobility_agency import (
     MOBILITY_AGENCY_DIRECTIVE,
     has_mobility_candidate,
@@ -176,6 +179,7 @@ from saju_engines.structural_context import (
     GONGMANG_ACTIVATION_DIRECTIVE,
     KEYWORD_COMBO_TRANSLATION_DIRECTIVE,
     MANAGE_NOT_OVERCOME_DIRECTIVE,
+    MARRIAGE_TWO_AXIS_DIRECTIVE,
     NON_NORMATIVE_REASSURANCE_DIRECTIVE,
     RELATIONSHIP_DIFFERENCE_PERSPECTIVE,
     RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
@@ -194,6 +198,7 @@ from saju_engines.structural_context import (
     hour_unknown_directive,
     load_remedy_action_map,
     marriage_age_prior_lines,
+    marriage_alt_views_lines,
     marriage_resource_lines,
     preparation_context_lines,
     remedy_action_lines,
@@ -1273,6 +1278,7 @@ class _ReportData:
             self.life_graph = build_life_graph(
                 self.result, _lt_result, self.lifetime_pool, _lt_lo, _lt_hi,
                 risk_years=_lt_risk_years, today_year=self.today.year,
+                gender=str((self.result.input_summary or {}).get("gender") or ""),
             )
         # 기간 연도 경계(섹션별 도메인 후보 스코핑용) — 후보 필터와 동일 기준.
         self._yr_lo = spec.period.start[:4]
@@ -1905,11 +1911,13 @@ class _ReportData:
             return []
         lines = [
             "[인생 그래프 데이터 — 엔진 확정값. 화면의 그래프와 같은 값이므로 숫자·연도·간지를 "
-            "바꾸거나 새로 만들지 말 것. 대운별 한 줄 뒤에 주요 이벤트 마커(결혼·취업·이직·이사·"
-            "재물 유입·건강 위기·금전 위기 — 품질 게이트 통과분, 대운당 최대 "
+            "바꾸거나 새로 만들지 말 것. 대운별 한 줄 뒤에 주요 이벤트 마커(인연·결혼·취업·이직·"
+            "이사·재물 유입·건강 위기·금전 위기 — 품질 게이트 통과분, 대운당 최대 "
             f"{PER_DAEWOON_CAP}, 종류별 최고 후보 우선 배정)가 온다. 오늘은 "
             f"{self.today.year}년 — [지남] 표식이 붙은 해는 이미 지난 해이므로 '내년·다가올·"
-            "앞으로'로 쓰지 말고 회고형으로, [올해]는 진행형, [예정]만 앞으로의 창으로 쓸 것]",
+            "앞으로'로 쓰지 말고 회고형으로, [올해]는 진행형, [예정]만 앞으로의 창으로 쓸 것. 결혼 "
+            "마커의 메모 '운의 결 주의'는 결혼 불가가 아니라 '시기는 열리나 운이 유리하지 않음 → "
+            "숙고·궁합 확인'으로 쓸 것]",
             *daewoon_summary_lines(g),
         ]
         markers = marker_lines(g)
@@ -2121,6 +2129,26 @@ class _ReportData:
             return f"[아래 표는 상대({self.partner_label}) 기준]"
         return f"[아래 표는 본인({self.self_label}) 기준]"
 
+    def wealth_form_block(self, n: int = 8) -> list[str]:
+        """[재물 입출 형태] — 재물 도메인 후보(상위 n)에 '들어오거나 나가는 방식' 통설 후보를 붙인다
+        (2026-11-07 데굴님 "금전운도 들어오거나 나가는 방식이 중요"). 동반 후보는 전체 점수화
+        목록."""
+        from saju_engines.wealth_flow_forms import wealth_form_lines
+
+        cands = self.domain_candidates("wealth", n)
+        if not cands:
+            return []
+        return wealth_form_lines(cands, self.scored)
+
+    def partner_marriage_window_block(self, *, limit: int = 5) -> list[str]:
+        """[상대 결혼·인연 신호 창] — 궁합 리포트에서 상대 명식의 결혼·새 인연 후보 연도(오늘 이후,
+        게이트 55 이상, 주의 방향 제외). 채팅 궁합과 같은 헬퍼(`marriage_windows`, 2026-11-07)."""
+        if self.partner_result is None or self.partner_scored is None:
+            return []
+        return marriage_window_lines(
+            self.partner_label, self.partner_scored, self.today.year, limit=limit,
+        )
+
     def partner_year_spectrum_block(
         self, domain: str | None = None, *, notable_only: bool = False
     ) -> list[str]:
@@ -2215,6 +2243,18 @@ class _ReportData:
                 f"[이 페이지의 대운] {dw.ganji}(천간 {dw.stem}={dw.stem_ten_god}/지지 "
                 f"{dw.branch}={dw.branch_ten_god}) {y0}-{y1}년, {age}-{age + 9}세{role}{tag}"
             )
+            # 배우자성 대운(2026-11-07) — 남=재성·여=관성이 대운 글자에 있으면 '결혼·이성 인연이
+            # 본격 거론되는 10년'(통설) 라벨. 서술 전용·점수 무관.
+            _pg = PARTNER_STAR_GODS.get(
+                str((self.result.input_summary or {}).get("gender") or ""), frozenset()
+            )
+            _pstar = {str(dw.stem_ten_god or ""), str(dw.branch_ten_god or "")} & _pg
+            if _pstar:
+                lines.append(
+                    f"[배우자성 대운] 대운에 배우자성({'·'.join(sorted(_pstar))})이 들어와 "
+                    "결혼·이성 인연이 본격 거론되는 10년으로 보는 통설 — 이 대운 안의 인연·결혼 "
+                    "창을 적극 탐색할 시기로 안내할 것(확정 금지, 운의 결은 별도 축)"
+                )
             # 총운 개편(2026-11-07) — 과거/현재/미래 대운별 서술 계약을 데이터 줄로 고정.
             if _cur is not None:
                 if dw.index < _cur:
@@ -2884,10 +2924,14 @@ class _ReportData:
                     f"{d.approx_start_date.year}-{d.approx_end_date.year}", d.ganji,
                     is_daewoon=True,
                 ))
+                _ps_dw = partner_star_daewoon_tag(
+                    self.summary.day_master, d.ganji,
+                    str((self.result.input_summary or {}).get("gender") or ""),
+                )
                 lines.append(
                     f"대운 {d.ganji}(천간 {d.stem}={d.stem_ten_god}/지지 {d.branch}="
                     f"{d.branch_ten_god}) {d.approx_start_date.year}-{d.approx_end_date.year}, "
-                    f"{d.start_age}-{d.start_age + 9}세: 발현 {mode_ko}{_dw_tag}{_gm}"
+                    f"{d.start_age}-{d.start_age + 9}세: 발현 {mode_ko}{_dw_tag}{_gm}{_ps_dw}"
                 )
             if _cur_dw is not None:
                 lines.append(
@@ -4255,6 +4299,11 @@ def build_section_context(
     elif not is_natal_section:
         lines.append("")
         section_domain = _SECTION_DOMAIN.get(sid)
+        # 재물 입출 형태(2026-11-07) — 재물 도메인 섹션에 후보별 방식 통설 블록.
+        if section_domain == "wealth":
+            _wf = data.wealth_form_block()
+            if _wf:
+                lines += ["", *_wf]
         # 생애 변곡점 연표(F-14 골격, docs/10 3-1) — 근접 5년 스펙트럼 표보다 앞에 부착
         # (연표가 골격, 스펙트럼은 가까운 몇 해의 해상도 보강).
         if sid == "F-14":
@@ -4393,10 +4442,6 @@ def build_section_context(
             _SPOUSE_MARRIED_DIRECTIVE
             if _marital in ("기혼", "재혼")
             else _SPOUSE_IMAGE_DIRECTIVE,
-            # 성별별 서술 형태(호칭·배우자상 어휘·축, 2026-11-07) — 기혼·미혼 모두.
-            spouse_form_directive(
-                str((data.result.input_summary or {}).get("gender") or "unknown")
-            ),
         ]
     # 관계·재물구조 섹션 — 결혼·자산 자원 구조(성별 인지, 중립) 표면화. 명식/운 분기와 무관.
     # 배우자성 성별 가드(남=재성·여=관성) + 연애 자기인식(이상형 인정) 가드를 함께 실어 반대 성별
@@ -4412,10 +4457,20 @@ def build_section_context(
         lines += [
             "",
             spouse_star_directive(data.marriage_resource.gender),
+            # 성별 서술 형태(호칭·배우자상 어휘·축) — 총운 F-06b 뿐 아니라 테마 애정운·궁합·한해풀이
+            # 관계 섹션 전부(2026-11-07 데굴님 "범용 반영" 확인).
+            spouse_form_directive(data.marriage_resource.gender),
             *data.marriage_resource_block(),
             RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
             TENDENCY_SHIFT_DIRECTIVE,
+            # 결혼 2축 계약 + 참고 통설(2026-11-07 결혼운 강의 7편) — 시기 ≠ 길흉, 불리하면 숙고.
+            MARRIAGE_TWO_AXIS_DIRECTIVE,
+            *marriage_alt_views_lines(data.result),
         ]
+        # 동반자(상대) 결혼·인연 신호 창 — 둘 중 한쪽만 들어와도 결혼 가능(강의: 배우자 운 따라감).
+        _pw = data.partner_marriage_window_block()
+        if _pw:
+            lines += ["", *_pw]
         # 외적 인상·매력 신호 — notable 이상일 때만 표면화(미해당이면 빈 목록 → 무언급).
         impression = data.external_impression_block()
         if impression:
@@ -4700,6 +4755,45 @@ def _relationship_risk_beta_report_block(data: _ReportData) -> list[str]:
     for dom, band in rows[:4]:
         lines.append(f"- {dom} 영역: {band}")
     return lines
+
+
+def expected_section_total(
+    birth: BirthInput, spec: ReportSpec, today: date | None = None,
+) -> int:
+    """잡 생성 시점의 **확장 후** 섹션 수 — 진행률 분모용(2026-11-07 데굴님 "1/16으로 시작하던데").
+
+    `_expand_report_plans` 의 규칙만 가볍게 재현한다(점수화 없이 명식 계산만):
+    RPT_FULL = 고정 + 90세 창 안의 대운 수 / RPT_YEAR = 고정 + 1(Y-05 → 반기 2페이지) /
+    RPT_FOCUS = 고정 + 예측 창 연도 수(기간 종합 섹션이 있을 때). 계산 실패 시 고정 수.
+    """
+    plans = build_section_plans(spec)
+    n = len(plans)
+    try:
+        if spec.product_code == "RPT_YEAR":
+            if spec.period.start[:4].isdigit() and any(p.section_id == "Y-05" for p in plans):
+                return n + 1
+            return n
+        if spec.product_code == "RPT_FOCUS":
+            base = (
+                "RP-06"
+                if is_pair_relationship(spec)
+                else _FOCUS_SPECTRUM_BASE.get(spec.topic or "", "C-03")
+            )
+            if not any(p.section_id == base for p in plans):
+                return n
+            return n + len(_forecast_years(spec, today or date.today()))
+        if spec.product_code == "RPT_FULL" and any(p.section_id == "F-14" for p in plans):
+            if not (spec.period.start[:4].isdigit() and spec.period.end[:4].isdigit()):
+                return n
+            result = calculate(birth.model_copy(update={"reference_date": today or date.today()}))
+            lc = result.luck_cycles
+            if lc is None or not lc.daewoon_table:
+                return n
+            hi_year = int(spec.period.end[:4])
+            return n + sum(1 for d in lc.daewoon_table if d.approx_start_date.year <= hi_year)
+    except Exception:  # noqa: BLE001 — 분모 추정 실패는 잡 생성을 막지 않는다(진행 중 갱신됨)
+        _logger.exception("expected_section_total 실패 — 고정 섹션 수로 대체")
+    return n
 
 
 def plan_report(

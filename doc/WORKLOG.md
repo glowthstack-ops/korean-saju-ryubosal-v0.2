@@ -13331,3 +13331,58 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - **결과(데굴님 명식 재생성):** 마커 42개(길 17·주의 25, 이전 7·26), 재물 유입 9건(현재 대운 2028년 포함), 긍정 창 13개(재물 유입 2026–2030이 첫 창). 결혼 길 방향 후보는 2045년(65세)이 가장 이른 해 — 엔진 신호 자체가 그 이전엔 주의 방향뿐이라 창도 2045부터(76세 마커는 나이 상한으로 제외). 13섹션(F-07·F-14·F-14-D1~9·F-14b·F-21) 1회 통과 → 시제 교정 후 4섹션 재생성 1회 통과.
 - **테스트:** `test_full_report_v3_20261107.py` — 상한·위기 합산·방향·나이·재물 유입 존재·현재 대운 4종 이상·긍정 창(가까운 순·결혼 2045)·시제 표식·합성 풀 좌석 보장/창 묶음 반례. 관련 suite 통과.
 - **게이트:** `All checks passed` · `production mypy gate clean` · frontend `tsc`·production build 통과. 백엔드 재기동 pid 116495. docs/10 §3-1 개정(마커 6종·좌석 보장·긍정 창·시제 표식).
+
+## 2026-11-07 — 결혼운 강의 7편 대조층: 시기≠길흉 2축·실험 4종 기본 ON·서술층·통설 안내 (데굴님 "제대로 보완해보자" → "1·3 진행 / 2 ON으로 시작 / 4 통설 대조·안내 형태" · "다른 사주들에서는 26~28년 결혼운")
+
+- **대조(doc/v2_2/EXTERNAL_TEXT_GAP_MARRIAGE_TIMING_LECTURES.md):** 7편 24규칙 분해 → 동등 12·정정 1·점수 실험 4·서술 6·안내 전환 3·데이터 1. 핵심 정정은 **결혼 시기 신호 ≠ 그 운의 길흉**(사교쌤) — 엔진 marriage_signal '주의'는 충·형이 아니라 용기신 favorability 음수(데굴님 2034 = 정재 운+재생관, 구신). 같은 날 넣은 "결혼 마커 길·혼합만" 규칙이 이를 지워 되돌림.
+- **P0:** `life_graph` 결혼 마커 방향 무관 + 2축 메모(`MARRIAGE_CAUTION_NOTE` "인연 창 ○ · 운의 결 주의 — 숙고·궁합 확인") + 좌석 보장에서 결혼 길/주의 분리 좌석(`PER_DAEWOON_CAP` 5→6). `MARRIAGE_TWO_AXIS_DIRECTIVE`(채팅 관계 질문·리포트 결혼 섹션·F-14 헤더). 데굴님 지적("다른 풀이는 26~28년 결혼운")으로 실측: 2027년 결혼 66점 길(정재 대운 + 丁未 일지 삼합 + 희신, 실험 ①로 57→66)이 2034년 95점 주의에 좌석을 빼앗겨 그래프·글에서 사라졌던 것 → 분리 좌석으로 복구, 긍정 창 2027 노출, 한 해 창은 전후 1년 활성화 창 표현 허용.
+- **P1(기본 ON, `love_timing.LOVE_DEFAULT_ON`, 끄기 `SAJU_LOVE_EXPERIMENTS_OFF`):** ①배우자성 운×일지 합 동반 ×1.15 ②여성 관인상생(관 있고 인성 없음→인성 대운·세운 시드 26/22) ③남성 비겁 운(재성 있는 명식 세운·월운 → relationship_change 24, 겁재 태그) ④월지 충+배우자성 운 태그. `event_engine_v2` 훅, `casebook_replay --love-experiment-off`. **측정:** 85사례 재생 OFF vs ON — 집계 15지표 전부 동일(pair 33/68·적중 23/44·세운 14·대운 25), 행 변화 1(CASE-042 event_fav −0.04→−0.01). 결혼 시기 표본 0건이라 적중 변화는 측정 불가.
+- **P2:** 직렬화 `REL_HAP_{palace}` 궁위별 인연 성격·복음 라벨, 배우자궁 지속 어휘(합=묶임·충형=수정 의지), 궁합 `DAY_PILLAR_SAME`(가중 1), 궁합 리포트 `partner_marriage_window_block`(상대 결혼·인연 신호 창), `love_period_notes` 여성 식상 병기·충 통설 병기·공망 글자 운 참고.
+- **불채택 3건 → 안내 전환(웹 검색 대조):** 공망 혼기 최강설은 통설과 반대라 두 갈래 병기, 격 성립 운은 신강약별 결혼 운 통설로 갈음, 충=첫눈은 병기 — `marriage_alt_views_lines`(출처 표기 없음).
+- **테스트:** `tests/unit/test_marriage_lectures_20261107.py` 10건(기본 ON·off 목록·합류 배율 반례·태그·시드 조건·마커 2축·라벨·서술 병기·궁합·프롬프트 배선), `test_love_timing.py` 기본값 2건 갱신, `test_full_report_v3` 결혼 방향 단언 제거. 관련 265건 통과.
+- **게이트:** `All checks passed` · `production mypy gate clean` · `maintained scripts mypy gate clean`. 백엔드 재기동. 데굴님 총운 F-06b·F-14·F-14-D5·F-14b·F-21 재생성(2축 서술 확인: "결혼 창은 열리지만 운의 결이 무거워 궁합·조건 숙고 선행").
+- **남은 과제:** P3-1 결혼·연애 이력(연·월) 수집 + 측정 스크립트(표본 전까지 실험은 실답 감수로만), PR #20 병합(분류기 차단 — 데굴님 수동).
+
+## 2026-11-07 — 인연 마커·배우자성 대운 라벨·실패 이력 시효 (데굴님 참고 풀이 "임진 대운 결혼운 진입·27년까지 인연 유리" → "제안대로 진행")
+
+- **원인:** 리포트 경로에서 2027년 결혼 66점(길)이 미혼 프로필 게이트 −12 + 2007년 결혼 '안 일어남' 개인 이력 −2로 49점 → 창·마커 소실. 만남·관계 형성 신호(2027 75·2028 95·2029 69)는 강했지만 그래프에 종류가 없었다.
+- **반영:** `MarkerKind.ROMANCE`(인연, 길·혼합 방향만, 나이 18~85, cap 7, 긍정 창 포함, 프론트 ♡) · `LifeGraphDaewoon.partner_star_daewoon`(남=재성·여=관성) + 대운 줄·대운 페이지 `[배우자성 대운]` 통설 라벨 · `personal_calibration._failure_age_decay`(10년 초과 반감) · `GATE_marriage_signal_weak` 직렬화 라벨 + 2축 계약에 "미혼이면 인연 창 먼저". docs/10 §3-1 마커 7종.
+- **테스트:** `test_marriage_lectures_20261107.py` +1(인연 마커·창·배우자성 대운 라벨·페이지 줄·시효 3값), v3 창 종류 갱신. 관련 37건 통과.
+
+## 2026-11-07 — 범용 배선 점검 + 미혼 감점 폐지·기혼 전환·경계 태그 (데굴님 "범용적으로 반영된거야?" · "미혼이 결혼 가능성을 낮출 근거가 되나" · "기혼이면 바람 경고도 가능")
+
+- **범용 점검:** 성별 헤더 2행·육친 감사·2축 계약·참고 통설·실험 4종·직렬화 라벨·실패 이력 시효는 채팅·총운·테마·한해풀이·궁합 공용이었고, **공백 3곳** — ①성별 서술 형태 디렉티브가 총운 F-06b/F-17 전용 → `_MARRIAGE_RESOURCE_SECTIONS`(R-03·R-05·RP-03·RP-04·Y-08·W-03·F-17·F-06b) 전부 + 채팅 관계 답 ②배우자성 대운 라벨이 총운 대운 페이지 전용 → `structural_context.partner_star_daewoon_tag`(간지만으로 판정)로 채팅 간지달력 대운 줄·리포트 [대운표] 줄 공용 ③채팅 궁합엔 상대 결혼 창 없음(상대 점수화 미배선 — 남은 과제).
+- **미혼·기혼 게이트(docs/11 영향표 개정):** 구 `GATE_marriage_signal_weak`(미혼 −12) 폐지 — 미혼은 결혼 가능성을 낮출 근거가 아니다(결혼 목적 만남은 3개월 만에도 성사). 기혼은 `PROFILE_marriage_to_change`(결혼 신호 → 배우자·가정 관계 이슈, 기존 새 인연 전환과 짝) + 전환 전 점수 ≥65면 `PROFILE_married_outside_attraction_caution`("배우자 외 인연·유혹이 걸리기 쉬운 해 — 관계 경계·오해 주의", 외도 단정 금지). 사전 `user_profile_event_gate.json` 규칙 문구·implemented_by 갱신, 2축 계약 문장 교체.
+- **데굴님 실측(운영 개인화 포함):** 2027년 결혼 49→65(길) 복귀 → 결혼 창 2027, 인연 창 2027~2030(95). 마커 cap 7→8(좌석 종류 8종 전부 수용).
+- **순환 import 교정:** `context_reducer`→`life_graph` 역방향 import가 생겨 배우자성 대운 헬퍼를 `structural_context`로 이동(life_graph 재수출).
+- **테스트:** `test_marriage_lectures_20261107.py` +2(테마 리포트 R-03/R-05 배선·간지 태그 3갈래·게이트 미혼 무감점/기혼 전환/경계 태그). 관련 suite 통과 · `All checks passed` · `production mypy gate clean` · tsc.
+
+## 2026-11-07 — 프로필 게이트: 재직자 취업+이동운=이직, 무직자 이직=취업 (데굴님 "취업이나 이직도 마찬가지 아니야?")
+
+- `addendum_gate_modifier`: 재직자(employee) 취업 신호(job_gain)는 같은 기간 이사·이동 후보(≥`EMPLOYEE_MOVE_WITH_JOB_MIN`=50)가 함께 있으면 `career_change`(`PROFILE_job_gain_to_career_change_move`), 없으면 기존대로 승진(`PROFILE_job_gain_to_promotion`). 무직자(unemployed) 이직 신호는 취업으로(`PROFILE_career_change_to_job_gain`). 점수 불변·사건 종류 전환. `user_profile_event_gate.json` 규칙 문구·implemented_by, 직렬화 라벨, 테스트 1건.
+
+## 2026-11-07 — 재물 입출 형태 서술층 + 학생·은퇴자 프로필 태그 (데굴님 "금전운도 들어오거나 나가는 방식이 중요해" · "학생은 아르바이트·근로장학, 은퇴자는 늦은 나이 직장도")
+
+- **`saju_engines/wealth_flow_forms.py`(신규):** 재물 후보(wealth_change·windfall)의 근거 코드·방향·같은 기간 동반 후보로 '들어오거나 나가는 방식' 통설 후보를 붙인다 — 유입: 정기 소득(정재)·투자/거래 자산(편재)·활동 성과 수입(식상생재)·횡재·묶였던 돈 회수(재성 합 풀림·공망 해소)·문서/계약 자산(재+관+인) / 지출: 병원비(건강 후보 ≥50 동반)·주거비(이사 후보 동반)·가족 비용(부모·자녀 궁위 발동)·빌려주거나 떼임(비겁·군겁쟁재)·투자 손실(편재 흉)·고정 수입 감소(정재 흉). 점수·순위 무관, 금액·종목·당첨 금지 범례.
+- **배선:** 채팅 — `LlmEventCandidate.wealth_form_notes` + `_to_llm_candidate(peers=)` + 후보 블록 "재물 입출 형태" 줄 + 범례 / 리포트 — `_ReportData.wealth_form_block()`을 재물 도메인 섹션(Y-07·F-16·W-06·W-07)에 부착.
+- **프로필 태그(사건 종류 불변):** 학생 취업 신호 `PROFILE_student_job_parttime`(아르바이트·근로장학·인턴) / 은퇴자 취업·이직 `PROFILE_retired_late_career`(재취업·아르바이트·자문, 늦은 나이 취업 배제 안 함). `user_profile_event_gate.json` 규칙 문구·implemented_by 갱신.
+- **테스트:** `test_marriage_lectures_20261107.py` +1(형태 산출·비재물 공집합·Y-07 블록·학생/은퇴자 태그). 관련 99건 통과 · `All checks passed` · `production mypy gate clean`.
+
+## 2026-11-07 — 채팅 궁합(동반자)에 상대 결혼·인연 신호 창 — 로맨스 관계 한정 (데굴님 "동반자 궁합에 결혼 인연 신호 필요하지 않아?" · "연인·불륜 등 로맨스 포함 관계에 한해")
+
+- `saju_engines/marriage_windows.py`(신규, 공용 헬퍼): 상대 세운 후보 중 결혼·새 인연(게이트 55·주의 방향 제외·오늘 이후)을 연도별 최고점으로 묶는 `marriage_window_lines`. 리포트 `partner_marriage_window_block`도 이 헬퍼로 위임.
+- 채팅 `_compat_prompt_block(..., romantic=)`: 상대 명식을 연 단위로만 점수화(`score_legacy_personalized(levels={YEAR})`, 개인화 없음)해 창을 붙인다. **로맨스 관계에만** — 호출부에서 `romantic=not is_non_romantic_relation(_relation_frame)`(부모·자녀·친구·직장 동반자는 제외, 미등록 인라인 상대는 로맨스로 간주). 실패는 비차단 로그.
+- 동반자 단독 모드("엄마 결혼운")는 그 사람 명식으로 전체 파이프라인이 돌아 결혼 층이 이미 전부 적용된다(성별 헤더도 그 사람 기준).
+- 테스트 +1(로맨스 블록에 창 포함·비연애 romantic=False 제외·빈 입력). 관련 54건 통과 · `All checks passed` · `production mypy gate clean`.
+
+## 2026-11-07 — 리포트 잡 진행률 분모를 생성 시점부터 확장 후 섹션 수로 (데굴님 "총운이 1/16으로 시작하던데, 테마사주 포함 카운트 수정")
+
+- **원인:** `POST /report/jobs` 가 `len(build_section_plans(spec))`(고정 목차 수)로 잡을 만들고, 빌더가 확장 후 `update_progress`로 분모를 바꿔 총운이 1/16으로 시작해 2/25로 뛰었다. 한해풀이(Y-05 반기 2페이지)·테마(연도별 상세 페이지)도 같은 구조.
+- **반영:** `report_service.expected_section_total(birth, spec, today)` — `_expand_report_plans` 규칙을 점수화 없이 재현(총운=고정+90세 창 대운 수, 한해=고정+1, 테마=고정+예측 창 연도 수; 실패 시 고정 수). 라우터가 이 값으로 잡 생성. 프론트 변경 없음.
+- **테스트:** `tests/unit/test_report_job_total_20261107.py`(세 상품 모두 확장 결과와 일치), `test_report_jobs_api.py` 기대값 갱신. `All checks passed` · `production mypy gate clean`.
+
+## 2026-11-07 — PR #21 CI 실패 7건 교정 + 전체 스위트 (데굴님 "병합까지 완료해줘")
+
+- **원인·교정:** ①`test_relation_phrase_pairwise` 4건 — 채팅 간지달력 대운 줄 접미 "[배우자성 대운 …]"이 비연애 프레임 가드(`'[배우자성' not in prompt`)에 걸림 → 블록이 아니라 행 접미이므로 괄호 표기(`PARTNER_STAR_DAEWOON_TAG`) ②`test_event_taxonomy_v2` 2건 — 궁위별 합 라벨 도입에 따른 기대값 갱신 ③`test_entry_slots_assignment` 1건 — 결혼 실험 ON 뒤 2027-04 최상위 사건이 '계약·문서'→'결혼 신호'로 바뀐 스냅샷 → 최상위 사건명 가변(정규식), 검증 대상은 '질문 사건 격하 금지' 처리.
+- **교훈:** 표적 테스트만 돌리고 푸시해 CI에서 잡혔다 — 직렬화 라벨·프롬프트 접미처럼 전역 문자열을 바꾸면 전체 스위트를 먼저 돌린다.
+- **게이트:** `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(start=end head 350fb8a, 지문 동일, exit 0) · `All checks passed` · `production mypy gate clean`.

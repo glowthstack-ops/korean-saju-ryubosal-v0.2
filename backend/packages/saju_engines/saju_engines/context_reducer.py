@@ -124,7 +124,11 @@ from .sinsal_direction import (
 )
 from .sinsal_modifier import derive_natal_sinsal_modifiers, select_llm_sinsal_modifiers
 from .sinsal_numeric_scoring import apply_sinsal_channel_shadow, channel_note_ko
-from .structural_context import TONE_LAYER_DIRECTIVE, gender_kin_line
+from .structural_context import (
+    TONE_LAYER_DIRECTIVE,
+    gender_kin_line,
+    partner_star_daewoon_tag,
+)
 from .structure_patterns import detect_structure_patterns, select_llm_patterns
 from .yongsin_color import (
     YONGSIN_COLOR_INSTRUCTION,
@@ -1825,6 +1829,7 @@ def _to_llm_candidate(
     sinsal_channel_note: str = "",
     domain: str | None = None,
     career_lecture: bool = True,
+    peers: list[EventCandidate] | None = None,
 ) -> LlmEventCandidate:
     period_ganji = ganji.get(c.period, "")
     # 관계 단계(Step 2) — MT reason_codes(evidence_path)에서 도출. 비-MT 후보는 빈값(무영향).
@@ -1900,9 +1905,14 @@ def _to_llm_candidate(
         )
         if period_v2_config.EVENT_LEXICON_ENABLED else []
     )
+    # 재물 입출 형태(2026-11-07) — 재물 후보에만, 같은 기간 동반 후보(건강·이사)로 지출 형태 보강.
+    from .wealth_flow_forms import wealth_form_notes as _wealth_form_notes  # 순환 import 회피
+
+    _wealth_forms = _wealth_form_notes(c, peers)
     return LlmEventCandidate(
         event_key=c.event_key,
         event_ko=_disp if _disp != str(c.event_key) else event_ko(c.event_key),
+        wealth_form_notes=_wealth_forms,
         period=c.period,
         ganji=period_ganji,
         daewoon_context=dw_by_year.get(int(c.period[:4]), "") if c.period[:4].isdigit() else "",
@@ -2626,6 +2636,7 @@ def build_llm_input(
             domain=_domain_key,
             # 직업 질문은 말미 [직장 운 결] 블록이 간지당 1회 담당 — note 에는 붙이지 않는다.
             career_lecture=_first_for_ganji and _domain_key != "career",
+            peers=candidates,
         ))
     # 총운형 반복 신호 노트(2026-07-14) — 클러스터 대표에 보조 기간·반복 횟수 병기.
     for _ri, _rnote in recurrence_notes.items():
@@ -2634,7 +2645,8 @@ def build_llm_input(
     # Scoring 1c-α rank guard 는 payload 조립 후(_apply_rank_guards)에서 토큰 헤드룸 가드와 함께
     # 적용한다 — 본문을 절단하지 않도록(spec §14-9). 여기서는 본문만 만든다.
     out_candidates = [
-        _to_llm_candidate(c, ganji, dw_by_year, day_master, fav_map, result) for c in out_of_range
+        _to_llm_candidate(c, ganji, dw_by_year, day_master, fav_map, result, peers=candidates)
+        for c in out_of_range
     ]
     selected_keys = {c.event_key for c in [*selected, *out_of_range]}
     # 근거 경로(v2.2.1) — 이 사용자·이 시점의 **인스턴스 경로**(스코어러 산출)를 우선하고,
@@ -3213,7 +3225,9 @@ def serialize_llm_input(payload: LlmInput) -> str:
         _gm_dw = transit_suffix(transit_state(
             _bcs.pillars, _bcs.day_master, _bcs.void_branches, period, d.ganji, is_daewoon=True,
         ))
-        lines.append(f"대운 {d.ganji} ({period}, {ages}{jiao}){_dtag}{_gm_dw}")
+        # 배우자성 대운 통설 라벨(2026-11-07 결혼운 강의) — 남=재성·여=관성, 서술 전용.
+        _ps_dw = partner_star_daewoon_tag(_bcs.day_master, d.ganji, _bcs.gender)
+        lines.append(f"대운 {d.ganji} ({period}, {ages}{jiao}){_dtag}{_gm_dw}{_ps_dw}")
         # 대운 지지 공망 사실 줄은 **내지 않는다**(2026-10-25 데굴님 결정). 2026-10-19 에는 '현재
         # 대운
         # 壬辰의 지지 辰은 원국 공망 글자다'를 명시했으나, 2026-10-23 '대운 공망 무시' 원칙 뒤에도
@@ -3259,8 +3273,16 @@ def serialize_llm_input(payload: LlmInput) -> str:
         )
 
     def process_type_legend_lines(cands: list[LlmEventCandidate]) -> list[str]:
-        """사건 유형 줄이 하나라도 있으면 범례 1줄(플래그 OFF면 빈 목록이라 byte 불변)."""
-        return [process_type_legend()] if any(c.process_types for c in cands) else []
+        """사건 유형 줄이 하나라도 있으면 범례 1줄(플래그 OFF면 빈 목록이라 byte 불변).
+
+        재물 입출 형태 줄이 있으면 그 범례도 함께(2026-11-07).
+        """
+        from .wealth_flow_forms import WEALTH_FORM_LEGEND
+
+        out = [process_type_legend()] if any(c.process_types for c in cands) else []
+        if any(c.wealth_form_notes for c in cands):
+            out.append(WEALTH_FORM_LEGEND)
+        return out
 
     _seen_love_notes: set[str] = set()  # 연애 운의 결 — 후보 간 같은 구절 반복 방지(2026-10-27)
     # 반복 구조 — 같은 기간 사실이라 후보 간 첫 출현만(2026-10-27).
@@ -3302,6 +3324,11 @@ def serialize_llm_input(payload: LlmInput) -> str:
             )
         if with_notes and c.signals_ko:
             block.append("  동반 신호: " + " / ".join(c.signals_ko))
+        if with_notes and c.wealth_form_notes:
+            # 재물 입출 형태(2026-11-07) — 방식의 통설 후보. 금액·종목·당첨 금지.
+            block.append(
+                "  재물 입출 형태(통설 후보 — 확정 아님): " + " / ".join(c.wealth_form_notes)
+            )
         if with_notes and _rel_focus and c.marriage_stage:
             # 관계 단계(MT) — 결혼 확정이 아니라 단계로 표현. 관계 도메인 질문에만(토큰 절약).
             block.append(f"  관계 단계: {c.marriage_stage}(결혼 확정 아님)")

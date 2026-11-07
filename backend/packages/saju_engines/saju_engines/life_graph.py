@@ -14,8 +14,9 @@
   품질 게이트 `SCORE_GATE`(총운 다변화의 절대 게이트와 같은 55). **좌석 보장**: 종류별 최고
   후보를 먼저 앉히고 남는 자리를 점수순으로 채운다 — 점수순만으로는 금전 위기 99·96이 결혼 92를
   밀어내 "76세에나 결혼"만 남던 실답(2026-11-07) 교정. 빈 대운은 비워 둔다(무신호 강제 충원 금지).
-- 결혼 마커는 길·혼합 방향만(주의 방향 결혼 신호는 관계 갈등 신호라 '결혼'으로 보이면 혼란),
-  위기 마커는 주의·혼합 방향만 — 대칭.
+- 결혼 마커는 **방향 무관**으로 두되 2축 메모(인연 창 ○ / 운의 결 길·주의)를 단다 — 엔진의
+  '주의'는 충·형이 아니라 용기신 길흉이라, "시기는 열리나 운이 유리하지 않음 → 숙고·궁합 확인"
+  (결혼운 강의 1 핵심, 2026-11-07 정정). 위기 마커는 주의·혼합 방향만.
 - 앞으로의 긍정 창(`positive_windows`): 오늘 이후 길·혼합 방향 후보(게이트 이상)를 **마커 상한과
   무관하게** 연속 연도로 묶어 가장 가까운 창부터 제공 — 해설·종합·요약 카드가 희망 창을 먼저 쓴다.
 - 위험 엔진(건강·금전 family)은 **섞어 쓰되** 마커를 만들지 않고 같은 해 위기 후보의 우선순위를
@@ -38,6 +39,11 @@ from saju_shared_types.life_graph import (
 from saju_shared_types.manse_result import ManseV2Result
 
 from .context_reducer import overview_cluster_key
+from .structural_context import (  # noqa: F401 — 재수출(리포트가 life_graph 경유로 쓴다)
+    PARTNER_STAR_DAEWOON_TAG,
+    PARTNER_STAR_GODS,
+    partner_star_daewoon_tag,
+)
 
 #: 사건 키 → 마커 종류. 재물 변화는 방향으로 갈린다 — 길=재물 유입 / 주의·혼합=금전 위기
 #: (아래 `_marker_kind`).
@@ -46,6 +52,11 @@ _EVENT_TO_KIND: dict[str, MarkerKind] = {
     "job_gain": MarkerKind.JOB,
     "career_change": MarkerKind.CAREER_CHANGE,
     "relocation": MarkerKind.RELOCATION,
+    # 인연(2026-11-07): 미혼 프로필 게이트가 결혼 점수를 낮게 시작시키므로 '만남·관계 형성' 층을
+    # 따로 보여 준다(참고 풀이 "27년까지 인연 유리"와 정합). 주의 방향 관계 변동은 갈등이라
+    # 제외(_marker_kind).
+    "new_relationship": MarkerKind.ROMANCE,
+    "relationship_change": MarkerKind.ROMANCE,
     "health_attention": MarkerKind.CRISIS_HEALTH,
     "wealth_change": MarkerKind.CRISIS_MONEY,
 }
@@ -60,12 +71,15 @@ KIND_KO: dict[MarkerKind, str] = {
     MarkerKind.CAREER_CHANGE: "이직",
     MarkerKind.RELOCATION: "이사",
     MarkerKind.WEALTH_GAIN: "재물 유입",
+    MarkerKind.ROMANCE: "인연",
     MarkerKind.CRISIS_HEALTH: "건강 위기",
     MarkerKind.CRISIS_MONEY: "금전 위기",
 }
 _TONE_KO = {"pos": "길", "neg": "주의", "mixed": "혼합"}
 SCORE_GATE = 55
-PER_DAEWOON_CAP = 5  # 2026-11-07: 재물 유입 추가·좌석 보장으로 4→5
+# 2026-11-07: 좌석 종류 9(인연·결혼 길·결혼 주의·취업·이직·이사·재물 유입·건강 위기·금전 위기)를
+# 전부 수용 — 실답에서 2027년 결혼(길) 65점이 8좌석에 밀려 사라졌다.
+PER_DAEWOON_CAP = 9
 PER_KIND_CAP = 2
 #: 위기(건강+금전) 합산 상한 — 한 대운이 위기 마커로만 채워지지 않게
 #: (2026-11-07 데굴님 "너무 극단적").
@@ -74,7 +88,7 @@ CRISIS_PER_DAEWOON_CAP = 2
 _CRISIS_KINDS = frozenset({MarkerKind.CRISIS_HEALTH, MarkerKind.CRISIS_MONEY})
 #: 긍정 창 대상 종류(길·혼합 방향만) — 위기는 창을 만들지 않는다.
 _POSITIVE_KINDS = (
-    MarkerKind.MARRIAGE, MarkerKind.JOB, MarkerKind.CAREER_CHANGE,
+    MarkerKind.ROMANCE, MarkerKind.MARRIAGE, MarkerKind.JOB, MarkerKind.CAREER_CHANGE,
     MarkerKind.WEALTH_GAIN, MarkerKind.RELOCATION,
 )
 #: 위험 신호 동반 시 게이트 판정에 더하는 우선순위(저장 점수는 불변).
@@ -89,10 +103,16 @@ KIND_AGE_RANGE: dict[MarkerKind, tuple[int, int]] = {
     MarkerKind.CAREER_CHANGE: (20, 70),
     MarkerKind.RELOCATION: (0, 100),
     MarkerKind.WEALTH_GAIN: (18, 100),
+    MarkerKind.ROMANCE: (18, 85),
     MarkerKind.CRISIS_HEALTH: (0, 100),
     MarkerKind.CRISIS_MONEY: (0, 100),
 }
 MINOR_AGE = 18
+#: 결혼 마커 2축 메모(2026-11-07 결혼운 강의 1) — 주의 톤은 '결혼 불가'가 아니라 숙고 신호.
+MARRIAGE_CAUTION_NOTE = (
+    "인연 창 ○ · 운의 결 주의 — 시기는 열리나 운이 유리하지 않음(숙고·궁합 확인)"
+)
+MARRIAGE_FAVORABLE_NOTE = "인연 창 ○ · 운의 결 길"
 #: 미성년 시기의 이사·금전 위기는 본인 사건이 아니라 가족 단위 사건으로 읽는다(서술 메모).
 MINOR_NOTE = "미성년 — 가족(부모) 단위의 이동·형편으로 읽을 것"
 
@@ -100,8 +120,9 @@ MINOR_NOTE = "미성년 — 가족(부모) 단위의 이동·형편으로 읽을
 def _marker_kind(c: EventCandidate, age: int) -> MarkerKind | None:
     """후보의 마커 종류 — 방향·나이 규칙.
 
-    재물 변화는 길=재물 유입 / 주의·혼합=금전 위기. 건강 위기는 주의·혼합만. 결혼은 길·혼합만
-    (주의 방향 결혼 신호는 관계 갈등 쪽이라 마커로 두지 않는다). 종류별 나이 범위 밖은 제외.
+    재물 변화는 길=재물 유입 / 주의·혼합=금전 위기. 건강 위기는 주의·혼합만. 결혼은 방향 무관
+    (주의 = 시기 신호는 있으나 운이 유리하지 않음 — 마커 메모로 2축 표기). 종류별 나이 범위 밖은
+    제외.
     """
     kind = _EVENT_TO_KIND.get(str(c.event_key))
     if kind is None:
@@ -111,8 +132,8 @@ def _marker_kind(c: EventCandidate, age: int) -> MarkerKind | None:
         kind = MarkerKind.WEALTH_GAIN
     elif kind is MarkerKind.CRISIS_HEALTH and direction == "pos":
         return None
-    elif kind is MarkerKind.MARRIAGE and direction == "neg":
-        return None
+    elif kind is MarkerKind.ROMANCE and direction == "neg":
+        return None  # 주의 방향 관계 변동 = 갈등·이별 쪽, 인연 마커 아님
     lo, hi = KIND_AGE_RANGE[kind]
     if not lo <= age <= hi:
         return None
@@ -128,6 +149,7 @@ def build_life_graph(
     *,
     risk_years: Mapping[int, set[str]] | None = None,
     today_year: int | None = None,
+    gender: str | None = None,
 ) -> LifeGraph | None:
     """전 생애 후보 풀 → 인생 그래프 데이터.
 
@@ -138,6 +160,8 @@ def build_life_graph(
         lo_year: 출생 연도(창 시작). hi_year: 창 끝(90세).
         risk_years: 연도 → 위험 도메인 집합(위험 엔진 shadow, 선택).
         today_year: 오늘 연도 — 앞으로의 긍정 창(`positive_windows`)의 시작. None이면 창 생략.
+        gender: 'male'/'female' — 배우자성 대운 라벨(남=재성·여=관성). None이면
+            result.input_summary.
 
     Returns:
         LifeGraph — 대운표가 없으면 None.
@@ -148,6 +172,8 @@ def build_life_graph(
         return None
     pool = list(pool)
     cur = lc.current_daewoon_index
+    _gender = gender or str((result.input_summary or {}).get("gender") or "")
+    partner_gods = PARTNER_STAR_GODS.get(_gender, frozenset())
     years_by_label = {p.label: p for p in lt.yearly_luck if p.label.isdigit()}
     cands_by_year: dict[int, list[EventCandidate]] = {}
     for c in pool:
@@ -183,6 +209,9 @@ def build_life_graph(
             end_age=min(d.start_age + 9, hi_year - lo_year),
             start_year=page_lo, end_year=y1, score=round(float(d.luck_score), 3),
             label=d.luck_label, status=status, markers=markers,
+            partner_star_daewoon=bool(
+                {str(d.stem_ten_god or ""), str(d.branch_ten_god or "")} & partner_gods
+            ),
         ))
     years = [
         LifeGraphYear(
@@ -249,12 +278,21 @@ def _select_markers(
         >= SCORE_GATE
     ]
     # 1차(좌석 보장): 종류별 최고 후보 1건씩을 우선순위순으로 — 위기가 자리를 독점하지 않게.
+    # 결혼은 길·혼합(인연 창+운 길)과 주의(인연 창+운 불리)가 다른 뜻이라 각각 한 좌석(2026-11-07
+    # 실답: 2027년 결혼 66점 길이 2034년 95점 주의에 밀려 '가까운 길한 창'이 그래프에서 사라짐).
     # 2차: 남는 자리를 우선순위순으로(종류 상한·위기 합산 상한 안에서).
+    def seat_key(item: tuple[tuple[int, MarkerKind], EventCandidate]) -> tuple[MarkerKind, str]:
+        (_y, kind), c = item
+        if kind is MarkerKind.MARRIAGE:
+            return kind, "caution" if overview_cluster_key(c)[1] == "neg" else "fair"
+        return kind, ""
+
     first_of_kind: list[tuple[tuple[int, MarkerKind], EventCandidate]] = []
-    seen_kind: set[MarkerKind] = set()
+    seen_seat: set[tuple[MarkerKind, str]] = set()
     for item in ranked:
-        if item[0][1] not in seen_kind:
-            seen_kind.add(item[0][1])
+        seat = seat_key(item)
+        if seat not in seen_seat:
+            seen_seat.add(seat)
             first_of_kind.append(item)
     order = first_of_kind + [item for item in ranked if item not in first_of_kind]
 
@@ -271,6 +309,7 @@ def _select_markers(
         risk_hit = _risk_hit((y, kind), risk_map)
         pillar = years_by_label.get(str(y))
         age = y - birth_year
+        tone = _TONE_KO.get(overview_cluster_key(c)[1], "혼합")
         note = (
             MINOR_NOTE
             if age < MINOR_AGE and kind in (
@@ -278,6 +317,8 @@ def _select_markers(
             )
             else ""
         )
+        if kind is MarkerKind.MARRIAGE:
+            note = MARRIAGE_CAUTION_NOTE if tone == "주의" else MARRIAGE_FAVORABLE_NOTE
         picked.append(LifeGraphMarker(
             year=y, age=age,
             ganji=str(getattr(pillar, "ganji", "") or ""),
@@ -350,6 +391,7 @@ def positive_window_lines(graph: LifeGraph, *, per_kind: int = 3) -> list[str]:
         "[앞으로의 긍정 창 — 엔진 확정값. 오늘 이후 결혼·취업·이직·재물 유입·이사의 길·혼합 방향 "
         "후보(게이트 이상)를 연속 연도로 묶은 것. 마커 표에 없어도 창 안의 해는 서술 재료로 쓸 수 "
         "있다. 종류마다 **가장 가까운 창부터** 먼저 쓰고, 먼 창만 남겨 늦은 시기만 강조하지 말 것. "
+        "한 해짜리 창은 그 해를 중심으로 전후 1년을 함께 보는 활성화 창으로 써도 된다(사건≠결과). "
         "연도·점수는 그대로]",
     ]
     for kind in _POSITIVE_KINDS:
@@ -398,6 +440,8 @@ def daewoon_summary_lines(graph: LifeGraph) -> list[str]:
             f"- {d.ganji}(천간 {d.stem_ten_god}/지지 {d.branch_ten_god}) "
             f"{d.start_age}–{d.end_age}세({d.start_year}–{d.end_year}년)"
             f"{' [' + tag + ']' if tag else ''}"
-            f" 〈{d.label or '역할 미상'}〉: {kinds}"
+            f" 〈{d.label or '역할 미상'}〉"
+            + (PARTNER_STAR_DAEWOON_TAG if d.partner_star_daewoon else "")
+            + f": {kinds}"
         )
     return out

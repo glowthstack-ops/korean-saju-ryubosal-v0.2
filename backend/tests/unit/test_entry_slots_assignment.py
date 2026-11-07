@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import date
 from pathlib import Path
 
@@ -343,7 +344,9 @@ def test_live_case_prompts_under_default_mode(monkeypatch: pytest.MonkeyPatch) -
     assert "성사 가능 달 없음" in pp1 and "움직이는 달 후보: 2027-04(甲辰)" in pp1
     assert r1.postprocess.entry_slots_engine == {}
     # 권유 처리 A: 질문 사건이 그 달의 강한 후보면 '동반 신호로만' 격하 대신 함께 서술.
-    assert "최상위 신호는 '계약·문서'이고 질문하신 '취업·합격'도 강한 후보" in pp1
+    # 최상위 사건명은 점수 규칙에 따라 바뀐다(2026-11-07 결혼 실험 ON 뒤 이 달은 '결혼 신호') —
+    # 검증 대상은 '질문 사건을 동반 신호로 격하하지 않고 함께 서술'하는 처리다.
+    assert re.search(r"최상위 신호는 '[^']+'이고 질문하신 '취업·합격'도 강한 후보", pp1)
     assert "질문하신 '취업·합격'은(는) 동반 신호로만 서술할 것" not in pp1
     # direction 모드로 같은 후보를 나누면 2027-04 가 성사 방향 후보 — 두 모드의 차이가 바로 이 달.
     d1 = assign_entry_slots(list(r1.postprocess.payload.event_candidates), mode="direction")

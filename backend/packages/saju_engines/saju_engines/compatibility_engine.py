@@ -459,6 +459,7 @@ _ATTRACTION_WEIGHT: dict[CompatSignalKind, int] = {
     CompatSignalKind.DAY_BRANCH_PUNISH: 1,  # 형 — 자극
     CompatSignalKind.DAY_BRANCH_SIX: 1,     # 육합 — 잔잔한 끌림(안정형)
     CompatSignalKind.TEN_GOD_COMPLEMENT: 1,  # 없는 십성 채움 — 보완형 끌림(잔잔)
+    CompatSignalKind.DAY_PILLAR_SAME: 1,     # 같은 일주 — 편안한 동질감(2026-11-07)
     CompatSignalKind.ELEMENT_COMPLEMENT: 1,  # 없는 오행 채움 — 보완형 끌림(2026-10-15)
     CompatSignalKind.WEAK_RESOURCE_PARTNER: 1,  # 신약에게 인성 일간 — 받쳐 주는 끌림(2026-10-27)
     CompatSignalKind.OUTPUT_YONGSIN_SUPPORT: 1,  # 상대 식상 오행=내 용·희신(2026-10-27)
@@ -534,6 +535,18 @@ def analyze_compatibility(
     branch_sig = _day_branch_signal(self_branch, partner_branch)
     if branch_sig is not None:
         signals.append(branch_sig)
+    # 2b) 일주 전체 동일(2026-11-07 결혼운 강의 — 같은 일주=동질감·편안함, 틀어지면 서로의 급소를
+    # 아는 결). 중립 신호·가볍게. 일지 복음 신호와 별개로 천간까지 같을 때만.
+    if self_result.pillars.day.ganji == partner_result.pillars.day.ganji:
+        signals.append(CompatSignal(
+            kind=CompatSignalKind.DAY_PILLAR_SAME, label="일주 동일",
+            detail=(
+                f"본인·상대 일주가 같은 {self_result.pillars.day.ganji} — 닮아서 편안하고 "
+                "동질감이 크지만(친구 같은 결), 틀어질 때는 서로의 급소를 알아 날카로워질 수 "
+                "있는 결(가볍게)"
+            ),
+            direction=CompatDirection.NEUTRAL,
+        ))
 
     # 3) 십성 관계(양방향).
     tg_to_partner = ten_god(self_dm, partner_dm).value

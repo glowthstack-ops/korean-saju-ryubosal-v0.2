@@ -7,7 +7,7 @@ export interface LifeGraphMarker {
   year: number;
   age: number;
   ganji: string;
-  kind: string; // marriage | job | career_change | relocation | wealth_gain | crisis_health | crisis_money
+  kind: string; // romance | marriage | job | career_change | relocation | wealth_gain | crisis_health | crisis_money
   kind_ko: string;
   event_key: string;
   score: number;
@@ -29,6 +29,7 @@ export interface LifeGraphDaewoon {
   score: number;
   label: string;
   status: string; // past | current | future | unknown
+  partner_star_daewoon?: boolean; // 배우자성 대운(통설 라벨)
   markers: LifeGraphMarker[];
 }
 
@@ -64,6 +65,7 @@ export interface LifeGraphData {
 }
 
 const MARKER_STYLE: Record<string, { symbol: string; color: string }> = {
+  romance: { symbol: "♡", color: "#f472b6" },
   marriage: { symbol: "♥", color: "#d946ef" },
   job: { symbol: "●", color: "#2563eb" },
   career_change: { symbol: "➤", color: "#0891b2" },
@@ -73,6 +75,7 @@ const MARKER_STYLE: Record<string, { symbol: string; color: string }> = {
   crisis_money: { symbol: "₩", color: "#ea580c" },
 };
 const KIND_ORDER = [
+  "romance",
   "marriage",
   "job",
   "career_change",
@@ -81,6 +84,15 @@ const KIND_ORDER = [
   "crisis_health",
   "crisis_money",
 ];
+
+/** 마커 메모의 화면 표기 — 엔진 메모는 LLM 입력용이라 그대로 보이면 군더더기다(2026-11-07).
+ *  결혼 2축 메모('인연 창 ○ · 운의 결 …')는 '결' 열이 이미 담당하므로 숨기고, 미성년 메모만 짧게. */
+function displayNote(note?: string): string {
+  if (!note) return "";
+  if (note.startsWith("인연 창")) return "";
+  if (note.startsWith("미성년")) return " — 가족 단위로 읽기";
+  return ` — ${note}`;
+}
 
 /** 데이터 형태가 맞는지 최소 검증 — 아니면 그리지 않는다(마크다운 본문만 표시). */
 export function isLifeGraphData(v: unknown): v is LifeGraphData {
@@ -156,6 +168,7 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
                   fill="#374151"
                 >
                   {d.ganji}
+                  {d.partner_star_daewoon ? " ♥" : ""}
                 </text>
                 <text
                   x={(x0 + x1) / 2}
@@ -267,7 +280,7 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
                     <span style={{ color: MARKER_STYLE[m.kind]?.color }}>{MARKER_STYLE[m.kind]?.symbol}</span>{" "}
                     {m.kind_ko}
                     {m.risk_backed ? " (주의 신호 동반)" : ""}
-                    {m.note ? ` — ${m.note}` : ""}
+                    {displayNote(m.note)}
                   </td>
                   <td className="border px-2 py-1">{m.tone}</td>
                   <td className="border px-2 py-1">{dw ? `${dw.ganji} ${dw.start_age}–${dw.end_age}세` : "-"}</td>

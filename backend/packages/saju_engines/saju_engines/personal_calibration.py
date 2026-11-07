@@ -149,6 +149,19 @@ def _shift_confidence(level: ConfidenceLevel, steps: int) -> ConfidenceLevel:
     return _CONF_ORDER[max(0, min(len(_CONF_ORDER) - 1, i + steps))]
 
 
+FAILURE_DECAY_YEARS = 10
+FAILURE_DECAY_FACTOR = 0.5
+
+
+def _failure_age_decay(candidate_period: str, row_period: str) -> float:
+    """'안 일어남' 이력의 시효 가중 — 후보와 이력이 10년 넘게 떨어지면 0.5, 연도 미상이면 1.0."""
+    try:
+        gap = abs(int(candidate_period[:4]) - int(row_period[:4]))
+    except (TypeError, ValueError):
+        return 1.0
+    return FAILURE_DECAY_FACTOR if gap > FAILURE_DECAY_YEARS else 1.0
+
+
 def apply_personal_match(
     candidates: list[EventCandidateV2],
     signature: list[LifeEventRow],
@@ -190,8 +203,15 @@ def apply_personal_match(
         repeat = 0.2 * max(0, len({r.period for r in oc}) - 1)  # 반복 확정 테마 가중
         if cap is not None:
             repeat = min(repeat, float(cap))
+        # 실패 이력 시효(2026-11-07 데굴님 승인): 후보 시점과 10년 넘게 떨어진 '안 일어남' 이력은
+        # 반감 — 27세 결혼 실패가 47세 결혼 후보를 그대로 깎던 실답 교정(생애 단계가 다르다).
         fail = max(
-            (fingerprint_similarity(cfp, r.signal_fingerprint, w) for r in fl), default=0.0
+            (
+                fingerprint_similarity(cfp, r.signal_fingerprint, w)
+                * _failure_age_decay(c.period, r.period)
+                for r in fl
+            ),
+            default=0.0,
         ) * 0.5
         pm = round((match + repeat - fail) * 100, 1)
         # 글자 반복 근거(서술 전용) — 같은 키·취업 통계 성격 행의 월지 lift.
