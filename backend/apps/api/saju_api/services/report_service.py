@@ -4757,6 +4757,45 @@ def _relationship_risk_beta_report_block(data: _ReportData) -> list[str]:
     return lines
 
 
+def expected_section_total(
+    birth: BirthInput, spec: ReportSpec, today: date | None = None,
+) -> int:
+    """잡 생성 시점의 **확장 후** 섹션 수 — 진행률 분모용(2026-11-07 데굴님 "1/16으로 시작하던데").
+
+    `_expand_report_plans` 의 규칙만 가볍게 재현한다(점수화 없이 명식 계산만):
+    RPT_FULL = 고정 + 90세 창 안의 대운 수 / RPT_YEAR = 고정 + 1(Y-05 → 반기 2페이지) /
+    RPT_FOCUS = 고정 + 예측 창 연도 수(기간 종합 섹션이 있을 때). 계산 실패 시 고정 수.
+    """
+    plans = build_section_plans(spec)
+    n = len(plans)
+    try:
+        if spec.product_code == "RPT_YEAR":
+            if spec.period.start[:4].isdigit() and any(p.section_id == "Y-05" for p in plans):
+                return n + 1
+            return n
+        if spec.product_code == "RPT_FOCUS":
+            base = (
+                "RP-06"
+                if is_pair_relationship(spec)
+                else _FOCUS_SPECTRUM_BASE.get(spec.topic or "", "C-03")
+            )
+            if not any(p.section_id == base for p in plans):
+                return n
+            return n + len(_forecast_years(spec, today or date.today()))
+        if spec.product_code == "RPT_FULL" and any(p.section_id == "F-14" for p in plans):
+            if not (spec.period.start[:4].isdigit() and spec.period.end[:4].isdigit()):
+                return n
+            result = calculate(birth.model_copy(update={"reference_date": today or date.today()}))
+            lc = result.luck_cycles
+            if lc is None or not lc.daewoon_table:
+                return n
+            hi_year = int(spec.period.end[:4])
+            return n + sum(1 for d in lc.daewoon_table if d.approx_start_date.year <= hi_year)
+    except Exception:  # noqa: BLE001 — 분모 추정 실패는 잡 생성을 막지 않는다(진행 중 갱신됨)
+        _logger.exception("expected_section_total 실패 — 고정 섹션 수로 대체")
+    return n
+
+
 def plan_report(
     birth: BirthInput,
     spec: ReportSpec,

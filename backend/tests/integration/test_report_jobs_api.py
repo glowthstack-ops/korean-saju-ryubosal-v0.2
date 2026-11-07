@@ -127,7 +127,14 @@ def test_job_lifecycle_and_owner_isolation(monkeypatch: pytest.MonkeyPatch) -> N
         if status in ("completed", "failed"):
             break
     assert status == "failed"
-    assert body["sections_total"] == 8
+    # 분모는 생성 시점부터 확장 후 수(고정 8 + 예측 창 연도 페이지, 2026-11-07).
+    from saju_api.services.report_service import expected_section_total
+    from saju_shared_types.birth_input import BirthInput
+    from saju_shared_types.report import ReportSpec
+
+    assert body["sections_total"] == expected_section_total(
+        BirthInput.model_validate(_BIRTH), ReportSpec.model_validate(_SPEC), None,
+    ) >= 8
 
     # 타 계정은 잡 조회 불가.
     other = _request(

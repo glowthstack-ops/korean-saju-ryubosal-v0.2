@@ -13374,3 +13374,9 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - 채팅 `_compat_prompt_block(..., romantic=)`: 상대 명식을 연 단위로만 점수화(`score_legacy_personalized(levels={YEAR})`, 개인화 없음)해 창을 붙인다. **로맨스 관계에만** — 호출부에서 `romantic=not is_non_romantic_relation(_relation_frame)`(부모·자녀·친구·직장 동반자는 제외, 미등록 인라인 상대는 로맨스로 간주). 실패는 비차단 로그.
 - 동반자 단독 모드("엄마 결혼운")는 그 사람 명식으로 전체 파이프라인이 돌아 결혼 층이 이미 전부 적용된다(성별 헤더도 그 사람 기준).
 - 테스트 +1(로맨스 블록에 창 포함·비연애 romantic=False 제외·빈 입력). 관련 54건 통과 · `All checks passed` · `production mypy gate clean`.
+
+## 2026-11-07 — 리포트 잡 진행률 분모를 생성 시점부터 확장 후 섹션 수로 (데굴님 "총운이 1/16으로 시작하던데, 테마사주 포함 카운트 수정")
+
+- **원인:** `POST /report/jobs` 가 `len(build_section_plans(spec))`(고정 목차 수)로 잡을 만들고, 빌더가 확장 후 `update_progress`로 분모를 바꿔 총운이 1/16으로 시작해 2/25로 뛰었다. 한해풀이(Y-05 반기 2페이지)·테마(연도별 상세 페이지)도 같은 구조.
+- **반영:** `report_service.expected_section_total(birth, spec, today)` — `_expand_report_plans` 규칙을 점수화 없이 재현(총운=고정+90세 창 대운 수, 한해=고정+1, 테마=고정+예측 창 연도 수; 실패 시 고정 수). 라우터가 이 값으로 잡 생성. 프론트 변경 없음.
+- **테스트:** `tests/unit/test_report_job_total_20261107.py`(세 상품 모두 확장 결과와 일치), `test_report_jobs_api.py` 기대값 갱신. `All checks passed` · `production mypy gate clean`.
