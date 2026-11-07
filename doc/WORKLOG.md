@@ -13356,3 +13356,7 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - **데굴님 실측(운영 개인화 포함):** 2027년 결혼 49→65(길) 복귀 → 결혼 창 2027, 인연 창 2027~2030(95). 마커 cap 7→8(좌석 종류 8종 전부 수용).
 - **순환 import 교정:** `context_reducer`→`life_graph` 역방향 import가 생겨 배우자성 대운 헬퍼를 `structural_context`로 이동(life_graph 재수출).
 - **테스트:** `test_marriage_lectures_20261107.py` +2(테마 리포트 R-03/R-05 배선·간지 태그 3갈래·게이트 미혼 무감점/기혼 전환/경계 태그). 관련 suite 통과 · `All checks passed` · `production mypy gate clean` · tsc.
+
+## 2026-11-07 — 프로필 게이트: 재직자 취업+이동운=이직, 무직자 이직=취업 (데굴님 "취업이나 이직도 마찬가지 아니야?")
+
+- `addendum_gate_modifier`: 재직자(employee) 취업 신호(job_gain)는 같은 기간 이사·이동 후보(≥`EMPLOYEE_MOVE_WITH_JOB_MIN`=50)가 함께 있으면 `career_change`(`PROFILE_job_gain_to_career_change_move`), 없으면 기존대로 승진(`PROFILE_job_gain_to_promotion`). 무직자(unemployed) 이직 신호는 취업으로(`PROFILE_career_change_to_job_gain`). 점수 불변·사건 종류 전환. `user_profile_event_gate.json` 규칙 문구·implemented_by, 직렬화 라벨, 테스트 1건.

@@ -47,9 +47,9 @@
   },
   "rules": {
     "career_signal_for_student": "취업보다 입학·시험·인턴·진로 선택으로 우선 해석",
-    "career_signal_for_employee": "이직·승진·직무변경으로 우선 해석",
+    "career_signal_for_employee": "이직·승진·직무변경으로 우선 해석 — 같은 기간 이사·이동 후보(≥50)가 함께 있으면 취업 신호를 이직(career_change)으로, 아니면 승진(promotion)으로(2026-11-07 데굴님)",
     "career_signal_for_public_official": "재직 공직자는 취업 신호를 승진으로 해석하고, 승진·인사는 승진시험·발령·근무지 전보(이동)를 동반 가능성으로 함께 본다(자료 7-3·12-4)",
-    "career_signal_for_unemployed": "job_gain(취업) 우선 해석",
+    "career_signal_for_unemployed": "job_gain(취업) 우선 해석 — 이직 신호(career_change)도 취업으로 읽는다(옮길 직장이 없음, 2026-11-07)",
     "career_signal_for_retired": "직책보다 사회활동·계약·자문으로 전환",
     "wealth_signal_for_business_owner": "매출·거래처·계약(business_expansion)으로 우선 해석",
     "wealth_signal_for_employee": "급여·보너스·지출·투자 변동으로 우선 해석",
@@ -65,13 +65,16 @@
   "implemented_by": {
     "career_signal_for_student": [],
     "career_signal_for_employee": [
-      "PROFILE_job_gain_to_promotion"
+      "PROFILE_job_gain_to_promotion",
+      "PROFILE_job_gain_to_career_change_move"
     ],
     "career_signal_for_public_official": [
       "PROFILE_public_official_promotion",
       "PROFILE_public_official_transfer"
     ],
-    "career_signal_for_unemployed": [],
+    "career_signal_for_unemployed": [
+      "PROFILE_career_change_to_job_gain"
+    ],
     "career_signal_for_retired": [],
     "wealth_signal_for_business_owner": [
       "PROFILE_wealth_to_expansion"

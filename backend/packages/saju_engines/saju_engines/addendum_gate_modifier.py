@@ -49,6 +49,8 @@ _RESOURCE = {TenGod.ZHENGYIN, TenGod.PIANYIN}
 
 #: 기혼 경계 태그 임계 — 전환 전 새 인연·결혼 신호 점수(게이트 55 + 10).
 MARRIED_OUTSIDE_ATTRACTION_MIN = 65
+#: 재직자 취업 신호를 이직으로 읽는 '이동운 동반' 임계 — 같은 기간 이사·이동 후보 점수.
+EMPLOYEE_MOVE_WITH_JOB_MIN = 50
 
 
 @dataclass
@@ -93,6 +95,11 @@ class AddendumGateModifier:
         self, candidates: list[EventCandidateV2], ctx: GateContext
     ) -> list[EventCandidateV2]:
         out: list[EventCandidateV2] = []
+        # 같은 기간에 이사·이동 후보가 함께 있는지(재직자 취업 신호 → 이직 판정용, 2026-11-07).
+        move_with = any(
+            c.event_key is EventKeyV2.RELOCATION and c.score >= EMPLOYEE_MOVE_WITH_JOB_MIN
+            for c in candidates
+        )
         for c in candidates:
             ek = c.event_key
             score = c.score
@@ -123,8 +130,18 @@ class AddendumGateModifier:
 
             # ── user_profile_event_gate ──────────────────────────
             if ek is EventKeyV2.JOB_GAIN and ctx.occupation_status == "employee":
-                new_key = EventKeyV2.PROMOTION  # 재직자 → 취업보다 승진·직무변경
-                reasons.append("PROFILE_job_gain_to_promotion")
+                if move_with:
+                    # 재직자 + 취업 신호 + 이동운 동반 = 이직(2026-11-07 데굴님: "직장이 있는 경우에
+                    # 이동운과 취업운이 함께 들어온다면 이직 운"). 점수 불변·사건 종류 전환.
+                    new_key = EventKeyV2.CAREER_CHANGE
+                    reasons.append("PROFILE_job_gain_to_career_change_move")
+                else:
+                    new_key = EventKeyV2.PROMOTION  # 재직자 → 취업보다 승진·직무변경
+                    reasons.append("PROFILE_job_gain_to_promotion")
+            if ek is EventKeyV2.CAREER_CHANGE and ctx.occupation_status == "unemployed":
+                # 무직자의 이직 신호 = 취업(옮길 직장이 없다, 2026-11-07 데굴님).
+                new_key = EventKeyV2.JOB_GAIN
+                reasons.append("PROFILE_career_change_to_job_gain")
             # 공직자(O02): 재직 공직자의 취업 신호는 승진으로, 승진·인사는 발령·근무지 전보를
             # 동반한다(자료 7-3·12-4 — 공직 승진 = 승진시험 + 발령 + 이동). 사건 종류는 유지하고
             # 동반 가능성만 reason_code로 부여(LLM이 발령·이동을 함께 서술, 점수 불변).

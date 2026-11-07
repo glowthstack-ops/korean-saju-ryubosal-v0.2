@@ -110,6 +110,10 @@ _REASON_PREFIX_KO: dict[str, str] = {
     "REPEAT_": "반복 강화",
     "MIXED_": "혼합 신호",
     "PROFILE_marriage_to_change": "기혼 프로필 — 결혼 신호를 배우자·가정 관계 이슈로 읽음",
+    "PROFILE_job_gain_to_career_change_move": (
+        "재직자 프로필 — 취업 신호에 이동운이 함께 들어와 이직(직장 옮김)으로 읽음"
+    ),
+    "PROFILE_career_change_to_job_gain": "무직 프로필 — 이직 신호를 취업으로 읽음(옮길 직장 없음)",
     "PROFILE_married_outside_attraction_caution": (
         "기혼인데 이성 인연 신호가 강한 해 — 배우자 외 인연·유혹이 걸리기 쉬우니 관계 경계·"
         "오해 주의(외도 단정 금지)"

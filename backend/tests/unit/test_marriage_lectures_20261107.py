@@ -332,3 +332,27 @@ def test_profile_gate_single_no_penalty_married_converts() -> None:
     assert "PROFILE_married_outside_attraction_caution" not in weak.reason_codes
     assert any("배우자 외 인연" in s for s in reason_codes_ko(strong.reason_codes))
 
+
+def test_profile_gate_career_employee_move_and_unemployed() -> None:
+    """재직자 취업+이동운 → 이직, 재직자 취업 단독 → 승진, 무직자 이직 → 취업(2026-11-07 데굴님)."""
+    from saju_engines.addendum_gate_modifier import AddendumGateModifier, GateContext
+
+    m = AddendumGateModifier()
+
+    def cand(event: str, score: int) -> EventCandidateV2:
+        return EventCandidateV2(event_key=event, period="2027", score=score)
+
+    from saju_shared_types.event_engine import TenGod as TG
+
+    emp = GateContext(occupation_status="employee", present_gods={TG.ZHENGGUAN, TG.ZHENGCAI})
+    with_move = m.apply([cand("job_gain", 70), cand("relocation", 60)], emp)
+    job = next(c for c in with_move if "PROFILE_job_gain_to_career_change_move" in c.reason_codes)
+    assert str(job.event_key) == "career_change" and job.score == 70
+    alone = m.apply([cand("job_gain", 70), cand("relocation", 30)], emp)
+    assert str(alone[0].event_key) == "promotion"
+    assert "PROFILE_job_gain_to_promotion" in alone[0].reason_codes
+    jobless = m.apply([cand("career_change", 66)], GateContext(occupation_status="unemployed"))
+    assert str(jobless[0].event_key) == "job_gain"
+    assert "PROFILE_career_change_to_job_gain" in jobless[0].reason_codes
+    assert any("이직(직장 옮김)" in s for s in reason_codes_ko(job.reason_codes))
+
