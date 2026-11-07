@@ -87,7 +87,18 @@ _REVIEWED_COUNTER_CORPUS_HASHES: frozenset[str] = frozenset({
     # identity·pass 동일 — 관측값이 identity에 참여하지 않음을 실측.
     # 감수 대상 artifact=runB(캐시 경로까지 3/3 검증 →
     # cache_path_validated=true).
-    "ce324c1519179a15cf8d591c427e7911c0abfab65cdf66b8faf9d966fda6ceb7",
+    # [이력] ce324c15…(2026-08-04 승격, 08-21 재검증도 동일 hash)은
+    # RISK-LEASE-REVALIDATION-02(2026-11-07)로 대체. 폐기 사유는 결함이
+    # 아니라 **검증 입력이 낡음**: 08-21 이후 위험 블록 본문 변경 커밋
+    # 2건(08-25 '연주' 표기 통일·09-18 P2 family 보조 증폭 층)으로 위험
+    # 블록 포함 표본의 request_digest가 달라졌다(구조는 불변 — shape
+    # digest 7종·identity 4요소·countMode·validationPolicyHash 전부 동일).
+    # lease는 08-28 만료 후 71일간 UNVALIDATED(BYPASS)였다.
+    # [RISK-LEASE-REVALIDATION-02 승격(2026-11-07 데굴님 "그래 진행해줘")]
+    # countTokens-v1beta-r2 · 13형×3=39표본 · undercount 0 · overcount
+    # max 0 · relative_error 0 · framing overhead 일관 · modelVersion 일관
+    # · cache 경로 3/3 VALIDATED · rerouting recount 3/3.
+    "0f3258651fe37c8708dcbe1848cf406415942705008bc56238c973e26f3a0c3b",
 })
 
 _ADAPTER_VALIDATION_DIR = (
