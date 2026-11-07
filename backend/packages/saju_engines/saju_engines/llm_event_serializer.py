@@ -114,6 +114,12 @@ _REASON_PREFIX_KO: dict[str, str] = {
         "재직자 프로필 — 취업 신호에 이동운이 함께 들어와 이직(직장 옮김)으로 읽음"
     ),
     "PROFILE_career_change_to_job_gain": "무직 프로필 — 이직 신호를 취업으로 읽음(옮길 직장 없음)",
+    "PROFILE_student_job_parttime": (
+        "학생 프로필 — 취업 신호는 아르바이트·근로장학·인턴 등 단기 일자리로"
+    ),
+    "PROFILE_retired_late_career": (
+        "은퇴자 프로필 — 재취업·아르바이트·자문까지 폭넓게(늦은 나이 취업도 배제하지 않음)"
+    ),
     "PROFILE_married_outside_attraction_caution": (
         "기혼인데 이성 인연 신호가 강한 해 — 배우자 외 인연·유혹이 걸리기 쉬우니 관계 경계·"
         "오해 주의(외도 단정 금지)"

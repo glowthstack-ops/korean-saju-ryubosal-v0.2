@@ -356,3 +356,61 @@ def test_profile_gate_career_employee_move_and_unemployed() -> None:
     assert "PROFILE_career_change_to_job_gain" in jobless[0].reason_codes
     assert any("이직(직장 옮김)" in s for s in reason_codes_ko(job.reason_codes))
 
+
+# ── 재물 입출 형태·학생/은퇴자 태그 (2026-11-07 데굴님) ────────────────────────
+
+
+def test_wealth_form_notes_and_profile_tags() -> None:
+    from saju_engines.addendum_gate_modifier import AddendumGateModifier, GateContext
+    from saju_engines.wealth_flow_forms import wealth_form_lines, wealth_form_notes
+    from saju_shared_types.event_engine import TenGod as TG
+
+    spec = ReportSpec(
+        product_code="RPT_FULL",
+        subjects=[SubjectRef(kind=SubjectKind.SELF, label="본인")],
+        period=ReportPeriod(start="1980-01", end="2070-12"),
+    )
+    data = _ReportData(_birth("male"), spec, _TODAY)
+    wealth = [c for c in data.lifetime_pool if str(c.event_key) in ("wealth_change", "windfall")]
+    assert wealth
+    notes = {c.period: wealth_form_notes(c, data.lifetime_pool) for c in wealth}
+    assert any(notes.values())  # 재물 후보 중 형태가 붙는 것이 있다
+    # 정재 운 길 방향 → 정기 소득 결 / 비재물 후보 → 빈 목록.
+    from saju_engines.context_reducer import overview_cluster_key
+
+    pos = next(
+        (
+            c for c in wealth
+            if "SINGLE_ZHENGCAI" in c.evidence_path and overview_cluster_key(c)[1] == "pos"
+        ),
+        None,
+    )
+    if pos is not None:
+        assert any("정기 소득" in n for n in wealth_form_notes(pos))
+    other = next(c for c in data.lifetime_pool if str(c.event_key) == "job_gain")
+    assert wealth_form_notes(other, data.lifetime_pool) == []
+    lines = wealth_form_lines(wealth[:6], data.lifetime_pool)
+    assert lines and lines[0].startswith("[재물 입출 형태")
+    # 리포트 재물 섹션(Y-07) 블록 배선.
+    yspec = ReportSpec(
+        product_code="RPT_YEAR",
+        subjects=[SubjectRef(kind=SubjectKind.SELF, label="본인")],
+        period=ReportPeriod(start="2026-01", end="2026-12"),
+    )
+    yctx = {c.section_id: c for c in report_service.plan_report(_birth("male"), yspec, _TODAY)}
+    if "Y-07" in yctx:
+        assert "[재물 입출 형태" in yctx["Y-07"].body_prompt
+    # 학생·은퇴자 태그(사건 종류 불변).
+    m = AddendumGateModifier()
+    stu = m.apply(
+        [EventCandidateV2(event_key="job_gain", period="2027", score=60)],
+        GateContext(occupation_status="student", present_gods={TG.ZHENGCAI}),
+    )[0]
+    assert str(stu.event_key) == "job_gain" and "PROFILE_student_job_parttime" in stu.reason_codes
+    ret = m.apply(
+        [EventCandidateV2(event_key="career_change", period="2027", score=60)],
+        GateContext(occupation_status="retired"),
+    )[0]
+    assert str(ret.event_key) == "career_change"
+    assert "PROFILE_retired_late_career" in ret.reason_codes
+

@@ -138,6 +138,15 @@ class AddendumGateModifier:
                 else:
                     new_key = EventKeyV2.PROMOTION  # 재직자 → 취업보다 승진·직무변경
                     reasons.append("PROFILE_job_gain_to_promotion")
+            if ek is EventKeyV2.JOB_GAIN and ctx.occupation_status == "student":
+                # 학생의 취업 신호 = 아르바이트·근로장학·인턴 등 단기 일자리로 읽음
+                # (2026-11-07, 태그만).
+                reasons.append("PROFILE_student_job_parttime")
+            _career_key = ek in (EventKeyV2.JOB_GAIN, EventKeyV2.CAREER_CHANGE)
+            if _career_key and ctx.occupation_status == "retired":
+                # 은퇴자의 취업·이직 신호 = 재취업·아르바이트·자문까지 폭넓게, 늦은 나이 취업도
+                # 배제하지 않음(2026-11-07, 태그만).
+                reasons.append("PROFILE_retired_late_career")
             if ek is EventKeyV2.CAREER_CHANGE and ctx.occupation_status == "unemployed":
                 # 무직자의 이직 신호 = 취업(옮길 직장이 없다, 2026-11-07 데굴님).
                 new_key = EventKeyV2.JOB_GAIN

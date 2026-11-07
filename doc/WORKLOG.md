@@ -13360,3 +13360,10 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 ## 2026-11-07 — 프로필 게이트: 재직자 취업+이동운=이직, 무직자 이직=취업 (데굴님 "취업이나 이직도 마찬가지 아니야?")
 
 - `addendum_gate_modifier`: 재직자(employee) 취업 신호(job_gain)는 같은 기간 이사·이동 후보(≥`EMPLOYEE_MOVE_WITH_JOB_MIN`=50)가 함께 있으면 `career_change`(`PROFILE_job_gain_to_career_change_move`), 없으면 기존대로 승진(`PROFILE_job_gain_to_promotion`). 무직자(unemployed) 이직 신호는 취업으로(`PROFILE_career_change_to_job_gain`). 점수 불변·사건 종류 전환. `user_profile_event_gate.json` 규칙 문구·implemented_by, 직렬화 라벨, 테스트 1건.
+
+## 2026-11-07 — 재물 입출 형태 서술층 + 학생·은퇴자 프로필 태그 (데굴님 "금전운도 들어오거나 나가는 방식이 중요해" · "학생은 아르바이트·근로장학, 은퇴자는 늦은 나이 직장도")
+
+- **`saju_engines/wealth_flow_forms.py`(신규):** 재물 후보(wealth_change·windfall)의 근거 코드·방향·같은 기간 동반 후보로 '들어오거나 나가는 방식' 통설 후보를 붙인다 — 유입: 정기 소득(정재)·투자/거래 자산(편재)·활동 성과 수입(식상생재)·횡재·묶였던 돈 회수(재성 합 풀림·공망 해소)·문서/계약 자산(재+관+인) / 지출: 병원비(건강 후보 ≥50 동반)·주거비(이사 후보 동반)·가족 비용(부모·자녀 궁위 발동)·빌려주거나 떼임(비겁·군겁쟁재)·투자 손실(편재 흉)·고정 수입 감소(정재 흉). 점수·순위 무관, 금액·종목·당첨 금지 범례.
+- **배선:** 채팅 — `LlmEventCandidate.wealth_form_notes` + `_to_llm_candidate(peers=)` + 후보 블록 "재물 입출 형태" 줄 + 범례 / 리포트 — `_ReportData.wealth_form_block()`을 재물 도메인 섹션(Y-07·F-16·W-06·W-07)에 부착.
+- **프로필 태그(사건 종류 불변):** 학생 취업 신호 `PROFILE_student_job_parttime`(아르바이트·근로장학·인턴) / 은퇴자 취업·이직 `PROFILE_retired_late_career`(재취업·아르바이트·자문, 늦은 나이 취업 배제 안 함). `user_profile_event_gate.json` 규칙 문구·implemented_by 갱신.
+- **테스트:** `test_marriage_lectures_20261107.py` +1(형태 산출·비재물 공집합·Y-07 블록·학생/은퇴자 태그). 관련 99건 통과 · `All checks passed` · `production mypy gate clean`.

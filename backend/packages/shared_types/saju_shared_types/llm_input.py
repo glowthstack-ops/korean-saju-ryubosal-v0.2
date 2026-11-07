@@ -228,6 +228,8 @@ class LlmEventCandidate(BaseModel):
     repetition_notes: list[str] = Field(default_factory=list)
     # 운 암합(보조 자료) — 점수 미반영, 물밑·비공식 뉘앙스 참고용(2026-06-12 자료).
     amhap_notes: list[str] = Field(default_factory=list)
+    # 재물 입출 형태(2026-11-07) — 재물 후보의 '들어오거나 나가는 방식' 통설 후보(서술 전용).
+    wealth_form_notes: list[str] = Field(default_factory=list)
     # 유불리 주의(후보별 사실) — 천간 흉신 시기: 발생해도 계약·결실 불리(우호 단정 방지).
     # P0-2(2026-08-21) 이후 이 필드는 결실 뉘앙스 설명문 전용이다 — 검토월 문구는
     # review_month로, operational guard 문구는 operational_caution으로 분리(3중 concat 해체).

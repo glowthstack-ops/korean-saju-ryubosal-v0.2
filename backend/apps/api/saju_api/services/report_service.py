@@ -2128,6 +2128,17 @@ class _ReportData:
             return f"[아래 표는 상대({self.partner_label}) 기준]"
         return f"[아래 표는 본인({self.self_label}) 기준]"
 
+    def wealth_form_block(self, n: int = 8) -> list[str]:
+        """[재물 입출 형태] — 재물 도메인 후보(상위 n)에 '들어오거나 나가는 방식' 통설 후보를 붙인다
+        (2026-11-07 데굴님 "금전운도 들어오거나 나가는 방식이 중요"). 동반 후보는 전체 점수화
+        목록."""
+        from saju_engines.wealth_flow_forms import wealth_form_lines
+
+        cands = self.domain_candidates("wealth", n)
+        if not cands:
+            return []
+        return wealth_form_lines(cands, self.scored)
+
     def partner_marriage_window_block(self, *, limit: int = 5) -> list[str]:
         """[상대 결혼·인연 신호 창] — 궁합 리포트에서 상대 명식의 결혼·새 인연 후보 연도(오늘 이후,
         게이트 55 이상, 주의 방향 제외)를 연도별 최고 점수로 묶는다(2026-11-07 결혼운 강의 5 —
@@ -4307,6 +4318,11 @@ def build_section_context(
     elif not is_natal_section:
         lines.append("")
         section_domain = _SECTION_DOMAIN.get(sid)
+        # 재물 입출 형태(2026-11-07) — 재물 도메인 섹션에 후보별 방식 통설 블록.
+        if section_domain == "wealth":
+            _wf = data.wealth_form_block()
+            if _wf:
+                lines += ["", *_wf]
         # 생애 변곡점 연표(F-14 골격, docs/10 3-1) — 근접 5년 스펙트럼 표보다 앞에 부착
         # (연표가 골격, 스펙트럼은 가까운 몇 해의 해상도 보강).
         if sid == "F-14":
