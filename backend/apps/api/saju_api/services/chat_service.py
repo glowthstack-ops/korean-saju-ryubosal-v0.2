@@ -59,6 +59,7 @@ from saju_engines.chart_interpretation import (
     yeokma_natal_lines,
     yeokma_period_lines,
 )
+from saju_engines.clash_relief import luck_clash_relief_block
 from saju_engines.commitment_audit import audit_answer
 from saju_engines.companion_alias import AliasEntry, merge_attached_partner
 from saju_engines.companion_similarity import augment_relation_type, augment_subject_mode
@@ -7272,6 +7273,12 @@ def chat(
     # × 원국 천간(상관견관 환경형/자기형·정인 완화·겁재 역할 무관·편인 휴직)을 간지당 1회 싣는다.
     if intent.domain is Domain.CAREER and result is not None:
         trailing.extend(career_exit_lecture_block(
+            result, [(c.period, c.ganji) for c in payload.event_candidates],
+        ))
+    # 충 완화 글자(2026-11-07 충 강의 대조) — 후보 기간 운 지지가 원국 용·희신 글자를 충하면
+    # 묶어 주는 글자·시기를 서술 전용으로 싣는다(도메인 무관, 조건 없으면 블록 없음).
+    if result is not None:
+        trailing.extend(luck_clash_relief_block(
             result, [(c.period, c.ganji) for c in payload.event_candidates],
         ))
     # 상대 외모 지시 대상(2026-10-26) — 구조 블록 안의 지시만으로는 LLM 이 본인 외모를 답했다(실답

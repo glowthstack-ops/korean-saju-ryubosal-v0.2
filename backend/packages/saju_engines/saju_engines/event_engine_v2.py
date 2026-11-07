@@ -29,6 +29,7 @@ from saju_manse_analysis.yongsin.operational_role_config import is_unfavorable_r
 
 from saju_shared_types.constants import (
     BRANCH_ELEMENT,
+    CONTROLS,
     SIX_COMBINATIONS,
     STEM_CLASHES,
     STEM_ELEMENT,
@@ -273,6 +274,7 @@ class EventEngineV2:
         career_exit_rule_ids: Collection[str] | None = None,
         tamhap_mangchung_mode: str = "shadow",
         love_experiments: Collection[str] | None = None,
+        clash_direction_mode: str | None = None,
     ) -> None:
         """재설계 6계층 + 만세 신호 추출에 필요한 사전을 로드한다.
 
@@ -361,6 +363,14 @@ class EventEngineV2:
             load_tamhap_rules(dictionaries_dir) if tamhap_mangchung_mode != "off" else {}
         )
         self._tamhap_shadow: list[dict[str, Any]] = []
+        # 강충 방향(2026-11-07) — None 이면 설정값(기본 shadow). off=로그도 없음.
+        self._clash_direction_mode = (
+            clash_direction_mode if clash_direction_mode is not None
+            else period_v2_config.CLASH_DIRECTION_MODE
+        )
+        if self._clash_direction_mode not in period_v2_config.CLASH_DIRECTION_MODES:
+            raise ValueError(f"clash_direction_mode 미지원: {self._clash_direction_mode}")
+        self._clash_direction_shadow: list[dict[str, Any]] = []
         self._yearly_rules = (
             load_yearly_signal_rules(dictionaries_dir) if enable_yearly_ten_god_signals else ()
         )
@@ -515,6 +525,84 @@ class EventEngineV2:
     def take_tamhap_shadow(self) -> list[dict[str, Any]]:
         """탐합망충 shadow 기록을 비우며 반환(측정 스크립트용)."""
         out, self._tamhap_shadow = self._tamhap_shadow, []
+        return out
+
+    def take_clash_direction_shadow(self) -> list[dict[str, Any]]:
+        """강충 방향 shadow 기록을 비우며 반환(측정 스크립트용)."""
+        out, self._clash_direction_shadow = self._clash_direction_shadow, []
+        return out
+
+    def _apply_clash_direction(
+        self,
+        cands: list[EventCandidateV2],
+        target: LuckPillar,
+        result: ManseV2Result,
+        hits: list[RelationHit],
+        label: str,
+    ) -> list[EventCandidateV2]:
+        """강충(剋沖) 방향(2026-11-07 충 강의 대조) — 운 글자가 원국 글자를 극하는 충이 가장 세다.
+
+        조건: ①운 지지 오행이 원국 피격 지지 오행을 극한다(金→木·水→火. 土끼리는 붕충이라 제외)
+        ②피격 글자가 원국에서 고립 — 그 자리를 빼면 같은 오행의 가시 글자(천간·지지 본기)가 없다
+        (강의: "묘목이 약한 분"). 둘 다 맞으면 강의가 든 사건 계열(수술·사고·이별·갑자기 그만둠 →
+        health_attention·relationship_change·career_change) 점수를 ×(1+CLASH_DIRECTION_BONUS).
+        shadow 는 기록·로그만, apply 는 점수 반영(측정 전용 — 85사례 비교 후 데굴님 결정).
+        """
+        pil = result.pillars
+        if pil is None or not target.branch or self._clash_direction_mode == "off":
+            return cands
+        luck_el = BRANCH_ELEMENT[Branch(target.branch)]
+        natal_pillars = [
+            (pos, p) for pos, p in (
+                ("year", pil.year), ("month", pil.month), ("day", pil.day), ("hour", pil.hour),
+            ) if p is not None
+        ]
+        struck: list[str] = []
+        for h in hits:
+            if h.type is not RelationType.BRANCH_CLASH:
+                continue
+            for ref in h.natal_refs:
+                if ref.side != "natal" or not ref.branch:
+                    continue
+                natal_el = BRANCH_ELEMENT[Branch(ref.branch)]
+                if CONTROLS[luck_el] != natal_el:
+                    continue
+                # 고립 — 피격 자리를 뺀 나머지 천간·지지(본기)에 같은 오행이 없다.
+                others = 0
+                for pos, p in natal_pillars:
+                    if STEM_ELEMENT[Stem(p.stem)] == natal_el:
+                        others += 1
+                    if pos != ref.position and BRANCH_ELEMENT[Branch(p.branch)] == natal_el:
+                        others += 1
+                if others == 0:
+                    struck.append(f"{ref.position}:{ref.branch}")
+        if not struck:
+            return cands
+        struck = list(dict.fromkeys(struck))
+        affected = [c for c in cands if str(c.event_key) in _CLASH_DIRECTION_EVENTS]
+        self._clash_direction_shadow.append({
+            "period": label, "luck_branch": target.branch, "struck": struck,
+            "events": [str(c.event_key) for c in affected], "mode": self._clash_direction_mode,
+        })
+        _logger.info(
+            "clash_direction mode=%s period=%s luck=%s struck=%s events=%s",
+            self._clash_direction_mode, label, target.branch, struck,
+            [str(c.event_key) for c in affected],
+        )
+        if self._clash_direction_mode != "apply" or not affected:
+            return cands
+        code = f"沖_강충_{target.branch}→{'·'.join(s.split(':')[1] for s in struck)}"
+        bonus = period_v2_config.CLASH_DIRECTION_BONUS
+        out: list[EventCandidateV2] = []
+        for c in cands:
+            if str(c.event_key) not in _CLASH_DIRECTION_EVENTS or code in c.reason_codes:
+                out.append(c)
+                continue
+            out.append(c.model_copy(update={  # provenance-audit: not-risk (EventCandidateV2)
+                "score": round(c.score * (1.0 + bonus)),
+                "reason_codes": [*c.reason_codes, code],
+                "contributions": {**c.contributions, "clash_direction": bonus},
+            }))
         return out
 
     def _apply_tamhap_mangchung(
@@ -1008,6 +1096,8 @@ class EventEngineV2:
             cands = self._apply_tamhap_mangchung(
                 cands, target, result, fav_map, hits, stack, label,
             )
+        # 강충 방향(2026-11-07) — shadow 는 기록만, apply 는 수술·이별·퇴직 계열 가산(측정 전용).
+        cands = self._apply_clash_direction(cands, target, result, hits, label)
         # 시험·합격·취업 결과 길흉 — 십성 구조 합·불 패턴으로 favorability만 보정(점수 불변,
         # 자료 9-3·9-4). 극성 NEUTRAL이어도 적용되도록 yongi 블록 밖에서 호출한다.
         cands = self._exam.apply(cands, present_gods)
@@ -1851,6 +1941,12 @@ def load_tamhap_rules(dictionaries_dir: Path) -> dict[str, float]:
                 if isinstance(ev, str) and isinstance(sc, int | float) and sc < 0:
                     out[ev] = float(sc)
     return out
+
+
+#: 강충 방향 가산 대상 — 강의가 든 '수술·사고·이별·갑자기 그만둠' 계열(2026-11-07).
+_CLASH_DIRECTION_EVENTS: frozenset[str] = frozenset(
+    {"health_attention", "relationship_change", "career_change"}
+)
 
 
 def _apply_double_clash_flag(

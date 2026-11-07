@@ -176,6 +176,16 @@ TAMHAP_MANGCHUNG_MODE: str = (
 )
 # 운↔운 충 → 이동형 후보 보조 가산(2026-10-15 승인, 선택 항목). 기본 OFF.
 TRANSIT_CLASH_SUPPORT_ENABLED: bool = _env_flag("SAJU_TRANSIT_CLASH_SUPPORT_ENABLED")
+# 강충 방향(2026-11-07 충 강의 대조 — 데굴님 "측정 후 ON"): 운 지지 오행이 원국 피격 지지 오행을
+# 극하고(金→木·水→火) 그 글자가 원국에서 고립(같은 오행 가시 글자 없음)이면 수술·사고·이별·
+# 급작스러운 퇴직 계열 후보(health_attention·relationship_change·career_change) 점수 ×(1+0.15).
+# 점수 규칙이라
+# **shadow(로그·계량만)** 가 기본이고 `apply` 는 85사례 적중률 비교 후 데굴님 결정으로만 켠다.
+CLASH_DIRECTION_MODES = ("off", "shadow", "apply")
+CLASH_DIRECTION_MODE: str = (
+    os.environ.get("SAJU_CLASH_DIRECTION_MODE", "shadow").strip().lower() or "shadow"
+)
+CLASH_DIRECTION_BONUS: float = 0.15
 # 역할별 사건 전환 시드(2026-10-16 데굴님 확정 6규칙 — 상관·편관·편인 용신 운 / 정관·정인·식신 기신
 # 운). 점수 규칙이라 기본 OFF — 85사례 재생 적중률·실사례로 규칙별 ON 을 정한다(문구층은 플래그와
 # 무관하게 항상 노출).

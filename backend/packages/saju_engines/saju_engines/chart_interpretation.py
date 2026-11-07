@@ -46,6 +46,7 @@ from saju_shared_types.llm_input import (
 )
 from saju_shared_types.manse_result import ManseV2Result
 
+from .clash_relief import natal_clash_relief_by_name
 from .dohwa import analyze_luck_dohwa
 
 _DICT_DIR = Path(__file__).resolve().parents[3] / "dictionaries"
@@ -782,6 +783,14 @@ def build_chart_interpretation(result: ManseV2Result) -> ChartInterpretation | N
         pillars.day, ten_god_names, relation_ids, pillars=pillars,
         palace_pairs=_relation_palace_pairs(result),
     )
+    # 충 완화 글자(2026-11-07) — 원국 충 발췌 끝에 '완화 글자: …' 병기(용·희신 글자만, 서술 전용).
+    relief = natal_clash_relief_by_name(result)
+    if relief:
+        excerpts = [
+            e.model_copy(update={"text": f"{e.text} {relief[e.key]}"})
+            if e.kind == "relation" and e.key in relief else e
+            for e in excerpts
+        ]
     excerpts += _repetition_excerpts(result)
     excerpts += _sinsal_excerpts(result)
     excerpts += _favorability_excerpts(result)

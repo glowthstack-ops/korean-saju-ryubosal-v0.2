@@ -10,6 +10,8 @@
 
 from __future__ import annotations
 
+from saju_shared_types.constants import BRANCH_ELEMENT, CONTROLS
+from saju_shared_types.enums import Branch
 from saju_shared_types.luck_hierarchy import (
     LAYER_KO,
     HierarchyInteraction,
@@ -25,6 +27,8 @@ from .signal_polarity import classify_relation_polarity
 
 #: 축별 본문 보존 상한(클러스터 대표는 별도로 항상 포함).
 _MAX_PER_AXIS = 3
+#: 지지 글자 집합 — 충 방향 라벨은 지지끼리만(천간충은 제외).
+_BRANCH_CHARS: frozenset[str] = frozenset(b.value for b in Branch)
 
 
 def _who(inter: HierarchyInteraction) -> str:
@@ -94,6 +98,53 @@ def _sort_key(inter: HierarchyInteraction, target: ParticipantLayer | None) -> t
     )
 
 
+def _pair_texture(inter: HierarchyInteraction) -> str:
+    """충의 쌍별 결 — 사전 `fromLuck` 첫 문장을 구조적 긴장 줄 끝에 병기한다(2026-11-07).
+
+    계층 블록이 ON 이면 기존 형충회합 줄(쌍별 `fromLuck`)이 통째로 대체돼 子午·寅申·辰戌이
+    같은 '구조적 긴장' 한 문장으로만 나갔다(실측). 사전 문구를 그대로 싣기만 하고 길흉·점수
+    판정에는 관여하지 않는다. 사전에 없는 id(합 계열·미등재)는 빈 문자열.
+    """
+    from .chart_interpretation import (  # 지역 import — 순환 의존 회피
+        _first_sentence,
+        _relation_text_by_id,
+    )
+
+    item = _relation_text_by_id().get(inter.interaction_id)
+    if not item or not item.get("fromLuck"):
+        return ""
+    return f" · 결: {_first_sentence(item['fromLuck'], 200)}{_clash_direction_note(inter)}"
+
+
+def _clash_direction_note(inter: HierarchyInteraction) -> str:
+    """지지충의 극 방향 라벨 — 운 지지가 원국 지지를 극하는지(金→木·水→火) 엔진이 적는다.
+
+    쌍별 문구는 "金이 木을 칠 때 체감이 크다"처럼 조건형이라, 어느 쪽이 운 글자인지는 LLM이
+    참여자 라벨에서 읽어야 했다. 같은 충이라도 방향이 다르면 다른 사건이 되므로 방향을 값으로
+    고정한다(사건 방향 무결성 원칙). 土끼리(辰戌·丑未)·운끼리·원국끼리는 라벨 없음.
+    """
+    if inter.kind != "clash" and "沖" not in inter.interaction_id:
+        return ""
+    luck = [p for p in inter.participants if not p.layer.is_natal and p.char in _BRANCH_CHARS]
+    natal = [p for p in inter.participants if p.layer.is_natal and p.char in _BRANCH_CHARS]
+    if len(luck) != 1 or not natal:
+        return ""
+    lb = Branch(luck[0].char)
+    nb = Branch(natal[0].char)
+    le, ne = BRANCH_ELEMENT[lb], BRANCH_ELEMENT[nb]
+    if CONTROLS[le] == ne:
+        return (
+            f" (방향: 운 {lb.value}({le.value})이 원국 {nb.value}({ne.value})을 극하는 쪽 — "
+            "체감이 큰 방향)"
+        )
+    if CONTROLS[ne] == le:
+        return (
+            f" (방향: 원국 {nb.value}({ne.value})이 운 {lb.value}({le.value})을 극하는 쪽 — "
+            "체감은 상대적으로 덜한 방향)"
+        )
+    return ""
+
+
 def render_hierarchy_narrative(h: LuckHierarchy) -> list[str]:
     """본문용 압축 뷰. 엔진 불일치 관계는 들어가지 않는다."""
     usable = [i for i in h.interactions if i.can_render_narrative()]
@@ -141,6 +192,7 @@ def render_hierarchy_narrative(h: LuckHierarchy) -> list[str]:
                 lines.append(
                     f"{AXIS_LABEL[axis]}: {_name(inter)} [{_who(inter)}] — 성립 확정, "
                     "길흉 방향은 이번 판정에서 확정하지 않았으므로 유불리로 단정하지 말 것"
+                    + _pair_texture(inter)
                 )
             else:
                 lines.append(

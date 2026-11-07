@@ -558,6 +558,30 @@ class LoveSeparationTextFile(_AliasModel):
     items: list[LoveSeparationTextItem] = Field(min_length=6, max_length=6)
 
 
+class ClashReliefTextItem(_AliasModel):
+    """지지충 완화 글자 1건 (clash_relief_text.json, 2026-11-07 충 강의 대조) — 서술 전용.
+
+    pair 의 target 글자를 glyph 가 묶거나(육합·방합) 살린다(상생). co_relation 은 그 글자가 형·해도
+    함께 이룰 때의 병기 메모(2026-11-07 데굴님 결정: 단일 우위 논리가 없는 항목은 병기).
+    """
+
+    pair: str = Field(min_length=2, max_length=2)
+    target: str = Field(min_length=1, max_length=1)
+    glyph: str = Field(min_length=1, max_length=1)
+    mechanism: Literal["육합", "방합", "상생"]
+    text: str = Field(min_length=10)
+    co_relation: str = Field("", alias="coRelation")
+
+
+class ClashReliefTextFile(_AliasModel):
+    """충 완화 글자 사전 — 12지지 각 1회 정확 커버리지(6쌍 × 2글자)."""
+
+    version: str
+    note: str | None = None
+    principles: dict[str, str]
+    items: list[ClashReliefTextItem] = Field(min_length=12, max_length=12)
+
+
 #: wealth_lecture_text.json id 정확 커버리지(2026-10-29 재물 강의 3편).
 WEALTH_LECTURE_TEXT_IDS: tuple[str, ...] = (
     "vessel_strong_firm",
@@ -2925,6 +2949,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/transit_role_event_text.json": RoleEventTextFile,
     "interpretations/career_exit_lecture_text.json": CareerExitTextFile,
     "interpretations/love_separation_lecture_text.json": LoveSeparationTextFile,
+    "interpretations/clash_relief_text.json": ClashReliefTextFile,
     "interpretations/wealth_lecture_text.json": WealthLectureTextFile,
     "interpretations/relationship_tendency_text.json": RelationshipTendencyTextFile,
     "interpretations/daewoon_turn_text.json": DaewoonTurnTextFile,
@@ -3482,6 +3507,49 @@ def _lint_love_separation_text(file: LoveSeparationTextFile) -> list[str]:
         for bad in ("반드시", "확실히", "틀림없이", "무조건", "헤어진다", "이혼한다"):
             if bad in it.text:
                 errors.append(f"{head}: {it.id} 문구에 단정 어휘 '{bad}'")
+    return errors
+
+
+#: 지지충 6쌍 — clash_relief_text 린트용(사전 pair 표기와 같은 글자 순서).
+_CLASH_PAIRS = ("子午", "丑未", "寅申", "卯酉", "辰戌", "巳亥")
+_SIX_COMBINATION_PAIRS = frozenset(
+    frozenset(p) for p in ("子丑", "寅亥", "卯戌", "辰酉", "巳申", "午未")
+)
+_DIRECTIONAL_TRIPLES = (
+    frozenset("寅卯辰"), frozenset("巳午未"), frozenset("申酉戌"), frozenset("亥子丑"),
+)
+_GENERATES_BRANCH = {"木": "火", "火": "土", "土": "金", "金": "水", "水": "木"}
+_BRANCH_EL = {
+    "寅": "木", "卯": "木", "巳": "火", "午": "火", "辰": "土", "戌": "土", "丑": "土", "未": "土",
+    "申": "金", "酉": "金", "子": "水", "亥": "水",
+}
+
+
+def _lint_clash_relief_text(file: ClashReliefTextFile) -> list[str]:
+    """clash_relief_text.json — 12지지 1회씩·쌍/기제 정합·단정 어휘 금지."""
+    head = "interpretations/clash_relief_text.json"
+    errors: list[str] = []
+    targets = sorted(it.target for it in file.items)
+    if targets != sorted(_BRANCH_EL):
+        errors.append(f"{head}: target 이 12지지 각 1회가 아님 — {targets}")
+    for it in file.items:
+        if it.pair not in _CLASH_PAIRS:
+            errors.append(f"{head}: {it.pair} 는 지지충 쌍이 아님")
+        if it.target not in it.pair:
+            errors.append(f"{head}: target {it.target} 이 pair {it.pair} 에 없음")
+        pair = frozenset({it.target, it.glyph})
+        if it.mechanism == "육합" and pair not in _SIX_COMBINATION_PAIRS:
+            errors.append(f"{head}: {it.target}{it.glyph} 는 육합이 아님")
+        if it.mechanism == "방합" and not any(pair <= t for t in _DIRECTIONAL_TRIPLES):
+            errors.append(f"{head}: {it.target}{it.glyph} 는 방합 짝이 아님")
+        if it.mechanism == "상생":
+            if _GENERATES_BRANCH[_BRANCH_EL[it.glyph]] != _BRANCH_EL[it.target]:
+                errors.append(f"{head}: {it.glyph} 는 {it.target} 을 생하지 않음")
+            if not it.co_relation:
+                errors.append(f"{head}: 상생 항목 {it.target}←{it.glyph} 은 형·해 병기 필요")
+        for bad in ("반드시", "확실히", "틀림없이", "무조건", "해소된다", "없어진다", "사라진다"):
+            if bad in it.text:
+                errors.append(f"{head}: {it.target}←{it.glyph} 문구에 단정 어휘 '{bad}'")
     return errors
 
 
@@ -4342,6 +4410,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_career_exit_text(parsed))
         elif isinstance(parsed, LoveSeparationTextFile):
             errors.extend(_lint_love_separation_text(parsed))
+        elif isinstance(parsed, ClashReliefTextFile):
+            errors.extend(_lint_clash_relief_text(parsed))
         elif isinstance(parsed, WealthLectureTextFile):
             errors.extend(_lint_wealth_lecture_text(parsed))
         elif isinstance(parsed, RelationshipTendencyTextFile):
