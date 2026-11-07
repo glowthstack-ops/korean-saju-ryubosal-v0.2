@@ -243,3 +243,39 @@ def test_marriage_alt_views_and_two_axis_directive_in_prompts() -> None:
     f06b = ctx["F-06b"].body_prompt
     assert "[결혼 답 2축 계약]" in f06b and "[결혼 시기 참고 통설" in f06b
     assert "운의 결 주의'는 결혼 불가가 아니라" in ctx["F-14"].body_prompt
+
+
+# ── 인연 마커·배우자성 대운·실패 이력 시효 (2026-11-07 "제안대로 진행") ─────────
+
+
+def test_romance_markers_partner_star_daewoon_and_failure_decay() -> None:
+    from saju_engines.personal_calibration import _failure_age_decay
+
+    spec = ReportSpec(
+        product_code="RPT_FULL",
+        subjects=[SubjectRef(kind=SubjectKind.SELF, label="본인")],
+        period=ReportPeriod(start="1980-01", end="2070-12"),
+    )
+    data = _ReportData(_birth("male"), spec, _TODAY)
+    g = data.life_graph
+    assert g is not None
+    romance = [m for m in g.markers if m.kind is MarkerKind.ROMANCE]
+    assert romance and all(m.tone != "주의" for m in romance)  # 주의 방향 관계 변동은 제외
+    assert any(w.kind is MarkerKind.ROMANCE for w in g.positive_windows)
+    # 현재 대운 壬辰(정재) — 남성 배우자성 대운 라벨.
+    cur = next(d for d in g.daewoons if d.status == "current")
+    assert cur.partner_star_daewoon is True
+    from saju_engines.life_graph import daewoon_summary_lines
+
+    assert any("[배우자성 대운" in ln for ln in daewoon_summary_lines(g))
+    ctx = {c.section_id: c for c in report_service.plan_report(_birth("male"), spec, _TODAY)}
+    cur_page = next(
+        c for c in ctx.values()
+        if c.section_id.startswith("F-14-D") and "[배우자성 대운]" in c.body_prompt
+    )
+    assert "본격 거론되는 10년" in cur_page.body_prompt
+    # 실패 이력 시효 — 10년 초과 0.5, 이내 1.0, 연도 미상 1.0.
+    assert _failure_age_decay("2027", "2007") == 0.5
+    assert _failure_age_decay("2027", "2020-05") == 1.0
+    assert _failure_age_decay("2027", "") == 1.0
+

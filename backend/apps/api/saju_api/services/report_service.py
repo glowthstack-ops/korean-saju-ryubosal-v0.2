@@ -84,6 +84,7 @@ from saju_engines.horizon import ENTRY_WINDOW_DIRECTIVE
 from saju_engines.impossible_relation_audit import strip_impossible_relation_claims
 from saju_engines.intent_event_filter import IntentEventFilter
 from saju_engines.life_graph import (
+    PARTNER_STAR_GODS,
     PER_DAEWOON_CAP,
     build_life_graph,
     daewoon_summary_lines,
@@ -1275,6 +1276,7 @@ class _ReportData:
             self.life_graph = build_life_graph(
                 self.result, _lt_result, self.lifetime_pool, _lt_lo, _lt_hi,
                 risk_years=_lt_risk_years, today_year=self.today.year,
+                gender=str((self.result.input_summary or {}).get("gender") or ""),
             )
         # 기간 연도 경계(섹션별 도메인 후보 스코핑용) — 후보 필터와 동일 기준.
         self._yr_lo = spec.period.start[:4]
@@ -1907,8 +1909,8 @@ class _ReportData:
             return []
         lines = [
             "[인생 그래프 데이터 — 엔진 확정값. 화면의 그래프와 같은 값이므로 숫자·연도·간지를 "
-            "바꾸거나 새로 만들지 말 것. 대운별 한 줄 뒤에 주요 이벤트 마커(결혼·취업·이직·이사·"
-            "재물 유입·건강 위기·금전 위기 — 품질 게이트 통과분, 대운당 최대 "
+            "바꾸거나 새로 만들지 말 것. 대운별 한 줄 뒤에 주요 이벤트 마커(인연·결혼·취업·이직·"
+            "이사·재물 유입·건강 위기·금전 위기 — 품질 게이트 통과분, 대운당 최대 "
             f"{PER_DAEWOON_CAP}, 종류별 최고 후보 우선 배정)가 온다. 오늘은 "
             f"{self.today.year}년 — [지남] 표식이 붙은 해는 이미 지난 해이므로 '내년·다가올·"
             "앞으로'로 쓰지 말고 회고형으로, [올해]는 진행형, [예정]만 앞으로의 창으로 쓸 것. 결혼 "
@@ -2248,6 +2250,18 @@ class _ReportData:
                 f"[이 페이지의 대운] {dw.ganji}(천간 {dw.stem}={dw.stem_ten_god}/지지 "
                 f"{dw.branch}={dw.branch_ten_god}) {y0}-{y1}년, {age}-{age + 9}세{role}{tag}"
             )
+            # 배우자성 대운(2026-11-07) — 남=재성·여=관성이 대운 글자에 있으면 '결혼·이성 인연이
+            # 본격 거론되는 10년'(통설) 라벨. 서술 전용·점수 무관.
+            _pg = PARTNER_STAR_GODS.get(
+                str((self.result.input_summary or {}).get("gender") or ""), frozenset()
+            )
+            _pstar = {str(dw.stem_ten_god or ""), str(dw.branch_ten_god or "")} & _pg
+            if _pstar:
+                lines.append(
+                    f"[배우자성 대운] 대운에 배우자성({'·'.join(sorted(_pstar))})이 들어와 "
+                    "결혼·이성 인연이 본격 거론되는 10년으로 보는 통설 — 이 대운 안의 인연·결혼 "
+                    "창을 적극 탐색할 시기로 안내할 것(확정 금지, 운의 결은 별도 축)"
+                )
             # 총운 개편(2026-11-07) — 과거/현재/미래 대운별 서술 계약을 데이터 줄로 고정.
             if _cur is not None:
                 if dw.index < _cur:

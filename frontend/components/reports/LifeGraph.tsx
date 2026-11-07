@@ -7,7 +7,7 @@ export interface LifeGraphMarker {
   year: number;
   age: number;
   ganji: string;
-  kind: string; // marriage | job | career_change | relocation | wealth_gain | crisis_health | crisis_money
+  kind: string; // romance | marriage | job | career_change | relocation | wealth_gain | crisis_health | crisis_money
   kind_ko: string;
   event_key: string;
   score: number;
@@ -29,6 +29,7 @@ export interface LifeGraphDaewoon {
   score: number;
   label: string;
   status: string; // past | current | future | unknown
+  partner_star_daewoon?: boolean; // 배우자성 대운(통설 라벨)
   markers: LifeGraphMarker[];
 }
 
@@ -64,6 +65,7 @@ export interface LifeGraphData {
 }
 
 const MARKER_STYLE: Record<string, { symbol: string; color: string }> = {
+  romance: { symbol: "♡", color: "#f472b6" },
   marriage: { symbol: "♥", color: "#d946ef" },
   job: { symbol: "●", color: "#2563eb" },
   career_change: { symbol: "➤", color: "#0891b2" },
@@ -73,6 +75,7 @@ const MARKER_STYLE: Record<string, { symbol: string; color: string }> = {
   crisis_money: { symbol: "₩", color: "#ea580c" },
 };
 const KIND_ORDER = [
+  "romance",
   "marriage",
   "job",
   "career_change",
@@ -156,6 +159,7 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
                   fill="#374151"
                 >
                   {d.ganji}
+                  {d.partner_star_daewoon ? " ♥" : ""}
                 </text>
                 <text
                   x={(x0 + x1) / 2}

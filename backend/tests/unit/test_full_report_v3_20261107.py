@@ -183,7 +183,7 @@ def test_life_graph_positive_windows_nearest_first() -> None:
         assert w.start_year >= _TODAY.year and w.end_year <= g.end_year
         assert w.start_year <= w.peak_year <= w.end_year and w.peak_score >= SCORE_GATE
         assert w.kind in (
-            MarkerKind.MARRIAGE, MarkerKind.JOB, MarkerKind.CAREER_CHANGE,
+            MarkerKind.ROMANCE, MarkerKind.MARRIAGE, MarkerKind.JOB, MarkerKind.CAREER_CHANGE,
             MarkerKind.WEALTH_GAIN, MarkerKind.RELOCATION,
         )
     years = [w.start_year for w in g.positive_windows]

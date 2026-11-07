@@ -109,6 +109,9 @@ _REASON_PREFIX_KO: dict[str, str] = {
     "FLOW_REVERSE": "역행 흐름",
     "REPEAT_": "반복 강화",
     "MIXED_": "혼합 신호",
+    "GATE_marriage_signal_weak": (
+        "미혼 프로필 — 결혼 점수는 낮게 시작(만남·인연 창이 먼저, 결혼 불가 아님)"
+    ),
     "GATE_": "현실 보정",
     "PROFILE_": "프로필 반영",
     # 공망 서브타입(2026-08-21 확정 의미론 — 三命通會 '合則不能空') — 일반 VOID_ 보다 앞.

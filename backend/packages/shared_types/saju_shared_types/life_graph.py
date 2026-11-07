@@ -23,6 +23,7 @@ class MarkerKind(StrEnum):
     CAREER_CHANGE = "career_change"
     RELOCATION = "relocation"
     WEALTH_GAIN = "wealth_gain"
+    ROMANCE = "romance"  # 인연(새 만남·관계 형성, 길·혼합 방향) — 2026-11-07 "26~28년 결혼운" 대조
     CRISIS_HEALTH = "crisis_health"
     CRISIS_MONEY = "crisis_money"
 
@@ -58,6 +59,9 @@ class LifeGraphDaewoon(BaseModel):
     score: float
     label: str
     status: str  # past | current | future | unknown
+    # 배우자성 대운(남=재성·여=관성이 대운 천간/지지에) — 결혼·이성 인연이 본격 거론되는 10년이라는
+    # 통설의 서술 라벨(점수 무관, 2026-11-07).
+    partner_star_daewoon: bool = False
     markers: list[LifeGraphMarker] = Field(default_factory=list)
 
 

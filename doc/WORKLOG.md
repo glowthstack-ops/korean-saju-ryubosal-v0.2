@@ -13342,3 +13342,9 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - **테스트:** `tests/unit/test_marriage_lectures_20261107.py` 10건(기본 ON·off 목록·합류 배율 반례·태그·시드 조건·마커 2축·라벨·서술 병기·궁합·프롬프트 배선), `test_love_timing.py` 기본값 2건 갱신, `test_full_report_v3` 결혼 방향 단언 제거. 관련 265건 통과.
 - **게이트:** `All checks passed` · `production mypy gate clean` · `maintained scripts mypy gate clean`. 백엔드 재기동. 데굴님 총운 F-06b·F-14·F-14-D5·F-14b·F-21 재생성(2축 서술 확인: "결혼 창은 열리지만 운의 결이 무거워 궁합·조건 숙고 선행").
 - **남은 과제:** P3-1 결혼·연애 이력(연·월) 수집 + 측정 스크립트(표본 전까지 실험은 실답 감수로만), PR #20 병합(분류기 차단 — 데굴님 수동).
+
+## 2026-11-07 — 인연 마커·배우자성 대운 라벨·실패 이력 시효 (데굴님 참고 풀이 "임진 대운 결혼운 진입·27년까지 인연 유리" → "제안대로 진행")
+
+- **원인:** 리포트 경로에서 2027년 결혼 66점(길)이 미혼 프로필 게이트 −12 + 2007년 결혼 '안 일어남' 개인 이력 −2로 49점 → 창·마커 소실. 만남·관계 형성 신호(2027 75·2028 95·2029 69)는 강했지만 그래프에 종류가 없었다.
+- **반영:** `MarkerKind.ROMANCE`(인연, 길·혼합 방향만, 나이 18~85, cap 7, 긍정 창 포함, 프론트 ♡) · `LifeGraphDaewoon.partner_star_daewoon`(남=재성·여=관성) + 대운 줄·대운 페이지 `[배우자성 대운]` 통설 라벨 · `personal_calibration._failure_age_decay`(10년 초과 반감) · `GATE_marriage_signal_weak` 직렬화 라벨 + 2축 계약에 "미혼이면 인연 창 먼저". docs/10 §3-1 마커 7종.
+- **테스트:** `test_marriage_lectures_20261107.py` +1(인연 마커·창·배우자성 대운 라벨·페이지 줄·시효 3값), v3 창 종류 갱신. 관련 37건 통과.

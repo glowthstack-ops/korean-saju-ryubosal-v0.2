@@ -47,6 +47,11 @@ _EVENT_TO_KIND: dict[str, MarkerKind] = {
     "job_gain": MarkerKind.JOB,
     "career_change": MarkerKind.CAREER_CHANGE,
     "relocation": MarkerKind.RELOCATION,
+    # 인연(2026-11-07): 미혼 프로필 게이트가 결혼 점수를 낮게 시작시키므로 '만남·관계 형성' 층을
+    # 따로 보여 준다(참고 풀이 "27년까지 인연 유리"와 정합). 주의 방향 관계 변동은 갈등이라
+    # 제외(_marker_kind).
+    "new_relationship": MarkerKind.ROMANCE,
+    "relationship_change": MarkerKind.ROMANCE,
     "health_attention": MarkerKind.CRISIS_HEALTH,
     "wealth_change": MarkerKind.CRISIS_MONEY,
 }
@@ -61,21 +66,27 @@ KIND_KO: dict[MarkerKind, str] = {
     MarkerKind.CAREER_CHANGE: "이직",
     MarkerKind.RELOCATION: "이사",
     MarkerKind.WEALTH_GAIN: "재물 유입",
+    MarkerKind.ROMANCE: "인연",
     MarkerKind.CRISIS_HEALTH: "건강 위기",
     MarkerKind.CRISIS_MONEY: "금전 위기",
 }
 _TONE_KO = {"pos": "길", "neg": "주의", "mixed": "혼합"}
 SCORE_GATE = 55
-PER_DAEWOON_CAP = 6  # 2026-11-07: 재물 유입 추가·좌석 보장 4→5, 결혼 길/주의 분리 좌석으로 6
+PER_DAEWOON_CAP = 7  # 2026-11-07: 재물 유입 4→5, 결혼 길/주의 분리 좌석 6, 인연 마커 추가 7
 PER_KIND_CAP = 2
 #: 위기(건강+금전) 합산 상한 — 한 대운이 위기 마커로만 채워지지 않게
 #: (2026-11-07 데굴님 "너무 극단적").
 CRISIS_PER_DAEWOON_CAP = 2
 #: 좌석 보장 대상이 아닌 종류(없음) — 자리는 종류별 최고 후보 우선순위순으로 배정한다.
 _CRISIS_KINDS = frozenset({MarkerKind.CRISIS_HEALTH, MarkerKind.CRISIS_MONEY})
+#: 배우자성 십성(성별 기준) — 대운 천간/지지가 이것이면 '배우자성 대운' 라벨(통설, 점수 무관).
+PARTNER_STAR_GODS: dict[str, frozenset[str]] = {
+    "male": frozenset({"정재", "편재"}),
+    "female": frozenset({"정관", "편관"}),
+}
 #: 긍정 창 대상 종류(길·혼합 방향만) — 위기는 창을 만들지 않는다.
 _POSITIVE_KINDS = (
-    MarkerKind.MARRIAGE, MarkerKind.JOB, MarkerKind.CAREER_CHANGE,
+    MarkerKind.ROMANCE, MarkerKind.MARRIAGE, MarkerKind.JOB, MarkerKind.CAREER_CHANGE,
     MarkerKind.WEALTH_GAIN, MarkerKind.RELOCATION,
 )
 #: 위험 신호 동반 시 게이트 판정에 더하는 우선순위(저장 점수는 불변).
@@ -90,6 +101,7 @@ KIND_AGE_RANGE: dict[MarkerKind, tuple[int, int]] = {
     MarkerKind.CAREER_CHANGE: (20, 70),
     MarkerKind.RELOCATION: (0, 100),
     MarkerKind.WEALTH_GAIN: (18, 100),
+    MarkerKind.ROMANCE: (18, 85),
     MarkerKind.CRISIS_HEALTH: (0, 100),
     MarkerKind.CRISIS_MONEY: (0, 100),
 }
@@ -118,6 +130,8 @@ def _marker_kind(c: EventCandidate, age: int) -> MarkerKind | None:
         kind = MarkerKind.WEALTH_GAIN
     elif kind is MarkerKind.CRISIS_HEALTH and direction == "pos":
         return None
+    elif kind is MarkerKind.ROMANCE and direction == "neg":
+        return None  # 주의 방향 관계 변동 = 갈등·이별 쪽, 인연 마커 아님
     lo, hi = KIND_AGE_RANGE[kind]
     if not lo <= age <= hi:
         return None
@@ -133,6 +147,7 @@ def build_life_graph(
     *,
     risk_years: Mapping[int, set[str]] | None = None,
     today_year: int | None = None,
+    gender: str | None = None,
 ) -> LifeGraph | None:
     """전 생애 후보 풀 → 인생 그래프 데이터.
 
@@ -143,6 +158,8 @@ def build_life_graph(
         lo_year: 출생 연도(창 시작). hi_year: 창 끝(90세).
         risk_years: 연도 → 위험 도메인 집합(위험 엔진 shadow, 선택).
         today_year: 오늘 연도 — 앞으로의 긍정 창(`positive_windows`)의 시작. None이면 창 생략.
+        gender: 'male'/'female' — 배우자성 대운 라벨(남=재성·여=관성). None이면
+            result.input_summary.
 
     Returns:
         LifeGraph — 대운표가 없으면 None.
@@ -153,6 +170,8 @@ def build_life_graph(
         return None
     pool = list(pool)
     cur = lc.current_daewoon_index
+    _gender = gender or str((result.input_summary or {}).get("gender") or "")
+    partner_gods = PARTNER_STAR_GODS.get(_gender, frozenset())
     years_by_label = {p.label: p for p in lt.yearly_luck if p.label.isdigit()}
     cands_by_year: dict[int, list[EventCandidate]] = {}
     for c in pool:
@@ -188,6 +207,9 @@ def build_life_graph(
             end_age=min(d.start_age + 9, hi_year - lo_year),
             start_year=page_lo, end_year=y1, score=round(float(d.luck_score), 3),
             label=d.luck_label, status=status, markers=markers,
+            partner_star_daewoon=bool(
+                {str(d.stem_ten_god or ""), str(d.branch_ten_god or "")} & partner_gods
+            ),
         ))
     years = [
         LifeGraphYear(
@@ -416,6 +438,9 @@ def daewoon_summary_lines(graph: LifeGraph) -> list[str]:
             f"- {d.ganji}(천간 {d.stem_ten_god}/지지 {d.branch_ten_god}) "
             f"{d.start_age}–{d.end_age}세({d.start_year}–{d.end_year}년)"
             f"{' [' + tag + ']' if tag else ''}"
-            f" 〈{d.label or '역할 미상'}〉: {kinds}"
+            f" 〈{d.label or '역할 미상'}〉"
+            + (" [배우자성 대운 — 결혼·이성 인연이 본격 거론되는 10년(통설)]"
+               if d.partner_star_daewoon else "")
+            + f": {kinds}"
         )
     return out
