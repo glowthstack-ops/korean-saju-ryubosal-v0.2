@@ -151,6 +151,21 @@ def test_life_graph_markers_follow_caps_and_gate() -> None:
     assert len(daewoon_summary_lines(g)) == len(g.daewoons)
 
 
+def test_allowed_years_cover_first_decade_page_rows() -> None:
+    """실답 회귀(2026-11-07): 첫 대운 페이지 세운 표(출생~유년 포함)의 모든 해가 허용 연도에
+    있어야 한다 — 빠지면 정합성 검사가 '입력에 없는 연도'로 2회 실패해 on_hold가 된다."""
+    data = _ReportData(_BIRTH, _spec(), _TODAY)
+    g = data.life_graph
+    assert g is not None
+    d1 = g.daewoons[0]
+    first_daewoon_start = data.result.luck_cycles.daewoon_table[0].approx_start_date.year
+    assert d1.start_year == 1980 < first_daewoon_start  # 유년 구간이 실제로 존재하는 명식
+    missing = [y for y in range(d1.start_year, d1.end_year + 1) if y not in data.allowed_years]
+    assert missing == []
+    # 생애 창(출생~90세) 전체가 허용 연도에 들어 있다.
+    assert set(range(g.birth_year, g.end_year + 1)) <= set(data.allowed_years)
+
+
 def test_life_graph_none_without_daewoon_table() -> None:
     data = _ReportData(_BIRTH, _spec(), _TODAY)
     bare = data.result.model_copy(deep=True)
