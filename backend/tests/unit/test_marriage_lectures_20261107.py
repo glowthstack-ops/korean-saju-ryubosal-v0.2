@@ -279,3 +279,56 @@ def test_romance_markers_partner_star_daewoon_and_failure_decay() -> None:
     assert _failure_age_decay("2027", "2020-05") == 1.0
     assert _failure_age_decay("2027", "") == 1.0
 
+
+# ── 범용 배선(2026-11-07 "테마 리포트·AI 채팅에도 반영됐나") ──────────────────
+
+
+def test_marriage_layers_apply_to_theme_report_and_chat() -> None:
+    from saju_engines.life_graph import PARTNER_STAR_DAEWOON_TAG, partner_star_daewoon_tag
+
+    # 간지 태그 — 己 일간 남성에게 壬辰(정재)은 배우자성 대운, 여성에겐 아니다.
+    # 성별 미상은 빈 문자열.
+    assert partner_star_daewoon_tag("己", "壬辰", "male") == PARTNER_STAR_DAEWOON_TAG
+    assert partner_star_daewoon_tag("己", "壬辰", "female") == ""
+    assert partner_star_daewoon_tag("己", "甲寅", "female") == PARTNER_STAR_DAEWOON_TAG  # 甲 정관
+    assert partner_star_daewoon_tag("己", "壬辰", None) == ""
+    # 테마 애정운 리포트(R-03·R-05) — 2축 계약·성별 서술 형태·참고 통설·배우자성 대운 라벨.
+    spec = ReportSpec(
+        product_code="RPT_FOCUS", topic="relationship",
+        subjects=[SubjectRef(kind=SubjectKind.SELF, label="본인")],
+        period=ReportPeriod(start="2026-01", end="2030-12"),
+    )
+    ctx = {c.section_id: c for c in report_service.plan_report(_birth("male"), spec, _TODAY)}
+    love_sections = [sid for sid in ctx if sid in ("R-03", "R-05")]
+    assert love_sections
+    for sid in love_sections:
+        body = ctx[sid].body_prompt
+        assert "[결혼 답 2축 계약]" in body and "[배우자 서술 형태 — 남성 명식]" in body
+        assert "[결혼 시기 참고 통설" in body
+    assert any(PARTNER_STAR_DAEWOON_TAG in c.body_prompt for c in ctx.values())
+
+
+def test_profile_gate_single_no_penalty_married_converts() -> None:
+    """미혼은 결혼 신호를 깎지 않고, 기혼은 새 인연·결혼 신호를 관계 이슈로 전환하며 강하면 경계
+    태그(2026-11-07 데굴님: 미혼은 근거 아님 / 기혼이 떨어지는 것 / 바람 경고 가능)."""
+    from saju_engines.addendum_gate_modifier import AddendumGateModifier, GateContext
+
+    m = AddendumGateModifier()
+
+    def cand(event: str, score: int) -> EventCandidateV2:
+        return EventCandidateV2(event_key=event, period="2027", score=score)
+
+    single = m.apply([cand("marriage_signal", 60)], GateContext(relationship_status="single"))
+    assert single[0].score == 60 and str(single[0].event_key) == "marriage_signal"
+    assert not any("weak" in r for r in single[0].reason_codes)
+    ctx = GateContext(relationship_status="married")
+    strong = m.apply([cand("marriage_signal", 70)], ctx)[0]
+    assert str(strong.event_key) == "relationship_change" and strong.score == 70
+    assert "PROFILE_marriage_to_change" in strong.reason_codes
+    assert "PROFILE_married_outside_attraction_caution" in strong.reason_codes
+    weak = m.apply([cand("new_relationship", 50)], ctx)[0]
+    assert str(weak.event_key) == "relationship_change"
+    assert "PROFILE_new_relationship_to_change" in weak.reason_codes
+    assert "PROFILE_married_outside_attraction_caution" not in weak.reason_codes
+    assert any("배우자 외 인연" in s for s in reason_codes_ko(strong.reason_codes))
+

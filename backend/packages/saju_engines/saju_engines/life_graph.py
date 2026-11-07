@@ -39,6 +39,11 @@ from saju_shared_types.life_graph import (
 from saju_shared_types.manse_result import ManseV2Result
 
 from .context_reducer import overview_cluster_key
+from .structural_context import (  # noqa: F401 — 재수출(리포트가 life_graph 경유로 쓴다)
+    PARTNER_STAR_DAEWOON_TAG,
+    PARTNER_STAR_GODS,
+    partner_star_daewoon_tag,
+)
 
 #: 사건 키 → 마커 종류. 재물 변화는 방향으로 갈린다 — 길=재물 유입 / 주의·혼합=금전 위기
 #: (아래 `_marker_kind`).
@@ -72,18 +77,15 @@ KIND_KO: dict[MarkerKind, str] = {
 }
 _TONE_KO = {"pos": "길", "neg": "주의", "mixed": "혼합"}
 SCORE_GATE = 55
-PER_DAEWOON_CAP = 7  # 2026-11-07: 재물 유입 4→5, 결혼 길/주의 분리 좌석 6, 인연 마커 추가 7
+# 2026-11-07: 좌석 종류 9(인연·결혼 길·결혼 주의·취업·이직·이사·재물 유입·건강 위기·금전 위기)를
+# 전부 수용 — 실답에서 2027년 결혼(길) 65점이 8좌석에 밀려 사라졌다.
+PER_DAEWOON_CAP = 9
 PER_KIND_CAP = 2
 #: 위기(건강+금전) 합산 상한 — 한 대운이 위기 마커로만 채워지지 않게
 #: (2026-11-07 데굴님 "너무 극단적").
 CRISIS_PER_DAEWOON_CAP = 2
 #: 좌석 보장 대상이 아닌 종류(없음) — 자리는 종류별 최고 후보 우선순위순으로 배정한다.
 _CRISIS_KINDS = frozenset({MarkerKind.CRISIS_HEALTH, MarkerKind.CRISIS_MONEY})
-#: 배우자성 십성(성별 기준) — 대운 천간/지지가 이것이면 '배우자성 대운' 라벨(통설, 점수 무관).
-PARTNER_STAR_GODS: dict[str, frozenset[str]] = {
-    "male": frozenset({"정재", "편재"}),
-    "female": frozenset({"정관", "편관"}),
-}
 #: 긍정 창 대상 종류(길·혼합 방향만) — 위기는 창을 만들지 않는다.
 _POSITIVE_KINDS = (
     MarkerKind.ROMANCE, MarkerKind.MARRIAGE, MarkerKind.JOB, MarkerKind.CAREER_CHANGE,

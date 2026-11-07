@@ -47,6 +47,10 @@ _AUTHORITY = {TenGod.ZHENGGUAN, TenGod.QISHA}
 _RESOURCE = {TenGod.ZHENGYIN, TenGod.PIANYIN}
 
 
+#: 기혼 경계 태그 임계 — 전환 전 새 인연·결혼 신호 점수(게이트 55 + 10).
+MARRIED_OUTSIDE_ATTRACTION_MIN = 65
+
+
 @dataclass
 class GateContext:
     """게이트 평가 컨텍스트(엔진이 채움 — 미입력 필드는 게이트 미적용)."""
@@ -110,9 +114,9 @@ class AddendumGateModifier:
             if ek is EventKeyV2.CHILDBIRTH and no_partner_ctx:
                 new_key = EventKeyV2.CREATIVE_OUTPUT
                 reasons.append("GATE_childbirth_to_creative")
-            if ek is EventKeyV2.MARRIAGE_SIGNAL and ctx.relationship_status == "single":
-                score -= 12
-                reasons.append("GATE_marriage_signal_weak")
+            # 미혼 감점(구 GATE_marriage_signal_weak −12)은 2026-11-07 데굴님 결정으로 폐지 — 미혼은
+            # 결혼 가능성을 낮출 근거가 아니다(결혼 목적 만남은 3개월 만에도 성사). 기혼만 아래
+            # user_profile_event_gate 에서 새 인연·결혼 신호를 배우자·가정 이슈로 전환한다.
             if ek is EventKeyV2.JOB_GAIN and not (ctx.present_gods & (_RESOURCE | _WEALTH)):
                 score -= 8  # 관성 단독 — 인성·재성 보조 없음
                 reasons.append("GATE_job_gain_unsupported")
@@ -134,6 +138,20 @@ class AddendumGateModifier:
             if ek is EventKeyV2.NEW_RELATIONSHIP and ctx.relationship_status == "married":
                 new_key = EventKeyV2.RELATIONSHIP_CHANGE  # 기혼 → 배우자 이슈
                 reasons.append("PROFILE_new_relationship_to_change")
+            if ek is EventKeyV2.MARRIAGE_SIGNAL and ctx.relationship_status == "married":
+                # 기혼의 결혼 신호 = 재혼이 아니라 배우자·가정 관계 이슈(2026-11-07 데굴님 결정:
+                # "기혼인 경우에 연애·결혼 가능성이 떨어지는 것"). 사건 종류 전환, 점수 불변.
+                new_key = EventKeyV2.RELATIONSHIP_CHANGE
+                reasons.append("PROFILE_marriage_to_change")
+            if (
+                ek in (EventKeyV2.NEW_RELATIONSHIP, EventKeyV2.MARRIAGE_SIGNAL)
+                and ctx.relationship_status == "married"
+                and score >= MARRIED_OUTSIDE_ATTRACTION_MIN
+            ):
+                # 기혼인데도 새 인연·결혼 신호가 강하면 배우자 외 인연·유혹이 걸리기 쉬운 해로
+                # 경계 주의를 안내한다(2026-11-07 데굴님 "바람 등에 대한 경고도 가능") — 외도 단정
+                # 금지, 가능성·경계 어미만. 점수 불변, 태그만.
+                reasons.append("PROFILE_married_outside_attraction_caution")
             if ek is EventKeyV2.WEALTH_CHANGE and ctx.occupation_status == "business_owner":
                 if ctx.present_gods & _OUTPUT:
                     new_key = EventKeyV2.BUSINESS_EXPANSION  # 사업자 + 식상 → 확장

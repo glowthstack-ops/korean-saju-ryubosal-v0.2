@@ -124,7 +124,11 @@ from .sinsal_direction import (
 )
 from .sinsal_modifier import derive_natal_sinsal_modifiers, select_llm_sinsal_modifiers
 from .sinsal_numeric_scoring import apply_sinsal_channel_shadow, channel_note_ko
-from .structural_context import TONE_LAYER_DIRECTIVE, gender_kin_line
+from .structural_context import (
+    TONE_LAYER_DIRECTIVE,
+    gender_kin_line,
+    partner_star_daewoon_tag,
+)
 from .structure_patterns import detect_structure_patterns, select_llm_patterns
 from .yongsin_color import (
     YONGSIN_COLOR_INSTRUCTION,
@@ -3213,7 +3217,9 @@ def serialize_llm_input(payload: LlmInput) -> str:
         _gm_dw = transit_suffix(transit_state(
             _bcs.pillars, _bcs.day_master, _bcs.void_branches, period, d.ganji, is_daewoon=True,
         ))
-        lines.append(f"대운 {d.ganji} ({period}, {ages}{jiao}){_dtag}{_gm_dw}")
+        # 배우자성 대운 통설 라벨(2026-11-07 결혼운 강의) — 남=재성·여=관성, 서술 전용.
+        _ps_dw = partner_star_daewoon_tag(_bcs.day_master, d.ganji, _bcs.gender)
+        lines.append(f"대운 {d.ganji} ({period}, {ages}{jiao}){_dtag}{_gm_dw}{_ps_dw}")
         # 대운 지지 공망 사실 줄은 **내지 않는다**(2026-10-25 데굴님 결정). 2026-10-19 에는 '현재
         # 대운
         # 壬辰의 지지 辰은 원국 공망 글자다'를 명시했으나, 2026-10-23 '대운 공망 무시' 원칙 뒤에도

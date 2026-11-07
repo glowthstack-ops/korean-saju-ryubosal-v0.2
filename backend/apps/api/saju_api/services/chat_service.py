@@ -233,6 +233,7 @@ from saju_engines.structural_context import (
     load_remedy_action_map,
     marriage_alt_views_lines,
     remedy_action_lines,
+    spouse_form_directive,
     spouse_star_directive,
 )
 from saju_engines.task_procedures import (
@@ -4634,6 +4635,8 @@ def _structural_context(
         # 배우자성 성별 가드를 결혼 블록과 항상 동반 — general로 분류된 관계 질문('언제 만나' 등)도
         # 남=재성·여=관성 기준을 받게 한다(2026-06-22 데굴님 지적: GENERAL은 가드 누락이던 결함).
         out.append(spouse_star_directive(str(result.input_summary.get("gender", "unknown"))))
+        # 성별 서술 형태(호칭·배우자상 어휘·축, 2026-11-07 "범용 반영") — 채팅 관계 답도 동일.
+        out.append(spouse_form_directive(str(result.input_summary.get("gender", "unknown"))))
         # 배우자성=용신(배우자 덕) 판정에 용희신을 넘긴다(G). 자기인식 가드도 함께(C).
         _useful = build_birth_summary(result).useful_gods
         from saju_engines.love_type import age_from_result

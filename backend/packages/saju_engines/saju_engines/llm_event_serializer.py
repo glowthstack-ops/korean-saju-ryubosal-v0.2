@@ -109,8 +109,10 @@ _REASON_PREFIX_KO: dict[str, str] = {
     "FLOW_REVERSE": "역행 흐름",
     "REPEAT_": "반복 강화",
     "MIXED_": "혼합 신호",
-    "GATE_marriage_signal_weak": (
-        "미혼 프로필 — 결혼 점수는 낮게 시작(만남·인연 창이 먼저, 결혼 불가 아님)"
+    "PROFILE_marriage_to_change": "기혼 프로필 — 결혼 신호를 배우자·가정 관계 이슈로 읽음",
+    "PROFILE_married_outside_attraction_caution": (
+        "기혼인데 이성 인연 신호가 강한 해 — 배우자 외 인연·유혹이 걸리기 쉬우니 관계 경계·"
+        "오해 주의(외도 단정 금지)"
     ),
     "GATE_": "현실 보정",
     "PROFILE_": "프로필 반영",

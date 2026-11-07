@@ -89,6 +89,7 @@ from saju_engines.life_graph import (
     build_life_graph,
     daewoon_summary_lines,
     marker_lines,
+    partner_star_daewoon_tag,
     positive_window_lines,
     when_tag,
 )
@@ -2931,10 +2932,14 @@ class _ReportData:
                     f"{d.approx_start_date.year}-{d.approx_end_date.year}", d.ganji,
                     is_daewoon=True,
                 ))
+                _ps_dw = partner_star_daewoon_tag(
+                    self.summary.day_master, d.ganji,
+                    str((self.result.input_summary or {}).get("gender") or ""),
+                )
                 lines.append(
                     f"대운 {d.ganji}(천간 {d.stem}={d.stem_ten_god}/지지 {d.branch}="
                     f"{d.branch_ten_god}) {d.approx_start_date.year}-{d.approx_end_date.year}, "
-                    f"{d.start_age}-{d.start_age + 9}세: 발현 {mode_ko}{_dw_tag}{_gm}"
+                    f"{d.start_age}-{d.start_age + 9}세: 발현 {mode_ko}{_dw_tag}{_gm}{_ps_dw}"
                 )
             if _cur_dw is not None:
                 lines.append(
@@ -4440,10 +4445,6 @@ def build_section_context(
             _SPOUSE_MARRIED_DIRECTIVE
             if _marital in ("기혼", "재혼")
             else _SPOUSE_IMAGE_DIRECTIVE,
-            # 성별별 서술 형태(호칭·배우자상 어휘·축, 2026-11-07) — 기혼·미혼 모두.
-            spouse_form_directive(
-                str((data.result.input_summary or {}).get("gender") or "unknown")
-            ),
         ]
     # 관계·재물구조 섹션 — 결혼·자산 자원 구조(성별 인지, 중립) 표면화. 명식/운 분기와 무관.
     # 배우자성 성별 가드(남=재성·여=관성) + 연애 자기인식(이상형 인정) 가드를 함께 실어 반대 성별
@@ -4459,6 +4460,9 @@ def build_section_context(
         lines += [
             "",
             spouse_star_directive(data.marriage_resource.gender),
+            # 성별 서술 형태(호칭·배우자상 어휘·축) — 총운 F-06b 뿐 아니라 테마 애정운·궁합·한해풀이
+            # 관계 섹션 전부(2026-11-07 데굴님 "범용 반영" 확인).
+            spouse_form_directive(data.marriage_resource.gender),
             *data.marriage_resource_block(),
             RELATIONSHIP_SELF_AWARENESS_DIRECTIVE,
             TENDENCY_SHIFT_DIRECTIVE,

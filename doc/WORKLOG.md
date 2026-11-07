@@ -13348,3 +13348,11 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - **원인:** 리포트 경로에서 2027년 결혼 66점(길)이 미혼 프로필 게이트 −12 + 2007년 결혼 '안 일어남' 개인 이력 −2로 49점 → 창·마커 소실. 만남·관계 형성 신호(2027 75·2028 95·2029 69)는 강했지만 그래프에 종류가 없었다.
 - **반영:** `MarkerKind.ROMANCE`(인연, 길·혼합 방향만, 나이 18~85, cap 7, 긍정 창 포함, 프론트 ♡) · `LifeGraphDaewoon.partner_star_daewoon`(남=재성·여=관성) + 대운 줄·대운 페이지 `[배우자성 대운]` 통설 라벨 · `personal_calibration._failure_age_decay`(10년 초과 반감) · `GATE_marriage_signal_weak` 직렬화 라벨 + 2축 계약에 "미혼이면 인연 창 먼저". docs/10 §3-1 마커 7종.
 - **테스트:** `test_marriage_lectures_20261107.py` +1(인연 마커·창·배우자성 대운 라벨·페이지 줄·시효 3값), v3 창 종류 갱신. 관련 37건 통과.
+
+## 2026-11-07 — 범용 배선 점검 + 미혼 감점 폐지·기혼 전환·경계 태그 (데굴님 "범용적으로 반영된거야?" · "미혼이 결혼 가능성을 낮출 근거가 되나" · "기혼이면 바람 경고도 가능")
+
+- **범용 점검:** 성별 헤더 2행·육친 감사·2축 계약·참고 통설·실험 4종·직렬화 라벨·실패 이력 시효는 채팅·총운·테마·한해풀이·궁합 공용이었고, **공백 3곳** — ①성별 서술 형태 디렉티브가 총운 F-06b/F-17 전용 → `_MARRIAGE_RESOURCE_SECTIONS`(R-03·R-05·RP-03·RP-04·Y-08·W-03·F-17·F-06b) 전부 + 채팅 관계 답 ②배우자성 대운 라벨이 총운 대운 페이지 전용 → `structural_context.partner_star_daewoon_tag`(간지만으로 판정)로 채팅 간지달력 대운 줄·리포트 [대운표] 줄 공용 ③채팅 궁합엔 상대 결혼 창 없음(상대 점수화 미배선 — 남은 과제).
+- **미혼·기혼 게이트(docs/11 영향표 개정):** 구 `GATE_marriage_signal_weak`(미혼 −12) 폐지 — 미혼은 결혼 가능성을 낮출 근거가 아니다(결혼 목적 만남은 3개월 만에도 성사). 기혼은 `PROFILE_marriage_to_change`(결혼 신호 → 배우자·가정 관계 이슈, 기존 새 인연 전환과 짝) + 전환 전 점수 ≥65면 `PROFILE_married_outside_attraction_caution`("배우자 외 인연·유혹이 걸리기 쉬운 해 — 관계 경계·오해 주의", 외도 단정 금지). 사전 `user_profile_event_gate.json` 규칙 문구·implemented_by 갱신, 2축 계약 문장 교체.
+- **데굴님 실측(운영 개인화 포함):** 2027년 결혼 49→65(길) 복귀 → 결혼 창 2027, 인연 창 2027~2030(95). 마커 cap 7→8(좌석 종류 8종 전부 수용).
+- **순환 import 교정:** `context_reducer`→`life_graph` 역방향 import가 생겨 배우자성 대운 헬퍼를 `structural_context`로 이동(life_graph 재수출).
+- **테스트:** `test_marriage_lectures_20261107.py` +2(테마 리포트 R-03/R-05 배선·간지 태그 3갈래·게이트 미혼 무감점/기혼 전환/경계 태그). 관련 suite 통과 · `All checks passed` · `production mypy gate clean` · tsc.

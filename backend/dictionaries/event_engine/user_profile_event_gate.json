@@ -53,9 +53,9 @@
     "career_signal_for_retired": "직책보다 사회활동·계약·자문으로 전환",
     "wealth_signal_for_business_owner": "매출·거래처·계약(business_expansion)으로 우선 해석",
     "wealth_signal_for_employee": "급여·보너스·지출·투자 변동으로 우선 해석",
-    "relationship_signal_for_single": "new_relationship 가능, marriage_signal은 낮게 시작",
+    "relationship_signal_for_single": "new_relationship·marriage_signal 모두 그대로(미혼은 결혼 가능성을 낮출 근거가 아님 — 2026-11-07 데굴님: 결혼 목적 만남은 3개월 만에도 성사. 구 '낮게 시작' 감점 폐지)",
     "relationship_signal_for_dating": "relationship_change·marriage_signal 우선",
-    "relationship_signal_for_married": "새 연애보다 배우자 이슈·가정 재정·관계 조정으로 해석",
+    "relationship_signal_for_married": "새 연애·결혼 신호를 배우자 이슈·가정 재정·관계 조정으로 해석(new_relationship·marriage_signal → relationship_change)",
     "childbirth_signal_without_profile": "출산 확정 금지, 결과물·프로젝트(creative_output)로 대체",
     "childbirth_signal_with_children_only": "추가 출산은 연령·자녀 수 게이트 통과 시에만"
   },
@@ -77,12 +77,11 @@
       "PROFILE_wealth_to_expansion"
     ],
     "wealth_signal_for_employee": [],
-    "relationship_signal_for_single": [
-      "GATE_marriage_signal_weak"
-    ],
+    "relationship_signal_for_single": [],
     "relationship_signal_for_dating": [],
     "relationship_signal_for_married": [
-      "PROFILE_new_relationship_to_change"
+      "PROFILE_new_relationship_to_change",
+      "PROFILE_marriage_to_change"
     ],
     "childbirth_signal_without_profile": [
       "GATE_childbirth_to_creative"

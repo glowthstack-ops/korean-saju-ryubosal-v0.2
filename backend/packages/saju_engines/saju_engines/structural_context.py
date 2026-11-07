@@ -219,6 +219,36 @@ LOVE_MARRIAGE_UNIFIED_DIRECTIVE = (
     "없이 이 관점으로 부드럽게 정리할 것."
 )
 
+#: 배우자성 십성(성별 기준) — 대운 천간/지지가 이것이면 '배우자성 대운' 라벨(통설, 점수 무관).
+PARTNER_STAR_GODS: dict[str, frozenset[str]] = {
+    "male": frozenset({"정재", "편재"}),
+    "female": frozenset({"정관", "편관"}),
+}
+
+PARTNER_STAR_DAEWOON_TAG = " [배우자성 대운 — 결혼·이성 인연이 본격 거론되는 10년(통설)]"
+
+
+def partner_star_daewoon_tag(day_master: str, ganji: str, gender: str | None) -> str:
+    """간지만으로 배우자성 대운 태그(채팅 간지달력·리포트 대운표 공용) — 아니면 빈 문자열.
+
+    대운 천간 십성 또는 지지 본기 십성이 성별 기준 배우자성(남=재성·여=관성)이면 통설 라벨.
+    """
+    from saju_shared_types.constants import main_hidden_stem
+    from saju_shared_types.constants import ten_god as _ten_god
+    from saju_shared_types.enums import Branch, Stem
+
+    gods = PARTNER_STAR_GODS.get(gender or "", frozenset())
+    if not gods or len(ganji) < 2:
+        return ""
+    try:
+        dm = Stem(day_master)
+        stem_god = str(_ten_god(dm, Stem(ganji[0])))
+        branch_god = str(_ten_god(dm, main_hidden_stem(Branch(ganji[1]))))
+    except ValueError:
+        return ""
+    return PARTNER_STAR_DAEWOON_TAG if {stem_god, branch_god} & gods else ""
+
+
 # 결혼 2축 답 계약(2026-11-07 결혼운 강의 7편 대조 — 사교쌤 핵심: 시기 ≠ 길흉). 엔진 결혼 후보의
 # '주의'는 충·형이 아니라 용기신 길흉이므로 "시기는 열리나 운이 유리하지 않음"이다. 불리할 때
 # '하지 마라'로 닫지 않고 숙고·궁합 확인·피할 오행을 안내한다. 점수·판정 무관(서술 계약).
@@ -228,8 +258,10 @@ MARRIAGE_TWO_AXIS_DIRECTIVE = (
     "길흉·관살/재성 혼잡·배우자궁 충형). 후보 결이 '주의'라도 '결혼운 없음·하지 마라'로 닫지 말 것 "
     "— '인연 창은 열리나 운이 유리하지 않다'로 쓰고 숙고·상대 궁합 확인·원국 배우자운 약점·"
     "피해야 할 기운(기·구신 오행이 강한 상대)을 안내할 것. 결이 '길'이면 시기와 운이 함께 받쳐 "
-    "준다고 쓸 것. 미혼 프로필이면 결혼 점수는 낮게 시작하므로(근거 '미혼 프로필' 표기) 인연·만남 "
-    "창을 먼저 짚고 결혼은 그 뒤 단계로 쓸 것. 확정 어미·확률 단정 금지."
+    "준다고 쓸 것. 미혼은 결혼 가능성을 낮추는 근거가 아니다(결혼 목적 만남은 짧은 기간에도 성사) "
+    "— 인연 창과 결혼 창을 나란히 짚을 것. 기혼 프로필의 새 인연·결혼 신호는 배우자·가정 관계 "
+    "이슈로 읽고, '기혼인데 이성 인연 신호가 강한 해' 표기가 있으면 배우자 외 인연·유혹이 걸리기 "
+    "쉬운 때로 관계 경계를 권할 것(외도 단정·낙인 금지, 가능성 어미). 확정 어미·확률 단정 금지."
 )
 
 
