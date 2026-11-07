@@ -13289,3 +13289,20 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - **운영:** 백엔드 재기동(pid 46920) — 15:07 생성 리포트는 13:28 구 프로세스가 만들어 구 목차(31섹션)·그래프 없음이었다. 재기동 후 총운 생성 시 F-14 에 `data` 가 붙는다.
 - **게이트:** `All checks passed` · `production mypy gate clean` · `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(start=end head a13d2a7, 지문 동일, exit 0 — 1차 실행은 시스템 프롬프트 물결표 규약 테스트 1건 실패 → `…`로 교정 후 재실행 통과).
 
+
+## 2026-11-07 — 위험 노출 BYPASS 복구: 계수기 validation lease 재검증 + corpus 승격 (데굴님 "오류 로그가 있던데 이건 해결된거야?" → "그래 진행해줘")
+
+- **원인:** 모니터 `RISK_EXPOSE_BYPASS_FIRST … reason=TOKENIZER_UNAVAILABLE adapter_state=UNVALIDATED` 는 lease 만료(마지막 재검증 2026-08-21, 만료 08-28)였다. 71일간 기동마다 `risk_adapter_bootstrap: validation lease 무효/만료 → UNVALIDATED(BYPASS)` 가 찍히고 채팅·리포트(F-18) 위험 게이트가 전부 BYPASS 됐다. 모니터의 "처리: 해결" 표시는 수동 상태값이며 서버 상태와 무관.
+- **재검증(RISK-LEASE-REVALIDATION-02):** `./scripts/revalidate_risk_lease.sh --execute` 합격 — countTokens-v1beta-r2 · 13형×3=39표본 · undercount 0 · overcount max 0 · relative_error 0 · framing overhead 일관 · modelVersion 일관(gemini-3-flash-preview) · cache 경로 3/3 VALIDATED · rerouting recount 3/3. 새 lease 만료 2026-11-14 10:04 UTC.
+- **corpus 승격(VALIDATED 전환 조건):** corpus hash가 ce324c15… → 0f325865… 로 바뀌었다(08-21 이후 위험 블록 본문 변경 커밋 2건: 08-25 '연주' 표기 통일·09-18 P2 family 보조 증폭 층 — 구조 불변: shape digest 7종·identity 4요소·countMode·validationPolicyHash 동일). `backend/scripts/risk_review_manifest.py` `_REVIEWED_COUNTER_CORPUS_HASHES` 를 새 hash로 교체(이력 주석) → `doc/v2_2/RISK_REVIEW_MANIFEST.json` 재생성(validationCorpusHash·validationArtifactHash 2줄). 구 artifact `gemini-3-flash-preview__ce324c1519179a15.json` 삭제(동일 모델 artifact 2개=fail-closed), 신규 `…__0f3258651fe37c87.json` 추적.
+- **확인:** 재기동(pid 95649) 로그 `risk_adapter_bootstrap … state=VALIDATED lease_id=d4b18ff864d4cf55`. dry-run 채팅(건강 질문) 게이트 `disposition=INJECTED · adapter_state=VALIDATED · output_schema_state=RISK_ENABLED`.
+- **테스트:** `tests/regression/test_risk_review_manifest.py` + lease/bootstrap/registry 단위 27건 통과.
+- **게이트:** `All checks passed` · `maintained scripts mypy gate clean`(production 코드 변경 없음 — 스크립트 주석·allowlist·manifest·artifact만).
+- **남은 과제:** lease는 7일 만료다. 주간 재검증 루틴(cron)이 없어 같은 BYPASS가 11-14 이후 재발한다 — 등록 여부는 데굴님 결정.
+
+## 2026-11-07 — 위험 lease 자동 갱신 cron + 관리자 에러로그 완료 처리 (데굴님 "주간 재검증 cron을 등록해줘" · "관리자상의 에러로그들을 확인하고 해결된것들은 완료 처리해줘")
+
+- **래퍼 `scripts/risk_lease_renew.sh`(신규, cron 전용):** 단순 주간 `--execute` 는 두 사고를 만든다 — ①위험 블록 본문 변경으로 corpus hash가 바뀌면 운영 artifact 디렉터리에 동일 모델 artifact 2개(부팅 fail-closed) ②그 lease는 identity(corpus 포함) 불일치로 부팅 시 UNVALIDATED, 아직 유효한 lease까지 덮어씀. 래퍼는 artifact를 격리 디렉터리(`backend/var/risk_state/revalidation_stage/<ts>/`, 최근 6개 유지)에만 쓰고, 합격 후 corpus hash를 manifest reviewed 항목과 대조해 같을 때만 새 lease 인정. 다르면 백업 lease 복원 + `CORPUS_DRIFT` 로그(승격은 사람 몫). lease 잔여 ≥ 72h면 외부 호출 없이 SKIP(실제 재검증 ≈ 4일 주기, 실패 시 만료 전 3일 재시도). flock 단일 실행, `--force`·`--dry-run`·`--post-check-only <dir>`(대조 단계 테스트).
+- **검증:** SKIP(잔여 167h)·`--force --dry-run`·post-check 정상(RENEWED)·post-check 변조 해시(CORPUS_DRIFT → lease 복원, exit 1)·lease 해시 불변 확인 → `--force` 실제 실행 1회 합격(RENEWED, 운영 artifact 디렉터리 불변, 새 lease 만료 2026-11-14 10:12 UTC, /health `risk_token_counter_validation=VALID`). 실행 중 서버는 기동 시점 lease로 VALIDATED 유지 — 갱신 후 재기동 불필요.
+- **crontab(degool):** `10 4 * * * …/scripts/risk_lease_renew.sh >> …/var/risk_lease_cron.log 2>&1` (매일 04:10 KST). WSL이 꺼져 있으면 돌지 않는다 — 장기 미기동 후에는 수동 1회 또는 cron 첫 실행을 로그로 확인.
+- **관리자 에러로그 완료 처리(system_errors, 미해결 175 → 0):** ①`RISK_EXPOSE_BYPASS_FIRST` UNVALIDATED 109건(08-13~11-07) — 금일 lease 복구로 해소 ②같은 종류 `adapter_state=VALIDATED` chat 단발 1건(08-25) — 로그 미보존·재발 없음·현재 INJECTED 확인(근본 원인 미특정, 재발 시 재조사) ③`TokenBudgetExceeded` full 18k/focus 15k 9건(10-02~10-08) — 상한 26k(2026-10-27) 뒤 재발 0 ④`llm_primary_failover`·http 503 56건(07-17~08-03) — Gemini 일시 장애·08-03 테스트 유래(현재 conftest가 `<db>_test` 로 격리, 이후 유입 없음).
