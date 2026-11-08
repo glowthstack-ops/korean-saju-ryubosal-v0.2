@@ -217,10 +217,10 @@ def test_past_contract_has_no_new_fields() -> None:
 
 def test_reference_line_uses_terms_and_prefix() -> None:
     line = S.simple_reference_line("戊", "丙午", "year", _simple(), _month_layer())
-    assert line.startswith("간단히 봤을 때, 丙午년은 무(戊) 일간에게 인성(편인·정인) 결이에요.")
+    assert line.startswith("간단히 봤을 때, 丙午년은 무(戊) 일간에게 인성(편인·정인)의 해예요.")
     assert "참고용" in line
     mixed = S.simple_reference_line("甲", "乙巳", "year", _simple(), _month_layer())
-    assert "천간 겁재(비겁)·지지 식신(식상)이 섞인 결" in mixed
+    assert "천간 겁재(비겁)·지지 식신(식상)이 섞인 해예요" in mixed
     month = S.simple_reference_line("戊", "己亥", "month", _simple(), _month_layer())
     assert month.startswith("간단히 봤을 때, 己亥월은")
     assert "올해" not in month  # 세운 간지 없으면 그 달 결만
@@ -229,16 +229,20 @@ def test_reference_line_uses_terms_and_prefix() -> None:
     oct_line = S.simple_reference_line(
         "己", "戊戌", "month", s, _month_layer(), year_ganji="丙午",
     )
-    assert oct_line.startswith("간단히 봤을 때, 戊戌월은 기(己) 일간에게 비겁(겁재·겁재) 결이에요.")
-    assert "올해 丙午년은 인성(정인·편인) 결이에요." in oct_line
+    assert oct_line.startswith(
+        "간단히 봤을 때, 戊戌월은 기(己) 일간에게 비겁(겁재·겁재)의 달이고, "
+        "올해 丙午년은 인성(정인·편인)의 해예요."
+    )
     assert s["year_tone"]["인성+인성"] in oct_line
-    assert "이 달은 올해 결이 가장 세지는 달이에요 — 10월에는" in oct_line
+    assert "그중 이 달은 올해 결이 가장 세지는 달이에요. 10월에는" in oct_line
+    assert "이 달만 따로 보면" in oct_line
     # 절정이 아닌 달(己亥월)은 올해 결만 붙고 절정 문장은 없다.
     nov_line = S.simple_reference_line("己", "己亥", "month", s, _month_layer(), year_ganji="丙午")
     assert "올해 丙午년은" in nov_line and "가장 세지는" not in nov_line
     # 일 지평도 올해 결 한 줄.
     day_line = S.simple_reference_line("己", "丙戌", "day", s, _month_layer(), year_ganji="丙午")
     assert day_line.startswith("간단히 봤을 때, 丙戌일은") and "올해 丙午년은" in day_line
+    assert "오늘만 따로 보면" in day_line
     assert S.simple_reference_line("", "丙午", "year", _simple()) == ""
     assert S.simple_reference_line("戊", "丙午", "week", _simple()) == ""
 

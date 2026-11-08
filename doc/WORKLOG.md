@@ -13452,3 +13452,9 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - **반영(설명용 산술, 명리 판정 아님 — 점수·마커·창 불변):** 연도 총점 = 세운 점수 + 소속 대운 점수, `LifeGraphYear.cumulative` = 출생부터의 누적(가격선). `LifeGraphDaewoon.mean_total/trend_delta/trend`(직전 대운 대비 상승/하강/보합, `TREND_EPS` 0.1, 첫 대운 '시작'), `LifeGraph.cumulative_peak_year/low_year/today_cumulative_percentile`. `life_graph._attach_cumulative`·`cumulative_lines` → `[누적 흐름]` 블록을 `life_graph_block`에 포함, F-14 지시에 "누적 운세선의 추세 라벨·수치로 이전 대운보다 좋아지는지 한 문장(라벨 밖 판단 금지)". 프론트 `LifeGraph.tsx`: 파란 점선(자체 척도)·대운 라벨 옆 ↗↘→·범례. docs/10 §3-1 '누적 운세선'.
 - **테스트:** `tests/unit/test_life_graph_cumulative_20261108.py` 3건(누적=세운+대운 누계 불변식·추세 라벨 산식·블록 포함). 기존 총운 v3 테스트 통과.
 - **게이트:** 아래 기록.
+
+## 2026-11-08 — 단식 참고 문단: 페르소나 말투 결정론 변환 + 표지 없는 문단 탐지 + 문단 구성 정리 (데굴님 "꼼꼼히 확인 안 할래? 추가된 문구에 어투가 반영 안 되고 자연스럽지도 않아")
+
+- **실답:** 합쇼체 답에서 LLM 이 단식 내용을 표지('간단히 봤을 때') 없이 자기 문단("지난 10월 戊戌월은 … 결이었습니다 … 발판이 되었습니다")으로 쓰자, 감사가 못 찾고 **해요체 엔진 원문을 추가 삽입**해 같은 내용이 두 문단(해요체+합쇼체)으로 겹쳤다. 엔진 문단도 짧은 문장 나열이라 어색했다.
+- **반영:** ① `saju_engines/speech_style.py` — 해요체→합쇼체·하게체·반말체 종결어미 변환(자모 분해, 축약 복원 ㅕ→ㅣ·ㅘ→ㅗ, ㄹ탈락, 불규칙 표(쉬워요→쉽습니다·커요→큽니다·빨라요→빠릅니다·해요→합니다·돼요→됩니다·거예요→겁니다), 권유형 '~세요'→'~는 것이 좋습니다/~는 게 좋아/~는 게 좋겠네', '하지 마세요'→'하지 않는 …'). 내용·어휘·숫자 불변. ② `ChatPostprocessContext.speech_style`(persona.speech.style) → `_ensure_simple_reading_line(speech_style)`: 표지 없으면 엔진 문장과의 평균 유사도(`SIMPLE_READING_DETECT_MIN` 0.45)로 LLM 단식 문단 탐지, 충실하면 유지, 아니면 변환본으로 교체 + 그 문단의 개인 판정 문장('이 명식·용신·발판…') 보존, 부재 시 변환본 삽입. ③ `simple_reference_line` 구성: "달·해 한 문장 → 올해 결 → 그중 이 달은 올해 결이 가장 세지는 달 + 절정 → 이 달만 따로 보면 … → (참고용 한 문장)".
+- **테스트:** `test_speech_style_20261108`(사전 전 문장 × 3말투 잔여 해요체 0·대표 변환 9조) · `test_last_month_followup_20261108` +1(표지 없는 병합 문단 교체·개인 문장 보존·중복 0 / 충실 합쇼체 유지 / 부재 시 반말체 삽입) · 구성 테스트 갱신. docs/17 §26-3.

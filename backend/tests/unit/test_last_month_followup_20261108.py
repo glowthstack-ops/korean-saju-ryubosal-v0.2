@@ -117,6 +117,44 @@ def test_simple_reading_paragraph_keeps_persona_style_when_content_faithful() ->
     answer = f"첫 판정.\n\n{distorted}\n\n둘째."
     fixed = chat_service._ensure_simple_reading_line(answer, _payload(line), "t")
     assert fixed == f"첫 판정.\n\n{line}\n\n둘째."
+
+
+def test_simple_reading_audit_respects_persona_style() -> None:
+    """실답(2026-11-08): 합쇼체 답에서 표지 없는 LLM 문단을 못 찾아 해요체 원문이 추가 삽입됨."""
+    from saju_engines.speech_style import restyle
+
+    line = (
+        "간단히 봤을 때, 戊戌월은 기(己) 일간에게 비겁(겁재·겁재)의 달이고, 올해 丙午년은 "
+        "인성(정인·편인)의 해예요. 받아들이고 쉬는 해예요. 발판이 되는 쪽이면 배움이 들어와요. "
+        "소모가 되는 쪽이면 하던 일이 멈춰요. (일간과 운의 십성만 본 단식 풀이라 참고용이에요.)"
+    )
+    styled = restyle(line, "hapsyo")
+    assert styled.endswith("참고용입니다.)") and "해입니다" in styled
+    # ① 표지 없이 요약·병합한 문단(실답) — 핵심어로 찾아 교체하고, 그 안의 개인 판정
+    #    문장('이 명식에서는 … 발판')은 뒤에 살린다. 중복 삽입은 없다.
+    merged = (
+        "지난 10월 戊戌월은 기(己) 일간에게 비겁(겁재)의 결이었습니다. 내 몫을 챙기는 일이 "
+        "중요해지는 시기로, 올해 丙午년의 인성 흐름과 겹쳐 재정비가 이루어졌을 것입니다. "
+        "이 명식에서는 토(土)가 "
+        "용신으로 작용하므로 이러한 비겁의 유입은 더 좋은 방향으로 나아가기 위해 등을 떠미는 "
+        "발판이 "
+        "되었습니다."
+    )
+    answer = f"첫 판정입니다.\n\n{merged}\n\n일과 직업 면에서는 유리했습니다."
+    fixed = chat_service._ensure_simple_reading_line(answer, _payload(line), "t", "hapsyo")
+    assert fixed.count("간단히 봤을 때") == 1
+    assert fixed.startswith(f"첫 판정입니다.\n\n{styled}\n\n이 명식에서는 토(土)가 용신으로")
+    assert fixed.endswith("일과 직업 면에서는 유리했습니다.")
+    assert "결이에요" not in fixed  # 해요체 잔여 없음
+    # ② 표지 없이도 내용이 충실한 합쇼체 문단은 그대로 둔다.
+    faithful = styled.replace("간단히 봤을 때, ", "")
+    answer2 = f"첫 판정입니다.\n\n{faithful}\n\n둘째입니다."
+    kept2 = chat_service._ensure_simple_reading_line(answer2, _payload(line), "t", "hapsyo")
+    assert kept2 == answer2
+    # ③ 문단이 아예 없으면 설정 말투로 변환해 삽입한다.
+    answer3 = "첫 판정입니다.\n\n둘째입니다."
+    fixed3 = chat_service._ensure_simple_reading_line(answer3, _payload(line), "t", "banmal_chae")
+    assert fixed3 == f"첫 판정입니다.\n\n{restyle(line, 'banmal_chae')}\n\n둘째입니다."
     # 줄이 없으면(총운 아님) 불변.
     assert chat_service._ensure_simple_reading_line(answer, _payload(""), "t") == answer
     # 한 문단뿐이면 끝에 붙인다.

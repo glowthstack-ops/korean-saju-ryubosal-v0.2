@@ -1046,6 +1046,9 @@ class ChatPostprocessContext(BaseModel):
     week_label: str | None = None
     week_start: str | None = None
     week_end: str | None = None
+    # 페르소나 말투(2026-11-08) — 코드가 직접 삽입·교체하는 문장(단식 참고 문단)의 종결어미 변환용.
+    # 해요체가 기본. 데굴님 실답: 합쇼체 답 한가운데 해요체 문단이 박혔다.
+    speech_style: str = "haeyo"
 
 
 class ChatResponse(BaseModel):
@@ -2096,7 +2099,7 @@ def finalize_answer_full(
         answer = _audit_week_label_answer(answer, ctx, thread_id)
         # 단식 참고 줄 보장(2026-11-08) — LLM 이 '간단히 봤을 때' 문장을 빠뜨리면 첫 문단 뒤에
         # 엔진 줄을 그대로 삽입한다(재호출 없는 결정론 교정).
-        answer = _ensure_simple_reading_line(answer, ctx.payload, thread_id)
+        answer = _ensure_simple_reading_line(answer, ctx.payload, thread_id, ctx.speech_style)
         # 육친 성별 기준 감사(2026-11-07) — 로그 전용(재발 빈도 측정 후 패치 여부 결정).
         _audit_gender_kin_answer(answer, ctx.payload, thread_id)
         if ctx.entry_window and answer:
@@ -8080,6 +8083,7 @@ def chat(
                 entry_window=_entry_window_on, followup=_followup_meta,
                 entry_slots_engine=_entry_slots_engine,
                 partner_appearance=bool(_spouse_image_directive),
+                speech_style=(persona.speech.style if persona is not None else "haeyo"),
                 **_week_label_ctx(intent),
             ),
         )
@@ -8147,6 +8151,7 @@ def chat(
                 call_type=call_type, system=system, owner_id=owner_id, question=question,
                 entry_window=_entry_window_on, entry_slots_engine=_entry_slots_engine,
                 partner_appearance=bool(_spouse_image_directive),
+                speech_style=(persona.speech.style if persona is not None else "haeyo"),
                 **_week_label_ctx(intent),
             ),
             thread_id,
@@ -8632,16 +8637,57 @@ def _simple_paragraph_faithful(engine_line: str, paragraph: str) -> bool:
     return True
 
 
-def _ensure_simple_reading_line(answer: str, payload: LlmInput, thread_id: str | None) -> str:
-    """단식 참고 줄 보장(docs/17 §26-3, 2026-11-08 실답: 월 총운 답에 줄이 빠짐).
+#: 단식 문단을 교체할 때 살려 두는 개인 판정 문장 표지(교체되는 문단에 섞인 '다만 이 명식에서는…').
+_SIMPLE_PERSONAL_RE = re.compile(r"이 명식|용신|희신|기신|구신|한신|발판|소모")
+#: 내용 기준 탐지 — 표지('간단히 봤을 때')가 없어도 이 평균 유사도 이상이면 LLM 의 단식 문단.
+SIMPLE_READING_DETECT_MIN = 0.45
 
-    기간 총운(일/월/연)에 `simple_reading_line` 이 있으면 답의 '간단히 봤을 때' 문단의 **내용**을
-    엔진 문단에 고정한다(2026-11-08 실답: LLM 이 '겁재 — 경쟁심·지출'로 바꿔 쓰고 용신 해석으로
-    덮어 원문 단식과 달라짐). 문단이 없으면 첫 문단 뒤에 삽입, 있으면 내용 충실도를 검사해 미달이면
-    통째로 교체(개인 판정은 규칙상 다음 문단에 있으므로 보존된다). 종결어미는 페르소나 말투를
-    따르므로 비교하지 않는다(데굴님 2026-11-08 "페르소나 어투가 적용되지 않는다" — 종전 원문
-    바이트 고정 폐기). 점수·판정 불변, 재호출 없음.
+
+_SIMPLE_GANJI_RE = re.compile(r"[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥](?:년|월|일)")
+_SIMPLE_GROUPS = ("비겁", "식상", "재성", "관성", "인성")
+#: 키워드 탐지 하한 — 운 간지·'일간'·십성군·발판/소모 중 이 개수 이상이 한 문단에 모이면 단식 문단.
+SIMPLE_READING_KEY_MIN = 3
+
+
+def _simple_paragraph_score(engine_line: str, paragraph: str) -> float:
+    """엔진 문장별 최고 줄기 유사도의 평균(0~1) — 문단 탐지 보조."""
+    core = engine_line.split("(일간과 운의", 1)[0]
+    eng = _sentence_stems(core)
+    got = _sentence_stems(paragraph)
+    if not eng or not got:
+        return 0.0
+    bests = [
+        max((difflib.SequenceMatcher(None, es, gs).ratio() for gs in got), default=0.0)
+        for es in eng
+    ]
+    return sum(bests) / len(bests)
+
+
+def _simple_paragraph_keys(engine_line: str, paragraph: str) -> int:
+    """엔진 줄의 핵심 표지(운 간지·'일간'·십성군·발판/소모)가 문단에 몇 개 있는가 — LLM 이 문장을
+    요약·병합해 유사도가 낮아도(실답 0.27) 간지·일간·십성군이 함께 있으면 단식 문단이다."""
+    keys: set[str] = set(_SIMPLE_GANJI_RE.findall(engine_line))
+    keys |= {g for g in _SIMPLE_GROUPS if g in engine_line}
+    keys |= {k for k in ("일간", "발판", "소모") if k in engine_line}
+    return sum(1 for k in keys if k in paragraph)
+
+
+def _ensure_simple_reading_line(
+    answer: str, payload: LlmInput, thread_id: str | None, speech_style: str = "haeyo"
+) -> str:
+    """단식 참고 문단 보장(docs/17 §26-3) — 내용은 엔진, 말투는 페르소나.
+
+    탐지: '간단히 봤을 때' 표지 문단 > 없으면 핵심 표지(운 간지·'일간'·십성군·발판/소모)가
+    `SIMPLE_READING_KEY_MIN` 개 이상 모인 문단 또는 평균 유사도 ≥ `SIMPLE_READING_DETECT_MIN`
+    (2026-11-08 실답: LLM 이 표지 없이 요약 문단으로 써서 못 찾고 해요체 원문을 **추가 삽입**해
+    중복됐다 — 유사도 0.27 이라 표지 개수로 잡는다). 충실(`_simple_paragraph_faithful`)하면
+    그대로(페르소나 말투 유지), 아니면 엔진 문단을 설정 말투로 변환(`speech_style.restyle`)해
+    교체하되 그 문단에 섞여 있던 개인 판정 문장(이 명식·용신·발판 …)은 뒤에 살린다. 문단이
+    없으면 첫 문단 뒤에 변환본 삽입.
+    점수·판정 불변, 재호출 없음.
     """
+    from saju_engines.speech_style import restyle
+
     pf = getattr(payload, "period_fortune", None)
     line = (getattr(pf, "simple_reading_line", "") or "").strip()
     if not line or not answer:
@@ -8649,20 +8695,32 @@ def _ensure_simple_reading_line(answer: str, payload: LlmInput, thread_id: str |
     paras = answer.split("\n\n")
     idx = next((i for i, p in enumerate(paras) if SIMPLE_READING_MARK in p), None)
     if idx is None:
+        scored = [
+            (_simple_paragraph_keys(line, p), _simple_paragraph_score(line, p), i)
+            for i, p in enumerate(paras)
+        ]
+        keys, best, bi = max(scored, default=(0, 0.0, -1))
+        if keys >= SIMPLE_READING_KEY_MIN or best >= SIMPLE_READING_DETECT_MIN:
+            idx = bi
+    styled = restyle(line, speech_style)
+    if idx is None:
         if len(paras) >= 2:
-            paras.insert(1, line)
+            paras.insert(1, styled)
         else:
-            paras.append(line)
+            paras.append(styled)
         result = "inserted"
-    elif paras[idx].strip() == line or _simple_paragraph_faithful(line, paras[idx]):
-        # 내용이 그대로면(페르소나 말투로 종결어미만 바뀐 경우 포함) LLM 문단을 둔다 — 말투 유지.
-        return answer
+    elif paras[idx].strip() in (line, styled) or _simple_paragraph_faithful(line, paras[idx]):
+        return answer  # 내용 그대로(종결어미만 페르소나 말투인 경우 포함) — 바이트 불변
     else:
-        paras[idx] = line
+        kept = [
+            s for s in _SENT_SPLIT_RE.split(paras[idx].strip())
+            if s.strip() and _SIMPLE_PERSONAL_RE.search(s) and SIMPLE_READING_MARK not in s
+        ]
+        paras[idx] = styled if not kept else styled + "\n\n" + " ".join(kept)
         result = "replaced"
     _logger.warning(
-        "simple_reading_audit result=%s period=%s thread=%s",
-        result, getattr(pf, "period_label", None), thread_id,
+        "simple_reading_audit result=%s style=%s period=%s thread=%s",
+        result, speech_style, getattr(pf, "period_label", None), thread_id,
     )
     return "\n\n".join(paras)
 
