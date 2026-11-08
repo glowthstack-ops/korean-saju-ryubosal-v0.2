@@ -13490,3 +13490,24 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - **테스트:** `test_yongsin_overflow_20261108`(off/damp/flip 산술·라벨·군 얼굴·군 필터·coarse·기신 불변·기본값) 신설. 기존 3건이 종전 의미를 전제해 갱신 — `test_luck`(己丑 → overflow 코드·음수), `test_report_event_input`(2026-10 戊戌 → 태과 라벨·★주목 아님), `test_daewoon_turn_20261029`(1974-01-12 → 1977-09-12: 앞 대운이 간여지동 용신이라 GOOD 이 아니게 됨), `test_sinsal_direction`(2026 午 세운이 태과=혼합이라 '시간·공간 일치' 근거 없음 → 같은 午 지지의 2038 戊午 강한 용신운으로 확인).
 - **데굴님 명식 효과:** 己丑 대운 +0.61 → −0.3, 2026 丙午 +1.0 → −0.3. 인생 그래프 초년 최고점이 사라지고 2026 이 '강한 용신운'에서 '과함'으로 — 증언(초년 바닥·올해 부진)과 부호 일치. 2027 丁未(火·土 다른 오행)는 여전히 강한 용신운.
 - **남은 것:** 실답 감수(채팅 '다만 이 명식에서는' 문단이 태과 얼굴대로 나오는지), 군별 차등 점수는 사례 누적 후.
+
+## 2026-11-08 — 인생 그래프 조후 흐름선(A안) + 조후 점수 블렌드 측정(B안) (데굴님 "조후로만 봐도 겨울에 태어나서 가을로 가는 중이라 바닥에서 시작해서 서서히 쌓여갈 수밖에 없어" · "B안 측정까지 같이 돌려")
+
+- **배경:** 억부(용신) 점수 곡선은 데굴님 명식(亥월 己土 겨울생)의 辛卯 대운을 木 기신으로 최저(−0.75)에 찍지만, 조후 축으로는 子丑(한겨울) → 寅卯(봄) → 巳午未(여름)로 온기가 서서히 쌓이는 궤적이라 사람 풀이("초년 바닥 → 지난 대운에서 보통선 → 앞으로 상승")와 맞는다. 엔진은 `axis_conflict={억부 土, 조후 火, 억부 우선, significant}`로 두 축 충돌을 알고 있었지만 대운 점수·인생 그래프에는 조후가 들어가지 않았다.
+- **A안(구현, 설명용 층):** `saju_manse_analysis/luck/climate.py`(SSOT) — 월지 조후 축 `MONTH_CLIMATE_AXIS`(조후 용신 사전 `climate_axis` 와 동일: 寅亥子丑 cold / 巳午未 heat / 辰 damp / 戌 dry / 卯申酉 neutral, 테스트가 사전 일치 강제), 필요 온도(cold→온기 1.0, heat→서늘함 1.0, damp→온기 0.5, dry→서늘함 0.5, neutral→없음), 지지 온도표 `BRANCH_WARMTH`(子 −1.0 丑 −0.8 寅 −0.3 卯 0 辰 +0.3 巳 +0.7 午 +1.0 未 +0.8 申 +0.3 酉 0 戌 −0.3 亥 −0.8, 서늘함 필요면 반전), 천간 미사용(승인 범위). `saju_engines/climate_flow.py` — `attach_climate(graph, 월지)`: `LifeGraphDaewoon.climate`(대운 지지 조후), `LifeGraphYear.climate`(0.7×소속 대운 + 0.3×세운 지지), `LifeGraph.climate_axis/climate_need_ko/climate_baseline_daewoon(처음 0 이상)/climate_peak_daewoon`; `climate_lines` → `[조후 흐름]` 블록(F-14 `life_graph_block` 에 누적 흐름 뒤). 중립 월 명식은 축 없음(선·블록 없음). 프론트 `LifeGraph.tsx` 주황 점선(같은 점수 척도, 척도 계산에 조후값 포함) + 범례(보통선 도달·정점 대운). docs/10 §3-1 항목 추가. 점수·마커·창 불변.
+- **데굴님 명식 조후 궤적:** 戊子 −1.0 · 己丑 −0.8 · 庚寅 −0.3 · **辛卯 0.0(보통선)** · 壬辰 +0.3 · 癸巳 +0.7 · **甲午 +1.0(정점)** · 乙未 +0.8 · 丙申 +0.3 · 丁酉 0.0 — 증언과 부호·순서 일치.
+- **B안(점수 규칙, 측정):** `luck_cycles.CLIMATE_LUCK_MODE`(env `SAJU_CLIMATE_LUCK_MODE` off|blend, 기본 **off**) · `CLIMATE_LUCK_WEIGHT`(기본 0.3) · `CLIMATE_LUCK_SCOPE`(year,daewoon). 세운·대운 점수 = (1−w)×억부 + w×조후(월운·일운 제외), 요약에 `조후 ±x(가중 w)`. 85사례 재생(기준선 = 용신 태과 flip 전 군 `metrics_overflow_flip.json`):
+
+  | 설정 | pair_agree(68) | timed_sewoon(44) | timed_daewoon(44) | 기타 |
+  |---|---|---|---|---|
+  | 기준선 | 34 | 15 | 26 | single_sewoon 10 · single_daewoon 14 · multi_daewoon 12 |
+  | blend 0.3 (세운+대운) | **39 (+5)** | 13 (−2) | 25 (−1) | single_sewoon 11(+1) · multi_daewoon 11(−1) |
+  | blend 0.5 (세운+대운) | **39 (+5)** | 12 (−3) | 22 (−4) | single_daewoon 11(−3) · multi_daewoon 11(−1) · multi_sewoon_ratio 3(+1) |
+  | blend 0.3 대운만 | 35 (+1) | 15 | 25 (−1) | multi_daewoon 11(−1) |
+  | blend 0.5 대운만 | 34 | 15 | 22 (−4) | single_daewoon 11(−3) · multi_daewoon 11(−1) |
+  | blend 0.3 세운만 | **39 (+5)** | 13 (−2) | 26 | single_sewoon 11(+1) |
+
+  0.3 의 pair 변동: 획득 CASE-002 A>C · 004 A>C · 009 R>L · 025 L>R · 030 R>L · 048 R>L · 061 R>L / 상실 CASE-001 L>R · 051 R>L. 시점 극성 변동(세운): CASE-025 R age40(−) −0.58→−0.20 유지, CASE-035 R age70(+) −0.29→+0.04 개선, CASE-036 L 1971(−) 0.63→0.68 악화 유지, CASE-042 L ~30(−) −0.03→+0.01 악화, CASE-023 L/R 辛酉(−) +0.01→−0.03 개선 … 구조 비교(어느 삶이 더 나았나)는 뚜렷이 좋아지고 시점 사건 극성은 소폭 나빠지는 **혼합** 결과. pair +5 는 전부 **세운** 블렌드에서 오고(생애 지수의 세운 양성 비율 보정이 움직임), 대운 블렌드는 pair 를 거의 못 올리면서 timed_daewoon 을 깎는다(0.5 는 −4).
+- **결정(B안):** 어느 설정도 시점 사건 극성(timed_*)을 악화시키지 않으면서 개선하지 못한다 → **기본 off 유지**(점수 규칙은 실사례 적중률로 ON/OFF — 혼합 결과는 승격 사유가 아님). 조후는 A안 설명용 층으로만 노출한다. 세운 전용 블렌드(pair +5 / timed_sewoon −2)는 재논의 후보로 남긴다 — pair 지표가 '어느 삶이 더 나았나'의 구조 판정이라 조후 축이 생애 수준 비교에는 유효하다는 신호. 손잡이(`SAJU_CLIMATE_LUCK_MODE/WEIGHT/SCOPE`)는 유지.
+- **테스트:** `test_climate_flow_20261108`(사전 일치·데굴님 궤적·중립 월 무선·방향/가중·blend 산술·기본 off) 신설, `test_life_graph_cumulative` 통과. 게이트: lint·production mypy·maintained scripts mypy·프론트 tsc/build 통과.
+- **남은 것:** F-14 해설 실답에서 '용신 흐름으로는 ~, 조후로는 ~' 두 축 분리 서술이 지켜지는지 감수.

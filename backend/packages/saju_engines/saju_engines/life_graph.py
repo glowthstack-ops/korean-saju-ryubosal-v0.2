@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 
+from saju_engines.climate_flow import attach_climate
 from saju_shared_types.events import EventCandidate
 from saju_shared_types.life_graph import (
     LifeGraph,
@@ -230,6 +231,8 @@ def build_life_graph(
         daewoons=daewoons, years=years, markers=all_markers, positive_windows=windows,
     )
     _attach_cumulative(graph)  # 누적 운세선·대운 추세(설명용 산술, 2026-11-08)
+    if result.pillars is not None:  # 조후 흐름선(설명용 층, 2026-11-08) — 월지 필요 온도 기준
+        attach_climate(graph, str(result.pillars.month.branch))
     return graph
 
 

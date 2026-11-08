@@ -33,6 +33,7 @@ export interface LifeGraphDaewoon {
   mean_total?: number; // (세운+대운) 연 평균 — 누적 운세선 설명용
   trend_delta?: number | null; // 직전 대운 대비 차이
   trend?: string; // 상승 | 하강 | 보합 | 시작
+  climate?: number | null; // 조후 흐름선 — 대운 지지의 조후 점수(−1~+1)
   markers: LifeGraphMarker[];
 }
 
@@ -43,6 +44,7 @@ export interface LifeGraphYear {
   score: number;
   label: string;
   cumulative?: number; // 누적 운세선 — 출생부터 (세운+대운)을 더해 온 값(주식 차트의 가격선)
+  climate?: number | null; // 조후 흐름선 — 0.7×대운 조후 + 0.3×세운 지지 조후
 }
 
 export interface LifeGraphWindow {
@@ -69,6 +71,10 @@ export interface LifeGraphData {
   cumulative_peak_year?: number | null;
   cumulative_low_year?: number | null;
   today_cumulative_percentile?: number | null;
+  climate_axis?: string; // cold | heat | damp | dry | ""(중립 → 조후선 없음)
+  climate_need_ko?: string;
+  climate_baseline_daewoon?: string | null;
+  climate_peak_daewoon?: string | null;
 }
 
 const TREND_SYMBOL: Record<string, string> = { 상승: "↗", 하강: "↘", 보합: "→" };
@@ -129,7 +135,13 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
   const plotH = H - padT - padB;
   const x = (age: number) => padL + ((age - ageMin) / (ageMax - ageMin)) * plotW;
 
-  const scores = [...data.years.map((y) => y.score), ...data.daewoons.map((d) => d.score)];
+  // 조후 흐름선(2026-11-08) — 같은 점수 척도(−1~+1). 축 없는 명식(climate 없음)은 생략.
+  const climYears = data.years.filter((p) => typeof p.climate === "number");
+  const scores = [
+    ...data.years.map((y) => y.score),
+    ...data.daewoons.map((d) => d.score),
+    ...climYears.map((p) => p.climate as number),
+  ];
   const sMin = scores.length ? Math.min(...scores) : -1;
   const sMax = scores.length ? Math.max(...scores) : 1;
   const span = sMax - sMin || 1;
@@ -152,6 +164,16 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
           .map(
             (p, i) =>
               `${i === 0 ? "M" : "L"}${x(p.age).toFixed(1)},${yC(p.cumulative as number).toFixed(1)}`,
+          )
+          .join(" ")
+      : "";
+
+  const climPath =
+    climYears.length >= 2
+      ? climYears
+          .map(
+            (p, i) =>
+              `${i === 0 ? "M" : "L"}${x(p.age).toFixed(1)},${y(p.climate as number).toFixed(1)}`,
           )
           .join(" ")
       : "";
@@ -214,6 +236,10 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
           )}
           {/* 세운 선 */}
           {yearPath && <path d={yearPath} fill="none" stroke="#1f2937" strokeWidth={1.2} opacity={0.85} />}
+          {/* 조후 흐름선 — 월지 필요 온도 기준 대운·세운 지지의 온도(억부 점수와 별도 축) */}
+          {climPath && (
+            <path d={climPath} fill="none" stroke="#ea580c" strokeWidth={1.6} strokeDasharray="2 3" opacity={0.9} />
+          )}
           {/* 누적 운세선 — 쌓인 수준·기울기(주식 차트의 가격선) + 기준선(누적 0 = 보통선) */}
           {cumPath && cMin <= 0 && cMax >= 0 && (
             <g>
@@ -295,6 +321,13 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
           <span style={{ color: "#2563eb" }}>
             점선 = 누적 운세선(해마다의 운을 쌓아 온 선 — 올라가면 이전보다 좋아지는 중, 보통선 위면 쌓인
             운이 플러스, ↗↘→ = 대운 추세)
+          </span>
+        )}
+        {climPath && (
+          <span style={{ color: "#ea580c" }}>
+            주황 점선 = 조후 흐름선({data.climate_need_ko || "필요 온도"} 기준으로 대운·세운 지지의 온도만 본 선
+            {data.climate_baseline_daewoon ? ` — ${data.climate_baseline_daewoon} 대운에서 보통선` : ""}
+            {data.climate_peak_daewoon ? `, ${data.climate_peak_daewoon} 대운 정점` : ""})
           </span>
         )}
         {kindsPresent.map((k) => (

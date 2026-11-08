@@ -11,6 +11,7 @@ import os
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from saju_manse_analysis.luck.climate import climate_need, climate_score
 from saju_manse_analysis.relations.hap_mitigation import HapMitigation, resolve_hap_mitigation
 from saju_manse_analysis.sinsal.sinsal_aggregator import sinsal_for_luck
 from saju_manse_analysis.structure.luck_structure_flags import resolve_luck_structure_flags
@@ -120,6 +121,38 @@ YONGSIN_OVERFLOW_MODE: str = (
 )
 YONGSIN_OVERFLOW_FACTOR = 0.25
 YONGSIN_OVERFLOW_FLIP = -0.3
+#: 조후 점수 블렌드(B안, 2026-11-08 데굴님 "조후로만 봐도 겨울생이라 바닥에서 서서히 쌓인다") —
+#: 세운·대운 점수 = (1−w)×억부 점수 + w×조후 점수(`climate.climate_score`, 월지 필요 온도 × 운 지지
+#: 온도). 중립 월 명식은 조후 점수 0 이라 (1−w) 배만 된다. 점수 규칙 → 85사례 재생 적중률로 모드를
+#: 정한다(기본 off).
+CLIMATE_LUCK_MODE: str = (
+    os.environ.get("SAJU_CLIMATE_LUCK_MODE", "off").strip().lower() or "off"
+)
+CLIMATE_LUCK_WEIGHT: float = float(os.environ.get("SAJU_CLIMATE_LUCK_WEIGHT", "0.3") or 0.3)
+#: 블렌드 적용 범위(쉼표 목록: year, daewoon). 측정에서 세운·대운을 따로 끄고 켜기 위한 손잡이.
+CLIMATE_LUCK_SCOPE: frozenset[str] = frozenset(
+    g.strip()
+    for g in os.environ.get("SAJU_CLIMATE_LUCK_SCOPE", "year,daewoon").split(",")
+    if g.strip()
+)
+
+
+def _apply_climate_blend(
+    eff: dict, pillars: FourPillarsResult, branch: Branch, period_type: str,
+) -> None:
+    """B안 blend — eff 의 luck_score 를 조후 점수와 섞고 요약에 조후 항을 덧붙인다(off 면 no-op)."""
+    if CLIMATE_LUCK_MODE != "blend" or period_type not in CLIMATE_LUCK_SCOPE:
+        return
+    month_branch = str(pillars.month.branch)
+    _axis, need, weight = climate_need(month_branch)
+    if not need or weight <= 0:
+        return
+    w = CLIMATE_LUCK_WEIGHT
+    cs = climate_score(month_branch, branch)
+    eff["luck_score"] = round((1.0 - w) * float(eff["luck_score"]) + w * cs, 4)
+    eff["luck_summary"] = f"{eff['luck_summary']} · 조후 {cs:+.1f}(가중 {w:.1f})"
+
+
 #: 태과 규칙을 적용할 용신 십성군(일간 기준) — all 또는 '비겁,인성' 처럼 쉼표 목록.
 #: 데굴님(2026-11-08): "내 경우 용신이 비겁이라 과하면 안 좋아지는데 다른 십성은 다를 수도"
 #: → 군별 적용 범위를 측정으로 정한다.
@@ -638,6 +671,8 @@ def _luck_pillar(
         _apply_structure_background_month(
             eff, pillars, useful, unfavorable, stem, branch, period_type,
         )
+    if period_type == "year":
+        _apply_climate_blend(eff, pillars, branch, "year")  # B안(기본 off) — 월운·일운 제외
     return LuckPillar(
         label=label,
         period_type=period_type,
@@ -716,6 +751,7 @@ def compute_luck_cycles(
             stem, branch, useful_elements, unfavorable_elements, "daewoon",
             rels, transformed, void, day_master=dm,
         )
+        _apply_climate_blend(eff, pillars, branch, "daewoon")  # B안(기본 off)
         # 이 대운 10년의 세운(연동 표시용).
         sew_years = range(birth_date.year + age, birth_date.year + age + 10)
         sewoon = _yearly(pillars, dm, useful_elements, unfavorable_elements, sew_years)

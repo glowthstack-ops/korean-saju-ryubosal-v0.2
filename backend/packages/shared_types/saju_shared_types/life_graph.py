@@ -67,6 +67,9 @@ class LifeGraphDaewoon(BaseModel):
     # 배우자성 대운(남=재성·여=관성이 대운 천간/지지에) — 결혼·이성 인연이 본격 거론되는 10년이라는
     # 통설의 서술 라벨(점수 무관, 2026-11-07).
     partner_star_daewoon: bool = False
+    # 조후 흐름선(2026-11-08 데굴님 "겨울생이라 바닥에서 서서히 쌓인다") — 대운 지지의 조후 점수
+    # (−1~+1, 월지 필요 온도 기준). 중립 월(卯申酉) 명식은 None. 설명용 층.
+    climate: float | None = None
     markers: list[LifeGraphMarker] = Field(default_factory=list)
 
 
@@ -82,6 +85,8 @@ class LifeGraphYear(BaseModel):
     # 주식 차트의 가격선처럼 높이가 쌓인 수준, 기울기가 '이전보다 좋아지는 중/나빠지는 중'을
     # 보여 준다(설명용 산술).
     cumulative: float = 0.0
+    # 조후 흐름선(2026-11-08) — 0.7×소속 대운 조후 + 0.3×세운 지지 조후. 축 없는 명식은 None.
+    climate: float | None = None
 
 
 class LifeGraphWindow(BaseModel):
@@ -122,3 +127,9 @@ class LifeGraph(BaseModel):
     cumulative_peak_year: int | None = None
     cumulative_low_year: int | None = None
     today_cumulative_percentile: int | None = None
+    # 조후 흐름선(docs/10 §3-1, 2026-11-08) — 월지 조후 축(cold/heat/damp/dry, 중립이면 "")·필요
+    # 온도 한글·조후가 처음 0 이상이 되는 대운·조후 정점 대운. 억부 점수와 별도의 설명용 층.
+    climate_axis: str = ""
+    climate_need_ko: str = ""
+    climate_baseline_daewoon: str | None = None
+    climate_peak_daewoon: str | None = None

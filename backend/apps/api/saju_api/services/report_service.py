@@ -34,6 +34,7 @@ from saju_engines.chart_interpretation import (
     mobility_marker_flip_lines,
 )
 from saju_engines.clash_relief import luck_clash_relief_block
+from saju_engines.climate_flow import climate_lines
 from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
 from saju_engines.context_reducer import (
     _DOMAIN_EVENT_KEYS,
@@ -1928,6 +1929,9 @@ class _ReportData:
             "",
             *cumulative_lines(g),
         ]
+        climate = climate_lines(g)  # 조후 흐름선(2026-11-08) — 축 없는 명식은 빈 목록
+        if climate:
+            lines += ["", *climate]
         markers = marker_lines(g)
         if markers:
             lines += ["", "주요 이벤트 마커(연도·만 나이·세운 간지·종류·결·점수):", *markers]
