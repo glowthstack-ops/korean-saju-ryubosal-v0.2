@@ -657,8 +657,10 @@ def test_case_a_sleep_yeokma_enter_samjae_ak_is_strong_avoid(chart) -> None:
 
 
 def test_no_overlap_year_keeps_caution_only(chart) -> None:
-    """2026(午 세운=재살·용신운): 숙면 caution 방향과 세운 지지가 안 겹치고 불리 신호도 없어
-    주의만."""
+    """2026(午 세운=재살): 숙면 caution 방향과 세운 지지가 안 겹치고 불리 신호도 없어 주의만.
+
+    2026 丙午는 2026-11-08 부터 '용신 태과(간여지동)'(coarse 혼합)라 용신운 세운이 아니다 —
+    시간·공간 일치 근거는 같은 午 지지의 2038 戊午(강한 용신운)로 확인한다."""
     from saju_engines.direction_avoidance import annotate_avoidance, strong_avoid_lines
 
     block = build_sinsal_direction_block(chart, [DirectionPurpose.SLEEP], proactive=False)
@@ -669,10 +671,15 @@ def test_no_overlap_year_keeps_caution_only(chart) -> None:
     # 복/용신운 + 세운 지지 일치는 BEST_USE 에 '시간·공간 일치' 근거만(등급 신설 없음).
     study = build_sinsal_direction_block(chart, [DirectionPurpose.STUDY], proactive=False)
     assert study is not None
-    annotate_avoidance(study, chart, 2026)  # 午=재살은 공부 support
+    annotate_avoidance(study, chart, 2026)  # 午=재살은 공부 support, 2026 은 태과(혼합) → 근거 없음
     jae = next(p for p in study.recommendations[0].picks if p.sinsal == "재살")
-    assert jae.verdict == "GOOD_USE" and jae.verdict_evidence
-    assert "시간·공간 일치" in jae.verdict_evidence[0]
+    assert jae.verdict == "GOOD_USE" and not jae.verdict_evidence
+    study38 = build_sinsal_direction_block(chart, [DirectionPurpose.STUDY], proactive=False)
+    assert study38 is not None
+    annotate_avoidance(study38, chart, 2038)  # 戊午: 土·火 다른 오행 → 강한 용신운(용신운 세운)
+    jae38 = next(p for p in study38.recommendations[0].picks if p.sinsal == "재살")
+    assert jae38.verdict == "GOOD_USE" and jae38.verdict_evidence
+    assert "시간·공간 일치" in jae38.verdict_evidence[0] and "2038" in jae38.verdict_evidence[0]
 
 
 def test_domain_caution_counts_as_overlap_condition(chart) -> None:

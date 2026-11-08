@@ -97,8 +97,11 @@ def test_luck_stem_branch_split_and_labels() -> None:
     assert wuzi.stem_effect is not None and wuzi.branch_effect is not None
     assert wuzi.stem_effect.type == "용신" and wuzi.branch_effect.type == "기신"
     assert wuzi.luck_label_code == "mixed_yongsin_surface"
-    # 己丑: 천간 己土 + 지지 丑(정기 土) → 강한 용신운.
-    assert by_ganji["己丑"].luck_label_code == "pure_yongsin_luck"
+    # 己丑: 천간 己土 + 지지 丑(정기 土) → 같은 용신 오행이 천간·지지에 몰린 간여지동.
+    # 2026-11-08 부터 '강한 용신운'이 아니라 용신 태과(약한 흉, flip 기본) —
+    # test_yongsin_overflow_20261108 참조.
+    assert by_ganji["己丑"].luck_label_code == "yongsin_overflow_luck"
+    assert by_ganji["己丑"].luck_score < 0
     # 甲午: 천간 甲木(기신) + 지지 午(정기 丁火 용신) → 천간 기신·지지 용신 혼합.
     chunwu = by_ganji["甲午"]
     assert chunwu.stem_effect is not None and chunwu.branch_effect is not None
