@@ -34,9 +34,12 @@ from saju_shared_types.daily_fortune import (
     DailyFortuneBoard,
     DailyMonthIljuFlow,
     DailyMonthStemFlow,
+    DailyYearStemFlow,
     DayGanjiContext,
 )
 from saju_shared_types.enums import Branch, Stem
+
+from . import simple_reading as _simple
 
 #: 십성 → 십성군(`daily_ilju_fortune._SIPSEONG_GROUP` 와 같은 분류).
 _GROUP = v1._SIPSEONG_GROUP
@@ -188,7 +191,10 @@ def next_month_label(next_ctx: DayGanjiContext) -> str:
 
 
 def month_flow(
-    ctx: DayGanjiContext, layer: dict[str, Any], preview_ctx: DayGanjiContext | None = None
+    ctx: DayGanjiContext,
+    layer: dict[str, Any],
+    preview_ctx: DayGanjiContext | None = None,
+    simple: dict[str, Any] | None = None,
 ) -> list[DailyMonthStemFlow]:
     """10일간의 이번 달 흐름 — 천간 공통 1문단 + 관계가 있는 일주의 일주별 문장(+ 미리보기).
 
@@ -196,9 +202,18 @@ def month_flow(
         ctx: 오늘 일진·월운·세운 간지.
         layer: 사전의 `month_layer`.
         preview_ctx: 다음 달 첫날 컨텍스트(전환 7일 전부터). None 이면 미리보기 없음.
+        simple: 사전의 `simple_layer`(docs/17 §26) — 있으면 월운 천간·지지 십성군이 같은 달에
+            `same_group_note` 1문장을 채운다. None(과거 계약)이면 필드가 None 이다.
     """
     flows: list[DailyMonthStemFlow] = []
+    month_stem, month_branch = Stem(ctx.month_stem), Branch(ctx.month_branch)
     for stem in Stem:
+        same_note = (
+            _simple.simple_reading(
+                stem, month_stem, month_branch, "month", simple, layer,
+            ).emphasis
+            if simple else None
+        )
         notes = [
             DailyMonthIljuFlow(
                 ilju=f"{ilju_stem.value}{ilju_branch.value}",
@@ -217,6 +232,58 @@ def month_flow(
             next_preview=(
                 _stem_common_line(stem, preview_ctx, layer) if preview_ctx is not None else None
             ),
+            same_group_note=same_note,
+        ))
+    return flows
+
+
+def year_span(ctx: DayGanjiContext) -> tuple[date, date]:
+    """오늘이 속한 세운(입춘 기준)의 (시작일, 종료일) — 엔진 달력 그대로."""
+    d = ctx.the_date
+    ganji_of: dict[date, str] = {}
+    for year in (d.year - 1, d.year, d.year + 1):
+        for month in range(1, 13):
+            for day in build_month(year, month)["days"]:
+                ganji_of[day["date"]] = day["year_ganji"]
+    current = ganji_of[d]
+    start = end = d
+    while ganji_of.get(start - timedelta(days=1)) == current:
+        start -= timedelta(days=1)
+    while ganji_of.get(end + timedelta(days=1)) == current:
+        end += timedelta(days=1)
+    return start, end
+
+
+def year_label(ctx: DayGanjiContext) -> str:
+    """올해의 결 패널 라벨 — '병오년(丙午) 2026년 2월 4일~2027년 2월 3일'."""
+    start, end = year_span(ctx)
+    stem, branch = Stem(ctx.year_stem), Branch(ctx.year_branch)
+    return (
+        f"{STEM_KO[stem]}{BRANCH_KO[branch]}년({stem.value}{branch.value}) "
+        f"{start.year}년 {start.month}월 {start.day}일~{end.year}년 {end.month}월 {end.day}일"
+    )
+
+
+def year_flow(
+    ctx: DayGanjiContext, simple: dict[str, Any], layer: dict[str, Any]
+) -> list[DailyYearStemFlow]:
+    """10일간의 올해의 결(단식, docs/17 §26) — 쌍 결·같은 결 강조·체감 포인트 3·절정 달.
+
+    Args:
+        ctx: 오늘 일진·월운·세운 간지(세운만 쓴다).
+        simple: 사전의 `simple_layer`.
+        layer: 사전의 `month_layer`(연 지평은 쓰지 않지만 시그니처 통일).
+    """
+    year_stem, year_branch = Stem(ctx.year_stem), Branch(ctx.year_branch)
+    flows: list[DailyYearStemFlow] = []
+    for stem in Stem:
+        sr = _simple.simple_reading(stem, year_stem, year_branch, "year", simple, layer)
+        flows.append(DailyYearStemFlow(
+            day_stem_ko=STEM_KO[stem],
+            tone=sr.tone,
+            emphasis=sr.emphasis,
+            points=list(sr.points),
+            peak_months=_simple.peak_month_line(stem, year_stem, year_branch, simple),
         ))
     return flows
 
@@ -237,12 +304,19 @@ def day_advice(
     yesterday_band: str | None,
     band: str,
     tomorrow_band: str | None,
+    simple: dict[str, Any] | None = None,
 ) -> str:
-    """조언 줄 — 내 일주의 날 > 천간합 > 십성군 쌍 + (있으면) 어제·내일 연결 문장.
+    """조언 줄 — (단식 같은 결 강조) + 내 일주의 날 > 천간합 > 십성군 쌍 + 어제·내일 연결 문장.
 
     같은 일간 6일주가 같은 쌍을 공유하므로 변주를 일지로도 돌려 탭 안 반복을 줄인다.
+    simple(docs/17 §26)이 있고 오늘 천간·지지 십성군이 같으면 `day_same_group` 1문장을 앞에 둔다.
     """
     day_stem, day_branch = Stem(ctx.day_stem), Branch(ctx.day_branch)
+    lead: list[str] = []
+    if simple:
+        sr = _simple.simple_reading(ilju_stem, day_stem, day_branch, "day", simple, layer)
+        if sr.emphasis:
+            lead.append(sr.emphasis)
     variant = (
         ctx.the_date.toordinal()
         + list(Branch).index(ilju_branch) // 2
@@ -260,7 +334,7 @@ def day_advice(
         parts.append(layer["flow_relief"][variant])
     elif band == _CAUTION_BAND and tomorrow_band in _GOOD_BANDS:
         parts.append(layer["flow_defer"][variant])
-    return " ".join(parts)
+    return " ".join([*lead, *parts])
 
 
 def attach_month_layer(
@@ -270,19 +344,25 @@ def attach_month_layer(
     bands: dict[str, str],
     yesterday: dict[str, str],
     tomorrow: dict[str, str],
+    simple: dict[str, Any] | None = None,
 ) -> None:
-    """보드에 이번 달 흐름·절기 띠·조언을 채운다(제자리 수정).
+    """보드에 이번 달 흐름·절기 띠·조언(+ 단식 결 층)을 채운다(제자리 수정).
 
     Args:
         board: `compute_board` 가 만든 직후의 보드.
         ctx: 오늘 일진·월운·세운 간지.
         layer: 사전의 `month_layer`.
         bands: 일주 → 오늘 밴드. yesterday·tomorrow 는 전날·다음 날 밴드.
+        simple: 사전의 `simple_layer`(docs/17 §26, dict.v1.19) — 있으면 올해의 결·같은 결 강조를
+            채운다. None(과거 계약)이면 새 필드가 전부 None 이고 조언 줄도 종전 그대로다.
     """
     board.season_band = season_band(ctx, layer)
     # 라벨·미리보기는 §25 계약(stem_stage)부터 — v1.16·v1.17 보드는 재생해도 필드가 None 이다.
     preview_ctx = next_month_preview_context(ctx) if layer.get("stem_stage") else None
-    board.month_flow = month_flow(ctx, layer, preview_ctx)
+    board.month_flow = month_flow(ctx, layer, preview_ctx, simple)
+    if simple:
+        board.year_flow = year_flow(ctx, simple, layer)
+        board.year_label = year_label(ctx)
     if layer.get("stem_stage"):
         board.month_label = month_label(ctx)
         board.next_month_label = (
@@ -292,5 +372,5 @@ def attach_month_layer(
         ilju = fortune.ilju
         fortune.advice = day_advice(
             Stem(ilju[0]), Branch(ilju[1]), ctx, layer,
-            yesterday.get(ilju), bands[ilju], tomorrow.get(ilju),
+            yesterday.get(ilju), bands[ilju], tomorrow.get(ilju), simple,
         )

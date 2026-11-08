@@ -47,7 +47,11 @@ ENGINE_VERSION = "engine.v1"
 #   '일간→월운 지지'(천간 공통)로 옮기고(`ilju_stage` → `stem_stage`), 일주별 흐름은 일지↔월운
 #   지지·내년 세운 지지 관계만 남긴다. 패널에 월 이름·기간, 입절 전 7일은 다음 달 미리보기.
 #   같은 경계(STAGE_DIRECTION_EFFECTIVE_FROM)로 v2 채점 채널의 12운성 방향도 바뀐다(model.v2.3).
-DICT_VERSION = "dict.v1.18"
+# v1.19(2026-11-08): 단식(單式) 결 층(docs/17 §26, 데굴님 "세운뿐 아니라 월운·일운 공통") —
+#   `simple_layer`: 올해의 결 패널(일간별 쌍 결·같은 결 강조·체감 포인트 3·절정 달), 이번 달
+#   천간 공통 흐름의 같은 결 강조 1문장, 오늘 조언 줄 앞 같은 결 강조 1문장. 판정 불변.
+#   경계 SIMPLE_LAYER_EFFECTIVE_FROM(11/10) — 11/9 보드는 11/8 저녁 선생성이라 v1.18 을 유지한다.
+DICT_VERSION = "dict.v1.19"
 PROMPT_VERSION = "polish.v1"
 #: 서사 family 회전 계약(OA-8b). 값이 바뀌면 새 epoch 이 시작되며 **캐시만** 무효화된다
 #: — 선택 seed 에는 들어가지 않으므로 사건 배정은 흔들리지 않는다(OA-6d1).
@@ -99,6 +103,11 @@ STAGE_DIRECTION_EFFECTIVE_FROM = date(2026, 11, 5)
 #: 그 기준일 이전(11/3~11/4)에 적용되는 사전 버전.
 DICT_VERSION_BEFORE_STAGE_DIRECTION = "dict.v1.17"
 
+#: 단식 결 층(docs/17 §26) 활성화 기준일 — 11/10 보드부터(11/9 보드는 11/8 저녁 선생성).
+SIMPLE_LAYER_EFFECTIVE_FROM = date(2026, 11, 10)
+#: 그 기준일 이전(11/5~11/9)에 적용되는 사전 버전.
+DICT_VERSION_BEFORE_SIMPLE_LAYER = "dict.v1.18"
+
 
 def stage_direction_forward(target_date: date) -> bool:
     """그 날짜의 12운성 방향 — True 면 일간→운 지지(통설·만세력 엔진과 동일), False 면 종전
@@ -120,7 +129,8 @@ def active_dict_version(target_date: date) -> str:
 
     Returns:
         7/30 이전 v1.10 → 9/3 이전 v1.11 → 9/12 이전 v1.12 → 9/20 이전 v1.13 → 11/2 이전
-        v1.14 → 11/3 이전 v1.16 → 11/5 이전 v1.17 → 이후 현재 `DICT_VERSION`(v1.18).
+        v1.14 → 11/3 이전 v1.16 → 11/5 이전 v1.17 → 11/10 이전 v1.18 → 이후 현재
+        `DICT_VERSION`(v1.19).
     """
     if target_date < SMALL_FIND_HEADLINE_REVERT_EFFECTIVE_FROM:
         return PREVIOUS_DICT_VERSION
@@ -136,6 +146,8 @@ def active_dict_version(target_date: date) -> str:
         return DICT_VERSION_BEFORE_WORDING_REVISION
     if target_date < STAGE_DIRECTION_EFFECTIVE_FROM:
         return DICT_VERSION_BEFORE_STAGE_DIRECTION
+    if target_date < SIMPLE_LAYER_EFFECTIVE_FROM:
+        return DICT_VERSION_BEFORE_SIMPLE_LAYER
     return DICT_VERSION
 
 
@@ -230,6 +242,18 @@ class DailyMonthStemFlow(BaseModel):
     # 다음 달 미리보기(docs/17 §25-3) — 월운 전환 7일 전부터 다음 달의 천간 공통 흐름.
     # 그 밖의 날과 과거 계약(dict.v1.17 이하)은 None.
     next_preview: str | None = None
+    # 단식 같은 결 강조(docs/17 §26) — 월운 천간·지지 십성군이 같은 달에만. 과거 계약은 None.
+    same_group_note: str | None = None
+
+
+class DailyYearStemFlow(BaseModel):
+    """올해의 결(단식, docs/17 §26) — 일간 1개. 세운이 바뀔 때까지 고정, 길흉 없음(양면 어휘)."""
+
+    day_stem_ko: str  # 일간 한글 1자 — 탭 그룹핑 키와 같다
+    tone: str  # 쌍 결 문장(사전 year_tone)
+    emphasis: str | None = None  # 천간·지지 십성군이 같은 해에만
+    points: list[str] = Field(default_factory=list)  # 체감 포인트 3줄(일·돈·사람·몸·연애 중)
+    peak_months: str | None = None  # 절정 달 문장(합·같은 군 중첩 달) — 없으면 None
 
 
 class DailyTop5(BaseModel):
@@ -269,3 +293,6 @@ class DailyFortuneBoard(BaseModel):
     month_label: str | None = None
     # 다음 달 미리보기 라벨 — 월운 전환 7일 전부터("기해월(己亥) 11월 8일부터"). 그 밖은 None.
     next_month_label: str | None = None
+    # 단식 결 층(docs/17 §26, dict.v1.19) — 10일간 올해의 결. 과거 계약 보드는 null.
+    year_flow: list[DailyYearStemFlow] | None = None
+    year_label: str | None = None  # "병오년(丙午) 2026년 2월 4일~2027년 2월 3일"

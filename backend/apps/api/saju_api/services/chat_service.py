@@ -1363,6 +1363,14 @@ def _build_period_fortune(
     # 월주 상대 관점(2026-10-25) — 세운 전용. build_yearly_environment 가 세운이 아니면 None 을 돌려
     # 일·월 총운에는 빈 목록이 된다(대운·월운 미적용 — 데굴님 결정).
     environment_lines = render_yearly_environment(build_yearly_environment(chart, pillar))
+    # 단식 참고 줄(docs/17 §26-3, 2026-11-08) — 일간×운 십성군 체감 결 1문장("간단히 봤을 때,").
+    # 점수·판정 불변, 프롬프트에서 첫 판정 뒤 한 문장 인용만 허용.
+    from saju_engines.simple_reading import simple_reference_line as _simple_ref
+
+    simple_reading_line = _simple_ref(
+        chart.pillars.day_master if chart.pillars else "", str(pillar.ganji),
+        {"daily": "day", "monthly": "month", "yearly": "year"}[fortune_type],
+    )
     # P0(2026-07-27) — 운 스택(대운·세운·월운·해당 기간) 전체가 관여한 합의 구조화 의미.
     # 단일 pillar만 넘기면 세운 午와 일진 寅의 반합처럼 층간 결합이 통째로 빠진다.
     _TARGET_LEVEL = {
@@ -1479,6 +1487,7 @@ def _build_period_fortune(
         ),
         dohwa_text_keys=list(grounding.get("dohwa_text_keys", [])),
         environment_lines=environment_lines,
+        simple_reading_line=simple_reading_line,
         stack_ganji=stack_ganji,
     )
 

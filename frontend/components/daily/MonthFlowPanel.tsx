@@ -29,6 +29,9 @@ export function MonthFlowPanel({
       <div className="mt-3">
         <p className="text-xs font-semibold text-gray-500">천간 공통 흐름</p>
         <p className="mt-0.5 text-sm leading-relaxed text-gray-700">{flow.common}</p>
+        {flow.same_group_note && (
+          <p className="mt-1 text-sm leading-relaxed text-gray-700">{flow.same_group_note}</p>
+        )}
       </div>
       <div className="mt-3">
         <p className="text-xs font-semibold text-gray-500">일주별 흐름</p>
