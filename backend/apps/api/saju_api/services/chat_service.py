@@ -1364,14 +1364,6 @@ def _build_period_fortune(
     # 월주 상대 관점(2026-10-25) — 세운 전용. build_yearly_environment 가 세운이 아니면 None 을 돌려
     # 일·월 총운에는 빈 목록이 된다(대운·월운 미적용 — 데굴님 결정).
     environment_lines = render_yearly_environment(build_yearly_environment(chart, pillar))
-    # 단식 참고 줄(docs/17 §26-3, 2026-11-08) — 일간×운 십성군 체감 결 1문장("간단히 봤을 때,").
-    # 점수·판정 불변, 프롬프트에서 첫 판정 뒤 한 문장 인용만 허용.
-    from saju_engines.simple_reading import simple_reference_line as _simple_ref
-
-    simple_reading_line = _simple_ref(
-        chart.pillars.day_master if chart.pillars else "", str(pillar.ganji),
-        {"daily": "day", "monthly": "month", "yearly": "year"}[fortune_type],
-    )
     # P0(2026-07-27) — 운 스택(대운·세운·월운·해당 기간) 전체가 관여한 합의 구조화 의미.
     # 단일 pillar만 넘기면 세운 午와 일진 寅의 반합처럼 층간 결합이 통째로 빠진다.
     _TARGET_LEVEL = {
@@ -1384,6 +1376,16 @@ def _build_period_fortune(
     )
     # 운 스택 간지(2026-10-25) — 관계 확정 문장의 참여 글자 층위 라벨·생성 후 층위 라벨 감사용.
     stack_ganji = _period_stack_ganji(composites, _TARGET_LEVEL[fortune_type], start, pillar)
+    # 단식 참고 문단(docs/17 §26-3, 2026-11-08) — 일간×운 십성군 체감 결("간단히 봤을 때,").
+    # 월·일 지평은 올해(세운) 결·절정 달을 함께 싣는다(실답: 10월 참고 줄이 그 달 겁재만 말해 원문
+    # 단식의 '올해 인성 결이 가장 세지는 10월'과 달랐다). 점수·판정 불변, 문단은 생성 후 원문 고정.
+    from saju_engines.simple_reading import simple_reference_line as _simple_ref
+
+    simple_reading_line = _simple_ref(
+        chart.pillars.day_master if chart.pillars else "", str(pillar.ganji),
+        {"daily": "day", "monthly": "month", "yearly": "year"}[fortune_type],
+        year_ganji=stack_ganji.get("세운"),
+    )
     # P1 계층형 grounding(2026-07-27) — ON이면 관계 렌더를 **이쪽으로 완전히 대체**한다.
     # 기존 build_luck_grounding의 형충회합 줄과 함께 내보내면 같은 관계가 두 표현으로
     # 들어가 LLM이 서로 다른 사실로 읽는다.
@@ -8595,24 +8597,33 @@ SIMPLE_READING_MARK = "간단히 봤을 때"
 def _ensure_simple_reading_line(answer: str, payload: LlmInput, thread_id: str | None) -> str:
     """단식 참고 줄 보장(docs/17 §26-3, 2026-11-08 실답: 월 총운 답에 줄이 빠짐).
 
-    기간 총운(일/월/연)에 `simple_reading_line` 이 있는데 답에 '간단히 봤을 때'가 없으면 첫 문단
-    바로 뒤에 엔진 줄을 그대로 삽입한다. 점수·판정 불변, 재호출 없음. 이미 있으면 바이트 불변.
+    기간 총운(일/월/연)에 `simple_reading_line` 이 있으면 답의 '간단히 봤을 때' 문단을 **엔진
+    문단으로 고정**한다(2026-11-08 실답: LLM 이 '겁재 — 경쟁심·지출'로 바꿔 쓰고 용신 해석으로
+    덮어 원문 단식과 달라짐). 문단이 없으면 첫 문단 뒤에 삽입, 있으면 그 문단을 통째로 교체
+    (개인 판정은 규칙상 다음 문단에 있으므로 보존된다). 점수·판정 불변, 재호출 없음.
     """
     pf = getattr(payload, "period_fortune", None)
     line = (getattr(pf, "simple_reading_line", "") or "").strip()
-    if not line or not answer or SIMPLE_READING_MARK in answer:
+    if not line or not answer:
         return answer
-    # 괄호 안 참고 안내는 사용자 노출용으로도 쓰이므로 그대로 둔다(길이 1문장 + 안내 1문장).
-    parts = answer.split("\n\n", 1)
-    if len(parts) == 2:
-        fixed = f"{parts[0]}\n\n{line}\n\n{parts[1]}"
+    paras = answer.split("\n\n")
+    idx = next((i for i, p in enumerate(paras) if SIMPLE_READING_MARK in p), None)
+    if idx is None:
+        if len(paras) >= 2:
+            paras.insert(1, line)
+        else:
+            paras.append(line)
+        result = "inserted"
+    elif paras[idx].strip() == line:
+        return answer
     else:
-        fixed = f"{answer.rstrip()}\n\n{line}"
+        paras[idx] = line
+        result = "replaced"
     _logger.warning(
-        "simple_reading_audit result=inserted period=%s thread=%s",
-        getattr(pf, "period_label", None), thread_id,
+        "simple_reading_audit result=%s period=%s thread=%s",
+        result, getattr(pf, "period_label", None), thread_id,
     )
-    return fixed
+    return "\n\n".join(paras)
 
 
 def _audit_relation_answer(answer, period_fortune, thread_id, extra_period_fortunes=None):

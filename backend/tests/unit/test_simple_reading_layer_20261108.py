@@ -220,6 +220,22 @@ def test_reference_line_uses_terms_and_prefix() -> None:
     assert "천간 겁재(비겁)·지지 식신(식상)이 섞인 결" in mixed
     month = S.simple_reference_line("戊", "己亥", "month", _simple(), _month_layer())
     assert month.startswith("간단히 봤을 때, 己亥월은")
+    assert "올해" not in month  # 세운 간지 없으면 그 달 결만
+    # 월 지평 + 세운(2026-11-08 실답 교정): 올해 결 + 절정 달이면 절정 문장 — 己 일간 戊戌월(10월).
+    s = _simple()
+    oct_line = S.simple_reference_line(
+        "己", "戊戌", "month", s, _month_layer(), year_ganji="丙午",
+    )
+    assert oct_line.startswith("간단히 봤을 때, 戊戌월은 기(己) 일간에게 비겁(겁재·겁재) 결이에요.")
+    assert "올해 丙午년은 인성(정인·편인) 결이에요." in oct_line
+    assert s["year_tone"]["인성+인성"] in oct_line
+    assert "이 달은 올해 결이 가장 세지는 달이에요 — 10월에는" in oct_line
+    # 절정이 아닌 달(己亥월)은 올해 결만 붙고 절정 문장은 없다.
+    nov_line = S.simple_reference_line("己", "己亥", "month", s, _month_layer(), year_ganji="丙午")
+    assert "올해 丙午년은" in nov_line and "가장 세지는" not in nov_line
+    # 일 지평도 올해 결 한 줄.
+    day_line = S.simple_reference_line("己", "丙戌", "day", s, _month_layer(), year_ganji="丙午")
+    assert day_line.startswith("간단히 봤을 때, 丙戌일은") and "올해 丙午년은" in day_line
     assert S.simple_reference_line("", "丙午", "year", _simple()) == ""
     assert S.simple_reference_line("戊", "丙午", "week", _simple()) == ""
 
@@ -245,4 +261,13 @@ def test_chat_period_fortune_carries_simple_reading_line() -> None:
     assert pf is not None
     assert pf.simple_reading_line.startswith("간단히 봤을 때, 丙午년은")
     assert "참고용" in pf.simple_reading_line
-    assert SIMPLE_READING_HEADER.startswith("[단식 참고") and "한 문장" in SIMPLE_READING_USAGE_RULE
+    # 월 총운은 세운(스택) 간지를 받아 올해 결이 함께 실린다.
+    m_intent = IntentJson(
+        intent_id="t", query_type=QueryType.FORTUNE_OVERVIEW,
+        time_range=TimeRange(
+            type="absolute", granularity=Granularity.MONTH, start="2026-10", end="2026-10",
+        ),
+    )
+    mpf = chat_service._build_period_fortune(b, m_intent, dt.date(2026, 11, 8), "monthly")
+    assert mpf is not None and "올해 丙午년은" in mpf.simple_reading_line
+    assert SIMPLE_READING_HEADER.startswith("[단식 참고") and "그대로" in SIMPLE_READING_USAGE_RULE

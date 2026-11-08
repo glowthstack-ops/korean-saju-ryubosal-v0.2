@@ -149,6 +149,31 @@ def month_ganji_of_year(year_stem: Stem) -> list[tuple[Stem, Branch, int]]:
     return out
 
 
+def peak_month_entries(
+    day_master: Stem, year_stem: Stem, year_branch: Branch,
+) -> list[tuple[int, Branch]]:
+    """올해 결이 가장 세지는 달 — (양력 월 번호, 월운 지지) 목록. 규칙은 `peak_months` 참조."""
+    from saju_engines.daily_ilju_fortune import _branch_relations  # 지연 import — 순환 회피
+
+    year_group = _GROUP_OF[ten_god_name(day_master, year_stem)]
+    amplifiers = {year_group, _GENERATES[year_group]}  # 같은 군(중첩) + 생하는 군(출구)
+    scored: list[tuple[int, int, Branch]] = []
+    for m_stem, m_branch, month_no in month_ganji_of_year(year_stem):
+        score = 0
+        hits = set(_branch_relations(m_branch, year_branch, ()))
+        if m_branch != year_branch and _HAP_KEYS & hits:
+            score += 2
+        if _GROUP_OF[ten_god_name(day_master, m_stem)] in amplifiers:
+            score += 1
+        if _GROUP_OF[branch_god_name(day_master, m_branch)] in amplifiers:
+            score += 1
+        scored.append((score, month_no, m_branch))
+    best = max((s for s, _, _ in scored), default=0)
+    if best < PEAK_MIN_SCORE:
+        return []
+    return [(m, b) for s, m, b in scored if s == best][:PEAK_MAX_MONTHS]
+
+
 def peak_months(day_master: Stem, year_stem: Stem, year_branch: Branch) -> list[int]:
     """올해 결이 가장 세지는 달(양력 월 번호) — §26-1 점수식.
 
@@ -159,25 +184,7 @@ def peak_months(day_master: Stem, year_stem: Stem, year_branch: Branch) -> list[
     2026 丙午 戊 일간(인성 세운): 戌월 = 午戌 반합 2 + 戊戌 천간·지지 비겁(인성→비겁 출구) 2 = 4 로
     단독 최고(원문 '10월'). 未월 = 육합 2 + 未 己 겁재 1 = 3, 寅월 = 반합 2.
     """
-    from saju_engines.daily_ilju_fortune import _branch_relations  # 지연 import — 순환 회피
-
-    year_group = _GROUP_OF[ten_god_name(day_master, year_stem)]
-    amplifiers = {year_group, _GENERATES[year_group]}  # 같은 군(중첩) + 생하는 군(출구)
-    scored: list[tuple[int, int]] = []
-    for m_stem, m_branch, month_no in month_ganji_of_year(year_stem):
-        score = 0
-        hits = set(_branch_relations(m_branch, year_branch, ()))
-        if m_branch != year_branch and _HAP_KEYS & hits:
-            score += 2
-        if _GROUP_OF[ten_god_name(day_master, m_stem)] in amplifiers:
-            score += 1
-        if _GROUP_OF[branch_god_name(day_master, m_branch)] in amplifiers:
-            score += 1
-        scored.append((score, month_no))
-    best = max((s for s, _ in scored), default=0)
-    if best < PEAK_MIN_SCORE:
-        return []
-    return [m for s, m in scored if s == best][:PEAK_MAX_MONTHS]
+    return [m for m, _ in peak_month_entries(day_master, year_stem, year_branch)]
 
 
 def peak_month_line(
@@ -203,6 +210,22 @@ def _current_layers() -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
         return None, None
 
 
+def _desc(sr: SimpleReading) -> str:
+    """'인성(편인·정인)' 또는 '천간 겁재(비겁)·지지 편재(재성)이 섞인'."""
+    if sr.same_group:
+        return f"{sr.stem_group}({sr.stem_god}·{sr.branch_god})"
+    return f"천간 {sr.stem_god}({sr.stem_group})·지지 {sr.branch_god}({sr.branch_group})이 섞인"
+
+
+def _parse_ganji(ganji: str | None) -> tuple[Stem, Branch] | None:
+    if not ganji or len(ganji) < 2:
+        return None
+    try:
+        return Stem(ganji[0]), Branch(ganji[1])
+    except ValueError:
+        return None
+
+
 def simple_reference_line(
     day_master: str,
     ganji: str,
@@ -210,40 +233,49 @@ def simple_reference_line(
     simple: dict[str, Any] | None = None,
     month_layer: dict[str, Any] | None = None,
     *,
+    year_ganji: str | None = None,
     prefix: str = REFERENCE_PREFIX,
 ) -> str:
-    """채팅·테마사주 참고 줄 1문장(§26-3) — 용어 허용 경로.
+    """채팅·테마사주 참고 문단(§26-3) — 용어 허용 경로. 호출자는 이 문단을 **그대로** 싣는다.
 
-    예: "간단히 봤을 때, 丙午년은 무(戊) 일간에게 인성(편인·정인) 결이에요. {year_tone} (…참고용…)".
-    일간·간지가 비었거나 사전이 없으면 빈 문자열(호출자는 줄을 생략한다).
+    - year: "간단히 봤을 때, 丙午년은 무(戊) 일간에게 인성(편인·정인) 결이에요. {year_tone}"
+    - month(2026-11-08 실답 교정 — 원문 단식의 '10월' 서술은 그 달 십성이 아니라 **올해 결이 가장
+      세지는 달**이라는 세운 기반이었다): 그 달 결 1문장 + 올해 결(`year_ganji` 기준) + 그 달이
+      절정 달이면 절정 문장. year_ganji 가 없으면 그 달 결만.
+    - day: 그 날 결 1문장 + 올해 결 한 줄.
+    끝에 참고 안내 1문장. 일간·간지가 비었거나 사전이 없으면 빈 문자열(호출자는 줄을 생략한다).
     """
-    if not day_master or len(ganji) < 2 or horizon not in HORIZONS:
+    if not day_master or horizon not in HORIZONS:
         return ""
     if simple is None or (horizon != "year" and month_layer is None):
         cur_simple, cur_month = _current_layers()
         simple = simple or cur_simple
         month_layer = month_layer or cur_month
-    if simple is None:
+    target = _parse_ganji(ganji)
+    if simple is None or target is None:
         return ""
     try:
         dm = Stem(day_master)
-        stem = Stem(ganji[0])
-        branch = Branch(ganji[1])
     except ValueError:
         return ""
+    stem, branch = target
     sr = simple_reading(dm, stem, branch, horizon, simple, month_layer)
-    if sr.same_group:
-        desc = f"{sr.stem_group}({sr.stem_god}·{sr.branch_god})"
-    else:
-        desc = (
-            f"천간 {sr.stem_god}({sr.stem_group})·지지 {sr.branch_god}({sr.branch_group})이 섞인"
-        )
     unit = _UNIT_KO[horizon]
     body = f" {sr.tone}" if sr.tone else ""
-    return (
-        f"{prefix} {ganji}{unit}은 {STEM_KO[dm]}({dm.value}) 일간에게 {desc} 결이에요.{body} "
-        f"{_REFERENCE_SUFFIX}"
-    )
+    parts = [
+        f"{prefix} {ganji}{unit}은 {STEM_KO[dm]}({dm.value}) 일간에게 {_desc(sr)} 결이에요.{body}"
+    ]
+    year = _parse_ganji(year_ganji) if horizon != "year" else None
+    if year is not None:
+        ys, yb = year
+        yr = simple_reading(dm, ys, yb, "year", simple, month_layer)
+        parts.append(f"올해 {year_ganji}년은 {_desc(yr)} 결이에요. {yr.tone}")
+        if horizon == "month" and any(b == branch for _, b in peak_month_entries(dm, ys, yb)):
+            peak = peak_month_line(dm, ys, yb, simple)
+            if peak:
+                parts.append(f"이 달은 올해 결이 가장 세지는 달이에요 — {peak}")
+    parts.append(_REFERENCE_SUFFIX)
+    return " ".join(parts)
 
 
 def ganji_ko(stem: Stem, branch: Branch) -> str:
