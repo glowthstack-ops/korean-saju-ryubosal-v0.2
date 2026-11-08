@@ -171,6 +171,33 @@ def elapsed_candidates(
     return out
 
 
+def exclude_asked(
+    cands: list[FollowupCandidate], asked: set[tuple[str, str]],
+) -> list[FollowupCandidate]:
+    """이미 답했거나(어느 메시지에서든) 넘긴 (event_key, period) 를 뺀다(2026-11-08).
+
+    같은 기간·같은 사건 후보가 여러 답변 메시지에 각각 저장되므로, 한 메시지에서 답해도 다른
+    메시지가 같은 질문을 다시 묻던 실답(2026-10 재물 변화가 반복 노출) 교정. `asked` 는
+    ①subject_life_events 행(모든 소스) ②다른 메시지의 followup_answered 답(모름 포함)
+    ③followup_dismissed 후보의 합집합이다.
+    """
+    return [c for c in cands if (c.event_key, c.period) not in asked]
+
+
+def asked_keys_from_meta(meta: dict) -> set[tuple[str, str]]:
+    """메시지 meta 의 followup_answered·followup_dismissed 에서 (event_key, period) 를 모은다."""
+    out: set[tuple[str, str]] = set()
+    for key in ("followup_answered", "followup_dismissed"):
+        blob = meta.get(key) or {}
+        for a in blob.get("answers") or []:
+            if isinstance(a, dict) and a.get("event_key") and a.get("period"):
+                out.add((str(a["event_key"]), str(a["period"])))
+        for c in blob.get("candidates") or []:
+            if isinstance(c, dict) and c.get("event_key") and c.get("period"):
+                out.add((str(c["event_key"]), str(c["period"])))
+    return out
+
+
 def _is_empty(fp: SignalFingerprint) -> bool:
     return not (fp.ten_god_groups or fp.palace or fp.relation or fp.twelve_stage or fp.glyphs)
 

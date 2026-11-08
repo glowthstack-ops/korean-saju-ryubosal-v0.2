@@ -750,6 +750,7 @@ _PAST_KEYWORDS = (
     "작년",
     "재작년",
     "지난",
+    "저번",
     "과거",
     "예전",
     "그때",
@@ -2090,6 +2091,9 @@ def finalize_answer_full(
         answer = _audit_ilju_mention_answer(answer, ctx, thread_id)
         # 주 호칭 감사(2026-11-06) — '다음 주' 질문의 '이번 주·금주' 호칭을 질문 호칭으로 교정.
         answer = _audit_week_label_answer(answer, ctx, thread_id)
+        # 단식 참고 줄 보장(2026-11-08) — LLM 이 '간단히 봤을 때' 문장을 빠뜨리면 첫 문단 뒤에
+        # 엔진 줄을 그대로 삽입한다(재호출 없는 결정론 교정).
+        answer = _ensure_simple_reading_line(answer, ctx.payload, thread_id)
         # 육친 성별 기준 감사(2026-11-07) — 로그 전용(재발 빈도 측정 후 패치 여부 결정).
         _audit_gender_kin_answer(answer, ctx.payload, thread_id)
         if ctx.entry_window and answer:
@@ -8583,6 +8587,32 @@ def _union_relation_semantics(
             "제외 thread=%s", sorted(conflicting), thread_id,
         )
     return [sem for label, sem in by_label.items() if label not in conflicting]
+
+
+SIMPLE_READING_MARK = "간단히 봤을 때"
+
+
+def _ensure_simple_reading_line(answer: str, payload: LlmInput, thread_id: str | None) -> str:
+    """단식 참고 줄 보장(docs/17 §26-3, 2026-11-08 실답: 월 총운 답에 줄이 빠짐).
+
+    기간 총운(일/월/연)에 `simple_reading_line` 이 있는데 답에 '간단히 봤을 때'가 없으면 첫 문단
+    바로 뒤에 엔진 줄을 그대로 삽입한다. 점수·판정 불변, 재호출 없음. 이미 있으면 바이트 불변.
+    """
+    pf = getattr(payload, "period_fortune", None)
+    line = (getattr(pf, "simple_reading_line", "") or "").strip()
+    if not line or not answer or SIMPLE_READING_MARK in answer:
+        return answer
+    # 괄호 안 참고 안내는 사용자 노출용으로도 쓰이므로 그대로 둔다(길이 1문장 + 안내 1문장).
+    parts = answer.split("\n\n", 1)
+    if len(parts) == 2:
+        fixed = f"{parts[0]}\n\n{line}\n\n{parts[1]}"
+    else:
+        fixed = f"{answer.rstrip()}\n\n{line}"
+    _logger.warning(
+        "simple_reading_audit result=inserted period=%s thread=%s",
+        getattr(pf, "period_label", None), thread_id,
+    )
+    return fixed
 
 
 def _audit_relation_answer(answer, period_fortune, thread_id, extra_period_fortunes=None):

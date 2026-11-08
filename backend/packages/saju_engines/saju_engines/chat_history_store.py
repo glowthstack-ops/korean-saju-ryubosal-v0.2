@@ -258,8 +258,25 @@ class ChatHistoryStore:
                 (json.dumps(patch, ensure_ascii=False), message_id),
             )
 
+    def answered_followup_messages(self, owner_id: str, subject_id: str) -> list[dict]:
+        """응답·보류 처리된 후속 확인 메시지의 meta(중복 질문 제외용, 2026-11-08)."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT m.meta FROM chat_messages m JOIN chat_threads t ON t.thread_id = m.thread_id
+                WHERE t.owner_id = %s AND m.role = 'assistant'
+                  AND (m.meta ? 'followup_answered' OR m.meta ? 'followup_dismissed')
+                  AND m.meta->>'subject_id' = %s
+                """,
+                (owner_id, subject_id),
+            ).fetchall()
+        return [{"meta": r[0] or {}} for r in rows]
+
     def followup_messages(self, owner_id: str, subject_id: str, limit: int = 30) -> list[dict]:
-        """후속 확인(delayed outcome) 후보를 가진 완료 답변 — 소유자·명식 한정, 미응답만."""
+        """후속 확인(delayed outcome) 후보를 가진 완료 답변 — 소유자·명식 한정, 미응답·미보류만.
+
+        followup_dismissed('다음에', 2026-11-08)는 영속 보류 — 같은 메시지를 다시 묻지 않는다.
+        """
         with self._connect() as conn:
             rows = conn.execute(
                 """
@@ -267,6 +284,7 @@ class ChatHistoryStore:
                 FROM chat_messages m JOIN chat_threads t ON t.thread_id = m.thread_id
                 WHERE t.owner_id = %s AND m.role = 'assistant' AND m.status = 'done'
                   AND m.meta ? 'followup' AND NOT (m.meta ? 'followup_answered')
+                  AND NOT (m.meta ? 'followup_dismissed')
                   AND m.meta->>'subject_id' = %s
                 ORDER BY m.id DESC LIMIT %s
                 """,

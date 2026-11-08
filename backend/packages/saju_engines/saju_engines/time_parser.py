@@ -976,6 +976,23 @@ def parse_time(
             type="relative", granularity=Granularity.MONTH,
             start=this_month, end=f"{cur_year}-12", urgency=urgency,
         ), TimeScope.MID_TERM
+    # C5e 지난 달·지지난 달 — '저번달 운세는 어때?'·'지난달 어땠어?'(2026-11-08 실답: 단수 표현이
+    #     어느 규칙에도 안 걸려 시점 미지정 → too_broad 또는 당월(11월) 오답). 절기 기준 당월의
+    #     직전 달(지지난 달 = 두 달 전). 창이 과거라 방향 판정은 window_past 로 회고 모드가 된다.
+    #     '전달·전월'은 '전달하다'와 동형이라 등재하지 않는다.
+    if re.search(r"지지난\s*달", text):
+        key = shift_month_label(this_month, -2)
+        return TimeRange(
+            type="relative", granularity=Granularity.MONTH, start=key, end=key,
+            urgency=urgency,
+        ), TimeScope.SHORT_TERM
+    last_month = re.search(r"(?:지난|저번)\s*달", text)
+    if last_month and not re.search(r"(?:지난|저번)\s*달\s*(?:력|\d)", text):
+        key = shift_month_label(this_month, -1)
+        return TimeRange(
+            type="relative", granularity=Granularity.MONTH, start=key, end=key,
+            urgency=urgency,
+        ), TimeScope.SHORT_TERM
     # '이번 달이나 다음 달'·'이달과 내달' — 두 달 병기면 당월~다음 달 범위(2026-10-19 실답:
     # '이번 달' 분기가 먼저 반환해 '다음 달'이 버려지고 11월이 답에서 통째로 빠짐).
     if re.search(r"이번\s*달|이달", text) and re.search(r"다음\s*달|내달", text):
