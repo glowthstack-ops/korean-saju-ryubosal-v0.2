@@ -27,6 +27,7 @@ AXES: tuple[str, ...] = ("일", "돈", "사람", "몸", "연애")
 #: 지평 — 사전 `{horizon}_same_group` 키와 같다.
 HORIZONS: tuple[str, ...] = ("year", "month", "day")
 _UNIT_KO: dict[str, str] = {"year": "년", "month": "월", "day": "일"}
+_NOUN_KO: dict[str, str] = {"year": "해", "month": "달", "day": "날"}
 #: 십성 → 십성군(`daily_ilju_fortune._SIPSEONG_GROUP` 와 같은 분류 — 순환 import 회피용 사본).
 _GROUP_OF: dict[str, str] = {
     "비견": "비겁", "겁재": "비겁", "식신": "식상", "상관": "식상",
@@ -47,10 +48,7 @@ PEAK_MIN_SCORE = 2
 PEAK_MAX_MONTHS = 3
 #: 채팅·테마 참고 줄 말머리(데굴님 지정).
 REFERENCE_PREFIX = "간단히 봤을 때,"
-_REFERENCE_SUFFIX = (
-    "(일간과 운의 십성만 본 단식 풀이라 참고용이에요. 길흉과 개인 판정은 명식 전체 기준이 "
-    "우선이에요.)"
-)
+_REFERENCE_SUFFIX = "(일간과 운의 십성만 본 단식 풀이라 참고용이에요.)"
 
 
 @dataclass(frozen=True)
@@ -210,11 +208,19 @@ def _current_layers() -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
         return None, None
 
 
-def _desc(sr: SimpleReading) -> str:
-    """'인성(편인·정인)' 또는 '천간 겁재(비겁)·지지 편재(재성)이 섞인'."""
+def _copula(word: str) -> str:
+    """명사 뒤 해요체 서술격 — 받침 있으면 '이에요', 없으면 '예요'(해예요·달이에요·날이에요)."""
+    code = ord(word[-1]) - 0xAC00
+    return "이에요" if 0 <= code < 11172 and code % 28 else "예요"
+
+
+def _desc(sr: SimpleReading, noun: str) -> str:
+    """'인성(편인·정인)의 해' 또는 '천간 겁재(비겁)·지지 편재(재성)이 섞인 달'."""
     if sr.same_group:
-        return f"{sr.stem_group}({sr.stem_god}·{sr.branch_god})"
-    return f"천간 {sr.stem_god}({sr.stem_group})·지지 {sr.branch_god}({sr.branch_group})이 섞인"
+        return f"{sr.stem_group}({sr.stem_god}·{sr.branch_god})의 {noun}"
+    return (
+        f"천간 {sr.stem_god}({sr.stem_group})·지지 {sr.branch_god}({sr.branch_group})이 섞인 {noun}"
+    )
 
 
 def _parse_ganji(ganji: str | None) -> tuple[Stem, Branch] | None:
@@ -260,22 +266,33 @@ def simple_reference_line(
         return ""
     stem, branch = target
     sr = simple_reading(dm, stem, branch, horizon, simple, month_layer)
-    unit = _UNIT_KO[horizon]
-    body = f" {sr.tone}" if sr.tone else ""
-    parts = [
-        f"{prefix} {ganji}{unit}은 {STEM_KO[dm]}({dm.value}) 일간에게 {_desc(sr)} 결이에요.{body}"
-    ]
+    unit, noun = _UNIT_KO[horizon], _NOUN_KO[horizon]
+    who = f"{STEM_KO[dm]}({dm.value}) 일간에게"
     year = _parse_ganji(year_ganji) if horizon != "year" else None
-    if year is not None:
+    parts: list[str] = []
+    if year is None:
+        parts.append(f"{prefix} {ganji}{unit}은 {who} {_desc(sr, noun)}{_copula(noun)}.")
+        if sr.tone:
+            parts.append(sr.tone)
+    else:
         ys, yb = year
         yr = simple_reading(dm, ys, yb, "year", simple, month_layer)
-        parts.append(f"올해 {year_ganji}년은 {_desc(yr)} 결이에요. {yr.tone}")
+        # 달·해를 한 문장으로 묶고 → 올해 결 → (절정 달) → 이 달만 따로 본 결 순(2026-11-08 실답:
+        # 짧은 문장을 이어 붙인 티가 났다).
+        parts.append(
+            f"{prefix} {ganji}{unit}은 {who} {_desc(sr, noun)}이고, "
+            f"올해 {year_ganji}년은 {_desc(yr, '해')}{_copula('해')}."
+        )
+        parts.append(yr.tone)
         if horizon == "month" and any(b == branch for _, b in peak_month_entries(dm, ys, yb)):
             peak = peak_month_line(dm, ys, yb, simple)
             if peak:
-                parts.append(f"이 달은 올해 결이 가장 세지는 달이에요 — {peak}")
+                parts.append(f"그중 이 달은 올해 결이 가장 세지는 달이에요. {peak}")
+        if sr.tone:
+            scope = "이 달만 따로 보면" if horizon == "month" else "오늘만 따로 보면"
+            parts.append(f"{scope} {sr.tone[0].lower() + sr.tone[1:] if sr.tone else ''}".rstrip())
     parts.append(_REFERENCE_SUFFIX)
-    return " ".join(parts)
+    return " ".join(p for p in parts if p)
 
 
 def ganji_ko(stem: Stem, branch: Branch) -> str:

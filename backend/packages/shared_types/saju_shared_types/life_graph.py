@@ -59,6 +59,11 @@ class LifeGraphDaewoon(BaseModel):
     score: float
     label: str
     status: str  # past | current | future | unknown
+    # 누적 운세선(docs/10 §3-1 '누적 운세선', 2026-11-08) — 이 대운 연도들의 (세운 점수+대운 점수)
+    # 평균과 직전 대운 평균 대비 차이·추세 라벨(상승/하강/보합/시작). 설명용 산술 — 명리 판정 아님.
+    mean_total: float = 0.0
+    trend_delta: float | None = None
+    trend: str = ""
     # 배우자성 대운(남=재성·여=관성이 대운 천간/지지에) — 결혼·이성 인연이 본격 거론되는 10년이라는
     # 통설의 서술 라벨(점수 무관, 2026-11-07).
     partner_star_daewoon: bool = False
@@ -73,6 +78,10 @@ class LifeGraphYear(BaseModel):
     ganji: str
     score: float
     label: str
+    # 누적 운세선(2026-11-08) — 출생부터 이 해까지 (세운 점수 + 소속 대운 점수)를 더해 온 값.
+    # 주식 차트의 가격선처럼 높이가 쌓인 수준, 기울기가 '이전보다 좋아지는 중/나빠지는 중'을
+    # 보여 준다(설명용 산술).
+    cumulative: float = 0.0
 
 
 class LifeGraphWindow(BaseModel):
@@ -108,3 +117,8 @@ class LifeGraph(BaseModel):
     markers: list[LifeGraphMarker] = Field(default_factory=list)
     # 앞으로의 긍정 창(오늘 이후) — F-14 해설·F-14b 종합·F-21 요약 카드·프론트 표 공용.
     positive_windows: list[LifeGraphWindow] = Field(default_factory=list)
+    # 누적 운세선 요약(2026-11-08) — 생애 최고·최저 누적 연도, 오늘 누적 수준의 생애 분위(0~100,
+    # 높을수록 쌓인 운이 높은 편). today_year 가 없으면 None.
+    cumulative_peak_year: int | None = None
+    cumulative_low_year: int | None = None
+    today_cumulative_percentile: int | None = None

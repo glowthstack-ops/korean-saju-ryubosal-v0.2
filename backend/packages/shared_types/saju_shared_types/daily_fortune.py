@@ -296,3 +296,6 @@ class DailyFortuneBoard(BaseModel):
     # 단식 결 층(docs/17 §26, dict.v1.19) — 10일간 올해의 결. 과거 계약 보드는 null.
     year_flow: list[DailyYearStemFlow] | None = None
     year_label: str | None = None  # "병오년(丙午) 2026년 2월 4일~2027년 2월 3일"
+    # 방향 기준 줄(docs/17 §26-5, 2026-11-08) — 같은 결이 발판이 되는지 소모가 되는지는 내 명식
+    # (용기신) 기준이라 일주 버킷은 판정하지 않고 안내만 한다. 사전 `simple_layer.direction_note`.
+    year_direction_note: str | None = None

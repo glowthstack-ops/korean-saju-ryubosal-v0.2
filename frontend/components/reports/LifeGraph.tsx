@@ -30,6 +30,9 @@ export interface LifeGraphDaewoon {
   label: string;
   status: string; // past | current | future | unknown
   partner_star_daewoon?: boolean; // 배우자성 대운(통설 라벨)
+  mean_total?: number; // (세운+대운) 연 평균 — 누적 운세선 설명용
+  trend_delta?: number | null; // 직전 대운 대비 차이
+  trend?: string; // 상승 | 하강 | 보합 | 시작
   markers: LifeGraphMarker[];
 }
 
@@ -39,6 +42,7 @@ export interface LifeGraphYear {
   ganji: string;
   score: number;
   label: string;
+  cumulative?: number; // 누적 운세선 — 출생부터 (세운+대운)을 더해 온 값(주식 차트의 가격선)
 }
 
 export interface LifeGraphWindow {
@@ -62,7 +66,12 @@ export interface LifeGraphData {
   markers: LifeGraphMarker[];
   positive_windows?: LifeGraphWindow[]; // 오늘 이후 긍정 창(결혼·취업·이직·재물 유입·이사)
   today_year?: number | null; // 오늘 연도 — '오늘' 세로선
+  cumulative_peak_year?: number | null;
+  cumulative_low_year?: number | null;
+  today_cumulative_percentile?: number | null;
 }
+
+const TREND_SYMBOL: Record<string, string> = { 상승: "↗", 하강: "↘", 보합: "→" };
 
 const MARKER_STYLE: Record<string, { symbol: string; color: string }> = {
   romance: { symbol: "♡", color: "#f472b6" },
@@ -130,6 +139,22 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
   const yearPath = data.years
     .map((p, i) => `${i === 0 ? "M" : "L"}${x(p.age).toFixed(1)},${y(p.score).toFixed(1)}`)
     .join(" ");
+  // 누적 운세선(2026-11-08, 주식 차트형) — 자체 세로 척도. 과거 계약 데이터(cumulative 없음)는 생략.
+  const cumYears = data.years.filter((p) => typeof p.cumulative === "number");
+  const cums = cumYears.map((p) => p.cumulative as number);
+  const cMin = cums.length ? Math.min(...cums) : 0;
+  const cMax = cums.length ? Math.max(...cums) : 1;
+  const cSpan = cMax - cMin || 1;
+  const yC = (c: number) => padT + 6 + (1 - (c - cMin) / cSpan) * (plotH - 12);
+  const cumPath =
+    cumYears.length >= 2
+      ? cumYears
+          .map(
+            (p, i) =>
+              `${i === 0 ? "M" : "L"}${x(p.age).toFixed(1)},${yC(p.cumulative as number).toFixed(1)}`,
+          )
+          .join(" ")
+      : "";
 
   const current = data.current_daewoon_index ?? null;
   const kindsPresent = KIND_ORDER.filter((k) => data.markers.some((m) => m.kind === k));
@@ -178,6 +203,7 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
                   fill="#6b7280"
                 >
                   {d.start_age}–{d.end_age}세{current === d.index ? " · 현재" : ""}
+                  {d.trend && TREND_SYMBOL[d.trend] ? ` ${TREND_SYMBOL[d.trend]}` : ""}
                 </text>
               </g>
             );
@@ -188,6 +214,10 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
           )}
           {/* 세운 선 */}
           {yearPath && <path d={yearPath} fill="none" stroke="#1f2937" strokeWidth={1.2} opacity={0.85} />}
+          {/* 누적 운세선 — 쌓인 수준·기울기(주식 차트의 가격선) */}
+          {cumPath && (
+            <path d={cumPath} fill="none" stroke="#2563eb" strokeWidth={1.8} strokeDasharray="6 3" opacity={0.9} />
+          )}
           {/* 오늘 — 지난 시기와 앞으로의 시기를 가르는 세로선 */}
           {typeof data.today_year === "number" &&
             data.today_year - data.birth_year >= ageMin &&
@@ -253,6 +283,11 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
       </div>
       <figcaption className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600">
         <span>띠 = 대운(밝을수록 좋은 흐름) · 선 = 해마다의 운</span>
+        {cumPath && (
+          <span style={{ color: "#2563eb" }}>
+            점선 = 누적 운세선(해마다의 운을 쌓아 온 선 — 올라가면 이전보다 좋아지는 중, ↗↘→ = 대운 추세)
+          </span>
+        )}
         {kindsPresent.map((k) => (
           <span key={k} style={{ color: MARKER_STYLE[k].color }}>
             {MARKER_STYLE[k].symbol} {data.markers.find((m) => m.kind === k)?.kind_ko}

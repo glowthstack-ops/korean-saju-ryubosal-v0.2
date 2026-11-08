@@ -161,6 +161,8 @@ def test_peak_months_empty_when_no_strong_month() -> None:
 def test_board_carries_year_flow_and_same_group_notes(board: DailyFortuneBoard) -> None:
     assert board.year_flow is not None and len(board.year_flow) == 10
     assert board.year_label and "2026" in board.year_label
+    # 방향 기준 줄(§26-5) — 발판/소모는 내 명식 기준이라 안내만.
+    assert board.year_direction_note and "발판" in board.year_direction_note
     for yf in board.year_flow:
         assert yf.tone and yf.emphasis and len(yf.points) == 3  # 丙午 — 전 일간 같은 군
     # 己亥월(11/10): 천간 己·지지 亥(壬) — 어느 일간도 같은 군이 아니다 → 월 강조 없음.
@@ -205,6 +207,7 @@ def test_decision_unchanged_by_simple_layer(board: DailyFortuneBoard) -> None:
 def test_past_contract_has_no_new_fields() -> None:
     prev = _board(_PREV)
     assert prev.year_flow is None and prev.year_label is None
+    assert prev.year_direction_note is None
     assert prev.month_flow is not None
     assert all(m.same_group_note is None for m in prev.month_flow)
 
@@ -214,10 +217,10 @@ def test_past_contract_has_no_new_fields() -> None:
 
 def test_reference_line_uses_terms_and_prefix() -> None:
     line = S.simple_reference_line("戊", "丙午", "year", _simple(), _month_layer())
-    assert line.startswith("간단히 봤을 때, 丙午년은 무(戊) 일간에게 인성(편인·정인) 결이에요.")
+    assert line.startswith("간단히 봤을 때, 丙午년은 무(戊) 일간에게 인성(편인·정인)의 해예요.")
     assert "참고용" in line
     mixed = S.simple_reference_line("甲", "乙巳", "year", _simple(), _month_layer())
-    assert "천간 겁재(비겁)·지지 식신(식상)이 섞인 결" in mixed
+    assert "천간 겁재(비겁)·지지 식신(식상)이 섞인 해예요" in mixed
     month = S.simple_reference_line("戊", "己亥", "month", _simple(), _month_layer())
     assert month.startswith("간단히 봤을 때, 己亥월은")
     assert "올해" not in month  # 세운 간지 없으면 그 달 결만
@@ -226,16 +229,20 @@ def test_reference_line_uses_terms_and_prefix() -> None:
     oct_line = S.simple_reference_line(
         "己", "戊戌", "month", s, _month_layer(), year_ganji="丙午",
     )
-    assert oct_line.startswith("간단히 봤을 때, 戊戌월은 기(己) 일간에게 비겁(겁재·겁재) 결이에요.")
-    assert "올해 丙午년은 인성(정인·편인) 결이에요." in oct_line
+    assert oct_line.startswith(
+        "간단히 봤을 때, 戊戌월은 기(己) 일간에게 비겁(겁재·겁재)의 달이고, "
+        "올해 丙午년은 인성(정인·편인)의 해예요."
+    )
     assert s["year_tone"]["인성+인성"] in oct_line
-    assert "이 달은 올해 결이 가장 세지는 달이에요 — 10월에는" in oct_line
+    assert "그중 이 달은 올해 결이 가장 세지는 달이에요. 10월에는" in oct_line
+    assert "이 달만 따로 보면" in oct_line
     # 절정이 아닌 달(己亥월)은 올해 결만 붙고 절정 문장은 없다.
     nov_line = S.simple_reference_line("己", "己亥", "month", s, _month_layer(), year_ganji="丙午")
     assert "올해 丙午년은" in nov_line and "가장 세지는" not in nov_line
     # 일 지평도 올해 결 한 줄.
     day_line = S.simple_reference_line("己", "丙戌", "day", s, _month_layer(), year_ganji="丙午")
     assert day_line.startswith("간단히 봤을 때, 丙戌일은") and "올해 丙午년은" in day_line
+    assert "오늘만 따로 보면" in day_line
     assert S.simple_reference_line("", "丙午", "year", _simple()) == ""
     assert S.simple_reference_line("戊", "丙午", "week", _simple()) == ""
 
@@ -271,3 +278,14 @@ def test_chat_period_fortune_carries_simple_reading_line() -> None:
     mpf = chat_service._build_period_fortune(b, m_intent, dt.date(2026, 11, 8), "monthly")
     assert mpf is not None and "올해 丙午년은" in mpf.simple_reading_line
     assert SIMPLE_READING_HEADER.startswith("[단식 참고") and "그대로" in SIMPLE_READING_USAGE_RULE
+    from saju_engines.context_reducer import SIMPLE_READING_DIRECTION_RULE
+
+    assert "발판" in SIMPLE_READING_DIRECTION_RULE and "기신" in SIMPLE_READING_DIRECTION_RULE
+
+
+def test_balanced_sentences_carry_both_faces() -> None:
+    """양면 어휘(2026-11-08 데굴님 '안 좋은 쪽만 정리') — 연 결 25개 전부 발판/소모 두 갈래."""
+    s = _simple()
+    for pair, text in s["year_tone"].items():
+        assert "발판이 되는 쪽이면" in text and "소모가 되는 쪽이면" in text, pair
+    assert "발판" in s["direction_note"] and "소모" in s["direction_note"]

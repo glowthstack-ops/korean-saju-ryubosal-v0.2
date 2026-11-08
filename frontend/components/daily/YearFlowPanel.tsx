@@ -9,9 +9,11 @@ import type { DailyYearStemFlow } from "@/lib/daily-fortune";
 export function YearFlowPanel({
   flow,
   yearLabel,
+  directionNote,
 }: {
   flow: DailyYearStemFlow;
   yearLabel?: string | null;
+  directionNote?: string | null;
 }) {
   return (
     <section className="rounded-lg border bg-amber-50/60 p-5">
@@ -36,6 +38,9 @@ export function YearFlowPanel({
         <p className="mt-3 border-t pt-3 text-sm leading-relaxed text-gray-700">
           {flow.peak_months}
         </p>
+      )}
+      {directionNote && (
+        <p className="mt-3 border-t pt-3 text-xs leading-relaxed text-gray-500">{directionNote}</p>
       )}
     </section>
   );

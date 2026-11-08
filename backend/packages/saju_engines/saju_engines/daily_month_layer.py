@@ -363,6 +363,7 @@ def attach_month_layer(
     if simple:
         board.year_flow = year_flow(ctx, simple, layer)
         board.year_label = year_label(ctx)
+        board.year_direction_note = simple.get("direction_note")
     if layer.get("stem_stage"):
         board.month_label = month_label(ctx)
         board.next_month_label = (
