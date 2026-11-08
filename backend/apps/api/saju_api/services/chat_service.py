@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import difflib
 import hashlib
 import logging
 import re
@@ -8592,15 +8593,54 @@ def _union_relation_semantics(
 
 
 SIMPLE_READING_MARK = "간단히 봤을 때"
+#: 단식 문단 충실도 — 엔진 문장별로 LLM 문단 안 최고 유사도(종결어미 제거 후)가 이 값 이상이어야
+#: 페르소나 말투로 바꾼 문단을 그대로 둔다(미달 = 내용이 바뀐 것 → 엔진 원문으로 교체).
+SIMPLE_READING_FAITH_MIN = 0.72
+_SENT_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+_ENDING_STRIP_RE = re.compile(
+    r"(?:이에요|예요|에요|어요|아요|해요|세요|돼요|습니다|입니다|니다|네요|네|야|어|아|지|요)?"
+    r"\s*[.!?]?\s*$"
+)
+
+
+def _sentence_stems(text: str) -> list[str]:
+    """문장 분리 후 종결어미·문장부호를 떼어 내용 줄기만 남긴다(말투 차이를 무시한 비교용)."""
+    return [
+        _ENDING_STRIP_RE.sub("", s).strip()
+        for s in _SENT_SPLIT_RE.split(text.strip()) if s.strip()
+    ]
+
+
+def _simple_paragraph_faithful(engine_line: str, paragraph: str) -> bool:
+    """LLM 이 쓴 단식 문단이 엔진 문단의 **내용**을 다 담았는가(종결어미=페르소나 말투는 자유).
+
+    괄호 참고 안내는 비교에서 뺀다(생략·변형 허용). 엔진 문장마다 LLM 문단의 어느 한 문장과
+    줄기 유사도 ≥ `SIMPLE_READING_FAITH_MIN` 이어야 한다 — 2026-11-08 실답('겁재 — 경쟁심·지출'로
+    바꿔 쓴 문단)은 둘째·셋째 문장이 사라져 미달한다.
+    """
+    core = engine_line.split("(일간과 운의", 1)[0]
+    eng = _sentence_stems(core)
+    got = _sentence_stems(paragraph)
+    if not eng or not got:
+        return False
+    for es in eng:
+        best = max(
+            (difflib.SequenceMatcher(None, es, gs).ratio() for gs in got), default=0.0,
+        )
+        if best < SIMPLE_READING_FAITH_MIN:
+            return False
+    return True
 
 
 def _ensure_simple_reading_line(answer: str, payload: LlmInput, thread_id: str | None) -> str:
     """단식 참고 줄 보장(docs/17 §26-3, 2026-11-08 실답: 월 총운 답에 줄이 빠짐).
 
-    기간 총운(일/월/연)에 `simple_reading_line` 이 있으면 답의 '간단히 봤을 때' 문단을 **엔진
-    문단으로 고정**한다(2026-11-08 실답: LLM 이 '겁재 — 경쟁심·지출'로 바꿔 쓰고 용신 해석으로
-    덮어 원문 단식과 달라짐). 문단이 없으면 첫 문단 뒤에 삽입, 있으면 그 문단을 통째로 교체
-    (개인 판정은 규칙상 다음 문단에 있으므로 보존된다). 점수·판정 불변, 재호출 없음.
+    기간 총운(일/월/연)에 `simple_reading_line` 이 있으면 답의 '간단히 봤을 때' 문단의 **내용**을
+    엔진 문단에 고정한다(2026-11-08 실답: LLM 이 '겁재 — 경쟁심·지출'로 바꿔 쓰고 용신 해석으로
+    덮어 원문 단식과 달라짐). 문단이 없으면 첫 문단 뒤에 삽입, 있으면 내용 충실도를 검사해 미달이면
+    통째로 교체(개인 판정은 규칙상 다음 문단에 있으므로 보존된다). 종결어미는 페르소나 말투를
+    따르므로 비교하지 않는다(데굴님 2026-11-08 "페르소나 어투가 적용되지 않는다" — 종전 원문
+    바이트 고정 폐기). 점수·판정 불변, 재호출 없음.
     """
     pf = getattr(payload, "period_fortune", None)
     line = (getattr(pf, "simple_reading_line", "") or "").strip()
@@ -8614,7 +8654,8 @@ def _ensure_simple_reading_line(answer: str, payload: LlmInput, thread_id: str |
         else:
             paras.append(line)
         result = "inserted"
-    elif paras[idx].strip() == line:
+    elif paras[idx].strip() == line or _simple_paragraph_faithful(line, paras[idx]):
+        # 내용이 그대로면(페르소나 말투로 종결어미만 바뀐 경우 포함) LLM 문단을 둔다 — 말투 유지.
         return answer
     else:
         paras[idx] = line
