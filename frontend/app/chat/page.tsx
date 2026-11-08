@@ -12,6 +12,7 @@ import { InlinePartnerForm } from "@/components/subject/InlinePartnerForm";
 import { SubjectGateway } from "@/components/subject/SubjectGateway";
 import {
   deleteChatThread,
+  dismissChatFollowup,
   getChatFollowup,
   getChatPartner,
   getChatThread,
@@ -196,6 +197,19 @@ export default function ChatPage() {
     void getChatFollowup(sid).then((f) => setFollowup(f));
     void getCalibrationStatus(sid).then((st) => setCalibStatus(st));
   }, [isLoggedIn, selected]);
+
+  // '다음에' — 화면에서 닫고 서버에도 보류를 남긴다(2026-11-08: 로컬만 닫아 재진입마다 같은
+  // 카드가 다시 뜨던 결함). 실패해도 화면은 닫는다.
+  async function dismissFollowup() {
+    const f = followup;
+    setFollowup(null);
+    if (!f?.message_id || !selected) return;
+    try {
+      await dismissChatFollowup(f.message_id, selected.subjectId);
+    } catch {
+      /* 다음 진입 때 다시 묻는다 */
+    }
+  }
 
   async function submitFollowup() {
     if (!followup?.message_id || !selected) return;
@@ -756,7 +770,7 @@ export default function ChatPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setFollowup(null)}
+                onClick={() => void dismissFollowup()}
                 className="rounded border border-indigo-300 px-3 py-1 text-xs text-indigo-700"
               >
                 다음에

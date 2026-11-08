@@ -3,6 +3,7 @@
 evidence_grading.json(증거 7종 × 5등급 + no_event_suppression)으로 사건화 강도(level_1 theme_only ~
 level_5 high_probability)를 매기고, conflict_resolver_duration.json(priority_rules)로 같은 신호가
 여러 이벤트로 튈 때 대표 이벤트를 정한다. 점수·confidence_level만 조정하고 타입은 만들지 않는다.
+priority_rule 의 effect=tag(프로필 상태 조건, 2026-11-08)는 점수 불변·reason 태그만이다.
 """
 
 from __future__ import annotations
@@ -78,22 +79,25 @@ class EventRanker:
             prefer = rule["prefer"]
             if prefer not in by_key:
                 continue
-            boost[prefer] = boost.get(prefer, 0) + 6
+            # effect=tag(2026-11-08): 프로필 상태 조건 규칙은 점수 불변 — reason 만 부여해 LLM 이
+            # 같은 신호를 상태에 맞는 사건 종류로 읽게 한다(상태는 가능성을 깎는 근거가 아님).
+            scored = rule.get("effect", "score") == "score"
+            boost[prefer] = boost.get(prefer, 0) + (6 if scored else 0)
             reason_add[prefer] = f"CONFLICT_prefer_{prefer}"
             for over in rule["over"]:
                 if over in by_key:
-                    boost[over] = boost.get(over, 0) - 10
+                    boost[over] = boost.get(over, 0) - (10 if scored else 0)
                     reason_add[over] = f"CONFLICT_over_{prefer}"
-        if not boost:
+        if not reason_add:
             return list(candidates)
         out: list[EventCandidateV2] = []
         for c in candidates:
             k = str(c.event_key)
-            if k not in boost:
+            if k not in reason_add:
                 out.append(c)
                 continue
             reasons = [*c.reason_codes, reason_add[k]]
-            new_score = max(0, c.score + boost[k])  # 중간 100 클램프 제거 — raw 누적 보존
+            new_score = max(0, c.score + boost.get(k, 0))  # 중간 100 클램프 제거 — raw 누적 보존
             out.append(c.model_copy(update={
                 "score": new_score,
                 "reason_codes": reasons,

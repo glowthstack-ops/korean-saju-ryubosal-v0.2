@@ -76,7 +76,7 @@ from saju_shared_types.risk_engine import RiskCandidate, RiskEngineMode
 from saju_shared_types.wealth_capacity import WealthCapacity
 
 from . import period_v2_config
-from .addendum_gate_modifier import AddendumGateModifier, GateContext
+from .addendum_gate_modifier import AddendumGateModifier, GateContext, is_past_period
 from .career_exit_seed import load_career_exit_config, produce_career_exit_seeds
 from .career_mobility_modifier import CareerMobilityContext, CareerMobilityModifier
 from .cohort_calibration import CohortStats
@@ -456,8 +456,12 @@ class EventEngineV2:
         relationship_status: str | None = None,
         occupation_category: str | None = None,
         provenance_recorder: ProvenanceRecorder | None = None,
+        today: date | None = None,
     ) -> list[EventCandidateV2]:
         """만세 결과의 운을 거버닝 스택으로 스코어링해 EventCandidateV2 목록을 산출한다.
+
+        today 는 프로필 시점 가드 기준일(2026-11-08) — 프로필 상태(혼인·직업) 분기는 끝 연도가
+        today 연도 이상인 기간에만 적용한다. None 이면 date.today().
 
         provenance_recorder는 P2-PROV 감사 전용이다. None이면(운영 기본) 아무것도
         기록하지 않고 기존 실행 경로·결과와 완전히 동일하다.
@@ -479,7 +483,7 @@ class EventEngineV2:
                 occupation_status=occupation_status,
                 relationship_status=relationship_status,
                 occupation_category=occupation_category,
-                provenance_recorder=provenance_recorder)
+                provenance_recorder=provenance_recorder, today=today)
         finally:
             self._risk_tls.sink = None
             self._risk_tls.last = tuple(sink)
@@ -708,10 +712,12 @@ class EventEngineV2:
         relationship_status: str | None = None,
         occupation_category: str | None = None,
         provenance_recorder: ProvenanceRecorder | None = None,
+        today: date | None = None,
     ) -> list[EventCandidateV2]:
         self.mt4_shadow = []  # MT4 shadow 진단 사이드채널 초기화(이번 호출분만)
         if result.pillars is None or result.luck_cycles is None:
             return []
+        today_year = (today or date.today()).year  # 프로필 시점 가드 기준 연도
         wanted = levels or set(GanjiLevel)
         fav_map = fav_override if fav_override is not None else favorability_map(result)
         capacity = analyze_wealth_capacity(result)  # 원국 횡재 그릇(1회 — 발동 가산 배율)
@@ -724,7 +730,7 @@ class EventEngineV2:
                 out += self._score_target(
                     result, GanjiLevel.DAEWOON, label, _daewoon_pillar(dwi), idx, fav_map,
                     occupation_status, relationship_status, capacity, marriage_flow,
-                    occupation_category, provenance_recorder,
+                    occupation_category, provenance_recorder, today_year=today_year,
                 )
         for level, pillars in (
             (GanjiLevel.YEAR, result.luck_cycles.yearly_luck),
@@ -736,7 +742,7 @@ class EventEngineV2:
                     out += self._score_target(
                         result, level, p.label, p, idx, fav_map,
                         occupation_status, relationship_status, capacity, marriage_flow,
-                        occupation_category, provenance_recorder,
+                        occupation_category, provenance_recorder, today_year=today_year,
                     )
         return sorted(out, key=_rank_key)
 
@@ -749,12 +755,14 @@ class EventEngineV2:
         occupation_status: str | None = None,
         relationship_status: str | None = None,
         occupation_category: str | None = None,
+        today: date | None = None,
     ) -> list[EventCandidateV2]:
         """지정 세운 연도를 직접 스코어링한다(용신 검증용 — 과거 연도 포함)."""
         self.mt4_shadow = []  # MT4 shadow 진단 사이드채널 초기화(이번 호출분만)
         self.risk_shadow = []  # 위험 shadow 사이드채널 초기화(이번 호출분만)
         if result.pillars is None or result.luck_cycles is None:
             return []
+        today_year = (today or date.today()).year  # 프로필 시점 가드 기준 연도
         fav_map = fav_override if fav_override is not None else favorability_map(result)
         capacity = analyze_wealth_capacity(result)
         marriage_flow = analyze_marriage_flow_natal(result)
@@ -767,7 +775,7 @@ class EventEngineV2:
             out += self._score_target(
                 result, GanjiLevel.YEAR, p.label, p, idx, fav_map,
                 occupation_status, relationship_status, capacity, marriage_flow,
-                occupation_category,
+                occupation_category, today_year=today_year,
             )
         return sorted(out, key=_rank_key)
 
@@ -781,11 +789,13 @@ class EventEngineV2:
         *,
         occupation_status: str | None = None,
         relationship_status: str | None = None,
+        today: date | None = None,
     ) -> list[EventCandidate]:
         """score()를 레거시 EventCandidate 목록으로 변환(다운스트림 호환)."""
         return [to_legacy_candidate(c) for c in self.score(
             result, levels, fav_override,
             occupation_status=occupation_status, relationship_status=relationship_status,
+            today=today,
         )]
 
     def score_legacy_years(
@@ -796,11 +806,13 @@ class EventEngineV2:
         *,
         occupation_status: str | None = None,
         relationship_status: str | None = None,
+        today: date | None = None,
     ) -> list[EventCandidate]:
         """score_years()를 레거시 EventCandidate 목록으로 변환(용신 검증 호환)."""
         return [to_legacy_candidate(c) for c in self.score_years(
             result, years, fav_override,
             occupation_status=occupation_status, relationship_status=relationship_status,
+            today=today,
         )]
 
     def score_legacy_personalized(
@@ -815,6 +827,7 @@ class EventEngineV2:
         occupation_status: str | None = None,
         relationship_status: str | None = None,
         occupation_category: str | None = None,
+        today: date | None = None,
     ) -> list[EventCandidate]:
         """score() → LifeFitRanker(개인 시그니처·코호트·현실 맥락) → 레거시 후보.
 
@@ -823,12 +836,16 @@ class EventEngineV2:
         반영된다(다운스트림 정렬도 LEI-aware). DB 게이트는 호출 서비스가 담당.
 
         occupation_status·relationship_status는 user_profile_event_gate 분기에, occupation_category
-        (O0x)는 특수직군 충형 길화(자료 9-6)에 쓰인다(미입력이면 보정 없음 — 규칙11).
+        (O0x)는 특수직군 충형 길화(자료 9-6)에 쓰인다(미입력이면 보정 없음 — 규칙11). today 는
+        프로필 시점 가드 기준일(과거 연도 후보엔 현재 상태 미적용, 2026-11-08).
+
+        reality_context(apply_life_fit 의 직업·교제 life_fit 가산)는 2026-11-08 현재 어떤 운영
+        호출자도 넘기지 않는다(미배선) — 넘기면 LEI 정렬축이 바뀌므로 배선은 별도 승인 사항.
         """
         v2 = self.score(
             result, levels, fav_override,
             occupation_status=occupation_status, relationship_status=relationship_status,
-            occupation_category=occupation_category,
+            occupation_category=occupation_category, today=today,
         )
         v2 = LifeFitRanker().rank(
             v2, signature=signature, reality_context=reality_context, cohort=cohort,
@@ -857,8 +874,12 @@ class EventEngineV2:
         marriage_flow: MarriageFlowNatal,
         occupation_category: str | None = None,
         provenance_recorder: ProvenanceRecorder | None = None,
+        today_year: int | None = None,
     ) -> list[EventCandidateV2]:
         """거버닝 스택으로 한 시점의 후보를 만들고 6계층 보정을 적용한다.
+
+        today_year 는 프로필 시점 가드(게이트·충돌 해결기 프로필 플래그) 기준 연도 — None 이면
+        가드 없음(단위 테스트·구 호출자).
 
         provenance_recorder가 있으면 base 기여(brancher)와 대운 합화 배경 보정을
         **실제 파이프라인 위치에서** 관측한다. 계산에는 개입하지 않는다.
@@ -1009,6 +1030,7 @@ class EventEngineV2:
             present_gods=present_gods, layers=layers, void_active=void_active,
             void_kinds=void_kinds, void_pairs=void_pairs,
             occupation_status=occupation_status, relationship_status=relationship_status,
+            today_year=today_year,
         )
         cands = self._gate.apply(cands, gate_ctx)
         # 발동·궁성 — 해당 시점 관계 적중(+ 일지 복음 발동: 운 지지=원국 일지).
@@ -1181,6 +1203,7 @@ class EventEngineV2:
         # 증거 등급·충돌 해결(랭커의 등급 보너스도 raw 누적의 일부).
         rank_ctx = _rank_context(
             activations, present_gods, cands, occupation_status, relationship_status,
+            profile_active=not is_past_period(label, today_year),
         )
         ranked = self._ranker.rank(cands, rank_ctx)
         # 포화 제어 — 단계별 하드 클램프를 없앤 누적 raw에 최종 soft_cap만 적용(매달 100 포화 해소,
@@ -2346,8 +2369,13 @@ def _rank_context(
     cands: list[EventCandidateV2],
     occupation_status: str | None,
     relationship_status: str | None,
+    profile_active: bool = True,
 ) -> RankContext:
-    """충돌 해결 priority_rules가 참조하는 컨텍스트 플래그를 도출한다."""
+    """충돌 해결 priority_rules가 참조하는 컨텍스트 플래그를 도출한다.
+
+    profile_active=False(과거 연도 후보, 2026-11-08 시점 가드)면 프로필 유래 플래그를 세우지
+    않는다. 미입력(None)은 중립 — 사전 missing_profile_behavior("게이트 미적용").
+    """
     flags: set[str] = set()
     palaces = {a.palace for a in activations}
     if Pillar4.DAY in palaces:
@@ -2374,12 +2402,19 @@ def _rank_context(
         flags.add("wealth_signal")
     if has_peer:
         flags.add("peer_signal")
-    if relationship_status in ("dating", "married"):
-        flags.add("relationship_context_exists")
-    if occupation_status in ("employee", "business_owner", "freelancer"):
-        flags.add("career_context_exists")
-    if occupation_status != "business_owner":
-        flags.add("no_business_context")
+    if profile_active:
+        if relationship_status in ("dating", "married"):
+            flags.add("relationship_context_exists")
+        # 사업자 제외(2026-11-08): 이 플래그가 켜는 규칙은 '이직 선호'라 사업자에겐 맞지 않는다.
+        if occupation_status in ("employee", "freelancer"):
+            flags.add("career_context_exists")
+        # 비사업자 플래그는 직업이 **입력된** 비사업자에게만(2026-11-08) — 종전엔 None 에도 세워져
+        # 미입력 사용자의 사업 시작 후보가 재성+비겁 신호 때 −10 을 받았다(미입력≠중립 위반).
+        if occupation_status is not None and occupation_status != "business_owner":
+            flags.add("no_business_context")
+    # 출산 플래그는 '상대 확인 안 됨'(미입력 포함) 안전 기본값이라 시점 무관(게이트와 같은 기준).
+    # 주의: priority_rule 의 over(childbirth −10)는 게이트가 먼저 출산→창작으로 바꿔 발동하지
+    # 않지만, prefer(creative_output +6)는 창작 후보만 있어도 붙는다 — live 가산(2026-11-08 감사).
     if relationship_status in (None, "single", "divorced"):
         flags.add("childbirth_profile_gate_false")
     ekeys = {str(c.event_key) for c in cands}

@@ -121,5 +121,5 @@
 ## 5. 후속 — 참고 풀이 대조("임진 대운=여자/결혼운 본격 진입, 27년까지 인연 유리, 목 부재→궁합") (2026-11-07 데굴님 "제안대로 진행")
 
 - **실측**: 데굴님 명식은 2027년 결혼 66점 길(정재 대운 + 丁未 일지 삼합 + 희신)이 있으나 리포트 경로에서 미혼 프로필 게이트(`GATE_marriage_signal_weak` −12, docs/11 영향표) + 2007년 결혼 '안 일어남' 개인 이력(−2)로 49점 → 게이트 55 미달로 창·마커에서 소실. 인연 후보(관계 형성·새 인연, 길 방향)는 2027 75·2028 95·2029 69·2030 55로 뚜렷 — 참고 풀이와 정합.
-- **반영**: ① `MarkerKind.ROMANCE`(인연 = new_relationship·relationship_change 길·혼합, `PER_DAEWOON_CAP` 7, 긍정 창 포함, 프론트 ♡) ② `LifeGraphDaewoon.partner_star_daewoon` + 대운 페이지 `[배우자성 대운]` 줄(통설 라벨, 점수 무관) ③ `personal_calibration._failure_age_decay`(후보와 10년 넘게 떨어진 '안 일어남' 이력 반감) ④ 직렬화 `GATE_marriage_signal_weak` 라벨("미혼 프로필 — 결혼 점수는 낮게 시작, 만남·인연 창이 먼저") + 2축 계약 문장. 미혼 게이트 −12 자체는 유지.
+- **반영**: ① `MarkerKind.ROMANCE`(인연 = new_relationship·relationship_change 길·혼합, `PER_DAEWOON_CAP` 7, 긍정 창 포함, 프론트 ♡) ② `LifeGraphDaewoon.partner_star_daewoon` + 대운 페이지 `[배우자성 대운]` 줄(통설 라벨, 점수 무관) ③ `personal_calibration._failure_age_decay`(후보와 10년 넘게 떨어진 '안 일어남' 이력 반감) ④ 직렬화 `GATE_marriage_signal_weak` 라벨("미혼 프로필 — 결혼 점수는 낮게 시작, 만남·인연 창이 먼저") + 2축 계약 문장. 미혼 게이트 −12 자체는 유지. **→ 정정(같은 날 후속 af20920):** 미혼 −12 폐지(미혼은 결혼 가능성을 낮출 근거가 아님), 기혼은 결혼 신호→관계 이슈 전환 + ≥65 경계 태그. **2026-11-08 후속:** 프로필 분기에 시점 가드(과거 연도 미적용)·병합 시 태그 보존·별거=기혼 계열 통일.
 

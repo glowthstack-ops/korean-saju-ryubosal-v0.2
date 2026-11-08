@@ -295,6 +295,11 @@ export async function getChatFollowup(subjectId: string): Promise<FollowupPrompt
   }
 }
 
+// '다음에' — 이 메시지의 후속 확인을 영속 보류(같은 사건·기간은 다른 답변에서도 다시 묻지 않음).
+export function dismissChatFollowup(messageId: number, subjectId: string): Promise<void> {
+  return postJSON(`/api/v2/chat/followups/${messageId}/dismiss`, { subject_id: subjectId });
+}
+
 export function submitChatFollowup(
   messageId: number,
   subjectId: string,

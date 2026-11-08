@@ -26,11 +26,12 @@
         "연애중": "dating",
         "기혼": "married",
         "재혼": "married",
-        "별거": "divorced",
+        "별거": "married",
         "이혼": "divorced",
         "사별": "single",
         "_default": "unknown"
-      }
+      },
+      "note": "별거는 법적 배우자가 있어 기혼 계열(married)로 통일(2026-11-08) — 종전 divorced 매핑은 M01/M02 라우팅(기혼 계열)·리포트 배우자 디렉티브(미혼형)와 모듈마다 달랐다. 사별은 새 인연 가능 → single."
     },
     "education_status": {
       "source": "occupation.category_id == O17 → student, else not_student",
@@ -55,13 +56,13 @@
     "wealth_signal_for_employee": "급여·보너스·지출·투자 변동으로 우선 해석",
     "relationship_signal_for_single": "new_relationship·marriage_signal 모두 그대로(미혼은 결혼 가능성을 낮출 근거가 아님 — 2026-11-07 데굴님: 결혼 목적 만남은 3개월 만에도 성사. 구 '낮게 시작' 감점 폐지)",
     "relationship_signal_for_dating": "relationship_change·marriage_signal 우선",
-    "relationship_signal_for_married": "새 연애·결혼 신호를 배우자 이슈·가정 재정·관계 조정으로 해석(new_relationship·marriage_signal → relationship_change)",
+    "relationship_signal_for_married": "새 연애·결혼 신호를 배우자 이슈·가정 재정·관계 조정으로 해석(new_relationship·marriage_signal → relationship_change). 기혼·재혼·별거 공통(2026-11-08)",
     "childbirth_signal_without_profile": "출산 확정 금지, 결과물·프로젝트(creative_output)로 대체",
     "childbirth_signal_with_children_only": "추가 출산은 연령·자녀 수 게이트 통과 시에만"
   },
-  "missing_profile_behavior": "해당 상태 필드가 unknown이면 게이트를 적용하지 않고 후보를 중립적으로 유지(정밀도만 하락, docs/11 4장 영향표).",
+  "missing_profile_behavior": "해당 상태 필드가 unknown이면 게이트를 적용하지 않고 후보를 중립적으로 유지(정밀도만 하락, docs/11 4장 영향표). 충돌 해결기 no_business_context 도 직업이 입력된 비사업자에게만(2026-11-08 — 종전엔 미입력에도 세워져 사업 시작 −10). 예외: 출산 신호는 미입력에도 creative_output 으로 대체(childbirth_signal_without_profile — 출산 확정 금지가 우선).",
   "runtime_status": "SPEC_ONLY",
-  "runtime_note": "규칙은 한글 서술 규격이며 코드가 읽지 않는다(2026-09-10 사문 감사). 구현은 saju_engines/addendum_gate_modifier.py 의 분기이고, implemented_by 가 규칙별 reason code 를 선언한다(빈 목록=미구현·기본 동작). 테스트가 reason code 실존을 대조한다.",
+  "runtime_note": "규칙은 한글 서술 규격이며 코드가 읽지 않는다(2026-09-10 사문 감사). 구현은 saju_engines/addendum_gate_modifier.py 의 분기이고, implemented_by 가 규칙별 reason code 를 선언한다(빈 목록=미구현·기본 동작). 테스트가 reason code 실존을 대조한다. 병합 시 reason 은 승패 무관 합집합(2026-11-08 — 전환 태그 유실 교정).",
   "implemented_by": {
     "career_signal_for_student": [
       "PROFILE_student_job_parttime"
@@ -94,5 +95,6 @@
       "GATE_childbirth_to_creative"
     ],
     "childbirth_signal_with_children_only": []
-  }
+  },
+  "time_scope": "프로필은 '지금' 상태다 — 상태 분기(출산→창작·PROFILE_*)와 충돌 해결기의 프로필 플래그는 후보 기간의 끝 연도가 오늘 연도 이상일 때만 적용한다(addendum_gate_modifier.is_past_period, 2026-11-08). 생애 스캔·회고의 과거 연도는 중립(실제 결혼한 해·첫 취업 해가 관계 이슈·승진으로 바뀌던 결함 교정)."
 }

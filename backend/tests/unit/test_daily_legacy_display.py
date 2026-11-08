@@ -126,8 +126,18 @@ def test_resolver_applies_the_date_boundary_dictionary() -> None:
         resolve_day_contracts(WORDING_REVISION_EFFECTIVE_FROM).active_dict_version
         == DICT_VERSION_BEFORE_STAGE_DIRECTION
     )
+    # 11/5~11/9 는 v1.18, 11/10 부터 v1.19(§26 단식 결 층).
+    from saju_shared_types.daily_fortune import (
+        DICT_VERSION_BEFORE_SIMPLE_LAYER,
+        SIMPLE_LAYER_EFFECTIVE_FROM,
+    )
+
     assert (
         resolve_day_contracts(STAGE_DIRECTION_EFFECTIVE_FROM).active_dict_version
+        == DICT_VERSION_BEFORE_SIMPLE_LAYER
+    )
+    assert (
+        resolve_day_contracts(SIMPLE_LAYER_EFFECTIVE_FROM).active_dict_version
         == DICT_VERSION
     )
     # 경계 이전은 strict 로 막히지만, 완화 모드에서 이전 버전을 가리키는지 확인한다.

@@ -42,7 +42,8 @@ def _board(d: dt.date):
 def test_boundary_selects_direction_dict_and_model() -> None:
     assert not stage_direction_forward(_BEFORE) and stage_direction_forward(_FROM)
     assert active_dict_version(_BEFORE) == "dict.v1.17"
-    assert active_dict_version(_FROM) == DICT_VERSION == "dict.v1.18"
+    assert active_dict_version(_FROM) == "dict.v1.18"  # 11/10 부터는 v1.19(단식 결 층 §26)
+    assert DICT_VERSION == "dict.v1.19"
     assert active_model_v2_version(_BEFORE) == MODEL_V2_VERSION_BEFORE_STAGE_DIRECTION
     assert MODEL_V2_VERSION_BEFORE_STAGE_DIRECTION == "model.v2.2"
     assert active_model_v2_version(_FROM) == MODEL_V2_VERSION == "model.v2.3"

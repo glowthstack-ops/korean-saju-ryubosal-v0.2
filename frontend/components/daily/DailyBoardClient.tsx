@@ -9,6 +9,7 @@ import { DailyFortuneCard } from "@/components/daily/DailyFortuneCard";
 import { MonthFlowPanel } from "@/components/daily/MonthFlowPanel";
 import { StemTabs } from "@/components/daily/StemTabs";
 import { Top5Strip } from "@/components/daily/Top5Strip";
+import { YearFlowPanel } from "@/components/daily/YearFlowPanel";
 import {
   type DailyFortuneBoard,
   formatFortuneDate,
@@ -56,6 +57,7 @@ export function DailyBoardClient({ initial }: { initial: DailyFortuneBoard | nul
 
   const visible = board.fortunes.filter((f) => f.day_stem_ko === stem);
   const monthFlow = board.month_flow?.find((m) => m.day_stem_ko === stem);
+  const yearFlow = board.year_flow?.find((y) => y.day_stem_ko === stem);
 
   return (
     <div className="space-y-4">
@@ -89,6 +91,7 @@ export function DailyBoardClient({ initial }: { initial: DailyFortuneBoard | nul
 
       <section className="space-y-3">
         <StemTabs active={stem} onChange={(s) => { setStem(s); setHighlight(null); }} />
+        {yearFlow && <YearFlowPanel key={`year-${stem}`} flow={yearFlow} yearLabel={board.year_label} />}
         {monthFlow && (
           <MonthFlowPanel
             key={stem}

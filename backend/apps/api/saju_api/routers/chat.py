@@ -19,7 +19,9 @@ from saju_engines.conversation_store import ConversationStore
 from saju_engines.life_event_followup import (
     FollowupAnswer,
     FollowupCandidate,
+    asked_keys_from_meta,
     elapsed_candidates,
+    exclude_asked,
     followup_question,
     resolve_fingerprints,
     rows_from_followup,
@@ -524,6 +526,12 @@ class FollowupSubmission(BaseModel):
     answers: list[FollowupAnswer] = Field(default_factory=list)
 
 
+class FollowupDismiss(BaseModel):
+    """'다음에' 보류 요청(2026-11-08)."""
+
+    subject_id: str
+
+
 class FollowupSubmitResult(BaseModel):
     """적재 결과."""
 
@@ -565,28 +573,76 @@ def message_feedback(
 @router.get("/followups", response_model=FollowupPrompt)
 def next_followup(
     subject_id: str, owner_id: OwnerId, history: History, subjects: Subjects,
+    life_events: LifeEvents,
 ) -> FollowupPrompt:
     """이 명식의 답변 중 기간이 지난 후보가 있는 가장 최근 답변 1건의 후속 확인 질문(소스 ③).
 
     👍 평가가 있는 답변을 먼저 묻고, 그다음 최근 순. 후보 기간 판정은 절기 월운 라벨 기준.
+    2026-11-08: 같은 (사건, 기간)은 **명식 단위로 한 번만** 묻는다 — 사건 행(모든 소스)·다른
+    메시지의 답·'다음에' 보류 후보를 빼고, 남는 후보가 없는 메시지는 covered 로 응답 완료 처리해
+    다시 조회되지 않게 한다(실답: 2026-10 재물 변화가 답한 뒤에도 다른 메시지에서 반복 노출).
     """
     rec = subjects.get(subject_id)
     if rec is None or rec.owner_id != owner_id:
         raise HTTPException(status_code=404, detail="대상을 찾을 수 없습니다.")
     today = date.today()
     luck_month = chat_service._current_luck_month(today)
+    asked: set[tuple[str, str]] = {
+        (row.event_key, row.period) for row in life_events.subject_signature(owner_id, subject_id)
+    }
+    for done in history.answered_followup_messages(owner_id, subject_id):
+        asked |= asked_keys_from_meta(done["meta"])
     rows = history.followup_messages(owner_id, subject_id)
     rows.sort(key=lambda r: 0 if (r["meta"].get("feedback") or {}).get("rating") == "up" else 1)
     for r in rows:
-        cands = elapsed_candidates(
+        elapsed = elapsed_candidates(
             list(r["meta"].get("followup") or []), current_luck_month=luck_month, today=today,
         )
-        if cands:
-            return FollowupPrompt(
-                message_id=r["id"], thread_id=r["thread_id"], asked_at=r["created_at"],
-                title=r["title"], question=followup_question(cands), candidates=cands,
-            )
+        if not elapsed:
+            continue
+        cands = exclude_asked(elapsed, asked)
+        if not cands:
+            # 지난 후보가 전부 이미 답해졌거나 보류됨 — 이 메시지는 더 묻지 않는다.
+            history.merge_message_meta(r["id"], {
+                "followup_answered": {
+                    "at": datetime.now(UTC).isoformat(timespec="seconds"),
+                    "answers": [], "covered": True,
+                },
+            })
+            continue
+        return FollowupPrompt(
+            message_id=r["id"], thread_id=r["thread_id"], asked_at=r["created_at"],
+            title=r["title"], question=followup_question(cands), candidates=cands,
+        )
     return FollowupPrompt()
+
+
+@router.post("/followups/{message_id}/dismiss", status_code=204)
+def dismiss_followup(
+    message_id: int, body: FollowupDismiss, owner_id: OwnerId, history: History,
+    subjects: Subjects,
+) -> None:
+    """'다음에' — 이 메시지의 지난 후보를 영속 보류한다(2026-11-08). 같은 (사건, 기간)은 다른
+    메시지에서도 다시 묻지 않는다(`asked_keys_from_meta`). 사건 행은 만들지 않는다."""
+    rec = subjects.get(body.subject_id)
+    if rec is None or rec.owner_id != owner_id:
+        raise HTTPException(status_code=404, detail="대상을 찾을 수 없습니다.")
+    thread_id = _owned_message_thread(history, message_id, owner_id)
+    msg = next((m for m in history.get_messages(thread_id) if m.get("id") == message_id), None)
+    meta = (msg or {}).get("meta") or {}
+    if meta.get("subject_id") != body.subject_id:
+        raise HTTPException(status_code=409, detail="이 답변은 다른 사주의 것이에요.")
+    today = date.today()
+    luck_month = chat_service._current_luck_month(today)
+    cands = elapsed_candidates(
+        list(meta.get("followup") or []), current_luck_month=luck_month, today=today,
+    )
+    history.merge_message_meta(message_id, {
+        "followup_dismissed": {
+            "at": datetime.now(UTC).isoformat(timespec="seconds"),
+            "candidates": [{"event_key": c.event_key, "period": c.period} for c in cands],
+        },
+    })
 
 
 @router.post("/followups/{message_id}", response_model=FollowupSubmitResult)

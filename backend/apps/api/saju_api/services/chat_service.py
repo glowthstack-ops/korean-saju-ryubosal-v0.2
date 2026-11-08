@@ -750,6 +750,7 @@ _PAST_KEYWORDS = (
     "작년",
     "재작년",
     "지난",
+    "저번",
     "과거",
     "예전",
     "그때",
@@ -1375,6 +1376,16 @@ def _build_period_fortune(
     )
     # 운 스택 간지(2026-10-25) — 관계 확정 문장의 참여 글자 층위 라벨·생성 후 층위 라벨 감사용.
     stack_ganji = _period_stack_ganji(composites, _TARGET_LEVEL[fortune_type], start, pillar)
+    # 단식 참고 문단(docs/17 §26-3, 2026-11-08) — 일간×운 십성군 체감 결("간단히 봤을 때,").
+    # 월·일 지평은 올해(세운) 결·절정 달을 함께 싣는다(실답: 10월 참고 줄이 그 달 겁재만 말해 원문
+    # 단식의 '올해 인성 결이 가장 세지는 10월'과 달랐다). 점수·판정 불변, 문단은 생성 후 원문 고정.
+    from saju_engines.simple_reading import simple_reference_line as _simple_ref
+
+    simple_reading_line = _simple_ref(
+        chart.pillars.day_master if chart.pillars else "", str(pillar.ganji),
+        {"daily": "day", "monthly": "month", "yearly": "year"}[fortune_type],
+        year_ganji=stack_ganji.get("세운"),
+    )
     # P1 계층형 grounding(2026-07-27) — ON이면 관계 렌더를 **이쪽으로 완전히 대체**한다.
     # 기존 build_luck_grounding의 형충회합 줄과 함께 내보내면 같은 관계가 두 표현으로
     # 들어가 LLM이 서로 다른 사실로 읽는다.
@@ -1479,6 +1490,7 @@ def _build_period_fortune(
         ),
         dohwa_text_keys=list(grounding.get("dohwa_text_keys", [])),
         environment_lines=environment_lines,
+        simple_reading_line=simple_reading_line,
         stack_ganji=stack_ganji,
     )
 
@@ -2081,6 +2093,9 @@ def finalize_answer_full(
         answer = _audit_ilju_mention_answer(answer, ctx, thread_id)
         # 주 호칭 감사(2026-11-06) — '다음 주' 질문의 '이번 주·금주' 호칭을 질문 호칭으로 교정.
         answer = _audit_week_label_answer(answer, ctx, thread_id)
+        # 단식 참고 줄 보장(2026-11-08) — LLM 이 '간단히 봤을 때' 문장을 빠뜨리면 첫 문단 뒤에
+        # 엔진 줄을 그대로 삽입한다(재호출 없는 결정론 교정).
+        answer = _ensure_simple_reading_line(answer, ctx.payload, thread_id)
         # 육친 성별 기준 감사(2026-11-07) — 로그 전용(재발 빈도 측정 후 패치 여부 결정).
         _audit_gender_kin_answer(answer, ctx.payload, thread_id)
         if ctx.entry_window and answer:
@@ -6056,6 +6071,7 @@ def chat(
             occupation_status=occupation_status,
             relationship_status=relationship_status,
             occupation_category=occupation_category,
+            today=today,
         )
         # 요청 로컬 위험 스냅샷(감수 62차 P0③) — 본 요청 1차 대상의 주 채점
         # 직후 즉시 확보(불변 tuple). 싱글턴 scorer.risk_shadow는 이후의 보조
@@ -6290,6 +6306,7 @@ def chat(
                     occupation_status=occupation_status,
                     relationship_status=relationship_status,
                     occupation_category=occupation_category,
+                    today=today,
                 )
 
     # 전 생애/단계 스캔 — 대상 창(단계 나이→연도)의 연 단위 세운을 조립해 이벤트를
@@ -6323,6 +6340,7 @@ def chat(
             occupation_status=occupation_status,
             relationship_status=relationship_status,
             occupation_category=occupation_category,
+            today=today,
         )
         default_period = (str(_lt_lo_y), str(_lt_hi_y))
         _logger.info(
@@ -6434,6 +6452,7 @@ def chat(
                     occupation_status=occupation_status,
                     relationship_status=relationship_status,
                     occupation_category=occupation_category,
+                    today=today,
                 )
                 _seen_far = {(c.event_key, c.period) for c in all_scored}
                 all_scored = all_scored + [
@@ -6806,7 +6825,7 @@ def chat(
         structural = structural + variant_branching.variant_candidate_blocks(
             result, chart_birth, scorer=_get_scorer(), base_candidates=candidates,
             fav_override=_fav_override, occupation_status=occupation_status,
-            relationship_status=relationship_status,
+            relationship_status=relationship_status, today=today,
         )
     # 막연한 시점 → 10년 연 단위 흐름의 대운 배경·교운기를 구조 블록에 실어 LLM이 반영하게 한다.
     if structural is not None and vague_future and year_digest_years:
@@ -8570,6 +8589,41 @@ def _union_relation_semantics(
             "제외 thread=%s", sorted(conflicting), thread_id,
         )
     return [sem for label, sem in by_label.items() if label not in conflicting]
+
+
+SIMPLE_READING_MARK = "간단히 봤을 때"
+
+
+def _ensure_simple_reading_line(answer: str, payload: LlmInput, thread_id: str | None) -> str:
+    """단식 참고 줄 보장(docs/17 §26-3, 2026-11-08 실답: 월 총운 답에 줄이 빠짐).
+
+    기간 총운(일/월/연)에 `simple_reading_line` 이 있으면 답의 '간단히 봤을 때' 문단을 **엔진
+    문단으로 고정**한다(2026-11-08 실답: LLM 이 '겁재 — 경쟁심·지출'로 바꿔 쓰고 용신 해석으로
+    덮어 원문 단식과 달라짐). 문단이 없으면 첫 문단 뒤에 삽입, 있으면 그 문단을 통째로 교체
+    (개인 판정은 규칙상 다음 문단에 있으므로 보존된다). 점수·판정 불변, 재호출 없음.
+    """
+    pf = getattr(payload, "period_fortune", None)
+    line = (getattr(pf, "simple_reading_line", "") or "").strip()
+    if not line or not answer:
+        return answer
+    paras = answer.split("\n\n")
+    idx = next((i for i, p in enumerate(paras) if SIMPLE_READING_MARK in p), None)
+    if idx is None:
+        if len(paras) >= 2:
+            paras.insert(1, line)
+        else:
+            paras.append(line)
+        result = "inserted"
+    elif paras[idx].strip() == line:
+        return answer
+    else:
+        paras[idx] = line
+        result = "replaced"
+    _logger.warning(
+        "simple_reading_audit result=%s period=%s thread=%s",
+        result, getattr(pf, "period_label", None), thread_id,
+    )
+    return "\n\n".join(paras)
 
 
 def _audit_relation_answer(answer, period_fortune, thread_id, extra_period_fortunes=None):

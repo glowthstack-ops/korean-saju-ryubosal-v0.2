@@ -623,6 +623,7 @@ def compute_board_v2(
         attach_month_layer(
             board, ctx, layer, _day_bands(d),
             _day_bands(d - timedelta(days=1)), _day_bands(d + timedelta(days=1)),
+            simple=dicts.templates.get("simple_layer"),  # 단식 결 층(§26) — 키 없는 계약은 None
         )
     return board.model_copy(
         update={"content_version": content_version_v2_for(ctx.the_date)}
