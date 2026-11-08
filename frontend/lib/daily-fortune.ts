@@ -74,6 +74,7 @@ export interface DailyFortuneBoard {
   month_flow: DailyMonthStemFlow[] | null; // 과거 계약 보드는 null
   year_flow?: DailyYearStemFlow[] | null; // 올해의 결(dict.v1.19~) — 과거 계약은 null
   year_label?: string | null; // "병오년(丙午) 2026년 2월 4일~2027년 2월 3일"
+  year_direction_note?: string | null; // 발판/소모 기준 안내(docs/17 §26-5) — 과거 계약은 null
 }
 
 export interface DailyFortuneSingle {

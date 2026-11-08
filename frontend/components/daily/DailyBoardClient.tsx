@@ -91,7 +91,14 @@ export function DailyBoardClient({ initial }: { initial: DailyFortuneBoard | nul
 
       <section className="space-y-3">
         <StemTabs active={stem} onChange={(s) => { setStem(s); setHighlight(null); }} />
-        {yearFlow && <YearFlowPanel key={`year-${stem}`} flow={yearFlow} yearLabel={board.year_label} />}
+        {yearFlow && (
+          <YearFlowPanel
+            key={`year-${stem}`}
+            flow={yearFlow}
+            yearLabel={board.year_label}
+            directionNote={board.year_direction_note}
+          />
+        )}
         {monthFlow && (
           <MonthFlowPanel
             key={stem}

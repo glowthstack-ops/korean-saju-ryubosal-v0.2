@@ -2592,7 +2592,10 @@ class _ReportData:
             lines.append(f"운 요약: {pillar.luck_label} — {pillar.luck_summary}")
         lines += render_yearly_environment(build_yearly_environment(self.result, pillar))
         # 단식 참고 줄(docs/17 §26-3, 2026-11-08) — 채팅 연 총운과 같은 줄·같은 사용 규칙.
-        from saju_engines.context_reducer import SIMPLE_READING_HEADER
+        from saju_engines.context_reducer import (
+            SIMPLE_READING_DIRECTION_RULE,
+            SIMPLE_READING_HEADER,
+        )
         from saju_engines.context_reducer import SIMPLE_READING_USAGE_RULE as _simple_rule
         from saju_engines.simple_reading import simple_reference_line as _simple_ref
 
@@ -2603,6 +2606,7 @@ class _ReportData:
         if _simple_line:
             lines.append(f"{SIMPLE_READING_HEADER} {_simple_line}")
             lines.append(_simple_rule)
+            lines.append(SIMPLE_READING_DIRECTION_RULE)
         lines += [f"형충회합: {rl}" for rl in g["relation_lines"]]
         lines += list(g["sinsal_lines"])
         if g["gongmang"]:

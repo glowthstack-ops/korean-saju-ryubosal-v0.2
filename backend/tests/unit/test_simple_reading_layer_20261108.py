@@ -161,6 +161,8 @@ def test_peak_months_empty_when_no_strong_month() -> None:
 def test_board_carries_year_flow_and_same_group_notes(board: DailyFortuneBoard) -> None:
     assert board.year_flow is not None and len(board.year_flow) == 10
     assert board.year_label and "2026" in board.year_label
+    # 방향 기준 줄(§26-5) — 발판/소모는 내 명식 기준이라 안내만.
+    assert board.year_direction_note and "발판" in board.year_direction_note
     for yf in board.year_flow:
         assert yf.tone and yf.emphasis and len(yf.points) == 3  # 丙午 — 전 일간 같은 군
     # 己亥월(11/10): 천간 己·지지 亥(壬) — 어느 일간도 같은 군이 아니다 → 월 강조 없음.
@@ -205,6 +207,7 @@ def test_decision_unchanged_by_simple_layer(board: DailyFortuneBoard) -> None:
 def test_past_contract_has_no_new_fields() -> None:
     prev = _board(_PREV)
     assert prev.year_flow is None and prev.year_label is None
+    assert prev.year_direction_note is None
     assert prev.month_flow is not None
     assert all(m.same_group_note is None for m in prev.month_flow)
 
@@ -271,3 +274,14 @@ def test_chat_period_fortune_carries_simple_reading_line() -> None:
     mpf = chat_service._build_period_fortune(b, m_intent, dt.date(2026, 11, 8), "monthly")
     assert mpf is not None and "올해 丙午년은" in mpf.simple_reading_line
     assert SIMPLE_READING_HEADER.startswith("[단식 참고") and "그대로" in SIMPLE_READING_USAGE_RULE
+    from saju_engines.context_reducer import SIMPLE_READING_DIRECTION_RULE
+
+    assert "발판" in SIMPLE_READING_DIRECTION_RULE and "기신" in SIMPLE_READING_DIRECTION_RULE
+
+
+def test_balanced_sentences_carry_both_faces() -> None:
+    """양면 어휘(2026-11-08 데굴님 '안 좋은 쪽만 정리') — 연 결 25개 전부 발판/소모 두 갈래."""
+    s = _simple()
+    for pair, text in s["year_tone"].items():
+        assert "발판이 되는 쪽이면" in text and "소모가 되는 쪽이면" in text, pair
+    assert "발판" in s["direction_note"] and "소모" in s["direction_note"]
