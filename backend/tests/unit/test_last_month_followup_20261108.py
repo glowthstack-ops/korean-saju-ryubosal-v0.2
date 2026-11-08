@@ -84,6 +84,39 @@ def test_simple_reading_line_inserted_after_first_paragraph_when_missing() -> No
     # 엔진 문단 그대로면 바이트 불변.
     exact = f"첫 문단.\n\n{line}\n\n둘째."
     assert chat_service._ensure_simple_reading_line(exact, _payload(line), "t") == exact
+
+
+def test_simple_reading_paragraph_keeps_persona_style_when_content_faithful() -> None:
+    """페르소나 말투(합쇼체·반말체)로 종결어미만 바뀐 단식 문단은 그대로 둔다(2026-11-08 데굴님)."""
+    line = (
+        "간단히 봤을 때, 戊戌월은 기(己) 일간에게 비겁(겁재·겁재) 결이에요. 내 몫을 챙기는 일이 "
+        "중요해지는 달이에요. 올해 丙午년은 인성(정인·편인) 결이에요. 받아들이고 쉬는 해예요. "
+        "하던 일이 갑자기 멈추거나 게으름이 길어지기 쉽고, 몸이 쉬라고 신호를 보내기도 해요. "
+        "(일간과 운의 십성만 본 단식 풀이라 참고용이에요. 길흉과 개인 판정은 명식 전체 기준이 "
+        "우선이에요.)"
+    )
+    hapsyo = (
+        "간단히 봤을 때, 戊戌월은 기(己) 일간에게 비겁(겁재·겁재) 결입니다. 내 몫을 챙기는 일이 "
+        "중요해지는 달입니다. 올해 丙午년은 인성(정인·편인) 결입니다. 받아들이고 쉬는 해입니다. "
+        "하던 일이 갑자기 멈추거나 게으름이 길어지기 쉽고, 몸이 쉬라고 신호를 보내기도 합니다. "
+        "(일간과 운의 십성만 본 단식 풀이라 참고용입니다.)"
+    )
+    banmal = (
+        "간단히 봤을 때, 戊戌월은 기(己) 일간에게 비겁(겁재·겁재) 결이야. 내 몫을 챙기는 일이 "
+        "중요해지는 달이야. 올해 丙午년은 인성(정인·편인) 결이야. 받아들이고 쉬는 해야. "
+        "하던 일이 갑자기 멈추거나 게으름이 길어지기 쉽고, 몸이 쉬라고 신호를 보내기도 해."
+    )
+    for styled in (hapsyo, banmal):
+        answer = f"첫 판정.\n\n{styled}\n\n다만 이 명식에서는 충전 쪽이에요."
+        assert chat_service._ensure_simple_reading_line(answer, _payload(line), "t") == answer
+    # 내용이 바뀐 문단(실답: 겁재 — 경쟁심·지출, 올해 결·절정 문장 누락)은 교체된다.
+    distorted = (
+        "간단히 봤을 때, 2026년 10월은 기 일간에게 겁재의 기운이 강하게 작용했던 달이었습니다. "
+        "일반적으로는 경쟁심이 강해지고 지출이 늘어나는 시기로 봅니다."
+    )
+    answer = f"첫 판정.\n\n{distorted}\n\n둘째."
+    fixed = chat_service._ensure_simple_reading_line(answer, _payload(line), "t")
+    assert fixed == f"첫 판정.\n\n{line}\n\n둘째."
     # 줄이 없으면(총운 아님) 불변.
     assert chat_service._ensure_simple_reading_line(answer, _payload(""), "t") == answer
     # 한 문단뿐이면 끝에 붙인다.
