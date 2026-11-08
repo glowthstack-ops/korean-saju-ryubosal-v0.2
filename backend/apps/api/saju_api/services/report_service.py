@@ -21,6 +21,7 @@ from types import MappingProxyType
 from typing import Any, Protocol
 
 from saju_manse_analysis.luck.luck_calendar import luck_month_label
+from saju_manse_analysis.luck.luck_cycles import month_pillar_as_luck
 
 from saju_engines import counseling_arbiter, period_v2_config
 from saju_engines.ai_tell_audit import audit_ai_tells
@@ -34,7 +35,6 @@ from saju_engines.chart_interpretation import (
     mobility_marker_flip_lines,
 )
 from saju_engines.clash_relief import luck_clash_relief_block
-from saju_engines.climate_flow import climate_lines
 from saju_engines.compatibility_engine import analyze_compatibility, compatibility_lines
 from saju_engines.context_reducer import (
     _DOMAIN_EVENT_KEYS,
@@ -88,11 +88,11 @@ from saju_engines.life_graph import (
     PARTNER_STAR_GODS,
     PER_DAEWOON_CAP,
     build_life_graph,
-    cumulative_lines,
     daewoon_summary_lines,
     marker_lines,
     partner_star_daewoon_tag,
     positive_window_lines,
+    trend_lines,
     when_tag,
 )
 from saju_engines.lifetime_scan import (
@@ -268,7 +268,7 @@ from . import (
     relationship_vector_sidecar,
     variant_branching,
 )
-from .manse_service import calculate, luck_months, luck_years
+from .manse_service import _luck_role_sets, calculate, luck_months, luck_years
 from .personalization import (
     fetch_calibration_expression_hints,
     fetch_confirmed_yongsin_override,
@@ -1282,10 +1282,20 @@ class _ReportData:
                     == "eligible"
                 ):
                     _lt_risk_years.setdefault(int(_pk), set()).add(str(_rk.domain.value))
+            # 첫 대운 전 유년 = 월주를 운처럼(통설, 2026-11-08 데굴님 "0~5세는 대운도 없는데 최대로
+            # 그려진다").
+            _pre = (
+                month_pillar_as_luck(
+                    self.result.pillars, *_luck_role_sets(self.result.yongsin_analysis),
+                )
+                if self.result.pillars is not None and self.result.yongsin_analysis is not None
+                else None
+            )
             self.life_graph = build_life_graph(
                 self.result, _lt_result, self.lifetime_pool, _lt_lo, _lt_hi,
                 risk_years=_lt_risk_years, today_year=self.today.year,
                 gender=str((self.result.input_summary or {}).get("gender") or ""),
+                pre_daewoon=_pre,
             )
         # 기간 연도 경계(섹션별 도메인 후보 스코핑용) — 후보 필터와 동일 기준.
         self._yr_lo = spec.period.start[:4]
@@ -1927,11 +1937,8 @@ class _ReportData:
             "숙고·궁합 확인'으로 쓸 것]",
             *daewoon_summary_lines(g),
             "",
-            *cumulative_lines(g),
+            *trend_lines(g),  # 추세선(억부·조후 평균, 2026-11-08)
         ]
-        climate = climate_lines(g)  # 조후 흐름선(2026-11-08) — 축 없는 명식은 빈 목록
-        if climate:
-            lines += ["", *climate]
         markers = marker_lines(g)
         if markers:
             lines += ["", "주요 이벤트 마커(연도·만 나이·세운 간지·종류·결·점수):", *markers]

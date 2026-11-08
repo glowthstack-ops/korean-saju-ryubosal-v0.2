@@ -7,12 +7,15 @@
 
 - 대운 조후 = 대운 지지 온도(필요 방향·가중 적용).
 - 연도 조후 = 0.7 × 소속 대운 조후 + 0.3 × 세운 지지 조후(대운이 바탕, 세운은 해마다의 오르내림).
-- 중립 월(卯申酉)이면 축이 없어 선을 그리지 않는다(`climate_axis=""`, 값 None).
+- 중립 월(卯申酉)이면 축이 없다(`climate_axis=""`, 값 None) — 추세선은 억부 점수 그대로.
+- 선 자체는 따로 그리지 않고 `life_graph._attach_trend` 가 억부 점수와 평균해 **추세선** 한 줄로
+  합친다(2026-11-08 데굴님 "누적 운세는 의미가 없어 — 대운별 운세와 조후 운세를 합쳐 하나의
+  추세선으로").
 """
 
 from __future__ import annotations
 
-from saju_manse_analysis.luck.climate import AXIS_KO, NEED_KO, climate_need, climate_score
+from saju_manse_analysis.luck.climate import NEED_KO, climate_need, climate_score
 
 from saju_shared_types.life_graph import LifeGraph
 
@@ -37,6 +40,8 @@ def attach_climate(graph: LifeGraph, month_branch: str) -> None:
     for yr in graph.years:
         own = climate_score(month_branch, yr.ganji[-1])
         yr.climate = round(DAEWOON_WEIGHT * band.get(yr.year, 0.0) + YEAR_WEIGHT * own, 3)
+    if graph.pre_daewoon is not None:  # 대운 전 유년 = 월지 자체의 온도
+        graph.pre_daewoon.climate = climate_score(month_branch, graph.pre_daewoon.ganji[-1])
     reach = next(
         (d for d in graph.daewoons if d.climate is not None and d.climate >= 0), None,
     )
@@ -44,30 +49,3 @@ def attach_climate(graph: LifeGraph, month_branch: str) -> None:
     if graph.daewoons:
         peak = max(graph.daewoons, key=lambda d: d.climate if d.climate is not None else -9)
         graph.climate_peak_daewoon = peak.ganji
-
-
-def climate_lines(graph: LifeGraph) -> list[str]:
-    """[조후 흐름] 블록 — F-14 해설용. 축이 없으면 빈 목록."""
-    if not graph.climate_axis or not graph.daewoons:
-        return []
-    status_ko = {"past": "지남", "current": "현재", "future": "예정", "unknown": ""}
-    out = [
-        f"[조후 흐름 — 월지가 {AXIS_KO.get(graph.climate_axis, graph.climate_axis)}이라 "
-        f"{graph.climate_need_ko}가 필요한 명식. 아래는 억부(용신) 점수와 별도로 대운·세운 "
-        "**지지의 온도**만 본 선(−1 가장 불리 ~ +1 가장 유리). 설명용 층이며 명리 판정이 아니다 — "
-        "수치·순서 밖 판단 금지, 억부 점수와 다를 때는 '용신 흐름으로는 ~, 조후로는 ~'로 두 축을 "
-        "나눠 쓸 것]",
-    ]
-    for d in graph.daewoons:
-        tag = status_ko.get(d.status, "")
-        val = "" if d.climate is None else f"{d.climate:+.2f}"
-        out.append(
-            f"- {d.ganji} {d.start_age}–{d.end_age}세{' [' + tag + ']' if tag else ''}: 조후 {val}"
-        )
-    if graph.climate_baseline_daewoon:
-        out.append(f"- 조후 보통선(0) 도달 대운: {graph.climate_baseline_daewoon}")
-    else:
-        out.append("- 조후 보통선(0)에 이르는 대운 없음(생애 내내 필요 온도 부족)")
-    if graph.climate_peak_daewoon:
-        out.append(f"- 조후 정점 대운: {graph.climate_peak_daewoon}")
-    return out

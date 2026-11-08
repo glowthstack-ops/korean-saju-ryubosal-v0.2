@@ -640,6 +640,19 @@ def _volatility(relations: list[str]) -> float:
     return round(sum(3.0 if r.startswith("충") else 1.0 for r in relations), 2)
 
 
+def month_pillar_as_luck(
+    pillars: FourPillarsResult, useful: set[str], unfavorable: set[str],
+) -> LuckPillar:
+    """첫 대운 전 유년 — 통설대로 **월주 간지를 운처럼** 채점한다(2026-11-08 인생 그래프 추세선용).
+
+    period_type 은 'year'(세운과 같은 가중·관계 평가). 조후 블렌드(B안)도 세운과 같은 규칙으로 탄다.
+    """
+    return _luck_pillar(
+        "대운 전", "year", Stem(pillars.month.stem), Branch(pillars.month.branch),
+        pillars, Stem(pillars.day.stem), useful, unfavorable,
+    )
+
+
 def _luck_pillar(
     label: str,
     period_type: str,

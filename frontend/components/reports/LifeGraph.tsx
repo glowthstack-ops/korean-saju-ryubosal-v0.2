@@ -30,10 +30,12 @@ export interface LifeGraphDaewoon {
   label: string;
   status: string; // past | current | future | unknown
   partner_star_daewoon?: boolean; // 배우자성 대운(통설 라벨)
-  mean_total?: number; // (세운+대운) 연 평균 — 누적 운세선 설명용
-  trend_delta?: number | null; // 직전 대운 대비 차이
+  trend_score?: number; // 추세선 — 억부(용신) 점수와 조후 점수의 평균(조후 축 없으면 억부 그대로)
+  trend_delta?: number | null; // 직전 구간 대비 차이
   trend?: string; // 상승 | 하강 | 보합 | 시작
-  climate?: number | null; // 조후 흐름선 — 대운 지지의 조후 점수(−1~+1)
+  flow?: string; // good(좋은 흐름) | hard(힘든 흐름) — 띠 두 패턴의 유일한 기준(추세 점수 부호)
+  flow_ko?: string;
+  climate?: number | null; // 대운 지지의 조후 점수(−1~+1, 설명용)
   markers: LifeGraphMarker[];
 }
 
@@ -43,8 +45,21 @@ export interface LifeGraphYear {
   ganji: string;
   score: number;
   label: string;
-  cumulative?: number; // 누적 운세선 — 출생부터 (세운+대운)을 더해 온 값(주식 차트의 가격선)
-  climate?: number | null; // 조후 흐름선 — 0.7×대운 조후 + 0.3×세운 지지 조후
+  climate?: number | null; // 0.7×대운 조후 + 0.3×세운 지지 조후(설명용)
+}
+
+export interface LifeGraphPreDaewoon {
+  ganji: string; // 월주 — 첫 대운 전 유년은 월주를 운처럼 본다(통설)
+  start_age: number;
+  end_age: number;
+  start_year: number;
+  end_year: number;
+  score: number;
+  label: string;
+  climate?: number | null;
+  trend_score?: number;
+  flow?: string;
+  flow_ko?: string;
 }
 
 export interface LifeGraphWindow {
@@ -68,10 +83,11 @@ export interface LifeGraphData {
   markers: LifeGraphMarker[];
   positive_windows?: LifeGraphWindow[]; // 오늘 이후 긍정 창(결혼·취업·이직·재물 유입·이사)
   today_year?: number | null; // 오늘 연도 — '오늘' 세로선
-  cumulative_peak_year?: number | null;
-  cumulative_low_year?: number | null;
-  today_cumulative_percentile?: number | null;
-  climate_axis?: string; // cold | heat | damp | dry | ""(중립 → 조후선 없음)
+  pre_daewoon?: LifeGraphPreDaewoon | null;
+  trend_peak?: string | null;
+  trend_low?: string | null;
+  trend_baseline?: string | null;
+  climate_axis?: string; // cold | heat | damp | dry | ""(중립 → 추세선은 억부 점수 그대로)
   climate_need_ko?: string;
   climate_baseline_daewoon?: string | null;
   climate_peak_daewoon?: string | null;
@@ -135,12 +151,24 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
   const plotH = H - padT - padB;
   const x = (age: number) => padL + ((age - ageMin) / (ageMax - ageMin)) * plotW;
 
-  // 조후 흐름선(2026-11-08) — 같은 점수 척도(−1~+1). 축 없는 명식(climate 없음)은 생략.
-  const climYears = data.years.filter((p) => typeof p.climate === "number");
+  // 추세선(2026-11-08, 데굴님 "대운별 운세와 조후 운세를 합쳐서 하나의 추세선으로") — 구간 마디:
+  // [대운 전 유년(월주)] + 대운들, 각 구간 가운데 나이에 trend_score(억부·조후 평균). 같은 점수 척도.
+  const trendNodes: { age: number; v: number }[] = [];
+  if (data.pre_daewoon && typeof data.pre_daewoon.trend_score === "number") {
+    trendNodes.push({
+      age: (data.pre_daewoon.start_age + data.pre_daewoon.end_age + 1) / 2,
+      v: data.pre_daewoon.trend_score,
+    });
+  }
+  for (const d of data.daewoons) {
+    if (typeof d.trend_score === "number") {
+      trendNodes.push({ age: Math.min((d.start_age + d.end_age + 1) / 2, ageMax), v: d.trend_score });
+    }
+  }
   const scores = [
     ...data.years.map((y) => y.score),
     ...data.daewoons.map((d) => d.score),
-    ...climYears.map((p) => p.climate as number),
+    ...trendNodes.map((n) => n.v),
   ];
   const sMin = scores.length ? Math.min(...scores) : -1;
   const sMax = scores.length ? Math.max(...scores) : 1;
@@ -151,31 +179,9 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
   const yearPath = data.years
     .map((p, i) => `${i === 0 ? "M" : "L"}${x(p.age).toFixed(1)},${y(p.score).toFixed(1)}`)
     .join(" ");
-  // 누적 운세선(2026-11-08, 주식 차트형) — 자체 세로 척도. 과거 계약 데이터(cumulative 없음)는 생략.
-  const cumYears = data.years.filter((p) => typeof p.cumulative === "number");
-  const cums = cumYears.map((p) => p.cumulative as number);
-  const cMin = cums.length ? Math.min(...cums) : 0;
-  const cMax = cums.length ? Math.max(...cums) : 1;
-  const cSpan = cMax - cMin || 1;
-  const yC = (c: number) => padT + 6 + (1 - (c - cMin) / cSpan) * (plotH - 12);
-  const cumPath =
-    cumYears.length >= 2
-      ? cumYears
-          .map(
-            (p, i) =>
-              `${i === 0 ? "M" : "L"}${x(p.age).toFixed(1)},${yC(p.cumulative as number).toFixed(1)}`,
-          )
-          .join(" ")
-      : "";
-
-  const climPath =
-    climYears.length >= 2
-      ? climYears
-          .map(
-            (p, i) =>
-              `${i === 0 ? "M" : "L"}${x(p.age).toFixed(1)},${y(p.climate as number).toFixed(1)}`,
-          )
-          .join(" ")
+  const trendPath =
+    trendNodes.length >= 2
+      ? trendNodes.map((n, i) => `${i === 0 ? "M" : "L"}${x(n.age).toFixed(1)},${y(n.v).toFixed(1)}`).join(" ")
       : "";
 
   const current = data.current_daewoon_index ?? null;
@@ -190,12 +196,19 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
           aria-label="인생 그래프 — 대운 흐름과 주요 이벤트 시기"
           className="min-w-[640px] w-full"
         >
+          <defs>
+            <pattern id="hardFlow" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <rect width="6" height="6" fill="#f3f4f6" />
+              <line x1="0" y1="0" x2="0" y2="6" stroke="#d1d5db" strokeWidth="2" />
+            </pattern>
+          </defs>
           {/* 대운 띠 — 점수에 따라 밝기, 현재 대운은 테두리 강조 */}
           {data.daewoons.map((d) => {
             const x0 = x(d.start_year - data.birth_year);
             const x1 = x(Math.min(d.end_year + 1 - data.birth_year, ageMax));
-            const t = (d.score - sMin) / span; // 0..1
-            const fill = `hsl(${Math.round(120 * t)}, 60%, ${Math.round(88 - 18 * t)}%)`;
+            // 두 패턴(2026-11-08): 좋은 흐름 = 연녹 채움, 힘든 흐름 = 연회색 빗금. 밝기 그라데이션 없음.
+            const flow = d.flow ?? (typeof d.trend_score === "number" ? (d.trend_score >= 0 ? "good" : "hard") : d.score >= 0 ? "good" : "hard");
+            const fill = flow === "good" ? "#dcfce7" : "url(#hardFlow)";
             return (
               <g key={d.index}>
                 <rect
@@ -207,6 +220,15 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
                   stroke={current === d.index ? "#111827" : "#ffffff"}
                   strokeWidth={current === d.index ? 2 : 1}
                 />
+                <text
+                  x={(x0 + x1) / 2}
+                  y={padT + plotH - 6}
+                  textAnchor="middle"
+                  fontSize="9"
+                  fill={flow === "good" ? "#166534" : "#6b7280"}
+                >
+                  {d.flow_ko ?? (flow === "good" ? "좋은 흐름" : "힘든 흐름")}
+                </text>
                 <text
                   x={(x0 + x1) / 2}
                   y={padT - 22}
@@ -232,25 +254,23 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
           })}
           {/* 0선 */}
           {yZero !== null && (
-            <line x1={padL} x2={W - padR} y1={yZero} y2={yZero} stroke="#9ca3af" strokeDasharray="4 3" />
-          )}
-          {/* 세운 선 */}
-          {yearPath && <path d={yearPath} fill="none" stroke="#1f2937" strokeWidth={1.2} opacity={0.85} />}
-          {/* 조후 흐름선 — 월지 필요 온도 기준 대운·세운 지지의 온도(억부 점수와 별도 축) */}
-          {climPath && (
-            <path d={climPath} fill="none" stroke="#ea580c" strokeWidth={1.6} strokeDasharray="2 3" opacity={0.9} />
-          )}
-          {/* 누적 운세선 — 쌓인 수준·기울기(주식 차트의 가격선) + 기준선(누적 0 = 보통선) */}
-          {cumPath && cMin <= 0 && cMax >= 0 && (
             <g>
-              <line x1={padL} x2={W - padR} y1={yC(0)} y2={yC(0)} stroke="#2563eb" strokeWidth={0.8} strokeDasharray="1 3" opacity={0.7} />
-              <text x={W - padR - 2} y={yC(0) - 3} textAnchor="end" fontSize="9" fill="#2563eb">
+              <line x1={padL} x2={W - padR} y1={yZero} y2={yZero} stroke="#9ca3af" strokeDasharray="4 3" />
+              <text x={W - padR - 2} y={yZero - 3} textAnchor="end" fontSize="9" fill="#6b7280">
                 보통선
               </text>
             </g>
           )}
-          {cumPath && (
-            <path d={cumPath} fill="none" stroke="#2563eb" strokeWidth={1.8} strokeDasharray="6 3" opacity={0.9} />
+          {/* 세운 선 */}
+          {yearPath && <path d={yearPath} fill="none" stroke="#1f2937" strokeWidth={1.2} opacity={0.85} />}
+          {/* 추세선 — 구간(대운 전 유년 + 대운)마다 억부·조후를 평균한 한 줄. 마디에 점 */}
+          {trendPath && (
+            <g>
+              <path d={trendPath} fill="none" stroke="#2563eb" strokeWidth={2.2} strokeLinejoin="round" opacity={0.95} />
+              {trendNodes.map((n, i) => (
+                <circle key={i} cx={x(n.age)} cy={y(n.v)} r={2.6} fill="#2563eb" />
+              ))}
+            </g>
           )}
           {/* 오늘 — 지난 시기와 앞으로의 시기를 가르는 세로선 */}
           {typeof data.today_year === "number" &&
@@ -316,18 +336,13 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
         </svg>
       </div>
       <figcaption className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600">
-        <span>띠 = 대운(밝을수록 좋은 흐름) · 선 = 해마다의 운</span>
-        {cumPath && (
+        <span>띠 = 대운(연녹 = 좋은 흐름, 회색 빗금 = 힘든 흐름) · 가는 선 = 해마다의 운</span>
+        {trendPath && (
           <span style={{ color: "#2563eb" }}>
-            점선 = 누적 운세선(해마다의 운을 쌓아 온 선 — 올라가면 이전보다 좋아지는 중, 보통선 위면 쌓인
-            운이 플러스, ↗↘→ = 대운 추세)
-          </span>
-        )}
-        {climPath && (
-          <span style={{ color: "#ea580c" }}>
-            주황 점선 = 조후 흐름선({data.climate_need_ko || "필요 온도"} 기준으로 대운·세운 지지의 온도만 본 선
-            {data.climate_baseline_daewoon ? ` — ${data.climate_baseline_daewoon} 대운에서 보통선` : ""}
-            {data.climate_peak_daewoon ? `, ${data.climate_peak_daewoon} 대운 정점` : ""})
+            굵은 선 = 추세선(구간마다 대운 운세와 조후를 합친 값
+            {data.pre_daewoon ? `, 첫 대운 전 ${data.pre_daewoon.start_age}–${data.pre_daewoon.end_age}세는 월주 ${data.pre_daewoon.ganji} 기준` : ""}
+            {data.trend_baseline ? ` — ${data.trend_baseline}에서 보통선 도달` : " — 보통선 미도달"}
+            {data.trend_peak ? `, ${data.trend_peak} 최고` : ""}, ↗↘→ = 대운 추세)
           </span>
         )}
         {kindsPresent.map((k) => (

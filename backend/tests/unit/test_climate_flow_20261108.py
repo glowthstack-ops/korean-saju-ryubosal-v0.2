@@ -16,7 +16,7 @@ from saju_manse_analysis.luck import luck_cycles as LC
 
 from saju_api.services.manse_service import _calculate
 from saju_api.services.report_service import _ReportData
-from saju_engines.climate_flow import climate_lines
+from saju_engines.life_graph import trend_lines
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.intent import SubjectKind, SubjectRef
 from saju_shared_types.report import ReportPeriod, ReportSpec
@@ -64,11 +64,11 @@ def test_degool_daewoon_climate_rises_from_winter_floor() -> None:
     # 연도 조후 = 0.7×대운 + 0.3×세운 지지.
     y2026 = next(y for y in g.years if y.year == 2026)  # 壬辰 대운(+0.3), 丙午(+1.0)
     assert y2026.climate == pytest.approx(0.7 * 0.3 + 0.3 * 1.0, abs=0.001)
-    lines = climate_lines(g)
-    assert lines[0].startswith("[조후 흐름") and "한습(겨울)" in lines[0]
-    assert any("조후 보통선(0) 도달 대운: 辛卯" in ln for ln in lines)
-    assert any("조후 정점 대운: 甲午" in ln for ln in lines)
-    assert "[조후 흐름" in "\n".join(data.life_graph_block())
+    lines = trend_lines(g)
+    assert lines[0].startswith("[추세 흐름") and any("한습(겨울)" in ln for ln in lines)
+    assert any("辛卯" in ln and "조후 +0.00" in ln for ln in lines)
+    assert any("甲午" in ln and "조후 +1.00" in ln for ln in lines)
+    assert "[추세 흐름" in "\n".join(data.life_graph_block())
     # 억부 점수·누적선은 불변(설명용 층).
     assert all(isinstance(d.score, float) for d in g.daewoons)
 
@@ -82,7 +82,9 @@ def test_neutral_month_has_no_climate_line() -> None:
     g = data.life_graph
     assert g is not None and g.climate_axis == ""
     assert all(d.climate is None for d in g.daewoons) and all(y.climate is None for y in g.years)
-    assert climate_lines(g) == []
+    # 축이 없으면 추세 점수 = 억부 점수 그대로, 블록에 조후 항 없음.
+    assert all(d.trend_score == round(d.score, 3) for d in g.daewoons)
+    assert not any("조후" in ln for ln in trend_lines(g)[1:])
 
 
 def test_climate_score_direction_and_weight() -> None:
