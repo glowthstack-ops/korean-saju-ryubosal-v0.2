@@ -76,8 +76,8 @@ def test_consecutive_bigeop_months_differ_by_ten_god() -> None:
 def test_reference_line_uses_ten_god_scene_for_this_month() -> None:
     layer, simple = _dicts(_GIHAE)
     line = S.simple_reference_line("己", "己亥", "month", simple, layer, year_ganji="丙午")
-    assert "이 달만 따로 보면 " + simple["god_scene"]["비견"]["사람"][0].lower() in line
-    assert layer["month_tone"]["비겁+재성"] not in line
+    assert simple["god_scene"]["비견"]["사람"] in line and simple["god_scene"]["정재"]["돈"] in line
+    assert layer["month_tone"]["비겁+재성"] not in line and "올해" not in line
     sr = S.simple_reading(Stem("己"), Stem("己"), Branch("亥"), "month", simple, layer)
     assert sr.points[0] == simple["god_scene"]["비견"]["사람"]
     assert sr.points[2] == simple["god_scene"]["정재"]["돈"]  # 지지 정재, 천간이 안 쓴 첫 축

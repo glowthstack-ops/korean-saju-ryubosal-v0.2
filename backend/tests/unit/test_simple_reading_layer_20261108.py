@@ -233,25 +233,27 @@ def test_reference_line_uses_terms_and_prefix() -> None:
     month = S.simple_reference_line("戊", "己亥", "month", _simple(), _month_layer())
     assert month.startswith("간단히 봤을 때, 己亥월은")
     assert "올해" not in month  # 세운 간지 없으면 그 달 결만
-    # 월 지평 + 세운(2026-11-08 실답 교정): 올해 결 + 절정 달이면 절정 문장 — 己 일간 戊戌월(10월).
+    # 월 지평(2026-11-08 2차 교정 — "이달 운세인데 올해 흐름을 반복"): 그 달 결 이름 + 천간·지지
+    # 십성 장면만. 올해 결 문장 없음. 절정 달(己 일간 戊戌월)만 절정 문장 1개.
     s = _simple()
     oct_line = S.simple_reference_line(
         "己", "戊戌", "month", s, _month_layer(), year_ganji="丙午",
     )
     assert oct_line.startswith(
-        "간단히 봤을 때, 戊戌월은 기(己) 일간에게 비겁(겁재·겁재)의 달이고, "
-        "올해 丙午년은 인성(정인·편인)의 해예요."
+        "간단히 봤을 때, 戊戌월은 기(己) 일간에게 비겁(겁재·겁재)의 달이에요."
     )
-    assert s["year_tone"]["인성+인성"] in oct_line
-    assert "그중 이 달은 올해 결이 가장 세지는 달이에요. 10월에는" in oct_line
-    assert "이 달만 따로 보면" in oct_line
-    # 절정이 아닌 달(己亥월)은 올해 결만 붙고 절정 문장은 없다.
+    assert s["god_scene"]["겁재"]["돈"] in oct_line and s["month_same_group"]["비겁"] in oct_line
+    assert s["year_tone"]["인성+인성"] not in oct_line and "올해 丙午년은" not in oct_line
+    assert "올해 결이 가장 세지는 달이기도 해요. 10월에는" in oct_line
+    assert "이 달만 따로 보면" not in oct_line
+    # 절정이 아닌 달(己亥월)은 올해 언급이 없다.
     nov_line = S.simple_reference_line("己", "己亥", "month", s, _month_layer(), year_ganji="丙午")
-    assert "올해 丙午년은" in nov_line and "가장 세지는" not in nov_line
-    # 일 지평도 올해 결 한 줄.
+    assert "올해" not in nov_line and s["god_scene"]["비견"]["사람"] in nov_line
+    assert s["god_scene"]["정재"]["돈"] in nov_line
+    # 일 지평도 그 날만.
     day_line = S.simple_reference_line("己", "丙戌", "day", s, _month_layer(), year_ganji="丙午")
-    assert day_line.startswith("간단히 봤을 때, 丙戌일은") and "올해 丙午년은" in day_line
-    assert "오늘만 따로 보면" in day_line
+    assert day_line.startswith("간단히 봤을 때, 丙戌일은") and "올해" not in day_line
+    assert s["god_scene"]["정인"]["일"] in day_line
     assert S.simple_reference_line("", "丙午", "year", _simple()) == ""
     assert S.simple_reference_line("戊", "丙午", "week", _simple()) == ""
 
@@ -277,7 +279,7 @@ def test_chat_period_fortune_carries_simple_reading_line() -> None:
     assert pf is not None
     assert pf.simple_reading_line.startswith("간단히 봤을 때, 丙午년은")
     assert "참고용" in pf.simple_reading_line
-    # 월 총운은 세운(스택) 간지를 받아 올해 결이 함께 실린다.
+    # 월 총운은 그 달에 집중 — 올해 결 문장 없음(2026-11-08 2차), 절정 달 문장만 세운 간지로 붙는다.
     m_intent = IntentJson(
         intent_id="t", query_type=QueryType.FORTUNE_OVERVIEW,
         time_range=TimeRange(
@@ -285,7 +287,10 @@ def test_chat_period_fortune_carries_simple_reading_line() -> None:
         ),
     )
     mpf = chat_service._build_period_fortune(b, m_intent, dt.date(2026, 11, 8), "monthly")
-    assert mpf is not None and "올해 丙午년은" in mpf.simple_reading_line
+    assert mpf is not None and "올해 丙午년은" not in mpf.simple_reading_line
+    assert mpf.simple_reading_line.startswith("간단히 봤을 때, 戊戌월은")
+    assert "되풀이 금지" in SIMPLE_READING_USAGE_RULE
+    assert "그 달·그 날에 집중" in SIMPLE_READING_USAGE_RULE
     assert SIMPLE_READING_HEADER.startswith("[단식 참고") and "그대로" in SIMPLE_READING_USAGE_RULE
     from saju_engines.context_reducer import SIMPLE_READING_DIRECTION_RULE
 

@@ -261,10 +261,11 @@ def simple_reference_line(
     """채팅·테마사주 참고 문단(§26-3) — 용어 허용 경로. 호출자는 이 문단을 **그대로** 싣는다.
 
     - year: "간단히 봤을 때, 丙午년은 무(戊) 일간에게 인성(편인·정인) 결이에요. {year_tone}"
-    - month(2026-11-08 실답 교정 — 원문 단식의 '10월' 서술은 그 달 십성이 아니라 **올해 결이 가장
-      세지는 달**이라는 세운 기반이었다): 그 달 결 1문장 + 올해 결(`year_ganji` 기준) + 그 달이
-      절정 달이면 절정 문장. year_ganji 가 없으면 그 달 결만.
-    - day: 그 날 결 1문장 + 올해 결 한 줄.
+    - month / day(2026-11-08 2차 실답 교정 — 데굴님 "이달 운세를 물었는데 올해 흐름을 계속 반복해
+      올해 내용인지 이달 내용인지 헛갈린다"): **그 달/그 날에 집중** — 결 이름 1문장 + 운 천간 십성
+      장면 + 운 지지 십성 장면(§27 `god_points` 1·3번째). 올해 결 문장은 싣지 않고, 그 달이 올해
+      결이 가장 세지는 달일 때만 절정 문장 1개(`year_ganji` 필요)를 붙인다. 같은 군이면 강조 1문장.
+      v1.19 사전(god_scene 없음)은 종전대로 그 달 결(`tone`) 1문장.
     끝에 참고 안내 1문장. 일간·간지가 비었거나 사전이 없으면 빈 문자열(호출자는 줄을 생략한다).
     """
     if not day_master or horizon not in HORIZONS:
@@ -284,31 +285,24 @@ def simple_reference_line(
     sr = simple_reading(dm, stem, branch, horizon, simple, month_layer)
     unit, noun = _UNIT_KO[horizon], _NOUN_KO[horizon]
     who = f"{STEM_KO[dm]}({dm.value}) 일간에게"
-    year = _parse_ganji(year_ganji) if horizon != "year" else None
-    parts: list[str] = []
-    if year is None:
-        parts.append(f"{prefix} {ganji}{unit}은 {who} {_desc(sr, noun)}{_copula(noun)}.")
+    parts: list[str] = [f"{prefix} {ganji}{unit}은 {who} {_desc(sr, noun)}{_copula(noun)}."]
+    if horizon == "year":
         if sr.tone:
             parts.append(sr.tone)
-    else:
-        ys, yb = year
-        yr = simple_reading(dm, ys, yb, "year", simple, month_layer)
-        # 달·해를 한 문장으로 묶고 → 올해 결 → (절정 달) → 이 달만 따로 본 결 순(2026-11-08 실답:
-        # 짧은 문장을 이어 붙인 티가 났다).
-        parts.append(
-            f"{prefix} {ganji}{unit}은 {who} {_desc(sr, noun)}이고, "
-            f"올해 {year_ganji}년은 {_desc(yr, '해')}{_copula('해')}."
-        )
-        parts.append(yr.tone)
-        if horizon == "month" and any(b == branch for _, b in peak_month_entries(dm, ys, yb)):
-            peak = peak_month_line(dm, ys, yb, simple)
-            if peak:
-                parts.append(f"그중 이 달은 올해 결이 가장 세지는 달이에요. {peak}")
-        # 이 달/오늘만 따로 본 결 — v1.20 부터 십성 장면(천간 십성 첫 축)이라 비견·겁재가 갈린다.
-        own = sr.points[0] if simple.get("god_scene") else sr.tone
-        if own:
-            scope = "이 달만 따로 보면" if horizon == "month" else "오늘만 따로 보면"
-            parts.append(f"{scope} {own[0].lower() + own[1:]}".rstrip())
+    elif simple.get("god_scene"):
+        # 그 달/그 날에 집중 — 천간 십성 장면 + 지지 십성 장면(§27). 올해 결은 싣지 않는다.
+        parts.extend((sr.points[0], sr.points[2]))
+        if sr.emphasis:
+            parts.append(sr.emphasis)
+        year = _parse_ganji(year_ganji)
+        if horizon == "month" and year is not None:
+            ys, yb = year
+            if any(b == branch for _, b in peak_month_entries(dm, ys, yb)):
+                peak = peak_month_line(dm, ys, yb, simple)
+                if peak:
+                    parts.append(f"올해 결이 가장 세지는 달이기도 해요. {peak}")
+    elif sr.tone:
+        parts.append(sr.tone)
     parts.append(_REFERENCE_SUFFIX)
     return " ".join(p for p in parts if p)
 
