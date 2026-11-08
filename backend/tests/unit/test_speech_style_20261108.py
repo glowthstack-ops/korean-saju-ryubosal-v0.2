@@ -11,7 +11,7 @@ import pytest
 from saju_engines.speech_style import has_haeyo_ending, restyle, restyle_sentence
 
 _DICT = Path(__file__).resolve().parents[2] / "dictionaries" / "daily_fortune"
-_SKIP_META = {"since", "decision_ref", "note", "group_axes"}
+_SKIP_META = {"since", "decision_ref", "note", "group_axes", "god_axes"}
 _NO_ENDING_OK = ("늦게", "짧게", "꼼꼼히", "—")
 
 

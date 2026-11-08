@@ -25,7 +25,7 @@ from saju_shared_types.daily_fortune import (
 )
 from saju_shared_types.enums import Branch, Stem
 
-_FIRST = SIMPLE_LAYER_EFFECTIVE_FROM  # dict.v1.19 — 단식 결 층 이후 계약(2026-11-08, 丙午년 己亥월)
+_FIRST = SIMPLE_LAYER_EFFECTIVE_FROM  # 단식 결 층 이후 계약(2026-11-08, 丙午년 己亥월) — 당일 v1.20
 _PREV = STAGE_DIRECTION_EFFECTIVE_FROM  # dict.v1.18 — 직전 계약
 
 
@@ -57,8 +57,8 @@ def board() -> DailyFortuneBoard:
 
 
 def test_version_boundary() -> None:
-    assert DICT_VERSION == "dict.v1.19"
-    assert active_dict_version(_FIRST) == "dict.v1.19"
+    assert DICT_VERSION == "dict.v1.20"
+    assert active_dict_version(_FIRST) == "dict.v1.20"
     assert active_dict_version(_FIRST - dt.timedelta(days=1)) == "dict.v1.18"
 
 
@@ -66,19 +66,24 @@ def test_layer_coverage() -> None:
     s = _simple()
     pairs = {f"{a}+{b}" for a in S.GROUPS for b in S.GROUPS}
     assert set(s["year_tone"]) == pairs
-    assert set(s["group_scene"]) == set(S.GROUPS)
-    for g in S.GROUPS:
-        assert set(s["group_scene"][g]) == set(S.AXES)
-        assert len(s["group_axes"][g]) == 3 and set(s["group_axes"][g]) <= set(S.AXES)
+    assert "group_scene" not in s and "group_axes" not in s  # v1.20: 십성 단위로 교체(§27)
     for h in S.HORIZONS:
         assert set(s[f"{h}_same_group"]) == set(S.GROUPS)
     assert set(s["peak_month"]) == set(S.GROUPS)
     assert all("{months}" in v for v in s["peak_month"].values())
+    # v1.20(§27): 십성 10 × 영역 5 장면, 십성별 축 3, 일지 십성군 5 × 월운 천간 십성 10 자리 문장.
+    gods = set(S._GROUP_OF)
+    assert set(s["god_scene"]) == gods and set(s["god_axes"]) == gods
+    for g in gods:
+        assert set(s["god_scene"][g]) == set(S.AXES)
+        assert len(s["god_axes"][g]) == 3 and set(s["god_axes"][g]) <= set(S.AXES)
+    assert set(s["ilju_seat"]) == set(S.GROUPS)
+    assert all(set(v) == gods for v in s["ilju_seat"].values())
 
 
 def test_layer_sentences_pass_text_policy() -> None:
     s = _simple()
-    meta = ("since", "decision_ref", "note", "group_axes")
+    meta = ("since", "decision_ref", "note", "group_axes", "god_axes")
     sentences = _sentences({k: v for k, v in s.items() if k not in meta})
     assert len(sentences) == len(set(sentences))
     for sentence in sentences:
@@ -114,7 +119,11 @@ def test_mixed_year_has_no_emphasis_and_mixes_points() -> None:
     assert (sr.stem_group, sr.branch_group) == ("비겁", "식상")
     assert not sr.same_group and sr.emphasis is None
     s = _simple()
-    assert sr.points[2] == s["group_scene"]["식상"][s["group_axes"]["식상"][0]]
+    # v1.20: 포인트는 십성 단위 — 겁재 장면 2 + 식신 장면 1(천간이 쓴 영역과 안 겹치는 첫 축).
+    assert sr.points[0] == s["god_scene"]["겁재"][s["god_axes"]["겁재"][0]]
+    used = s["god_axes"]["겁재"][:2]
+    third = next(a for a in s["god_axes"]["식신"] if a not in used)
+    assert sr.points[2] == s["god_scene"]["식신"][third]
 
 
 def test_month_ganji_of_year_follows_wolgeon_rule() -> None:

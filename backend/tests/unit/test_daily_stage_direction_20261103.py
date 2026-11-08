@@ -43,7 +43,7 @@ def test_boundary_selects_direction_dict_and_model() -> None:
     assert not stage_direction_forward(_BEFORE) and stage_direction_forward(_FROM)
     assert active_dict_version(_BEFORE) == "dict.v1.17"
     assert active_dict_version(_FROM) == "dict.v1.18"  # 11/10 부터는 v1.19(단식 결 층 §26)
-    assert DICT_VERSION == "dict.v1.19"
+    assert DICT_VERSION == "dict.v1.20"
     assert active_model_v2_version(_BEFORE) == MODEL_V2_VERSION_BEFORE_STAGE_DIRECTION
     assert MODEL_V2_VERSION_BEFORE_STAGE_DIRECTION == "model.v2.2"
     assert active_model_v2_version(_FROM) == MODEL_V2_VERSION == "model.v2.3"
@@ -84,9 +84,19 @@ def test_month_common_line_carries_day_master_stage_and_label() -> None:
     layer = M.load_daily_dicts_for(_GIHAE).templates["month_layer"]
     gi = next(f for f in board.month_flow or [] if f.day_stem_ko == "기")
     assert layer["stem_stage"]["태"] in gi.common  # 己 → 亥 = 胎 (통설·간지달력과 동일)
-    assert layer["month_tone"]["비겁+재성"] in gi.common  # 己亥 = 비견 + 정재
-    # 巳亥충 · 卯亥 반합 · 丑未충(내년 세운 지지)
-    assert {n.ilju for n in gi.ilju_notes} == {"己巳", "己卯", "己丑"}
+    # v1.20(§27): 공통 줄은 군 결 대신 십성 장면(비견·정재) — 내년 연결 문장 없음.
+    simple = M.load_daily_dicts_for(_GIHAE).templates["simple_layer"]
+    assert simple["god_scene"]["비견"]["사람"] in gi.common
+    assert layer["month_tone"]["비겁+재성"] not in gi.common
+    assert "내년" not in gi.common
+    # 6일주 전부 — 巳亥충·卯亥 반합·未亥(왕지 없는 반합)은 관계 문장, 丑·酉·亥는 자리 문장.
+    assert [n.ilju for n in gi.ilju_notes] == ["己巳", "己卯", "己丑", "己亥", "己酉", "己未"]
+    notes = {n.ilju: n.note for n in gi.ilju_notes}
+    assert notes["己巳"] == layer["ilju_note"]["month_chung"]
+    assert notes["己卯"] == notes["己未"] == layer["ilju_note"]["month_samhap"]
+    assert notes["己丑"] == simple["ilju_seat"]["비겁"]["비견"]  # 丑 본기 己 = 비견 자리
+    assert notes["己亥"] == simple["ilju_seat"]["재성"]["비견"]  # 亥 본기 壬 = 정재 자리
+    assert not any("내년" in n for n in notes.values())
     assert board.month_label == "기해월(己亥) 11월 8일~12월 6일"
     assert board.next_month_label is None and gi.next_preview is None
 

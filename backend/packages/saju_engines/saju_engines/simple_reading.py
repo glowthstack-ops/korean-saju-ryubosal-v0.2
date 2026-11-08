@@ -117,17 +117,33 @@ def simple_reading(
         tone = scenes[0] if scenes else ""
     same = sg == bg
     emphasis = simple[f"{horizon}_same_group"][sg] if same else None
-    axes_s = list(simple["group_axes"][sg])
-    scene = simple["group_scene"]
-    if same:
-        points = tuple(scene[sg][a] for a in axes_s[:3])
-    else:
-        axes_b = list(simple["group_axes"][bg])
-        points = (scene[sg][axes_s[0]], scene[sg][axes_s[1]], scene[bg][axes_b[0]])
+    points = god_points(stem_god, branch_god, simple)
     return SimpleReading(
         stem_god=stem_god, branch_god=branch_god, stem_group=sg, branch_group=bg,
         same_group=same, tone=tone, emphasis=emphasis, points=points,
     )
+
+
+def god_points(stem_god: str, branch_god: str, simple: dict[str, Any]) -> tuple[str, ...]:
+    """체감 포인트 3줄 — 운 천간 십성 장면 2 + 운 지지 십성 장면 1(§27, dict.v1.20).
+
+    `god_scene`(10십성×5영역)이 있으면 십성 단위라 비견·겁재(식신·상관 …)가 다른 문장을 받는다
+    (데굴님 "묶으면 두 달씩 같은 내용"). 지지 장면의 영역은 천간이 쓴 두 영역과 겹치지 않는 첫 축.
+    v1.19 사전(`group_scene`)은 종전 군 단위로 폴백한다.
+    """
+    scene = simple.get("god_scene")
+    if scene:
+        axes_s = list(simple["god_axes"][stem_god])
+        axes_b = [a for a in simple["god_axes"][branch_god] if a not in axes_s[:2]]
+        third = axes_b[0] if axes_b else simple["god_axes"][branch_god][0]
+        return (scene[stem_god][axes_s[0]], scene[stem_god][axes_s[1]], scene[branch_god][third])
+    sg, bg = _GROUP_OF[stem_god], _GROUP_OF[branch_god]
+    axes_s = list(simple["group_axes"][sg])
+    gscene = simple["group_scene"]
+    if sg == bg:
+        return tuple(gscene[sg][a] for a in axes_s[:3])
+    axes_b = list(simple["group_axes"][bg])
+    return (gscene[sg][axes_s[0]], gscene[sg][axes_s[1]], gscene[bg][axes_b[0]])
 
 
 def month_ganji_of_year(year_stem: Stem) -> list[tuple[Stem, Branch, int]]:
@@ -288,9 +304,11 @@ def simple_reference_line(
             peak = peak_month_line(dm, ys, yb, simple)
             if peak:
                 parts.append(f"그중 이 달은 올해 결이 가장 세지는 달이에요. {peak}")
-        if sr.tone:
+        # 이 달/오늘만 따로 본 결 — v1.20 부터 십성 장면(천간 십성 첫 축)이라 비견·겁재가 갈린다.
+        own = sr.points[0] if simple.get("god_scene") else sr.tone
+        if own:
             scope = "이 달만 따로 보면" if horizon == "month" else "오늘만 따로 보면"
-            parts.append(f"{scope} {sr.tone[0].lower() + sr.tone[1:] if sr.tone else ''}".rstrip())
+            parts.append(f"{scope} {own[0].lower() + own[1:]}".rstrip())
     parts.append(_REFERENCE_SUFFIX)
     return " ".join(p for p in parts if p)
 
