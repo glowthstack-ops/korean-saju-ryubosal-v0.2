@@ -71,3 +71,10 @@ def test_cumulative_block_in_f14_data() -> None:
     assert any("오늘(2026년)의 누적 수준" in ln for ln in lines)
     block = "\n".join(data.life_graph_block())
     assert "[누적 흐름" in block and "[인생 그래프 데이터" in block
+    # 기준선(보통선) 구간·오늘 위치·앞으로의 대운 부호(2026-11-08).
+    from saju_engines.life_graph import baseline_phase_lines
+
+    phases = baseline_phase_lines(g)
+    assert any("기준선" in ln for ln in phases)
+    assert any(ln.startswith("- 오늘(2026년) 누적") for ln in phases)
+    assert any(ln.startswith("- 앞으로:") and "대운 평균" in ln for ln in phases)

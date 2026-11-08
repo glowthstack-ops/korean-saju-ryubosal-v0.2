@@ -214,7 +214,15 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
           )}
           {/* 세운 선 */}
           {yearPath && <path d={yearPath} fill="none" stroke="#1f2937" strokeWidth={1.2} opacity={0.85} />}
-          {/* 누적 운세선 — 쌓인 수준·기울기(주식 차트의 가격선) */}
+          {/* 누적 운세선 — 쌓인 수준·기울기(주식 차트의 가격선) + 기준선(누적 0 = 보통선) */}
+          {cumPath && cMin <= 0 && cMax >= 0 && (
+            <g>
+              <line x1={padL} x2={W - padR} y1={yC(0)} y2={yC(0)} stroke="#2563eb" strokeWidth={0.8} strokeDasharray="1 3" opacity={0.7} />
+              <text x={W - padR - 2} y={yC(0) - 3} textAnchor="end" fontSize="9" fill="#2563eb">
+                보통선
+              </text>
+            </g>
+          )}
           {cumPath && (
             <path d={cumPath} fill="none" stroke="#2563eb" strokeWidth={1.8} strokeDasharray="6 3" opacity={0.9} />
           )}
@@ -285,7 +293,8 @@ export function LifeGraph({ data }: { data: LifeGraphData }) {
         <span>띠 = 대운(밝을수록 좋은 흐름) · 선 = 해마다의 운</span>
         {cumPath && (
           <span style={{ color: "#2563eb" }}>
-            점선 = 누적 운세선(해마다의 운을 쌓아 온 선 — 올라가면 이전보다 좋아지는 중, ↗↘→ = 대운 추세)
+            점선 = 누적 운세선(해마다의 운을 쌓아 온 선 — 올라가면 이전보다 좋아지는 중, 보통선 위면 쌓인
+            운이 플러스, ↗↘→ = 대운 추세)
           </span>
         )}
         {kindsPresent.map((k) => (

@@ -307,11 +307,69 @@ def cumulative_lines(graph: LifeGraph) -> list[str]:
             f"- 누적 최고점 {graph.cumulative_peak_year}년 · "
             f"누적 최저점 {graph.cumulative_low_year}년"
         )
+    out += baseline_phase_lines(graph)
     if graph.today_cumulative_percentile is not None and graph.today_year is not None:
         out.append(
             f"- 오늘({graph.today_year}년)의 누적 수준은 생애 연도 중 상위 "
             f"{100 - graph.today_cumulative_percentile}% 지점"
         )
+    return out
+
+
+def baseline_phase_lines(graph: LifeGraph) -> list[str]:
+    """기준선(누적 0 = 운이 쌓이지도 깎이지도 않은 보통선) 대비 구간 서술(2026-11-08 데굴님
+    "남들보다 못한 바닥에서 시작해 지난 대운에서 보통선에 도달, 앞으로 나아진다는 해석" 대조용).
+
+    - 기준선 아래 구간(연도 범위·최저점), 기준선 위 구간, 아래→위 회복 연도(또는 미회복).
+    - 오늘 위치(기준선 위/아래, 값)와 앞으로의 대운(평균 부호 → 나아지는지/내려가는지).
+    설명용 산술 — 점수는 불변이며 명리 판정이 아니다. years 가 없으면 빈 목록.
+    """
+    years = graph.years
+    if not years:
+        return []
+    below = [y for y in years if y.cumulative < 0]
+    above = [y for y in years if y.cumulative >= 0]
+    out: list[str] = []
+    if below and above:
+        b0, b1 = min(b.year for b in below), max(b.year for b in below)
+        a0, a1 = min(a.year for a in above), max(a.year for a in above)
+        out.append(
+            f"- 기준선(누적 0, 보통선) 아래 구간: {b0}–{b1}년({len(below)}년) · "
+            f"위 구간: {a0}–{a1}년({len(above)}년)"
+        )
+    elif below:
+        out.append(
+            f"- 생애 내내 기준선(누적 0, 보통선) 아래 — 최저점 {graph.cumulative_low_year}년"
+        )
+    else:
+        out.append(f"- 생애 내내 기준선(누적 0, 보통선) 위 — 최고점 {graph.cumulative_peak_year}년")
+    recover = [
+        y.year for prev, y in zip(years, years[1:], strict=False)
+        if prev.cumulative < 0 <= y.cumulative
+    ]
+    if recover:
+        out.append(f"- 기준선 회복 연도(아래→위): {', '.join(str(v) for v in recover)}년")
+    if graph.today_year is not None:
+        today = next((y for y in years if y.year == graph.today_year), None)
+        if today is not None:
+            pos = "위" if today.cumulative >= 0 else "아래"
+            out.append(f"- 오늘({today.year}년) 누적 {today.cumulative:+.2f} → 기준선 {pos}")
+        future = [d for d in graph.daewoons if d.status == "future"]
+        if future:
+            desc = " · ".join(
+                f"{d.ganji} {d.start_age}–{d.end_age}세 {d.mean_total:+.2f}({d.trend})"
+                for d in future
+            )
+            rising = sum(1 for d in future if d.mean_total > 0)
+            if rising == len(future):
+                verdict = "앞으로의 대운 평균이 전부 양(+) — 쌓인 운이 계속 올라가는 쪽"
+            elif rising == 0:
+                verdict = "앞으로의 대운 평균이 전부 음(−) — 쌓인 운이 더 내려가는 쪽"
+            else:
+                verdict = (
+                    f"앞으로의 대운 {len(future)}개 중 {rising}개가 양(+) — 오르내림이 섞인 쪽"
+                )
+            out.append(f"- 앞으로: {desc} → {verdict}")
     return out
 
 
