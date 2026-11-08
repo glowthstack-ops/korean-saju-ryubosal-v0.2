@@ -225,10 +225,94 @@ def build_life_graph(
         build_positive_windows(pool, lo_year, today_year, hi_year)
         if today_year is not None else []
     )
-    return LifeGraph(
+    graph = LifeGraph(
         birth_year=lo_year, end_year=hi_year, today_year=today_year, current_daewoon_index=cur,
         daewoons=daewoons, years=years, markers=all_markers, positive_windows=windows,
     )
+    _attach_cumulative(graph)  # 누적 운세선·대운 추세(설명용 산술, 2026-11-08)
+    return graph
+
+
+#: 대운 추세 라벨 임계 — (세운+대운) 연 평균의 직전 대운 대비 차이. 점수 척도가 대략 −1~+1 이라 0.1.
+TREND_EPS = 0.1
+
+
+def _attach_cumulative(graph: LifeGraph) -> None:
+    """누적 운세선·대운 추세·생애 분위를 채운다(제자리, docs/10 §3-1 '누적 운세선', 2026-11-08).
+
+    연도 총점 = 세운 점수 + 그 해가 속한 대운 점수(첫 대운 페이지는 출생~유년 포함). 누적 =
+    출생부터의 합. 대운 추세 = 그 대운 연도 총점 평균 − 직전 대운 평균(TREND_EPS 기준
+    상승/하강/보합, 첫 대운은 '시작'). 주식 차트의 가격선처럼 '이전보다 좋아지는지'를 보이기 위한
+    **설명용 산술**이며 명리 판정이 아니다(점수·마커·창은 불변).
+    """
+    band_score: dict[int, float] = {}
+    band_index: dict[int, int] = {}
+    for d in graph.daewoons:
+        for y in range(d.start_year, d.end_year + 1):
+            band_score[y] = d.score
+            band_index[y] = d.index
+    total_by_year: dict[int, float] = {}
+    running = 0.0
+    for yr in graph.years:
+        total = yr.score + band_score.get(yr.year, 0.0)
+        total_by_year[yr.year] = total
+        running += total
+        yr.cumulative = round(running, 3)
+    prev_mean: float | None = None
+    for d in graph.daewoons:
+        totals = [
+            total_by_year[y] for y in range(d.start_year, d.end_year + 1) if y in total_by_year
+        ]
+        mean = sum(totals) / len(totals) if totals else 0.0
+        d.mean_total = round(mean, 3)
+        if prev_mean is None:
+            d.trend, d.trend_delta = "시작", None
+        else:
+            delta = mean - prev_mean
+            d.trend_delta = round(delta, 3)
+            d.trend = "상승" if delta > TREND_EPS else "하강" if delta < -TREND_EPS else "보합"
+        prev_mean = mean
+    if graph.years:
+        peak = max(graph.years, key=lambda y: y.cumulative)
+        low = min(graph.years, key=lambda y: y.cumulative)
+        graph.cumulative_peak_year, graph.cumulative_low_year = peak.year, low.year
+        if graph.today_year is not None:
+            today = next((y for y in graph.years if y.year == graph.today_year), None)
+            if today is not None:
+                below = sum(1 for y in graph.years if y.cumulative < today.cumulative)
+                graph.today_cumulative_percentile = round(100 * below / len(graph.years))
+
+
+def cumulative_lines(graph: LifeGraph) -> list[str]:
+    """[누적 흐름] 블록 — F-14 해설용. 대운별 평균·직전 대비·추세와 생애 최고/최저·오늘 분위."""
+    if not graph.daewoons or not graph.years:
+        return []
+    status_ko = {"past": "지남", "current": "현재", "future": "예정", "unknown": ""}
+    out = [
+        "[누적 흐름 — 누적 운세선(점선)은 해마다의 운 점수에 소속 대운 점수를 더해 출생부터 쌓은 "
+        "선이다(주식 차트의 가격선처럼 높이=쌓인 수준, 기울기=이전보다 좋아지는지). 설명용 "
+        "산술이며 "
+        "명리 판정이 아니다 — 아래 수치·구간만 쓰고 '이전보다 좋아지는 중/나빠지는 중/비슷'은 추세 "
+        "라벨 그대로 쓸 것]",
+    ]
+    for d in graph.daewoons:
+        tag = status_ko.get(d.status, "")
+        delta = "" if d.trend_delta is None else f", 직전 대운 대비 {d.trend_delta:+.2f}"
+        out.append(
+            f"- {d.ganji} {d.start_age}–{d.end_age}세({d.start_year}–{d.end_year}년)"
+            f"{' [' + tag + ']' if tag else ''}: 연 평균 {d.mean_total:+.2f}{delta} → {d.trend}"
+        )
+    if graph.cumulative_peak_year is not None and graph.cumulative_low_year is not None:
+        out.append(
+            f"- 누적 최고점 {graph.cumulative_peak_year}년 · "
+            f"누적 최저점 {graph.cumulative_low_year}년"
+        )
+    if graph.today_cumulative_percentile is not None and graph.today_year is not None:
+        out.append(
+            f"- 오늘({graph.today_year}년)의 누적 수준은 생애 연도 중 상위 "
+            f"{100 - graph.today_cumulative_percentile}% 지점"
+        )
+    return out
 
 
 def when_tag(year: int, today_year: int | None) -> str:

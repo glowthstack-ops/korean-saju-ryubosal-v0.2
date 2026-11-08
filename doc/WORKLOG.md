@@ -13446,3 +13446,9 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - **반영:** ① `simple_layer` 전 문장(연 25·체감 25·절정 5)을 "발판이 되는 쪽이면 … / 소모가 되는 쪽이면 …" 두 갈래로 재작성(dict.v1.19 제자리·스냅샷 재빌드, 11/10 전 미노출) ② 패널 하단 `direction_note`(`DailyFortuneBoard.year_direction_note`) — 일주 버킷은 판정하지 않고 "어느 쪽인지는 내 명식 기준 → AI 채팅상담·테마사주" 안내 ③ 채팅·테마 `SIMPLE_READING_DIRECTION_RULE` — '다만 이 명식에서는' 문단은 운 천간·지지 역할로 **방향만**(용신·희신=발판·계기, 기신·구신=소모·부담, 한신=생하는 대상, 사건 미화·결과 확정 금지, 사건 종류 불변). docs/17 §26-5.
 - **테스트:** `test_simple_reading_layer_20261108` +1(연 결 25개 전부 두 갈래·기준 줄)·보드 기준 줄·방향 규칙 상수.
 
+## 2026-11-08 — 총운 인생 그래프 누적 운세선(주식 차트형) (데굴님 "이전보다 좋아지는 운인지 나쁜 운인지 알 수 없다 — 누적치 반영" · "주식 차트 같은 거지")
+
+- **문제:** 해마다의 운 선은 독립 점수라 '지금이 이전보다 좋아지는 흐름인지'가 안 보였다.
+- **반영(설명용 산술, 명리 판정 아님 — 점수·마커·창 불변):** 연도 총점 = 세운 점수 + 소속 대운 점수, `LifeGraphYear.cumulative` = 출생부터의 누적(가격선). `LifeGraphDaewoon.mean_total/trend_delta/trend`(직전 대운 대비 상승/하강/보합, `TREND_EPS` 0.1, 첫 대운 '시작'), `LifeGraph.cumulative_peak_year/low_year/today_cumulative_percentile`. `life_graph._attach_cumulative`·`cumulative_lines` → `[누적 흐름]` 블록을 `life_graph_block`에 포함, F-14 지시에 "누적 운세선의 추세 라벨·수치로 이전 대운보다 좋아지는지 한 문장(라벨 밖 판단 금지)". 프론트 `LifeGraph.tsx`: 파란 점선(자체 척도)·대운 라벨 옆 ↗↘→·범례. docs/10 §3-1 '누적 운세선'.
+- **테스트:** `tests/unit/test_life_graph_cumulative_20261108.py` 3건(누적=세운+대운 누계 불변식·추세 라벨 산식·블록 포함). 기존 총운 v3 테스트 통과.
+- **게이트:** 아래 기록.
