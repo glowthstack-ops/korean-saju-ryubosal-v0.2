@@ -67,6 +67,22 @@ def test_minor_layer_only_suppressed() -> None:
 
 
 def test_conflict_prefer_over() -> None:
+    """프로필 무관 규칙(effect=score) — 이사 선호 +6 / 계약 −10 은 종전대로."""
+    e = _eng()
+    prefer = EventCandidateV2(event_key="relocation", period="2026", score=55)
+    over = EventCandidateV2(event_key="contract_document", period="2026", score=58)
+    ctx = RankContext(flags={
+        "day_branch_activated", "resource_or_wealth_signal", "relocation_relation_signal_exists",
+    })
+    out = e.rank([prefer, over], ctx)
+    by = {str(c.event_key): c for c in out}
+    assert by["relocation"].score > by["contract_document"].score
+    assert "CONFLICT_prefer_relocation" in by["relocation"].reason_codes
+    assert "CONFLICT_over_relocation" in by["contract_document"].reason_codes
+
+
+def test_profile_conflict_rule_is_tag_only() -> None:
+    """프로필 상태 조건 규칙(effect=tag, 2026-11-08) — 점수 불변, reason 태그만."""
     e = _eng()
     prefer = EventCandidateV2(event_key="relationship_change", period="2026", score=55)
     over = EventCandidateV2(event_key="contract_document", period="2026", score=58)
@@ -75,8 +91,10 @@ def test_conflict_prefer_over() -> None:
     })
     out = e.rank([prefer, over], ctx)
     by = {str(c.event_key): c for c in out}
-    assert by["relationship_change"].score > by["contract_document"].score
+    assert by["relationship_change"].score == 55 and by["contract_document"].score == 58
     assert "CONFLICT_prefer_relationship_change" in by["relationship_change"].reason_codes
+    assert "CONFLICT_over_relationship_change" in by["contract_document"].reason_codes
+    assert by["relationship_change"].contributions.get("rank", 0.0) == 0.0
 
 
 def test_diffuse_group_flag() -> None:

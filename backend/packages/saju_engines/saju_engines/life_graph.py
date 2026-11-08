@@ -52,9 +52,9 @@ _EVENT_TO_KIND: dict[str, MarkerKind] = {
     "job_gain": MarkerKind.JOB,
     "career_change": MarkerKind.CAREER_CHANGE,
     "relocation": MarkerKind.RELOCATION,
-    # 인연(2026-11-07): 미혼 프로필 게이트가 결혼 점수를 낮게 시작시키므로 '만남·관계 형성' 층을
-    # 따로 보여 준다(참고 풀이 "27년까지 인연 유리"와 정합). 주의 방향 관계 변동은 갈등이라
-    # 제외(_marker_kind).
+    # 인연(2026-11-07): 결혼 신호와 별개로 '만남·관계 형성' 층을 따로 보여 준다(참고 풀이
+    # "27년까지 인연 유리"와 정합 — 도입 계기였던 미혼 게이트 −12 는 같은 날 폐지됐고, 인연 층은
+    # 결혼 점수와 무관한 독립 마커로 유지). 주의 방향 관계 변동은 갈등이라 제외(_marker_kind).
     "new_relationship": MarkerKind.ROMANCE,
     "relationship_change": MarkerKind.ROMANCE,
     "health_attention": MarkerKind.CRISIS_HEALTH,

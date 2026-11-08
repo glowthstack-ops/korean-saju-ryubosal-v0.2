@@ -6056,6 +6056,7 @@ def chat(
             occupation_status=occupation_status,
             relationship_status=relationship_status,
             occupation_category=occupation_category,
+            today=today,
         )
         # 요청 로컬 위험 스냅샷(감수 62차 P0③) — 본 요청 1차 대상의 주 채점
         # 직후 즉시 확보(불변 tuple). 싱글턴 scorer.risk_shadow는 이후의 보조
@@ -6290,6 +6291,7 @@ def chat(
                     occupation_status=occupation_status,
                     relationship_status=relationship_status,
                     occupation_category=occupation_category,
+                    today=today,
                 )
 
     # 전 생애/단계 스캔 — 대상 창(단계 나이→연도)의 연 단위 세운을 조립해 이벤트를
@@ -6323,6 +6325,7 @@ def chat(
             occupation_status=occupation_status,
             relationship_status=relationship_status,
             occupation_category=occupation_category,
+            today=today,
         )
         default_period = (str(_lt_lo_y), str(_lt_hi_y))
         _logger.info(
@@ -6434,6 +6437,7 @@ def chat(
                     occupation_status=occupation_status,
                     relationship_status=relationship_status,
                     occupation_category=occupation_category,
+                    today=today,
                 )
                 _seen_far = {(c.event_key, c.period) for c in all_scored}
                 all_scored = all_scored + [
@@ -6806,7 +6810,7 @@ def chat(
         structural = structural + variant_branching.variant_candidate_blocks(
             result, chart_birth, scorer=_get_scorer(), base_candidates=candidates,
             fav_override=_fav_override, occupation_status=occupation_status,
-            relationship_status=relationship_status,
+            relationship_status=relationship_status, today=today,
         )
     # 막연한 시점 → 10년 연 단위 흐름의 대운 배경·교운기를 구조 블록에 실어 LLM이 반영하게 한다.
     if structural is not None and vague_future and year_digest_years:

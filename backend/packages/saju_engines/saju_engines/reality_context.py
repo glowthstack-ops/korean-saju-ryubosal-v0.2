@@ -45,7 +45,12 @@ class RealityContext:
 def apply_life_fit(
     candidates: list[EventCandidateV2], ctx: RealityContext | None
 ) -> list[EventCandidateV2]:
-    """맥락에 맞는 후보의 life_fit을 올린다(미입력=무보정)."""
+    """맥락에 맞는 후보의 life_fit을 올린다(미입력=무보정).
+
+    2026-11-08 감사: 운영 호출자(chat_service·report_service)는 `reality_context` 를 넘기지 않아
+    아래 직업·교제 상태 분기는 실행되지 않는다(미배선). 배선하면 LEI 정렬축(life_fit)이 바뀌므로
+    별도 승인 후에만 연결한다.
+    """
     if ctx is None or ctx.is_empty():
         return candidates
     fit: dict[EventKeyV2, float] = {}

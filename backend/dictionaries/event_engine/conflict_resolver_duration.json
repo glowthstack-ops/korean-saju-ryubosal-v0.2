@@ -5,13 +5,14 @@
   "event_conflict_resolver": {
     "purpose": "같은 신호가 여러 이벤트로 튈 때 최종 대표 이벤트를 결정한다.",
     "priority_rules": [
-      {"if": ["day_branch_activated", "wealth_or_authority_signal", "relationship_context_exists"], "prefer": "relationship_change", "over": ["contract_document", "wealth_change"]},
-      {"if": ["day_branch_activated", "resource_or_wealth_signal", "relocation_relation_signal_exists"], "prefer": "relocation", "over": ["contract_document"]},
-      {"if": ["month_pillar_activated", "authority_or_output_signal", "career_context_exists"], "prefer": "career_change", "over": ["social_conflict", "contract_document"]},
-      {"if": ["hour_pillar_activated", "output_signal", "childbirth_profile_gate_false"], "prefer": "creative_output", "over": ["childbirth"]},
-      {"if": ["wealth_signal", "peer_signal", "no_business_context"], "prefer": "wealth_change", "over": ["business_start"]}
+      {"if": ["day_branch_activated", "wealth_or_authority_signal", "relationship_context_exists"], "prefer": "relationship_change", "over": ["contract_document", "wealth_change"], "effect": "tag"},
+      {"if": ["day_branch_activated", "resource_or_wealth_signal", "relocation_relation_signal_exists"], "prefer": "relocation", "over": ["contract_document"], "effect": "score"},
+      {"if": ["month_pillar_activated", "authority_or_output_signal", "career_context_exists"], "prefer": "career_change", "over": ["social_conflict", "contract_document"], "effect": "tag"},
+      {"if": ["hour_pillar_activated", "output_signal", "childbirth_profile_gate_false"], "prefer": "creative_output", "over": ["childbirth"], "effect": "tag"},
+      {"if": ["wealth_signal", "peer_signal", "no_business_context"], "prefer": "wealth_change", "over": ["business_start"], "effect": "tag"}
     ],
-    "tie_breaker": "동점·근접 시 evidence_grading 등급이 높은 후보 우선, 등급도 같으면 질문 의도(intent_event_filter) include 후보 우선."
+    "tie_breaker": "동점·근접 시 evidence_grading 등급이 높은 후보 우선, 등급도 같으면 질문 의도(intent_event_filter) include 후보 우선.",
+    "effect_note": "effect=score: prefer +6 / over −10(종전). effect=tag: 점수 불변, CONFLICT_prefer_*·CONFLICT_over_* reason 만 부여(2026-11-08 데굴님 결정 — 프로필 상태는 사건 종류 해석을 바꾸는 근거이지 가능성을 깎는 근거가 아니다. 교제·기혼→재물·계약 −10, 재직→분쟁·계약 −10, 비사업자→사업 시작 −10, 상대 없음→창작 +6 모두 측정 근거 없는 상태 가감이었다). career_context_exists 는 사업자 제외(사업자에게 '이직' 선호는 종류부터 맞지 않음)."
   },
   "event_duration_classifier": {
     "purpose": "사건을 즉효성, 진행형, 결과형, 구조형, 반복형으로 분류한다(일운 풀이의 과잉 해석 방지).",

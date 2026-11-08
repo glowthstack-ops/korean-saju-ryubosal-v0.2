@@ -52,6 +52,13 @@ _REASON_PREFIX_KO: dict[str, str] = {
         "종살에 역행하는 인성 천간이 원국과 합거로 묶임 — 역행 경향만 표기(강도 조정 없음)"
     ),
     "PROFILE_public_official": "공직 발령·전보",
+    # 충돌 해결 태그(2026-11-08, effect=tag) — 프로필 상태에 맞는 사건 종류 해석 유도(점수 무관).
+    "CONFLICT_prefer_relationship_change": "교제·기혼 프로필 — 같은 신호를 지금 관계 흐름으로 읽음",
+    "CONFLICT_prefer_career_change": "재직·프리랜서 프로필 — 같은 신호를 이직·직무 변화로 읽음",
+    "CONFLICT_prefer_wealth_change": "비사업자 프로필 — 같은 신호를 사업 시작보다 재물 변동으로",
+    "CONFLICT_prefer_creative_output": "상대 확인 안 됨 — 출산보다 결과물·프로젝트로 읽음",
+    "CONFLICT_prefer_relocation": "일지 활성 + 인성·재성 — 계약보다 이사·이동이 대표",
+    "CONFLICT_over_": "같은 신호의 보조 해석(대표 사건에 종속)",
     # 개인 이력(Life Event Inference) — 과거 확인 사건과의 일치·반복(2026-10-22 라벨 등록).
     "PERSONAL_MATCH": "개인 이력 일치(과거 확인 사건과 같은 신호 유형)",
     "PERSONAL_SEED": "개인 이력 반복 시드(사주 신호가 약해도 되풀이된 사건)",

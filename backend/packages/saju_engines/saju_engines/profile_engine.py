@@ -176,10 +176,14 @@ def derive_occupation_status(
     return None
 
 
-# 혼인 상태 → user_profile_event_gate relationship_status(사별은 새 인연 가능 → single).
+# 혼인 상태 → user_profile_event_gate relationship_status.
+# 2026-11-08 의미 통일: 별거는 법적 배우자가 있으므로 기혼 계열(married) — 결혼·새 인연 신호는
+# 배우자·가정 이슈로, 출산 신호는 그대로. 종전 'divorced'(상대 없음) 매핑은 marital_routing(M02
+# 기혼 계열)·리포트 배우자 디렉티브(미혼형)와 모듈마다 달랐다. 사별은 새 인연 가능 → single
+# (라우팅은 M02_REMARRIAGE 로 재혼 프레임).
 _MARITAL_STATUS: dict[str, str] = {
     "미혼": "single", "연애중": "dating", "기혼": "married", "재혼": "married",
-    "별거": "divorced", "이혼": "divorced", "사별": "single",
+    "별거": "married", "이혼": "divorced", "사별": "single",
 }
 
 
@@ -252,6 +256,9 @@ class OccupationTaxonomy:
 
 def marital_routing(marital_status: str | None, domain: str) -> dict:
     """M01/M02 분기 — '미혼' 가정 금지(모호하면 확인 질문).
+
+    2026-11-08 감사: 운영 경로(chat_service·report_service)에 호출자가 없다 — docs/11 4장의
+    "모호하면 확인 질문"은 이 함수로는 미구현 상태. 배선은 UX 변경이라 별도 승인 사항.
 
     Returns:
         {'module','needs_confirmation','confirm_question'?}.

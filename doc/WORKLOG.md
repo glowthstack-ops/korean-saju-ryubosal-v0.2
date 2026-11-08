@@ -13386,3 +13386,29 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - **원인·교정:** ①`test_relation_phrase_pairwise` 4건 — 채팅 간지달력 대운 줄 접미 "[배우자성 대운 …]"이 비연애 프레임 가드(`'[배우자성' not in prompt`)에 걸림 → 블록이 아니라 행 접미이므로 괄호 표기(`PARTNER_STAR_DAEWOON_TAG`) ②`test_event_taxonomy_v2` 2건 — 궁위별 합 라벨 도입에 따른 기대값 갱신 ③`test_entry_slots_assignment` 1건 — 결혼 실험 ON 뒤 2027-04 최상위 사건이 '계약·문서'→'결혼 신호'로 바뀐 스냅샷 → 최상위 사건명 가변(정규식), 검증 대상은 '질문 사건 격하 금지' 처리.
 - **교훈:** 표적 테스트만 돌리고 푸시해 CI에서 잡혔다 — 직렬화 라벨·프롬프트 접미처럼 전역 문자열을 바꾸면 전체 스위트를 먼저 돌린다.
 - **게이트:** `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(start=end head 350fb8a, 지문 동일, exit 0) · `All checks passed` · `production mypy gate clean`.
+
+## 2026-11-08 — 개인 상태(혼인·직업) 점수 개입 전면 검수 + 결함 4건·보강 3건 반영 (데굴님 "어제 결혼 관련 상태 점수 차감 방식을 보니 재점검 필요 — 전면 검수" → "전부 진행하자")
+
+- **배경:** 11-07 미혼 −12 폐지·기혼 전환 뒤, 개인 상태가 점수·사건 종류에 개입하는 지점을 백엔드 전수(10곳)로 모아 검수했다. 프로필이 점수를 직접 깎는 곳은 없고(게이트는 전환·태그만, 충돌 해결기 +6/−10 만 남음), **적용 방식**에 결함이 있었다.
+- **결함·교정:**
+  1. **현재 상태를 과거 연도에 적용** — 총운 인생 그래프 전 생애 풀(`report_service` lifetime_pool)·채팅 전 생애/단계 스캔이 현재 혼인·직업 상태를 출생~90세 전 연도에 넘겨, 기혼자의 실제 결혼 해 결혼 신호가 관계 이슈로(≥65면 '배우자 외 인연 경계' 태그까지), 재직자의 첫 취업 해가 승진으로 바뀌어 결혼·취업 마커가 사라졌다. → `GateContext.today_year` + `addendum_gate_modifier.is_past_period/period_end_year`('2026'·'2026-06'·'2024~2033'·'2024–2033'), 끝 연도 < 오늘 연도면 프로필 분기(출산→창작·PROFILE_*)·충돌 해결기 프로필 플래그(`_rank_context(profile_active=)`) 미적용. `EventEngineV2.score/score_years/score_legacy*/score_legacy_personalized(today=)` → 채팅 4곳·리포트 2곳·`variant_branching` 이 요청 `today` 전달(없으면 date.today()).
+  2. **병합 시 전환 태그 유실** — `_merge_and_sort` 가 이기는 쪽이 바뀐 후보일 때만 reason 을 합쳐, 전환된 결혼 후보가 기존 관계 이슈보다 낮으면 `PROFILE_marriage_to_change`·경계 태그가 사라졌다. → 승패 무관 합집합(점수·방향·타이밍은 이기는 쪽).
+  3. **미입력≠중립** — `no_business_context` 가 직업 None 에도 세워져 재성+비겁 때 사업 시작 −10(채팅은 발화 파생 business_owner 로 우회, 리포트는 우회 없음). → 직업이 입력된 비사업자에게만. 출산→창작의 미입력 적용은 사전 명시 규칙(출산 확정 금지 우선)이라 유지·주석.
+  4. **별거·사별 의미 불일치** — 별거가 게이트 divorced(상대 없음)·라우팅 M02(기혼 계열)·리포트 배우자 디렉티브 미혼형·shadow separated 로 모듈마다 달랐다. → 별거=married 로 통일(`profile_engine._MARITAL_STATUS`, `user_profile_event_gate.json`, 리포트 F-17/F-06b 디렉티브 '기혼·재혼·별거', `context_reducer` 해석 틀 문구). 사별=single 유지(라우팅은 M02_REMARRIAGE). DB 실측: 프로필 67건 중 혼인 35(기혼 16·미혼 13·연애중 3·이혼 2·별거 1)·직업 34.
+  5. **취업 보조 없음 −8 비대칭** — 원래 키 기준이라 재직자 승진 전환 후보에 '취업' 감점·라벨이 남고 무직자 이직→취업 후보엔 빠졌다. → 전환 **후** 키 기준(프로필 분기를 `_apply_profile_rules` 로 분리).
+  6. **사문 기록** — `reality_context.apply_life_fit` 직업·교제 분기(운영 호출자가 reality_context 미전달)·`marital_routing`(호출자 없음 → docs/11 "모호하면 확인 질문" 미구현)·충돌 규칙 `childbirth_profile_gate_false`(게이트가 먼저 전환해 무효) — 배선은 정렬축·UX 변경이라 docstring·주석으로 상태만 명시, 별도 승인 사항.
+  7. **문서 드리프트** — docs/11 4장 영향표에 occupation·maritalStatus 게이트 행 + 시점 가드 단락, docs/10 마커 7종 근거('미혼 게이트가 낮게 시작시키므로' → 폐지 반영), EXTERNAL_TEXT_GAP_MARRIAGE_TIMING_LECTURES §124 정정 주석, `life_graph.py` 인연 마커 주석, 사전 `time_scope`·`missing_profile_behavior`·`runtime_note`.
+- **테스트:** `tests/unit/test_profile_gate_audit_20261108.py` 11건(기간 파싱·과거 미적용 3·플래그 가드·병합 보존·None 중립·별거·감점 전환 후 기준) — 모두 종전 코드의 반례. 기존 게이트·랭커·결혼 레이어·총운 v3 테스트 통과.
+- **조정(1차 재생 후):** 출산→창작 안전 게이트(`GATE_childbirth_to_creative`)와 충돌 플래그 `childbirth_profile_gate_false`는 '상대 확인 안 됨'(미입력 포함)에 거는 안전 기본값(출산 확정 금지)이라 **시점 무관**으로 되돌림 — 시점 가드는 입력된 상태 분기(PROFILE_*)·`relationship/career/no_business_context` 플래그에만. 1차 재생에서 무프로필 과거 연도의 출산→창작 해제가 부수 효과로 보여 좁혔다. 정정: 출산 충돌 규칙은 사문이 아니다 — `over`(출산 −10)는 게이트가 먼저 바꿔 발동하지 않지만 `prefer`(창작 +6)는 창작 후보만 있어도 붙는 live 가산.
+- **측정(85사례 재생, 프로필 없음 → 3번 None 중립화만 영향):** 집계 15지표 전부 동일(쌍 일치 33/68·세운 14/44·대운 25/44·사건 적중 23/44·위험 23/44), 시점 사건 44행 중 6행 event_fav 소폭 이동(최대 CASE-042 −0.01→−0.14 — 재성+비겁 기간의 사업 시작 −10·재물 변동 +6 제거), 명식 180행 중 175행 lifetime 요약 변동(같은 원인). 적중 불변 → 유지. 기준선 `var/casebook_replay_20261108_base.log`, 결과 `_after2.log`.
+- **게이트:** `All checks passed` · `production mypy gate clean` · `maintained scripts mypy gate clean` · `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(start=end head a3be11d, 지문 동일, exit 0 — 1차는 `test_gap_layer_20261027` 관계 해석 틀 문구 기대값 2건 실패 → 새 문구(기혼(별거 포함)·이혼만)로 갱신 후 재실행 통과).
+- **남은 결정(데굴님 질문 "충돌 규칙 가감도 결혼 케이스처럼 잘못된 건 아닌지"):** `conflict_resolver_duration.json` 프로필 조건 규칙 3종(교제·기혼→재물·계약 −10 / 재직·사업자·프리랜서→분쟁·계약 −10, 사업자 '이직' +6 / 비사업자→사업 시작 −10)은 상태가 다른 영역 가능성을 깎는 같은 부류(+6/−10 은 reviewed:false 사전 하드코딩, 사례집 무프로필이라 측정 불가, DB 프로필 67건). 제안 = 점수 ± 제거·`CONFLICT_prefer_*` 태그만 유지, 사업자는 이직 선호 규칙에서 제외. 결정 후 반영.
+
+## 2026-11-08 — 충돌 해결기 프로필 조건 규칙 태그 전용 전환 + 사업자 이직 선호 제외 (데굴님 "충돌 규칙 가감도 결혼 케이스처럼 잘못된 건 아닌지" → "남은 결정 건 진행하자")
+
+- **문제:** `conflict_resolver_duration.json` priority_rules 5종 중 4종이 프로필 상태 조건(교제·기혼 / 재직·사업자·프리랜서 / 비사업자 / 상대 없음)으로 prefer +6·over −10 을 걸어, 상태가 다른 영역 가능성을 깎았다(교제·기혼→재물·계약 −10, 재직→분쟁·계약 −10, 비사업자→사업 시작 −10). 상대 없음→창작 +6 은 '사문'이 아니라 live 가산이었다(over 는 게이트가 먼저 바꿔 무효, prefer 는 창작 후보만 있어도 가산). 금액은 reviewed:false 사전 하드코딩, 사례집은 무프로필이라 적중 측정 불가(DB 프로필 67건).
+- **반영:** 규칙에 `effect` 필드(score|tag) — 프로필 조건 4종 = tag(점수 불변, `CONFLICT_prefer_*`·`CONFLICT_over_*` reason 만), 이사 선호 규칙 = score(종전 +6/−10). `event_ranker._resolve_conflicts` 분기. `_rank_context`: `career_context_exists` 는 재직·프리랜서만(사업자에게 '이직 선호'는 종류부터 맞지 않음). 직렬화 라벨 6종(교제·기혼 프로필 — 같은 신호를 지금 관계 흐름으로 읽음 등)으로 LLM 이 상태에 맞는 사건 종류로 해석. 사전 `effect_note`, docs/11 영향표 갱신.
+- **테스트:** `test_event_ranker` 기존 prefer/over 테스트를 score 규칙(이사)으로 옮기고 tag 전용 테스트 추가, `test_profile_gate_audit_20261108` +2(사전 effect 일관성·사업자 제외).
+- **측정(85사례 재생):** 집계 15지표 직전·기준선과 전부 동일, 시점 사건 44행 중 1행 event_fav 소폭(CASE-072 −0.06→−0.10 — 무프로필 창작 +6 제거). 적중 불변 → 유지.
+- **게이트:** `All checks passed` · `production mypy gate clean` · `./scripts/run_suite.sh` → `VALID_SUITE_PASS`(start=end head a3be11d, 지문 동일, exit 0). 백엔드 재기동(8100).
+

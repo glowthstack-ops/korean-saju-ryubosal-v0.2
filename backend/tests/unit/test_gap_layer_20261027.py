@@ -636,9 +636,10 @@ def _love_prompt_status(question: str, status: str | None) -> str:
     [
         ("dating", "교제 중으로 입력됨 — 이 영역의 강한 신호는 지금 관계의 진전·공식화로"),
         ("single", "교제 상대 없음으로 입력됨 — 새 만남 자체 신호가 약하다는 점과 함께"),
-        ("married", "기혼으로 입력됨 — 이 영역의 강한 신호는 새 인연이 아니라"),
-        # 이혼·별거(derive_relationship_status → divorced)는 '미입력'이 아니다(2026-10-28 감수).
-        ("divorced", "이혼·별거로 입력됨(상대 없음과 같게 본다)"),
+        ("married", "기혼(별거 포함)으로 입력됨 — 이 영역의 강한 신호는 새 인연이 아니라"),
+        # 이혼(derive_relationship_status → divorced)은 '미입력'이 아니다(2026-10-28 감수).
+        # 별거는 2026-11-08 부터 기혼 계열(married).
+        ("divorced", "이혼으로 입력됨(상대 없음과 같게 본다)"),
         (None, "교제 상태 미입력 — 두 경우를 한 문장씩 나눠 쓸 것"),
     ],
 )

@@ -1137,6 +1137,7 @@ class _ReportData:
             occupation_status=occ_status,
             relationship_status=rel_status,
             occupation_category=occ_category,
+            today=today,
         )
         if self.non_romantic_pair:
             # 채팅 pairwise(_event_filter_context="non_romantic_relation")와 같은 오버레이 —
@@ -1236,6 +1237,7 @@ class _ReportData:
                 occupation_status=occ_status,
                 relationship_status=rel_status,
                 occupation_category=occ_category,
+                today=today,
             )
             self.lifetime_window = (_lt_lo, _lt_hi)
             self.lifetime_pool = [
@@ -1350,7 +1352,7 @@ class _ReportData:
                 self.result, chart_birth, scorer=self.scorer, base_candidates=self.candidates,
                 period_start=spec.period.start, period_end=spec.period.end,
                 fav_override=fav_override, occupation_status=occ_status,
-                relationship_status=rel_status,
+                relationship_status=rel_status, today=today,
             ))
         # 공망 해석 규칙(전 섹션 공통) — 원국 공망은 배경값·운 자극 시만 발동(미발동 시 언급 금지).
         # 불확실성 번역 규칙(전 섹션 공통, 2026-07-22) — '가능성이 열리는 달' 류 추상 문구
@@ -4439,8 +4441,9 @@ def build_section_context(
         _marital = getattr(data.extended_profile, "marital_status", None)
         lines += [
             "",
+            # 별거도 기혼 계열(법적 배우자 있음 — 2026-11-08 통일, profile_engine 과 같은 기준).
             _SPOUSE_MARRIED_DIRECTIVE
-            if _marital in ("기혼", "재혼")
+            if _marital in ("기혼", "재혼", "별거")
             else _SPOUSE_IMAGE_DIRECTIVE,
         ]
     # 관계·재물구조 섹션 — 결혼·자산 자원 구조(성별 인지, 중립) 표면화. 명식/운 분기와 무관.

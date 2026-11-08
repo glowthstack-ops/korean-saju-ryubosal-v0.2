@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable, Sequence
+from datetime import date
 from typing import Any
 
 from saju_engines.context_reducer import event_ko, polarity_ko, tone_for_score
@@ -64,6 +65,7 @@ def variant_candidate_blocks(
     fav_override: dict[str, str] | None = None,
     occupation_status: str | None = None,
     relationship_status: str | None = None,
+    today: date | None = None,
     max_per_variant: int = MAX_PER_VARIANT,
 ) -> list[str]:
     """변형별 시기 후보 블록(LLM 입력 줄). 변형이 하나뿐이거나 시간이 있으면 빈 목록."""
@@ -87,6 +89,7 @@ def variant_candidate_blocks(
             scored = scorer.score_legacy(
                 vresult, levels=_LEVELS, fav_override=fav_override,
                 occupation_status=occupation_status, relationship_status=relationship_status,
+                today=today,
             )
         except Exception:  # noqa: BLE001 — 한 변형 실패가 본 응답을 막지 않도록
             _logger.warning("variant branching 채점 실패 variant=%s", _letter(i), exc_info=True)
