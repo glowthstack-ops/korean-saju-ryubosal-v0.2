@@ -1040,7 +1040,7 @@ peak_months(day_master, year_stem, year_branch, months) → [월…]   # 연 지
 - **길흉 미사용·양면 어휘.** 인성 = "충전이 되거나 멈춤이 되거나". 사건 결과 확정 어미는 쓰지 않는다(`ASSERTION_POLICY`). 금지어(§폴리시 `_FORBIDDEN`: 비견…정인·세운·월운·오행·십성·간지·소송 등)는 오늘의 운세 노출 문장에 쓰지 않는다 — 채팅·테마 참고 줄만 용어를 쓴다.
 - 성별 분기는 문장 안에 "여성이면/남성이면"으로 병기한다(일주 버킷은 성별을 모른다).
 
-### 26-2. 오늘의 운세 배선 (dict.v1.19 · 경계 `SIMPLE_LAYER_EFFECTIVE_FROM`=2026-11-10)
+### 26-2. 오늘의 운세 배선 (dict.v1.19 · 경계 `SIMPLE_LAYER_EFFECTIVE_FROM`=2026-11-08 — 데굴님 "오늘 것부터 적용")
 
 | 지평 | 위치 | 내용 |
 |---|---|---|
@@ -1048,7 +1048,7 @@ peak_months(day_master, year_stem, year_branch, months) → [월…]   # 연 지
 | 월 | 이번 달 패널 천간 공통 흐름 | `same_group` 인 달에만 `month_same_group[군]` 1문장을 결 문장 뒤에 덧붙인다(`DailyMonthStemFlow.same_group_note`). |
 | 일 | 오늘 카드 조언 줄 | `same_group` 인 날에만 `day_same_group[군]` 1문장을 조언 앞에 붙인다. 밴드·사건 불변. |
 
-- 사전 키 `simple_layer`(`daily_phrase_templates.json`): `year_tone`(25) · `group_scene`(5군×5축) · `group_axes`(5) · `year_same_group`·`month_same_group`·`day_same_group`(각 5) · `peak_month`·`peak_month_hap`(각 5, `{months}` 치환). 키가 없는 계약(v1.18 이하·베타 풀)은 모든 새 필드가 null·문장 미부착(바이트 불변). 11/9 보드는 11/8 저녁 선생성이라 경계는 11/10.
+- 사전 키 `simple_layer`(`daily_phrase_templates.json`): `year_tone`(25) · `group_scene`(5군×5축) · `group_axes`(5) · `year_same_group`·`month_same_group`·`day_same_group`(각 5) · `peak_month`(5, `{months}` 치환) · `direction_note`. 키가 없는 계약(v1.18 이하·베타 풀)은 모든 새 필드가 null·문장 미부착(바이트 불변). 경계는 처음 11/10(선생성 보드 보존)으로 잡았다가 데굴님 지시로 **11/8** — 11/8·11/9 보드는 새 content_version 으로 재생성·재교정된다(판정·사건 불변, 패널·조언 접두만 추가; SNS 파일 문구는 교정 LLM 비결정성으로 달라질 수 있음).
 - SNS 파일(`오늘의운세.txt`)·Top5·LLM 교정 입력에는 싣지 않는다(§24 와 동일).
 - 테스트: 커버리지(25·25·5·15·10)·텍스트 정책(금지어·한자·마침표)·판정 불변·과거 계약 null·2026 丙午 10일간 same_group 전부 True·戊 peak "10월"(출구 규칙)·2025 乙巳 甲 일간(겁재+식신) same_group False·월/일 부착 조건.
 

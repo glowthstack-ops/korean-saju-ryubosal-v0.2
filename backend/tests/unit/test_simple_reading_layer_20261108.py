@@ -25,7 +25,7 @@ from saju_shared_types.daily_fortune import (
 )
 from saju_shared_types.enums import Branch, Stem
 
-_FIRST = SIMPLE_LAYER_EFFECTIVE_FROM  # dict.v1.19 — 단식 결 층 이후 계약(2026-11-10, 丙午년 己亥월)
+_FIRST = SIMPLE_LAYER_EFFECTIVE_FROM  # dict.v1.19 — 단식 결 층 이후 계약(2026-11-08, 丙午년 己亥월)
 _PREV = STAGE_DIRECTION_EFFECTIVE_FROM  # dict.v1.18 — 직전 계약
 
 
@@ -165,20 +165,20 @@ def test_board_carries_year_flow_and_same_group_notes(board: DailyFortuneBoard) 
     assert board.year_direction_note and "발판" in board.year_direction_note
     for yf in board.year_flow:
         assert yf.tone and yf.emphasis and len(yf.points) == 3  # 丙午 — 전 일간 같은 군
-    # 己亥월(11/10): 천간 己·지지 亥(壬) — 어느 일간도 같은 군이 아니다 → 월 강조 없음.
+    # 己亥월(11/8~): 천간 己·지지 亥(壬) — 어느 일간도 같은 군이 아니다 → 월 강조 없음.
     assert board.month_flow is not None
     assert all(m.same_group_note is None for m in board.month_flow)
 
 
 def test_day_same_group_note_prefixes_advice_only_when_same_group() -> None:
     s = _simple()
-    # 2026-11-10 일진 戊子: 戊 일간에 비견(비겁) + 子 본기 癸 정재(재성) → 다름 → 조언 그대로.
+    # 2026-11-08 일진 丙戌: 戊 일간에 편인(인성) + 戌 본기 戊 비견(비겁) → 다름 → 조언 그대로.
     b = _board(_FIRST)
     ctx = M.build_day_context(_FIRST)
-    assert (ctx.day_stem, ctx.day_branch) == ("戊", "子")
+    assert (ctx.day_stem, ctx.day_branch) == ("丙", "戌")
     for f in b.fortunes:
         assert f.advice and not any(f.advice.startswith(v) for v in s["day_same_group"].values())
-    # 丙午일(2026-11-16? 아님) — 같은 군이 되는 날을 직접 찾는다: 일진 천간·지지가 모두 火.
+    # 같은 군이 되는 날을 직접 찾는다: 일진 천간·지지가 모두 火(丙午일).
     d = _FIRST
     for _ in range(60):
         c = M.build_day_context(d)

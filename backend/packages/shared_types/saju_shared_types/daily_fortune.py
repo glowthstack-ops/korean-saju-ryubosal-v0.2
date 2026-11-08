@@ -50,7 +50,8 @@ ENGINE_VERSION = "engine.v1"
 # v1.19(2026-11-08): 단식(單式) 결 층(docs/17 §26, 데굴님 "세운뿐 아니라 월운·일운 공통") —
 #   `simple_layer`: 올해의 결 패널(일간별 쌍 결·같은 결 강조·체감 포인트 3·절정 달), 이번 달
 #   천간 공통 흐름의 같은 결 강조 1문장, 오늘 조언 줄 앞 같은 결 강조 1문장. 판정 불변.
-#   경계 SIMPLE_LAYER_EFFECTIVE_FROM(11/10) — 11/9 보드는 11/8 저녁 선생성이라 v1.18 을 유지한다.
+#   경계 SIMPLE_LAYER_EFFECTIVE_FROM(11/8, 데굴님 "오늘 것부터 적용") — 11/8·11/9 보드는 새
+#   content_version 으로 재생성·재교정된다(판정·사건 불변, 패널·조언 접두만 추가).
 DICT_VERSION = "dict.v1.19"
 PROMPT_VERSION = "polish.v1"
 #: 서사 family 회전 계약(OA-8b). 값이 바뀌면 새 epoch 이 시작되며 **캐시만** 무효화된다
@@ -103,9 +104,9 @@ STAGE_DIRECTION_EFFECTIVE_FROM = date(2026, 11, 5)
 #: 그 기준일 이전(11/3~11/4)에 적용되는 사전 버전.
 DICT_VERSION_BEFORE_STAGE_DIRECTION = "dict.v1.17"
 
-#: 단식 결 층(docs/17 §26) 활성화 기준일 — 11/10 보드부터(11/9 보드는 11/8 저녁 선생성).
-SIMPLE_LAYER_EFFECTIVE_FROM = date(2026, 11, 10)
-#: 그 기준일 이전(11/5~11/9)에 적용되는 사전 버전.
+#: 단식 결 층(docs/17 §26) 활성화 기준일 — 11/8 보드부터(데굴님 "오늘 것부터 적용", 2026-11-08).
+SIMPLE_LAYER_EFFECTIVE_FROM = date(2026, 11, 8)
+#: 그 기준일 이전(11/5~11/7)에 적용되는 사전 버전.
 DICT_VERSION_BEFORE_SIMPLE_LAYER = "dict.v1.18"
 
 
@@ -129,7 +130,7 @@ def active_dict_version(target_date: date) -> str:
 
     Returns:
         7/30 이전 v1.10 → 9/3 이전 v1.11 → 9/12 이전 v1.12 → 9/20 이전 v1.13 → 11/2 이전
-        v1.14 → 11/3 이전 v1.16 → 11/5 이전 v1.17 → 11/10 이전 v1.18 → 이후 현재
+        v1.14 → 11/3 이전 v1.16 → 11/5 이전 v1.17 → 11/8 이전 v1.18 → 이후 현재
         `DICT_VERSION`(v1.19).
     """
     if target_date < SMALL_FIND_HEADLINE_REVERT_EFFECTIVE_FROM:
