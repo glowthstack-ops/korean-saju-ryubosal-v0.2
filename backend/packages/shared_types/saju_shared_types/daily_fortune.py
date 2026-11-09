@@ -260,7 +260,7 @@ class DailyYearStemFlow(BaseModel):
     tone: str  # 쌍 결 문장(사전 year_tone)
     emphasis: str | None = None  # 천간·지지 십성군이 같은 해에만
     points: list[str] = Field(default_factory=list)  # 체감 포인트 3줄(일·돈·사람·몸·연애 중)
-    peak_months: str | None = None  # 절정 달 문장(합·같은 군 중첩 달) — 없으면 None
+    peak_months: str | None = None  # 간여지동 달 문장(§28-5, 군별 줄바꿈) — 없으면 None
 
 
 class DailyTop5(BaseModel):

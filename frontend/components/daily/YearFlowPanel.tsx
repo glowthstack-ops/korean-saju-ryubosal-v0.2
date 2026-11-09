@@ -36,7 +36,8 @@ export function YearFlowPanel({
         </ul>
       )}
       {flow.peak_months && (
-        <p className="mt-3 border-t pt-3 text-sm leading-relaxed text-gray-700">
+        // 간여지동 달(docs/17 §28-5) — 십성군별 한 줄씩 "\n" 구분(戊·癸년은 최대 5줄).
+        <p className="mt-3 whitespace-pre-line border-t pt-3 text-sm leading-relaxed text-gray-700">
           {flow.peak_months}
         </p>
       )}
