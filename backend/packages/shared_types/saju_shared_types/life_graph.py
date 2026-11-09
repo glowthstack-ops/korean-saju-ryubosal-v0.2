@@ -59,14 +59,22 @@ class LifeGraphDaewoon(BaseModel):
     score: float
     label: str
     status: str  # past | current | future | unknown
-    # 누적 운세선(docs/10 §3-1 '누적 운세선', 2026-11-08) — 이 대운 연도들의 (세운 점수+대운 점수)
-    # 평균과 직전 대운 평균 대비 차이·추세 라벨(상승/하강/보합/시작). 설명용 산술 — 명리 판정 아님.
-    mean_total: float = 0.0
+    # 추세선(docs/10 §3-1, 2026-11-08 데굴님 "대운별 운세와 조후 운세를 합쳐서 하나의 추세선으로")
+    # — trend_score = 억부(용신) 점수와 조후 점수의 평균(조후 축 없는 명식은 억부 점수 그대로),
+    # 직전 구간(첫 대운은 대운 전 유년) 대비 차이·추세 라벨(상승/하강/보합/시작). 설명용 산술.
+    trend_score: float = 0.0
     trend_delta: float | None = None
     trend: str = ""
+    # 흐름 두 패턴(2026-11-08 데굴님 "띠 색상·설명이 어려워 — 좋은 흐름/힘든 흐름으로") — 추세 점수
+    # ≥ 0 이면 good(좋은 흐름), < 0 이면 hard(힘든 흐름). 띠 채움과 라벨의 유일한 기준.
+    flow: str = ""
+    flow_ko: str = ""
     # 배우자성 대운(남=재성·여=관성이 대운 천간/지지에) — 결혼·이성 인연이 본격 거론되는 10년이라는
     # 통설의 서술 라벨(점수 무관, 2026-11-07).
     partner_star_daewoon: bool = False
+    # 조후 흐름선(2026-11-08 데굴님 "겨울생이라 바닥에서 서서히 쌓인다") — 대운 지지의 조후 점수
+    # (−1~+1, 월지 필요 온도 기준). 중립 월(卯申酉) 명식은 None. 설명용 층.
+    climate: float | None = None
     markers: list[LifeGraphMarker] = Field(default_factory=list)
 
 
@@ -78,10 +86,28 @@ class LifeGraphYear(BaseModel):
     ganji: str
     score: float
     label: str
-    # 누적 운세선(2026-11-08) — 출생부터 이 해까지 (세운 점수 + 소속 대운 점수)를 더해 온 값.
-    # 주식 차트의 가격선처럼 높이가 쌓인 수준, 기울기가 '이전보다 좋아지는 중/나빠지는 중'을
-    # 보여 준다(설명용 산술).
-    cumulative: float = 0.0
+    # 조후(2026-11-08) — 0.7×소속 대운 조후 + 0.3×세운 지지 조후. 축 없는 명식은 None(설명용).
+    climate: float | None = None
+
+
+class LifeGraphPreDaewoon(BaseModel):
+    """첫 대운 전 유년 구간(2026-11-08 데굴님 "0세부터 5세까지는 대운도 없는 거잖아").
+
+    통설대로 **월주 간지를 운처럼** 본다 — 억부 점수는 월주를 운 기둥으로 채점한 값, 조후는 월지
+    온도. 첫 대운 페이지(띠)는 그대로 출생부터 그리되, 추세선의 첫 마디는 이 구간이 맡는다.
+    """
+
+    ganji: str
+    start_age: int = 0
+    end_age: int
+    start_year: int
+    end_year: int
+    score: float
+    label: str
+    climate: float | None = None
+    trend_score: float = 0.0
+    flow: str = ""
+    flow_ko: str = ""
 
 
 class LifeGraphWindow(BaseModel):
@@ -117,8 +143,15 @@ class LifeGraph(BaseModel):
     markers: list[LifeGraphMarker] = Field(default_factory=list)
     # 앞으로의 긍정 창(오늘 이후) — F-14 해설·F-14b 종합·F-21 요약 카드·프론트 표 공용.
     positive_windows: list[LifeGraphWindow] = Field(default_factory=list)
-    # 누적 운세선 요약(2026-11-08) — 생애 최고·최저 누적 연도, 오늘 누적 수준의 생애 분위(0~100,
-    # 높을수록 쌓인 운이 높은 편). today_year 가 없으면 None.
-    cumulative_peak_year: int | None = None
-    cumulative_low_year: int | None = None
-    today_cumulative_percentile: int | None = None
+    # 추세선 요약(2026-11-08) — 대운 전 유년 구간, 추세 최고·최저 구간, 추세가 처음 보통선(0) 이상이
+    # 되는 구간(간지 라벨). 설명용 산술.
+    pre_daewoon: LifeGraphPreDaewoon | None = None
+    trend_peak: str | None = None
+    trend_low: str | None = None
+    trend_baseline: str | None = None
+    # 조후 흐름선(docs/10 §3-1, 2026-11-08) — 월지 조후 축(cold/heat/damp/dry, 중립이면 "")·필요
+    # 온도 한글·조후가 처음 0 이상이 되는 대운·조후 정점 대운. 억부 점수와 별도의 설명용 층.
+    climate_axis: str = ""
+    climate_need_ko: str = ""
+    climate_baseline_daewoon: str | None = None
+    climate_peak_daewoon: str | None = None

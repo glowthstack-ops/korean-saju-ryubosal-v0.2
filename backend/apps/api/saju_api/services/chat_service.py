@@ -1380,9 +1380,10 @@ def _build_period_fortune(
     )
     # 운 스택 간지(2026-10-25) — 관계 확정 문장의 참여 글자 층위 라벨·생성 후 층위 라벨 감사용.
     stack_ganji = _period_stack_ganji(composites, _TARGET_LEVEL[fortune_type], start, pillar)
-    # 단식 참고 문단(docs/17 §26-3, 2026-11-08) — 일간×운 십성군 체감 결("간단히 봤을 때,").
-    # 월·일 지평은 올해(세운) 결·절정 달을 함께 싣는다(실답: 10월 참고 줄이 그 달 겁재만 말해 원문
-    # 단식의 '올해 인성 결이 가장 세지는 10월'과 달랐다). 점수·판정 불변, 문단은 생성 후 원문 고정.
+    # 단식 참고 문단(docs/17 §26-3·§27, 2026-11-08) — 일간×운 십성 체감 결("간단히 봤을 때,").
+    # 월·일 지평은 그 달/그 날 장면만 싣고, 절정 달일 때만 올해 결 문장 1개(세운 간지 필요). 2차
+    # 실답 "이달 운세인데 올해 흐름을 반복"으로 올해 결 서술을 뺐다. 점수·판정 불변, 문단은 생성 후
+    # 원문 고정.
     from saju_engines.simple_reading import simple_reference_line as _simple_ref
 
     simple_reading_line = _simple_ref(

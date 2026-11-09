@@ -27,6 +27,7 @@ from saju_shared_types.constants import (
     BRANCH_KO,
     STEM_COMBINATIONS,
     STEM_KO,
+    THREE_HARMONY,
     main_hidden_stem,
     ten_god,
 )
@@ -83,12 +84,35 @@ def _relation_kind(transit: Branch, ilju_branch: Branch, helpers: tuple[Branch, 
     return ""
 
 
-def _stem_common_line(day_master: Stem, ctx: DayGanjiContext, layer: dict[str, Any]) -> str:
-    """천간 공통 흐름 — 결 + 행동 + (세운 겹침) + 다음 달 또는 내년 준비."""
+def _weak_half_harmony(a: Branch, b: Branch) -> bool:
+    """왕지 없는 반합(亥未·寅戌·巳丑·申辰 등) — 삼합 세 글자 중 두 글자면 참(§27, 데굴님 승인)."""
+    pair = frozenset({a, b})
+    return len(pair) == 2 and any(pair <= members for members, _e, _r in THREE_HARMONY)
+
+
+def _stem_common_line(
+    day_master: Stem, ctx: DayGanjiContext, layer: dict[str, Any],
+    simple: dict[str, Any] | None = None,
+) -> str:
+    """천간 공통 흐름 — v1.20(§27): 십성 장면 3 + 12운성 + (세운 겹침) + 행동. 다음 달/내년 연결
+    없음.
+
+    v1.19 이전 계약(simple 에 `god_scene` 없음): 군 결 + 행동 + 12운성 + (세운 겹침) + 다음 달/내년.
+    """
     month_stem, month_branch = Stem(ctx.month_stem), Branch(ctx.month_branch)
     stem_god = _sipseong(day_master, month_stem)
     branch_god = _branch_sipseong(day_master, month_branch)
     stem_group, branch_group = _GROUP[stem_god], _GROUP[branch_god]
+    if simple and simple.get("god_scene"):
+        parts = list(_simple.god_points(stem_god, branch_god, simple))
+        stem_stage = layer.get("stem_stage")
+        if stem_stage:
+            parts.append(stem_stage[str(twelve_unseong(day_master, month_branch))])
+        year_group = _GROUP[_sipseong(day_master, Stem(ctx.year_stem))]
+        if year_group in (stem_group, branch_group):
+            parts.append(layer["year_overlap"])
+        parts.append(layer["month_action"][stem_god])
+        return " ".join(parts)
     parts = [layer["month_tone"][f"{stem_group}+{branch_group}"], layer["month_action"][stem_god]]
     # 12운성 — 일간이 월운 지지에서 갖는 힘(통설·만세력 엔진 luck_cycles 와 같은 방향, §25).
     # 같은 일간 6일주가 같은 문장을 공유하는 것은 설계대로다(일주 차이는 관계 문장이 맡는다).
@@ -108,9 +132,15 @@ def _stem_common_line(day_master: Stem, ctx: DayGanjiContext, layer: dict[str, A
 
 
 def _ilju_note(
-    ilju_branch: Branch, ctx: DayGanjiContext, layer: dict[str, Any]
+    ilju_branch: Branch, ctx: DayGanjiContext, layer: dict[str, Any],
+    day_master: Stem | None = None, simple: dict[str, Any] | None = None,
 ) -> str:
-    """일주별 흐름 — 일지↔월운 지지(연말 구간은 내년 세운 지지) 관계 문장. 관계가 없으면 빈 문자열.
+    """일주별 흐름 — 일지↔월운 지지 관계 문장, v1.20(§27)부터는 관계가 없으면 **자리 문장**.
+
+    v1.20 계약(simple 에 `ilju_seat`): 관계는 월운 지지만 본다(내년 세운 지지 삭제 — 데굴님 "이번
+    달에 집중"). 왕지 없는 반합도 삼합 문장으로 친다. 관계가 없으면
+    `ilju_seat[일지 십성군][월운 천간 십성]` — 같은 일간 6일주가 전부 한 줄씩 받고, 비견·겁재 달이
+    다른 문장을 받는다.
 
     §25 교정(dict.v1.18)부터 12운성 문장은 천간 공통 줄로 옮겨 갔다 — 통설은 같은 일간에 같은
     달 풀이를 주고 일주 차이는 巳亥충 같은 지지 관계로만 둔다(연평균 19.2/60 일주에 관계 있음).
@@ -122,6 +152,13 @@ def _ilju_note(
     stage_pool = layer.get("ilju_stage")
     parts = [stage_pool[str(twelve_unseong(month_stem, ilju_branch))]] if stage_pool else []
     kind = _relation_kind(month_branch, ilju_branch, (year_branch,))
+    if simple and simple.get("ilju_seat") and day_master is not None:
+        if not kind and _weak_half_harmony(month_branch, ilju_branch):
+            kind = "samhap"
+        if kind:
+            return layer["ilju_note"][f"month_{kind}"]
+        seat_group = _GROUP[_branch_sipseong(day_master, ilju_branch)]
+        return simple["ilju_seat"][seat_group][_sipseong(day_master, month_stem)]
     if kind:
         parts.append(layer["ilju_note"][f"month_{kind}"])
     elif month_branch in _YEAR_END_BRANCHES:
@@ -222,15 +259,17 @@ def month_flow(
             )
             for ilju_stem, ilju_branch in map(ganzi_from_index, range(60))
             if ilju_stem == stem
-            # v1.16 계약은 관계 없는 일주가 빈 문자열 — 한 번 조립한 값으로 걸러낸다.
-            and (note := _ilju_note(ilju_branch, ctx, layer))
+            # v1.16 계약은 관계 없는 일주가 빈 문자열 — 한 번 조립한 값으로 걸러낸다(v1.20 은 60
+            # 전부).
+            and (note := _ilju_note(ilju_branch, ctx, layer, stem, simple))
         ]
         flows.append(DailyMonthStemFlow(
             day_stem_ko=STEM_KO[stem],
-            common=_stem_common_line(stem, ctx, layer),
+            common=_stem_common_line(stem, ctx, layer, simple),
             ilju_notes=notes,
             next_preview=(
-                _stem_common_line(stem, preview_ctx, layer) if preview_ctx is not None else None
+                _stem_common_line(stem, preview_ctx, layer, simple)
+                if preview_ctx is not None else None
             ),
             same_group_note=same_note,
         ))

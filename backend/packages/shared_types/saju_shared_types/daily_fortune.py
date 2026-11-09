@@ -50,8 +50,15 @@ ENGINE_VERSION = "engine.v1"
 # v1.19(2026-11-08): 단식(單式) 결 층(docs/17 §26, 데굴님 "세운뿐 아니라 월운·일운 공통") —
 #   `simple_layer`: 올해의 결 패널(일간별 쌍 결·같은 결 강조·체감 포인트 3·절정 달), 이번 달
 #   천간 공통 흐름의 같은 결 강조 1문장, 오늘 조언 줄 앞 같은 결 강조 1문장. 판정 불변.
-#   경계 SIMPLE_LAYER_EFFECTIVE_FROM(11/10) — 11/9 보드는 11/8 저녁 선생성이라 v1.18 을 유지한다.
-DICT_VERSION = "dict.v1.19"
+#   경계 SIMPLE_LAYER_EFFECTIVE_FROM(11/8, 데굴님 "오늘 것부터 적용") — 11/8·11/9 보드는 새
+#   content_version 으로 재생성·재교정된다(판정·사건 불변, 패널·조언 접두만 추가).
+# v1.20(2026-11-08, 같은 날 2차): 단식 십성별 정의(docs/17 §27, 데굴님 "비견과 겁재를 묶어 같은
+#   내용으로 풀이해도 되나 — 두 달씩 같은 내용이 나온다 → 십성별 각각 풀이 방식을 정의").
+#   `god_scene`(10십성×5영역)·`god_axes`·`ilju_seat`(일지 십성군 5×월운 천간 십성 10). 이번 달 흐름
+#   공통 줄은 십성 장면 + 12운성 + 행동(다음 달/내년 연결 문장 삭제), 일주별 흐름은 60일주 전부(관계
+#   문장 또는 자리 문장, 내년 세운 지지 관계 삭제, 왕지 없는 반합 포함). 같은 경계(11/8) — v1.19 는
+#   11/8 선생성에만 쓰였고 서비스 중 대체된다.
+DICT_VERSION = "dict.v1.20"
 PROMPT_VERSION = "polish.v1"
 #: 서사 family 회전 계약(OA-8b). 값이 바뀌면 새 epoch 이 시작되며 **캐시만** 무효화된다
 #: — 선택 seed 에는 들어가지 않으므로 사건 배정은 흔들리지 않는다(OA-6d1).
@@ -103,9 +110,9 @@ STAGE_DIRECTION_EFFECTIVE_FROM = date(2026, 11, 5)
 #: 그 기준일 이전(11/3~11/4)에 적용되는 사전 버전.
 DICT_VERSION_BEFORE_STAGE_DIRECTION = "dict.v1.17"
 
-#: 단식 결 층(docs/17 §26) 활성화 기준일 — 11/10 보드부터(11/9 보드는 11/8 저녁 선생성).
-SIMPLE_LAYER_EFFECTIVE_FROM = date(2026, 11, 10)
-#: 그 기준일 이전(11/5~11/9)에 적용되는 사전 버전.
+#: 단식 결 층(docs/17 §26) 활성화 기준일 — 11/8 보드부터(데굴님 "오늘 것부터 적용", 2026-11-08).
+SIMPLE_LAYER_EFFECTIVE_FROM = date(2026, 11, 8)
+#: 그 기준일 이전(11/5~11/7)에 적용되는 사전 버전.
 DICT_VERSION_BEFORE_SIMPLE_LAYER = "dict.v1.18"
 
 
@@ -129,8 +136,8 @@ def active_dict_version(target_date: date) -> str:
 
     Returns:
         7/30 이전 v1.10 → 9/3 이전 v1.11 → 9/12 이전 v1.12 → 9/20 이전 v1.13 → 11/2 이전
-        v1.14 → 11/3 이전 v1.16 → 11/5 이전 v1.17 → 11/10 이전 v1.18 → 이후 현재
-        `DICT_VERSION`(v1.19).
+        v1.14 → 11/3 이전 v1.16 → 11/5 이전 v1.17 → 11/8 이전 v1.18 → 이후 현재
+        `DICT_VERSION`(v1.20 — v1.19 는 같은 경계에서 당일 대체).
     """
     if target_date < SMALL_FIND_HEADLINE_REVERT_EFFECTIVE_FROM:
         return PREVIOUS_DICT_VERSION
@@ -253,7 +260,7 @@ class DailyYearStemFlow(BaseModel):
     tone: str  # 쌍 결 문장(사전 year_tone)
     emphasis: str | None = None  # 천간·지지 십성군이 같은 해에만
     points: list[str] = Field(default_factory=list)  # 체감 포인트 3줄(일·돈·사람·몸·연애 중)
-    peak_months: str | None = None  # 절정 달 문장(합·같은 군 중첩 달) — 없으면 None
+    peak_months: str | None = None  # 간여지동 달 문장(§28-5, 군별 줄바꿈) — 없으면 None
 
 
 class DailyTop5(BaseModel):

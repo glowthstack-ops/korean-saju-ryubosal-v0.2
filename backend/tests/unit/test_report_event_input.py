@@ -67,10 +67,11 @@ def test_clusters_merge_same_period(chart_2031) -> None:
 
 
 def test_month_overview_surfaces_luck_grade_and_stars_strong_quality() -> None:
-    """리포트 월별 흐름 — 각 달에 운 품질 등급〈…〉 노출 + '강한 용신운' 달은 ★주목(사건 적어도).
+    """리포트 월별 흐름 — 각 달에 운 품질 등급〈…〉 노출, 태과 달은 ★주목 아님.
 
-    己土 신약(용신 土) 차트: 2026-10 戊戌은 천간·지지 모두 용신(土)인 '강한 용신운' 달이다.
-    이 달은 비겁운이라 사건은 적지만, 운 품질로 ★주목에 포함돼야 한다(길흉=용신/기신 우선).
+    己土 신약(용신 土) 차트: 2026-10 戊戌은 천간·지지 모두 용신(土)이지만 **같은 오행 간여지동**이라
+    2026-11-08 부터 '강한 용신운'이 아니라 '용신 태과(간여지동·비겁)'(약한 흉)로 표기된다. 등급은
+    빠짐없이 노출되되, 태과 달은 '강한 용신운' 주목 기준에 들지 않는다(길흉=용신/기신 우선).
     """
     chart = calculate(BirthInput(
         calendar_type="solar", birth_date=date(1980, 11, 22), birth_time="09:40",
@@ -80,8 +81,8 @@ def test_month_overview_surfaces_luck_grade_and_stars_strong_quality() -> None:
     scored = EventEngineV2(_DICTS).score_legacy(chart, levels={GanjiLevel.MONTH})
     lines = month_overview_lines(chart, scored)
     oct_line = next(ln for ln in lines if ln.startswith("2026-10"))
-    assert "〈강한 용신운〉" in oct_line  # 운 품질 등급이 길흉 1차 기준으로 노출
-    assert "★주목" in oct_line  # 사건이 적어도 운 품질로 주목
+    assert "〈용신 태과(간여지동·비겁)〉" in oct_line  # 운 품질 등급이 길흉 1차 기준으로 노출
+    assert "〈강한 용신운〉" not in oct_line and "★주목" not in oct_line  # 태과는 주목 달이 아니다
     # 모든 달이 운 품질 등급을 달고 나온다(빠짐없이).
     assert all("〈" in ln for ln in lines if ln.startswith("2026-"))
 

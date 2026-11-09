@@ -1,6 +1,7 @@
 "use client";
 
-// /daily 일간 탭 아래, 이번 달 패널 위 고정 패널 — 올해의 결(단식, docs/17 §26).
+// /daily 일간 탭 아래, 이번 달 패널 위 고정 패널 — 올해의 흐름(단식, docs/17 §26).
+// 제목은 2026-11-09 데굴님 "결이라는 어려운 단어는 지양" 으로 '올해의 결' → '올해의 흐름'.
 // 일간 기준 올해 기운의 결만 말하고 길흉은 가르지 않는다(양면 어휘). 세운이 바뀔 때까지 같다.
 // 과거 계약 보드(dict.v1.18 이하)는 year_flow 가 null 이라 패널이 없다.
 
@@ -18,7 +19,7 @@ export function YearFlowPanel({
   return (
     <section className="rounded-lg border bg-amber-50/60 p-5">
       <div className="flex flex-wrap items-baseline gap-2">
-        <h2 className="text-sm font-bold text-gray-800">올해의 결</h2>
+        <h2 className="text-sm font-bold text-gray-800">올해의 흐름</h2>
         {yearLabel && <span className="text-xs text-gray-500">{yearLabel}</span>}
       </div>
       <p className="mt-3 text-sm leading-relaxed text-gray-700">{flow.tone}</p>
@@ -35,7 +36,8 @@ export function YearFlowPanel({
         </ul>
       )}
       {flow.peak_months && (
-        <p className="mt-3 border-t pt-3 text-sm leading-relaxed text-gray-700">
+        // 간여지동 달(docs/17 §28-5) — 십성군별 한 줄씩 "\n" 구분(戊·癸년은 최대 5줄).
+        <p className="mt-3 whitespace-pre-line border-t pt-3 text-sm leading-relaxed text-gray-700">
           {flow.peak_months}
         </p>
       )}

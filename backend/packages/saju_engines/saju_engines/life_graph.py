@@ -27,15 +27,20 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 
+from saju_manse_analysis.luck.climate import AXIS_KO
+
+from saju_engines.climate_flow import attach_climate
 from saju_shared_types.events import EventCandidate
 from saju_shared_types.life_graph import (
     LifeGraph,
     LifeGraphDaewoon,
     LifeGraphMarker,
+    LifeGraphPreDaewoon,
     LifeGraphWindow,
     LifeGraphYear,
     MarkerKind,
 )
+from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
 
 from .context_reducer import overview_cluster_key
@@ -150,6 +155,7 @@ def build_life_graph(
     risk_years: Mapping[int, set[str]] | None = None,
     today_year: int | None = None,
     gender: str | None = None,
+    pre_daewoon: LuckPillar | None = None,
 ) -> LifeGraph | None:
     """전 생애 후보 풀 → 인생 그래프 데이터.
 
@@ -162,6 +168,8 @@ def build_life_graph(
         today_year: 오늘 연도 — 앞으로의 긍정 창(`positive_windows`)의 시작. None이면 창 생략.
         gender: 'male'/'female' — 배우자성 대운 라벨(남=재성·여=관성). None이면
             result.input_summary.
+        pre_daewoon: 월주를 운처럼 채점한 기둥(`luck_cycles.month_pillar_as_luck`) — 첫 대운 전 유년
+            구간의 추세선 마디. None 이거나 첫 대운이 0세 시작이면 구간 없음.
 
     Returns:
         LifeGraph — 대운표가 없으면 None.
@@ -225,93 +233,134 @@ def build_life_graph(
         build_positive_windows(pool, lo_year, today_year, hi_year)
         if today_year is not None else []
     )
+    pre: LifeGraphPreDaewoon | None = None
+    if pre_daewoon is not None and daewoons and daewoons[0].start_age > 0:
+        pre = LifeGraphPreDaewoon(
+            ganji=pre_daewoon.ganji, end_age=daewoons[0].start_age - 1, start_year=lo_year,
+            end_year=lo_year + daewoons[0].start_age - 1,
+            score=round(float(pre_daewoon.luck_score), 3), label=pre_daewoon.luck_label,
+        )
     graph = LifeGraph(
         birth_year=lo_year, end_year=hi_year, today_year=today_year, current_daewoon_index=cur,
         daewoons=daewoons, years=years, markers=all_markers, positive_windows=windows,
+        pre_daewoon=pre,
     )
-    _attach_cumulative(graph)  # 누적 운세선·대운 추세(설명용 산술, 2026-11-08)
+    if result.pillars is not None:  # 조후(설명용 층, 2026-11-08) — 월지 필요 온도 기준
+        attach_climate(graph, str(result.pillars.month.branch))
+    _attach_trend(graph)  # 추세선 = 억부·조후 평균(설명용 산술, 2026-11-08)
     return graph
 
 
-#: 대운 추세 라벨 임계 — (세운+대운) 연 평균의 직전 대운 대비 차이. 점수 척도가 대략 −1~+1 이라 0.1.
+#: 대운 추세 라벨 임계 — 추세 점수(억부·조후 평균)의 직전 구간 대비 차이. 척도 −1~+1 이라 0.1.
 TREND_EPS = 0.1
 
 
-def _attach_cumulative(graph: LifeGraph) -> None:
-    """누적 운세선·대운 추세·생애 분위를 채운다(제자리, docs/10 §3-1 '누적 운세선', 2026-11-08).
+FLOW_KO: dict[str, str] = {"good": "좋은 흐름", "hard": "힘든 흐름"}
 
-    연도 총점 = 세운 점수 + 그 해가 속한 대운 점수(첫 대운 페이지는 출생~유년 포함). 누적 =
-    출생부터의 합. 대운 추세 = 그 대운 연도 총점 평균 − 직전 대운 평균(TREND_EPS 기준
-    상승/하강/보합, 첫 대운은 '시작'). 주식 차트의 가격선처럼 '이전보다 좋아지는지'를 보이기 위한
-    **설명용 산술**이며 명리 판정이 아니다(점수·마커·창은 불변).
+
+def _flow(trend_score: float) -> str:
+    """흐름 두 패턴 — 추세 점수 ≥ 0 좋은 흐름(good) / < 0 힘든 흐름(hard)."""
+    return "good" if trend_score >= 0 else "hard"
+
+
+def _trend_value(score: float, climate: float | None) -> float:
+    """추세 점수 — 조후 축이 있으면 억부 점수와 조후 점수의 평균, 없으면 억부 점수 그대로."""
+    return round((score + climate) / 2.0, 3) if climate is not None else round(score, 3)
+
+
+def _attach_trend(graph: LifeGraph) -> None:
+    """추세선·대운 추세 라벨·요약을 채운다(제자리, docs/10 §3-1 '추세선', 2026-11-08).
+
+    데굴님 "누적 운세는 의미가 없어 — 대운별 운세와 조후 운세를 합쳐서 하나의 추세선으로". 구간 =
+    [대운 전 유년(월주)] + 대운들. 추세 라벨 = 직전 구간 대비 차이(TREND_EPS 기준 상승/하강/보합,
+    첫 구간 '시작'). 흐름 = 추세 부호 두 패턴. 설명용 산술이며 명리 판정이 아니다(점수·마커·창
+    불변).
     """
-    band_score: dict[int, float] = {}
-    band_index: dict[int, int] = {}
+    prev: float | None = None
+    segments: list[tuple[str, float]] = []
+    pre = graph.pre_daewoon
+    if pre is not None:
+        pre.trend_score = _trend_value(pre.score, pre.climate)
+        pre.flow = _flow(pre.trend_score)
+        pre.flow_ko = FLOW_KO[pre.flow]
+        prev = pre.trend_score
+        segments.append((f"{pre.ganji}(대운 전)", pre.trend_score))
     for d in graph.daewoons:
-        for y in range(d.start_year, d.end_year + 1):
-            band_score[y] = d.score
-            band_index[y] = d.index
-    total_by_year: dict[int, float] = {}
-    running = 0.0
-    for yr in graph.years:
-        total = yr.score + band_score.get(yr.year, 0.0)
-        total_by_year[yr.year] = total
-        running += total
-        yr.cumulative = round(running, 3)
-    prev_mean: float | None = None
-    for d in graph.daewoons:
-        totals = [
-            total_by_year[y] for y in range(d.start_year, d.end_year + 1) if y in total_by_year
-        ]
-        mean = sum(totals) / len(totals) if totals else 0.0
-        d.mean_total = round(mean, 3)
-        if prev_mean is None:
+        d.trend_score = _trend_value(d.score, d.climate)
+        d.flow = _flow(d.trend_score)
+        d.flow_ko = FLOW_KO[d.flow]
+        if prev is None:
             d.trend, d.trend_delta = "시작", None
         else:
-            delta = mean - prev_mean
+            delta = d.trend_score - prev
             d.trend_delta = round(delta, 3)
             d.trend = "상승" if delta > TREND_EPS else "하강" if delta < -TREND_EPS else "보합"
-        prev_mean = mean
-    if graph.years:
-        peak = max(graph.years, key=lambda y: y.cumulative)
-        low = min(graph.years, key=lambda y: y.cumulative)
-        graph.cumulative_peak_year, graph.cumulative_low_year = peak.year, low.year
-        if graph.today_year is not None:
-            today = next((y for y in graph.years if y.year == graph.today_year), None)
-            if today is not None:
-                below = sum(1 for y in graph.years if y.cumulative < today.cumulative)
-                graph.today_cumulative_percentile = round(100 * below / len(graph.years))
+        prev = d.trend_score
+        segments.append((d.ganji, d.trend_score))
+    if segments:
+        graph.trend_peak = max(segments, key=lambda s: s[1])[0]
+        graph.trend_low = min(segments, key=lambda s: s[1])[0]
+        graph.trend_baseline = next((name for name, v in segments if v >= 0), None)
 
 
-def cumulative_lines(graph: LifeGraph) -> list[str]:
-    """[누적 흐름] 블록 — F-14 해설용. 대운별 평균·직전 대비·추세와 생애 최고/최저·오늘 분위."""
-    if not graph.daewoons or not graph.years:
+def trend_lines(graph: LifeGraph) -> list[str]:
+    """[추세 흐름] 블록 — F-14 해설용. 구간별 억부·조후·추세·흐름, 최고/최저·보통선 도달·앞으로."""
+    if not graph.daewoons:
         return []
     status_ko = {"past": "지남", "current": "현재", "future": "예정", "unknown": ""}
+    has_climate = bool(graph.climate_axis)
     out = [
-        "[누적 흐름 — 누적 운세선(점선)은 해마다의 운 점수에 소속 대운 점수를 더해 출생부터 쌓은 "
-        "선이다(주식 차트의 가격선처럼 높이=쌓인 수준, 기울기=이전보다 좋아지는지). 설명용 "
-        "산술이며 "
-        "명리 판정이 아니다 — 아래 수치·구간만 쓰고 '이전보다 좋아지는 중/나빠지는 중/비슷'은 추세 "
-        "라벨 그대로 쓸 것]",
+        "[추세 흐름 — 추세선(굵은 선)은 구간(대운 전 유년 + 대운)마다 억부(용신) 점수와 조후 "
+        "점수를 평균한 값이다(조후 축 없는 명식은 억부 점수 그대로). 대운 전 유년은 통설대로 월주 "
+        "간지를 운처럼 본 값. 띠는 두 패턴뿐 — 추세 0 이상 [좋은 흐름] / 미만 [힘든 흐름]. 설명용 "
+        "산술이며 명리 판정이 아니다 — 아래 수치·추세 라벨·흐름 라벨 밖 판단 금지, '이전보다 "
+        "좋아지는 중/나빠지는 중/비슷'은 추세 라벨 그대로 쓸 것]",
     ]
+    if has_climate:
+        out.append(
+            f"- 조후 축: 월지 {AXIS_KO.get(graph.climate_axis, graph.climate_axis)} → "
+            f"{graph.climate_need_ko} 필요(운 지지가 그 온도에 가까울수록 +)"
+        )
+
+    def _parts(score: float, climate: float | None, trend: float) -> str:
+        if climate is None:
+            return f"억부 {score:+.2f} → 추세 {trend:+.2f}"
+        return f"억부 {score:+.2f} · 조후 {climate:+.2f} → 추세 {trend:+.2f}"
+
+    pre = graph.pre_daewoon
+    if pre is not None:
+        out.append(
+            f"- 대운 전 {pre.ganji}(월주) {pre.start_age}–{pre.end_age}세"
+            f"({pre.start_year}–{pre.end_year}년): "
+            f"{_parts(pre.score, pre.climate, pre.trend_score)} [{pre.flow_ko}]"
+        )
     for d in graph.daewoons:
         tag = status_ko.get(d.status, "")
-        delta = "" if d.trend_delta is None else f", 직전 대운 대비 {d.trend_delta:+.2f}"
+        delta = "" if d.trend_delta is None else f", 직전 대비 {d.trend_delta:+.2f}"
         out.append(
             f"- {d.ganji} {d.start_age}–{d.end_age}세({d.start_year}–{d.end_year}년)"
-            f"{' [' + tag + ']' if tag else ''}: 연 평균 {d.mean_total:+.2f}{delta} → {d.trend}"
+            f"{' [' + tag + ']' if tag else ''}: {_parts(d.score, d.climate, d.trend_score)}"
+            f"{delta} → {d.trend} [{d.flow_ko}]"
         )
-    if graph.cumulative_peak_year is not None and graph.cumulative_low_year is not None:
-        out.append(
-            f"- 누적 최고점 {graph.cumulative_peak_year}년 · "
-            f"누적 최저점 {graph.cumulative_low_year}년"
+    if graph.trend_peak and graph.trend_low:
+        base = (
+            f" · 보통선(0) 도달: {graph.trend_baseline}" if graph.trend_baseline
+            else " · 보통선(0) 미도달"
         )
-    if graph.today_cumulative_percentile is not None and graph.today_year is not None:
-        out.append(
-            f"- 오늘({graph.today_year}년)의 누적 수준은 생애 연도 중 상위 "
-            f"{100 - graph.today_cumulative_percentile}% 지점"
+        out.append(f"- 추세 최고 {graph.trend_peak} · 최저 {graph.trend_low}{base}")
+    future = [d for d in graph.daewoons if d.status == "future"]
+    if future:
+        desc = " · ".join(
+            f"{d.ganji} {d.start_age}–{d.end_age}세 {d.trend_score:+.2f}({d.trend})" for d in future
         )
+        rising = sum(1 for d in future if d.trend_score > 0)
+        if rising == len(future):
+            verdict = "앞으로의 대운 추세가 전부 양(+) — 올라가는 쪽"
+        elif rising == 0:
+            verdict = "앞으로의 대운 추세가 전부 음(−) — 내려가는 쪽"
+        else:
+            verdict = f"앞으로의 대운 {len(future)}개 중 {rising}개가 양(+) — 오르내림이 섞인 쪽"
+        out.append(f"- 앞으로: {desc} → {verdict}")
     return out
 
 

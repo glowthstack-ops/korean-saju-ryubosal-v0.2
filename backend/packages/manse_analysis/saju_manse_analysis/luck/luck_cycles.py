@@ -11,6 +11,7 @@ import os
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from saju_manse_analysis.luck.climate import climate_need, climate_score
 from saju_manse_analysis.relations.hap_mitigation import HapMitigation, resolve_hap_mitigation
 from saju_manse_analysis.sinsal.sinsal_aggregator import sinsal_for_luck
 from saju_manse_analysis.structure.luck_structure_flags import resolve_luck_structure_flags
@@ -108,6 +109,78 @@ HAP_MITIGATION_ENABLED: bool = (
 )
 # CALIBRATE: 묶인 흉 글자의 점수 배율(데굴님 승인 제안값 — shadow 실측 후 조정).
 HAP_MITIGATION_FACTOR = 0.5
+#: 용신 태과(간여지동) — 운 천간·지지가 **같은 오행**이고 둘 다 용·희신이면 '강한 용신운'이 아니라
+#: 기운이 한쪽으로 과하게 몰린 운으로 본다(2026-11-08 데굴님 실측: 己丑 대운·2026 丙午 모두 '강한
+#: 용신운' 판정이었으나 가정 불안·진학 실패·군입대 / 놀기만 하다 10월 권고사직 — "용신운이
+#: 간여지동으로 강해지는 시기는 오히려 좋지 않다"). off=종전, damp=점수 ×YONGSIN_OVERFLOW_FACTOR,
+#: flip=점수를 YONGSIN_OVERFLOW_FLIP 으로(약한 흉). 점수 규칙이라 ON/OFF·모드는 85사례 재생 적중률로
+#: 정한다 — 2026-11-08 측정: damp 세운 일치 14→13(악화), flip 쌍 33→34·세운 14→15·대운 25→26(개선,
+#: 악화 지표 없음) → 기본 flip.
+YONGSIN_OVERFLOW_MODE: str = (
+    os.environ.get("SAJU_YONGSIN_OVERFLOW_MODE", "flip").strip().lower() or "flip"
+)
+YONGSIN_OVERFLOW_FACTOR = 0.25
+YONGSIN_OVERFLOW_FLIP = -0.3
+#: 조후 점수 블렌드(B안, 2026-11-08 데굴님 "조후로만 봐도 겨울생이라 바닥에서 서서히 쌓인다") —
+#: 세운·대운 점수 = (1−w)×억부 점수 + w×조후 점수(`climate.climate_score`, 월지 필요 온도 × 운 지지
+#: 온도). 중립 월 명식은 조후 점수 0 이라 (1−w) 배만 된다. 점수 규칙 → 85사례 재생 적중률로 모드를
+#: 정한다(기본 off).
+CLIMATE_LUCK_MODE: str = (
+    os.environ.get("SAJU_CLIMATE_LUCK_MODE", "off").strip().lower() or "off"
+)
+CLIMATE_LUCK_WEIGHT: float = float(os.environ.get("SAJU_CLIMATE_LUCK_WEIGHT", "0.3") or 0.3)
+#: 블렌드 적용 범위(쉼표 목록: year, daewoon). 측정에서 세운·대운을 따로 끄고 켜기 위한 손잡이.
+CLIMATE_LUCK_SCOPE: frozenset[str] = frozenset(
+    g.strip()
+    for g in os.environ.get("SAJU_CLIMATE_LUCK_SCOPE", "year,daewoon").split(",")
+    if g.strip()
+)
+
+
+def _apply_climate_blend(
+    eff: dict, pillars: FourPillarsResult, branch: Branch, period_type: str,
+) -> None:
+    """B안 blend — eff 의 luck_score 를 조후 점수와 섞고 요약에 조후 항을 덧붙인다(off 면 no-op)."""
+    if CLIMATE_LUCK_MODE != "blend" or period_type not in CLIMATE_LUCK_SCOPE:
+        return
+    month_branch = str(pillars.month.branch)
+    _axis, need, weight = climate_need(month_branch)
+    if not need or weight <= 0:
+        return
+    w = CLIMATE_LUCK_WEIGHT
+    cs = climate_score(month_branch, branch)
+    eff["luck_score"] = round((1.0 - w) * float(eff["luck_score"]) + w * cs, 4)
+    eff["luck_summary"] = f"{eff['luck_summary']} · 조후 {cs:+.1f}(가중 {w:.1f})"
+
+
+#: 태과 규칙을 적용할 용신 십성군(일간 기준) — all 또는 '비겁,인성' 처럼 쉼표 목록.
+#: 데굴님(2026-11-08): "내 경우 용신이 비겁이라 과하면 안 좋아지는데 다른 십성은 다를 수도"
+#: → 군별 적용 범위를 측정으로 정한다.
+YONGSIN_OVERFLOW_GROUPS: frozenset[str] = frozenset(
+    g.strip()
+    for g in os.environ.get("SAJU_YONGSIN_OVERFLOW_GROUPS", "all").split(",")
+    if g.strip()
+)
+#: 태과의 십성군별 얼굴(통설): 비겁=군겁쟁재, 인성=인다(모다멸자·게으름), 식상=설기 과다,
+#: 재성=재다신약, 관성=관살 과중. 점수는 군 무관(측정으로 조정), 서술만 갈린다.
+_OVERFLOW_FACE: dict[str, str] = {
+    "비겁": "군겁쟁재 — 같은 편이 많아져 내 몫이 나뉘고 고집·독단·놀기로 흐르기 쉬움",
+    "인성": "인다(모다멸자) — 받기만 하고 움직이지 않아 게으름·의존·멈춤, 식상이 눌림",
+    "식상": "설기 과다 — 벌이기만 하고 기운이 빠져 결실이 적고 구설이 따름",
+    "재성": "재다신약 — 돈·일을 쫓다 감당이 안 되고 몸이 상하기 쉬움",
+    "관성": "관살 과중 — 책임·압박이 과해 짓눌리고 건강·자리가 흔들림",
+}
+_TEN_GOD_GROUP_OF: dict[str, str] = {
+    "비견": "비겁", "겁재": "비겁", "식신": "식상", "상관": "식상", "정재": "재성", "편재": "재성",
+    "정관": "관성", "편관": "관성", "정인": "인성", "편인": "인성",
+}
+
+
+def _overflow_group(day_master: Stem | None, stem: Stem) -> str | None:
+    """운 천간(=지지와 같은 오행)의 일간 기준 십성군. 일간 미상이면 None."""
+    if day_master is None:
+        return None
+    return _TEN_GOD_GROUP_OF.get(str(ten_god(day_master, stem)))
 HAP_HARM_MODIFIER = 0.1  # CALIBRATE: 희용신 합반 감점(관계 보정 ±0.2 범위와 같은 자릿수)
 # A2 구조 배경(2026-09-18 승인) — 운 기둥 개두·절각으로 억제되는 쪽의 점수 배율, 충근 요약 표기.
 STRUCTURE_BACKGROUND_ENABLED: bool = (
@@ -304,7 +377,7 @@ def _coarse_alignment(code: str) -> str:
         return "용신운"
     if code in ("pure_gisin_luck", "partial_gisin", "gisin_mitigated"):
         return "기신운"
-    if code in ("mixed_yongsin_surface", "mixed_gisin_surface"):
+    if code in ("mixed_yongsin_surface", "mixed_gisin_surface", "yongsin_overflow_luck"):
         return "혼합"
     return "평운"
 
@@ -313,8 +386,12 @@ def _luck_effect(
     stem: Stem, branch: Branch, useful: set[str], unfavorable: set[str], period_type: str,
     relations: list[str], transformed: list[str], void: bool,
     mitigation: HapMitigation | None = None,
+    day_master: Stem | None = None,
 ) -> dict:
     """천간·지지·관계를 분리 평가하고 가중 점수·세분 라벨을 산출.
+
+    day_master(2026-11-08)는 용신 태과(간여지동) 규칙의 십성군 판정·서술에만 쓴다(None 이면
+    군 미상 — 규칙은 적용하되 서술은 일반형).
 
     지지는 방향(용신/기신) 평가 후 공망·충 동태(_branch_dynamics)로 작동력·사건성을 조정한다.
     mitigation(P1, 플래그 ON일 때만 전달)이 있으면 합거로 묶인 흉 글자의 점수를
@@ -357,6 +434,30 @@ def _luck_effect(
     ):
         # 기신 성국(局) — 점수는 _relation_modifier(변환 오행 −0.1)가 이미 반영, 표기만 덧붙인다.
         summary = f"{summary} · 기신 성국(局) — 불리 오행이 국을 이뤄 기존 불균형 확대"
+    # 용신 태과(간여지동) — 같은 용신 오행이 천간·지지에 몰린 운(위 YONGSIN_OVERFLOW_MODE 주석).
+    overflow_group = _overflow_group(day_master, stem)
+    if (
+        YONGSIN_OVERFLOW_MODE != "off"
+        and stem_eff.type == "용신" and branch_eff.type == "용신"
+        and str(STEM_ELEMENT[stem]) == str(BRANCH_ELEMENT[branch])
+        and ("all" in YONGSIN_OVERFLOW_GROUPS or (overflow_group or "") in YONGSIN_OVERFLOW_GROUPS)
+    ):
+        if YONGSIN_OVERFLOW_MODE == "flip":
+            score = round(min(score, 0.0) + YONGSIN_OVERFLOW_FLIP, 4)
+        else:
+            score = round(score * YONGSIN_OVERFLOW_FACTOR, 4)
+        code = "yongsin_overflow_luck"
+        label = (
+            f"용신 태과(간여지동·{overflow_group})" if overflow_group else "용신 태과(간여지동)"
+        )
+        face = _OVERFLOW_FACE.get(overflow_group or "", "")
+        summary = (
+            "천간·지지가 같은 용신 오행으로 몰려 기운이 한쪽으로 과한 운(강한 용신운이 아님)"
+            + (
+                f" — {face}" if face
+                else " — 뒷받침 없이 세기만 커져 멈추거나 놀기 쉽고 실속이 적다"
+            )
+        )
     if branch_eff.branch_label:  # 공망/충 동태를 요약에 덧붙임
         summary = f"{summary} · 지지 {branch_eff.branch_label}"
     return {
@@ -539,6 +640,19 @@ def _volatility(relations: list[str]) -> float:
     return round(sum(3.0 if r.startswith("충") else 1.0 for r in relations), 2)
 
 
+def month_pillar_as_luck(
+    pillars: FourPillarsResult, useful: set[str], unfavorable: set[str],
+) -> LuckPillar:
+    """첫 대운 전 유년 — 통설대로 **월주 간지를 운처럼** 채점한다(2026-11-08 인생 그래프 추세선용).
+
+    period_type 은 'year'(세운과 같은 가중·관계 평가). 조후 블렌드(B안)도 세운과 같은 규칙으로 탄다.
+    """
+    return _luck_pillar(
+        "대운 전", "year", Stem(pillars.month.stem), Branch(pillars.month.branch),
+        pillars, Stem(pillars.day.stem), useful, unfavorable,
+    )
+
+
 def _luck_pillar(
     label: str,
     period_type: str,
@@ -563,13 +677,15 @@ def _luck_pillar(
         if HAP_MITIGATION_ENABLED else None
     )
     eff = _luck_effect(
-        stem, branch, useful, unfavorable, period_type, rels, transformed, void,
+        stem, branch, useful, unfavorable, period_type, rels, transformed, void, day_master=dm,
         mitigation=mitigation,
     )
     if STRUCTURE_BACKGROUND_ENABLED:
         _apply_structure_background_month(
             eff, pillars, useful, unfavorable, stem, branch, period_type,
         )
+    if period_type == "year":
+        _apply_climate_blend(eff, pillars, branch, "year")  # B안(기본 off) — 월운·일운 제외
     return LuckPillar(
         label=label,
         period_type=period_type,
@@ -646,8 +762,9 @@ def compute_luck_cycles(
         void = False
         eff = _luck_effect(
             stem, branch, useful_elements, unfavorable_elements, "daewoon",
-            rels, transformed, void,
+            rels, transformed, void, day_master=dm,
         )
+        _apply_climate_blend(eff, pillars, branch, "daewoon")  # B안(기본 off)
         # 이 대운 10년의 세운(연동 표시용).
         sew_years = range(birth_date.year + age, birth_date.year + age + 10)
         sewoon = _yearly(pillars, dm, useful_elements, unfavorable_elements, sew_years)

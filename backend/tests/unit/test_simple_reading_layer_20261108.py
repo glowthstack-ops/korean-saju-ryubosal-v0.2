@@ -25,7 +25,7 @@ from saju_shared_types.daily_fortune import (
 )
 from saju_shared_types.enums import Branch, Stem
 
-_FIRST = SIMPLE_LAYER_EFFECTIVE_FROM  # dict.v1.19 — 단식 결 층 이후 계약(2026-11-10, 丙午년 己亥월)
+_FIRST = SIMPLE_LAYER_EFFECTIVE_FROM  # 단식 결 층 이후 계약(2026-11-08, 丙午년 己亥월) — 당일 v1.20
 _PREV = STAGE_DIRECTION_EFFECTIVE_FROM  # dict.v1.18 — 직전 계약
 
 
@@ -57,8 +57,8 @@ def board() -> DailyFortuneBoard:
 
 
 def test_version_boundary() -> None:
-    assert DICT_VERSION == "dict.v1.19"
-    assert active_dict_version(_FIRST) == "dict.v1.19"
+    assert DICT_VERSION == "dict.v1.20"
+    assert active_dict_version(_FIRST) == "dict.v1.20"
     assert active_dict_version(_FIRST - dt.timedelta(days=1)) == "dict.v1.18"
 
 
@@ -66,19 +66,29 @@ def test_layer_coverage() -> None:
     s = _simple()
     pairs = {f"{a}+{b}" for a in S.GROUPS for b in S.GROUPS}
     assert set(s["year_tone"]) == pairs
-    assert set(s["group_scene"]) == set(S.GROUPS)
-    for g in S.GROUPS:
-        assert set(s["group_scene"][g]) == set(S.AXES)
-        assert len(s["group_axes"][g]) == 3 and set(s["group_axes"][g]) <= set(S.AXES)
+    assert "group_scene" not in s and "group_axes" not in s  # v1.20: 십성 단위로 교체(§27)
     for h in S.HORIZONS:
         assert set(s[f"{h}_same_group"]) == set(S.GROUPS)
-    assert set(s["peak_month"]) == set(S.GROUPS)
-    assert all("{months}" in v for v in s["peak_month"].values())
+    # 2026-11-09 §28-5: 절정 달 → 간여지동 달. 패널 첫 문장 1개 + 그 달 십성군 본문 5.
+    assert "peak_month" not in s and "peak_month_lead" not in s
+    assert set(s["strong_month"]) == set(S.GROUPS)
+    assert s["strong_month_lead"].startswith("{months}에는 천간과 지지가 모두 같은 성격의 글자")
+    for v in s["strong_month"].values():
+        assert "{months}" not in v and v.startswith("이 영향은")
+    assert "{label}" in S.STRONG_MONTH_CHAT_LEAD and "올해" not in S.STRONG_MONTH_CHAT_LEAD
+    # v1.20(§27): 십성 10 × 영역 5 장면, 십성별 축 3, 일지 십성군 5 × 월운 천간 십성 10 자리 문장.
+    gods = set(S._GROUP_OF)
+    assert set(s["god_scene"]) == gods and set(s["god_axes"]) == gods
+    for g in gods:
+        assert set(s["god_scene"][g]) == set(S.AXES)
+        assert len(s["god_axes"][g]) == 3 and set(s["god_axes"][g]) <= set(S.AXES)
+    assert set(s["ilju_seat"]) == set(S.GROUPS)
+    assert all(set(v) == gods for v in s["ilju_seat"].values())
 
 
 def test_layer_sentences_pass_text_policy() -> None:
     s = _simple()
-    meta = ("since", "decision_ref", "note", "group_axes")
+    meta = ("since", "decision_ref", "note", "group_axes", "god_axes")
     sentences = _sentences({k: v for k, v in s.items() if k not in meta})
     assert len(sentences) == len(set(sentences))
     for sentence in sentences:
@@ -114,7 +124,11 @@ def test_mixed_year_has_no_emphasis_and_mixes_points() -> None:
     assert (sr.stem_group, sr.branch_group) == ("비겁", "식상")
     assert not sr.same_group and sr.emphasis is None
     s = _simple()
-    assert sr.points[2] == s["group_scene"]["식상"][s["group_axes"]["식상"][0]]
+    # v1.20: 포인트는 십성 단위 — 겁재 장면 2 + 식신 장면 1(천간이 쓴 영역과 안 겹치는 첫 축).
+    assert sr.points[0] == s["god_scene"]["겁재"][s["god_axes"]["겁재"][0]]
+    used = s["god_axes"]["겁재"][:2]
+    third = next(a for a in s["god_axes"]["식신"] if a not in used)
+    assert sr.points[2] == s["god_scene"]["식신"][third]
 
 
 def test_month_ganji_of_year_follows_wolgeon_rule() -> None:
@@ -125,11 +139,66 @@ def test_month_ganji_of_year_follows_wolgeon_rule() -> None:
 
 
 def test_peak_months_2026_earth_stem_is_october_alone() -> None:
-    """원문 '10월 아팠거나 게으름 max'(土 일간) — 午戌 반합 + 戊戌 비겁(출구) 단독 최고."""
+    """종전 절정 점수식(§26-1) — v1.19 계약 재생용으로만 남는다."""
     assert S.peak_months(Stem("戊"), Stem("丙"), Branch("午")) == [10]
     assert S.peak_months(Stem("己"), Stem("丙"), Branch("午")) == [10]
-    line = S.peak_month_line(Stem("戊"), Stem("丙"), Branch("午"), _simple())
-    assert line and line.startswith("10월에는")
+
+
+def test_strong_months_are_ganyeojidong_months() -> None:
+    """2026-11-09 데굴님 "그해 간여지동으로 들어오는 월의 내용을 풀이" — 천간·지지 본기 같은 군."""
+    # 2026 丙午: 간여지동 달은 戊戌(10월) 하나 — 군은 일간마다 다르다.
+    expected = {"甲": "재성", "丙": "식상", "戊": "비겁", "庚": "인성", "壬": "관성"}
+    for dm, group in expected.items():
+        assert S.strong_months(Stem(dm), Stem("丙")) == [(10, group)], dm
+    # 2027 丁未: 6월 丙午·12월 壬子(甲 일간 식상·인성) — 세운 군과 무관.
+    assert S.strong_months(Stem("甲"), Stem("丁")) == [(6, "식상"), (12, "인성")]
+    # 2028 戊申: 7개(戊·癸년은 甲寅월 시작) — 절기 연도 순.
+    assert [m for m, _ in S.strong_months(Stem("甲"), Stem("戊"))] == [2, 3, 5, 7, 8, 9, 11]
+
+
+def test_panel_strong_month_line_uses_month_group() -> None:
+    """패널 문장 본문은 그 달 십성군(세운 군 아님) — 己 일간 2026: 세운 인성이지만 10월은 비겁."""
+    s = _simple()
+    panel = S.peak_month_line(Stem("己"), Stem("丙"), Branch("午"), s)
+    assert panel == (
+        "10월에는 천간과 지지가 모두 같은 성격의 글자로 들어와 강하게 영향받을 수 있어요. "
+        + s["strong_month"]["비겁"]
+    )
+    assert s["strong_month"]["인성"] not in panel and "십성" not in panel  # 용어 비노출(§3)
+    # 여러 달 — 십성군별로 묶어 한 줄씩(2028 戊申 甲 일간: 비겁 2·3월, 식상 5월 …).
+    many = S.peak_month_line(Stem("甲"), Stem("戊"), Branch("申"), s)
+    assert many is not None
+    lines = many.split("\n")
+    groups = {g for _, g in S.strong_months(Stem("甲"), Stem("戊"))}
+    assert len(lines) == len(groups) <= 5
+    assert lines[0].startswith("2·3월에는 천간과 지지가 모두 같은 성격의 글자로")
+    assert lines[0].endswith(s["strong_month"]["비겁"])
+
+
+def test_chat_strong_month_line() -> None:
+    """채팅 월 문단 — "이 달은 천간과 지지 모두 ○○로 들어와 …" + 그 달 십성군 본문(데굴님 문형)."""
+    s = _simple()
+    oct_ = S.strong_month_chat_line(Stem("己"), Stem("戊"), Branch("戌"), s)
+    assert oct_ == (
+        "이 달은 천간과 지지 모두 겁재로 들어와 강하게 영향을 받을 수 있는 달이에요. "
+        + s["strong_month"]["비겁"]
+    )
+    # 같은 군·다른 십성 — 군 이름 + 두 십성, 조사 '으로'.
+    jun = S.strong_month_chat_line(Stem("甲"), Stem("丙"), Branch("午"), s)
+    assert jun and jun.startswith("이 달은 천간과 지지 모두 식상(식신·상관)으로 들어와")
+    fire = S.strong_month_chat_line(Stem("己"), Stem("丙"), Branch("午"), s)
+    assert fire and fire.startswith("이 달은 천간과 지지 모두 인성(정인·편인)으로")
+    # 간여지동 아님 → None.
+    assert S.strong_month_chat_line(Stem("己"), Stem("己"), Branch("亥"), s) is None
+    assert S._ro("겁재") == "로" and S._ro("비견") == "으로" and S._ro("재성(편재·정재)") == "로"
+
+
+def test_peak_line_keeps_v119_contract() -> None:
+    """과거 계약(v1.19 사전 — peak_month 에 {months}, strong_month 없음)은 종전 문장 그대로."""
+    legacy = {"peak_month": {g: "{months}에는 옛 문장이에요." for g in S.GROUPS}}
+    line = S.peak_month_line(Stem("戊"), Stem("丙"), Branch("午"), legacy)
+    assert line == "10월에는 옛 문장이에요."
+    assert S.strong_month_chat_line(Stem("戊"), Stem("戊"), Branch("戌"), legacy) is None
 
 
 def test_peak_months_generalize_by_generating_group() -> None:
@@ -165,20 +234,20 @@ def test_board_carries_year_flow_and_same_group_notes(board: DailyFortuneBoard) 
     assert board.year_direction_note and "발판" in board.year_direction_note
     for yf in board.year_flow:
         assert yf.tone and yf.emphasis and len(yf.points) == 3  # 丙午 — 전 일간 같은 군
-    # 己亥월(11/10): 천간 己·지지 亥(壬) — 어느 일간도 같은 군이 아니다 → 월 강조 없음.
+    # 己亥월(11/8~): 천간 己·지지 亥(壬) — 어느 일간도 같은 군이 아니다 → 월 강조 없음.
     assert board.month_flow is not None
     assert all(m.same_group_note is None for m in board.month_flow)
 
 
 def test_day_same_group_note_prefixes_advice_only_when_same_group() -> None:
     s = _simple()
-    # 2026-11-10 일진 戊子: 戊 일간에 비견(비겁) + 子 본기 癸 정재(재성) → 다름 → 조언 그대로.
+    # 2026-11-08 일진 丙戌: 戊 일간에 편인(인성) + 戌 본기 戊 비견(비겁) → 다름 → 조언 그대로.
     b = _board(_FIRST)
     ctx = M.build_day_context(_FIRST)
-    assert (ctx.day_stem, ctx.day_branch) == ("戊", "子")
+    assert (ctx.day_stem, ctx.day_branch) == ("丙", "戌")
     for f in b.fortunes:
         assert f.advice and not any(f.advice.startswith(v) for v in s["day_same_group"].values())
-    # 丙午일(2026-11-16? 아님) — 같은 군이 되는 날을 직접 찾는다: 일진 천간·지지가 모두 火.
+    # 같은 군이 되는 날을 직접 찾는다: 일진 천간·지지가 모두 火(丙午일).
     d = _FIRST
     for _ in range(60):
         c = M.build_day_context(d)
@@ -224,27 +293,50 @@ def test_reference_line_uses_terms_and_prefix() -> None:
     month = S.simple_reference_line("戊", "己亥", "month", _simple(), _month_layer())
     assert month.startswith("간단히 봤을 때, 己亥월은")
     assert "올해" not in month  # 세운 간지 없으면 그 달 결만
-    # 월 지평 + 세운(2026-11-08 실답 교정): 올해 결 + 절정 달이면 절정 문장 — 己 일간 戊戌월(10월).
+    # 월 지평(2026-11-08 2차 교정 — "이달 운세인데 올해 흐름을 반복"): 그 달 결 이름 + 천간·지지
+    # 십성 장면만. 올해 결 문장 없음. 절정 달(己 일간 戊戌월)만 절정 문장 1개.
     s = _simple()
     oct_line = S.simple_reference_line(
         "己", "戊戌", "month", s, _month_layer(), year_ganji="丙午",
     )
     assert oct_line.startswith(
-        "간단히 봤을 때, 戊戌월은 기(己) 일간에게 비겁(겁재·겁재)의 달이고, "
-        "올해 丙午년은 인성(정인·편인)의 해예요."
+        "간단히 봤을 때, 戊戌월은 기(己) 일간에게 비겁(겁재·겁재)의 달이에요."
     )
-    assert s["year_tone"]["인성+인성"] in oct_line
-    assert "그중 이 달은 올해 결이 가장 세지는 달이에요. 10월에는" in oct_line
-    assert "이 달만 따로 보면" in oct_line
-    # 절정이 아닌 달(己亥월)은 올해 결만 붙고 절정 문장은 없다.
+    assert s["god_scene"]["겁재"]["돈"] in oct_line
+    assert s["year_tone"]["인성+인성"] not in oct_line and "올해 丙午년은" not in oct_line
+    # 2026-11-09 §28-5: 간여지동 달 문장 + 그 달(비겁) 본문. 올해 흐름 언급·강조 문장 중복 없음.
+    assert oct_line.endswith(
+        "이 달은 천간과 지지 모두 겁재로 들어와 강하게 영향을 받을 수 있는 달이에요. "
+        + s["strong_month"]["비겁"] + " (일간과 운의 십성만 본 단식 풀이라 참고용이에요.)"
+    )
+    assert "올해" not in oct_line and s["strong_month"]["인성"] not in oct_line
+    assert "천간과 지지가 같은 성격의 글자라" not in oct_line and "10월에는" not in oct_line
+    assert "이 달만 따로 보면" not in oct_line
+    # 절정이 아닌 달(己亥월)은 올해 언급이 없다.
     nov_line = S.simple_reference_line("己", "己亥", "month", s, _month_layer(), year_ganji="丙午")
-    assert "올해 丙午년은" in nov_line and "가장 세지는" not in nov_line
-    # 일 지평도 올해 결 한 줄.
+    assert "올해" not in nov_line and s["god_scene"]["비견"]["사람"] in nov_line
+    assert s["god_scene"]["정재"]["돈"] in nov_line
+    # 일 지평도 그 날만.
     day_line = S.simple_reference_line("己", "丙戌", "day", s, _month_layer(), year_ganji="丙午")
-    assert day_line.startswith("간단히 봤을 때, 丙戌일은") and "올해 丙午년은" in day_line
-    assert "오늘만 따로 보면" in day_line
+    assert day_line.startswith("간단히 봤을 때, 丙戌일은") and "올해" not in day_line
+    assert s["god_scene"]["정인"]["일"] in day_line
     assert S.simple_reference_line("", "丙午", "year", _simple()) == ""
     assert S.simple_reference_line("戊", "丙午", "week", _simple()) == ""
+
+
+def test_chat_emphasis_uses_scope_demonstrative() -> None:
+    """채팅은 다른 달·날도 묻는다 — 패널 '이번 달은·오늘은'을 '이 달은·이 날은'으로(2026-11-09)."""
+    s, ml = _simple(), _month_layer()
+    month = S.simple_reference_line("甲", "甲寅", "month", s, ml)  # 비견·비견 — 간여지동 문장
+    assert "이 달은 천간과 지지 모두 비견으로 들어와" in month and "이번 달" not in month
+    day = S.simple_reference_line("己", "丙午", "day", s, ml)  # 정인·편인 — 같은 군
+    assert "이 날은 " + s["day_same_group"]["인성"][len("오늘은 "):] in day
+    assert "오늘은" not in day
+    assert S.chat_scoped("다른 문장이에요.", "month") == "다른 문장이에요."
+    # 월 지평의 같은 군 달은 간여지동 문장이 강조 문장을 대신한다("이 달은" 1회).
+    june = S.simple_reference_line("甲", "丙午", "month", s, ml, year_ganji="丁未")
+    assert "이 달은 천간과 지지 모두 식상(식신·상관)으로 들어와" in june
+    assert "천간과 지지가 같은 성격의 글자라" not in june and june.count("이 달은") == 1
 
 
 def test_chat_period_fortune_carries_simple_reading_line() -> None:
@@ -268,7 +360,7 @@ def test_chat_period_fortune_carries_simple_reading_line() -> None:
     assert pf is not None
     assert pf.simple_reading_line.startswith("간단히 봤을 때, 丙午년은")
     assert "참고용" in pf.simple_reading_line
-    # 월 총운은 세운(스택) 간지를 받아 올해 결이 함께 실린다.
+    # 월 총운은 그 달에 집중 — 올해 결 문장 없음(2026-11-08 2차), 절정 달 문장만 세운 간지로 붙는다.
     m_intent = IntentJson(
         intent_id="t", query_type=QueryType.FORTUNE_OVERVIEW,
         time_range=TimeRange(
@@ -276,7 +368,10 @@ def test_chat_period_fortune_carries_simple_reading_line() -> None:
         ),
     )
     mpf = chat_service._build_period_fortune(b, m_intent, dt.date(2026, 11, 8), "monthly")
-    assert mpf is not None and "올해 丙午년은" in mpf.simple_reading_line
+    assert mpf is not None and "올해 丙午년은" not in mpf.simple_reading_line
+    assert mpf.simple_reading_line.startswith("간단히 봤을 때, 戊戌월은")
+    assert "되풀이 금지" in SIMPLE_READING_USAGE_RULE
+    assert "그 달·그 날에 집중" in SIMPLE_READING_USAGE_RULE
     assert SIMPLE_READING_HEADER.startswith("[단식 참고") and "그대로" in SIMPLE_READING_USAGE_RULE
     from saju_engines.context_reducer import SIMPLE_READING_DIRECTION_RULE
 
@@ -284,8 +379,36 @@ def test_chat_period_fortune_carries_simple_reading_line() -> None:
 
 
 def test_balanced_sentences_carry_both_faces() -> None:
-    """양면 어휘(2026-11-08 데굴님 '안 좋은 쪽만 정리') — 연 결 25개 전부 발판/소모 두 갈래."""
+    """양면 어휘(2026-11-08 데굴님 '안 좋은 쪽만 정리') — 2026-11-09 형식 개편.
+
+    연 흐름 25개는 "발판이면/소모면" 두 갈래 대신 조심할 얼굴 + 좋은 얼굴을 한 문장 조언
+    ("~하지 않게, ~해보세요")으로 담는다(데굴님 지정 형식, 절정 달 문장과 같은 꼴). 발판·소모
+    설명은 패널 안내(`direction_note`)에만 남는다.
+    """
     s = _simple()
     for pair, text in s["year_tone"].items():
-        assert "발판이 되는 쪽이면" in text and "소모가 되는 쪽이면" in text, pair
+        assert "발판" not in text and "소모" not in text, pair
+        assert re.search(r"[^ ]+지 않게, [^.]+보세요\.", text), pair
     assert "발판" in s["direction_note"] and "소모" in s["direction_note"]
+    assert s["direction_note"].startswith("같은 흐름이라도")
+
+
+def test_simple_layer_avoids_gyeol_wording() -> None:
+    """2026-11-09 데굴님 "결이라는 어려운 단어는 지양" — 강조·절정·안내 문장과 프롬프트 상수."""
+    from saju_engines.context_reducer import (
+        SIMPLE_READING_DIRECTION_RULE,
+        SIMPLE_READING_HEADER,
+        SIMPLE_READING_USAGE_RULE,
+    )
+
+    s = _simple()
+    keys = ("year_same_group", "month_same_group", "day_same_group", "strong_month")
+    texts = [t for k in keys for t in s[k].values()] + [s["direction_note"]]
+    texts += [s["strong_month_lead"], S.STRONG_MONTH_CHAT_LEAD]
+    texts += [SIMPLE_READING_HEADER, SIMPLE_READING_USAGE_RULE, SIMPLE_READING_DIRECTION_RULE]
+    for t in texts:
+        # '결과·결실·결정·결혼·종결' 같은 다른 낱말은 허용, 단독 '결'만 금지.
+        assert not re.search(r"결(?![과실정혼])", t.replace("종결", "")), t
+    for h in S.HORIZONS:
+        for g in S.GROUPS:
+            assert "천간과 지지가 같은 성격의 글자라" in s[f"{h}_same_group"][g], (h, g)
