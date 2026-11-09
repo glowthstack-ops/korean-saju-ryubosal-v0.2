@@ -49,6 +49,30 @@ PEAK_MAX_MONTHS = 3
 #: 채팅·테마 참고 줄 말머리(데굴님 지정).
 REFERENCE_PREFIX = "간단히 봤을 때,"
 _REFERENCE_SUFFIX = "(일간과 운의 십성만 본 단식 풀이라 참고용이에요.)"
+#: 채팅 월 참고 문단의 절정 첫 문장(용어 허용 경로, 2026-11-09 데굴님 지정 형식 → 최종안).
+#: 문단이 이미 그 달을 말하고 있으므로 "{months}에는"(여러 절정 달 나열) 대신 그 달만 가리키고,
+#: 뒤따르는 본문이 **올해** 흐름이라는 것을 이 문장이 밝힌다(올해/이달 내용 혼동 방지). 키는 그 달
+#: 간지 자체의 판정 — 'same_god' = 월운 천간 십성 == 월운 지지 본기 십성. 오늘의 운세 패널은 사전
+#: `peak_month_lead`(쉬운 말, "{months}에는 … 같은 성격의 글자")를 쓴다.
+PEAK_MONTH_LEAD_TERMS: dict[str, str] = {
+    "same_god": (
+        "이 달은 천간과 지지가 같은 십성의 글자로 들어와, 올해 흐름의 영향을 가장 강하게 받을 수 "
+        "있는 달이에요."
+    ),
+    # other 는 같은 군 강조("이 달은 …")가 바로 앞에 남을 수 있어 "이 달은"을 되풀이하지 않는다.
+    "other": (
+        "올해 기운과 이 달 기운이 맞물려, 올해 흐름의 영향을 가장 강하게 받을 수 있는 "
+        "달이기도 해요."
+    ),
+}
+#: 채팅 참고 문단의 기간 지칭 — 강조 문장은 패널과 같은 사전 문장이라 '이번 달은·오늘은'으로
+#: 시작하지만, 채팅은 지난달·다음 달·내일처럼 **다른 기간**도 묻는다. 문단 첫 문장이 그 기간을
+#: 간지로 밝히므로 지시어로 받는다(2026-11-09 최종안 보완).
+_CHAT_SCOPE: dict[str, tuple[str, str]] = {
+    "year": ("올해는", "이 해는"),
+    "month": ("이번 달은", "이 달은"),
+    "day": ("오늘은", "이 날은"),
+}
 
 
 @dataclass(frozen=True)
@@ -166,7 +190,7 @@ def month_ganji_of_year(year_stem: Stem) -> list[tuple[Stem, Branch, int]]:
 def peak_month_entries(
     day_master: Stem, year_stem: Stem, year_branch: Branch,
 ) -> list[tuple[int, Branch]]:
-    """올해 결이 가장 세지는 달 — (양력 월 번호, 월운 지지) 목록. 규칙은 `peak_months` 참조."""
+    """올해 흐름이 가장 강해지는 달 — (양력 월 번호, 월운 지지) 목록. 규칙은 `peak_months` 참조."""
     from saju_engines.daily_ilju_fortune import _branch_relations  # 지연 import — 순환 회피
 
     year_group = _GROUP_OF[ten_god_name(day_master, year_stem)]
@@ -189,7 +213,7 @@ def peak_month_entries(
 
 
 def peak_months(day_master: Stem, year_stem: Stem, year_branch: Branch) -> list[int]:
-    """올해 결이 가장 세지는 달(양력 월 번호) — §26-1 점수식.
+    """올해 흐름이 가장 강해지는 달(양력 월 번호) — §26-1 점수식.
 
     월운별 점수 = 세운 지지와 월운 지지의 합(삼합 완성·반합·육합) 2점
     + 월운 천간/지지 본기 십성군이 세운 천간군과 **같으면** 각 1점(중첩)
@@ -201,15 +225,79 @@ def peak_months(day_master: Stem, year_stem: Stem, year_branch: Branch) -> list[
     return [m for m, _ in peak_month_entries(day_master, year_stem, year_branch)]
 
 
+def peak_month_kind(day_master: Stem, year_stem: Stem, year_branch: Branch) -> str | None:
+    """절정 달 첫 문장 종류 — 'same_god' | 'other', 절정 달이 없으면 None.
+
+    'same_god' = 절정 달 **전부**가 월운 천간 십성 == 월운 지지 본기 십성(예: 2026 戊戌월 — 戊와
+    戌 본기 戊). "천간과 지지가 같은 십성의 글자로 들어와"는 이 경우에만 사실이다. 60갑자 해 ×
+    10일간 전수에서 절정 달 910건 중 140건(15%)만 해당하므로 문장을 고정하지 않고 판정한다
+    (2026-11-09). 나머지는 세운 지지와의 합·같은 군 중첩·출구 군으로 절정이 된 달이다.
+    """
+    entries = peak_month_entries(day_master, year_stem, year_branch)
+    if not entries:
+        return None
+    stem_of = {b: s for s, b, _ in month_ganji_of_year(year_stem)}
+    same = all(
+        ten_god_name(day_master, stem_of[b]) == branch_god_name(day_master, b) for _, b in entries
+    )
+    return "same_god" if same else "other"
+
+
 def peak_month_line(
     day_master: Stem, year_stem: Stem, year_branch: Branch, simple: dict[str, Any]
 ) -> str | None:
-    """월 절정 문장(사전 `peak_month[군]`, `{months}` 치환). 절정 달이 없으면 None."""
+    """오늘의 운세 패널 절정 문장 — 사전 `peak_month_lead[판정]`(왜 강한가, 쉬운 말) + 사전
+    `peak_month[세운 천간군]`(어떻게 나타나고 어떻게 대할까).
+
+    v1.19 사전처럼 `peak_month[군]` 에 `{months}` 가 들어 있는 과거 계약은 그 문장 하나를 그대로
+    쓴다. 절정 달이 없으면 None.
+    """
     months = peak_months(day_master, year_stem, year_branch)
-    if not months:
+    kind = peak_month_kind(day_master, year_stem, year_branch)
+    if not months or kind is None:
+        return None
+    label = "·".join(f"{m}월" for m in months)
+    group = _GROUP_OF[ten_god_name(day_master, year_stem)]
+    body: str = simple["peak_month"][group]
+    if "{months}" in body:
+        return body.format(months=label)
+    return f"{simple['peak_month_lead'][kind].format(months=label)} {body}"
+
+
+def month_is_same_god(day_master: Stem, stem: Stem, branch: Branch) -> bool:
+    """그 달 간지의 천간 십성 == 지지 본기 십성인가(채팅 절정 첫 문장 판정)."""
+    return ten_god_name(day_master, stem) == branch_god_name(day_master, branch)
+
+
+def peak_month_chat_line(
+    day_master: Stem,
+    stem: Stem,
+    branch: Branch,
+    year_stem: Stem,
+    year_branch: Branch,
+    simple: dict[str, Any],
+) -> str | None:
+    """채팅 월 참고 문단의 절정 문장 — 그 달(stem·branch)이 올해 절정 달일 때만, 아니면 None.
+
+    `PEAK_MONTH_LEAD_TERMS[그 달 판정]` + 사전 `peak_month[세운 천간군]`. 본문의 "이 영향은"이
+    첫 문장의 '올해 흐름의 영향'을 받아 올해 내용임이 드러난다. v1.19 계약(본문에 `{months}`)은
+    종전 연결 문장 + 그 문장.
+    """
+    if not any(b == branch for _, b in peak_month_entries(day_master, year_stem, year_branch)):
         return None
     group = _GROUP_OF[ten_god_name(day_master, year_stem)]
-    return simple["peak_month"][group].format(months="·".join(f"{m}월" for m in months))
+    body: str = simple["peak_month"][group]
+    if "{months}" in body:
+        label = "·".join(f"{m}월" for m in peak_months(day_master, year_stem, year_branch))
+        return f"올해 흐름이 가장 강해지는 달이기도 해요. {body.format(months=label)}"
+    kind = "same_god" if month_is_same_god(day_master, stem, branch) else "other"
+    return f"{PEAK_MONTH_LEAD_TERMS[kind]} {body}"
+
+
+def chat_scoped(sentence: str, horizon: str) -> str:
+    """패널용 강조 문장의 기간 지칭('이번 달은' 등)을 채팅 지시어('이 달은' 등)로 바꾼다."""
+    panel, chat = _CHAT_SCOPE[horizon]
+    return chat + sentence[len(panel):] if sentence.startswith(panel) else sentence
 
 
 @lru_cache(maxsize=1)
@@ -260,12 +348,13 @@ def simple_reference_line(
 ) -> str:
     """채팅·테마사주 참고 문단(§26-3) — 용어 허용 경로. 호출자는 이 문단을 **그대로** 싣는다.
 
-    - year: "간단히 봤을 때, 丙午년은 무(戊) 일간에게 인성(편인·정인) 결이에요. {year_tone}"
+    - year: "간단히 봤을 때, 丙午년은 무(戊) 일간에게 인성(편인·정인)의 해예요. {year_tone}"
     - month / day(2026-11-08 2차 실답 교정 — 데굴님 "이달 운세를 물었는데 올해 흐름을 계속 반복해
-      올해 내용인지 이달 내용인지 헛갈린다"): **그 달/그 날에 집중** — 결 이름 1문장 + 운 천간 십성
-      장면 + 운 지지 십성 장면(§27 `god_points` 1·3번째). 올해 결 문장은 싣지 않고, 그 달이 올해
-      결이 가장 세지는 달일 때만 절정 문장 1개(`year_ganji` 필요)를 붙인다. 같은 군이면 강조 1문장.
-      v1.19 사전(god_scene 없음)은 종전대로 그 달 결(`tone`) 1문장.
+      올해 내용인지 이달 내용인지 헛갈린다"): **그 달/그 날에 집중** — 이름 1문장 + 운 천간 십성
+      장면 + 운 지지 십성 장면(§27 `god_points` 1·3번째) + 같은 군이면 강조 1문장(`chat_scoped` —
+      '이 달은·이 날은'). 올해 흐름 문장은 싣지 않고, 그 달이 올해 흐름이 가장 강해지는 달일 때만
+      절정 문장(`peak_month_chat_line`, `year_ganji` 필요)을 붙이며, 그 달이 천간·지지 같은 십성이면
+      같은 근거의 강조 문장은 뺀다(2026-11-09 최종안). v1.19 사전(god_scene 없음)은 그 달 `tone`.
     끝에 참고 안내 1문장. 일간·간지가 비었거나 사전이 없으면 빈 문자열(호출자는 줄을 생략한다).
     """
     if not day_master or horizon not in HORIZONS:
@@ -292,15 +381,18 @@ def simple_reference_line(
     elif simple.get("god_scene"):
         # 그 달/그 날에 집중 — 천간 십성 장면 + 지지 십성 장면(§27). 올해 결은 싣지 않는다.
         parts.extend((sr.points[0], sr.points[2]))
-        if sr.emphasis:
-            parts.append(sr.emphasis)
         year = _parse_ganji(year_ganji)
-        if horizon == "month" and year is not None:
-            ys, yb = year
-            if any(b == branch for _, b in peak_month_entries(dm, ys, yb)):
-                peak = peak_month_line(dm, ys, yb, simple)
-                if peak:
-                    parts.append(f"올해 결이 가장 세지는 달이기도 해요. {peak}")
+        peak = (
+            peak_month_chat_line(dm, stem, branch, year[0], year[1], simple)
+            if horizon == "month" and year is not None
+            else None
+        )
+        # 절정 첫 문장이 "천간과 지지가 같은 십성의 글자"를 말하면 같은 사실의 강조 문장은 뺀다
+        # (2026-11-09 실출력: 한 문단에 같은 근거가 두 번).
+        if sr.emphasis and not (peak and month_is_same_god(dm, stem, branch)):
+            parts.append(chat_scoped(sr.emphasis, horizon))
+        if peak:
+            parts.append(peak)
     elif sr.tone:
         parts.append(sr.tone)
     parts.append(_REFERENCE_SUFFIX)

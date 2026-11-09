@@ -70,7 +70,17 @@ def test_layer_coverage() -> None:
     for h in S.HORIZONS:
         assert set(s[f"{h}_same_group"]) == set(S.GROUPS)
     assert set(s["peak_month"]) == set(S.GROUPS)
-    assert all("{months}" in v for v in s["peak_month"].values())
+    # 2026-11-09: 첫 문장(왜 강한가)은 `peak_month_lead` 로 분리 — 본문에는 달 이름이 없다.
+    assert set(s["peak_month_lead"]) == {"same_god", "other"} == set(S.PEAK_MONTH_LEAD_TERMS)
+    assert all(v.startswith("{months}에는") for v in s["peak_month_lead"].values())
+    # 채팅 월 문단은 그 달만 가리키고(여러 절정 달 나열 없음) 본문이 올해 흐름임을 밝힌다.
+    for v in S.PEAK_MONTH_LEAD_TERMS.values():
+        assert "{months}" not in v and "올해 흐름의 영향" in v
+    assert S.PEAK_MONTH_LEAD_TERMS["same_god"].startswith("이 달은 천간과 지지가 같은 십성의 글자")
+    # other 앞에는 같은 군 강조("이 달은 …")가 남을 수 있어 "이 달은"으로 시작하지 않는다.
+    assert not S.PEAK_MONTH_LEAD_TERMS["other"].startswith("이 달은")
+    assert all("{months}" not in v for v in s["peak_month"].values())
+    assert all(v.startswith("이 영향은") for v in s["peak_month"].values())
     # v1.20(§27): 십성 10 × 영역 5 장면, 십성별 축 3, 일지 십성군 5 × 월운 천간 십성 10 자리 문장.
     gods = set(S._GROUP_OF)
     assert set(s["god_scene"]) == gods and set(s["god_axes"]) == gods
@@ -139,6 +149,56 @@ def test_peak_months_2026_earth_stem_is_october_alone() -> None:
     assert S.peak_months(Stem("己"), Stem("丙"), Branch("午")) == [10]
     line = S.peak_month_line(Stem("戊"), Stem("丙"), Branch("午"), _simple())
     assert line and line.startswith("10월에는")
+
+
+def test_peak_lead_same_god_only_when_stem_and_branch_share_ten_god() -> None:
+    """2026-11-09 데굴님 지정 형식 — "천간과 지지가 같은 십성의 글자로 들어와"는 사실일 때만.
+
+    2026 丙午: 절정 달 戊戌 — 戊와 戌 본기 戊는 어느 일간에게나 같은 십성 → same_god.
+    반례 2027 丁未: 절정 달 丙午(午未 육합) — 丙과 午 본기 丁은 십성이 다르다 → other.
+    """
+    s = _simple()
+    for dm in Stem:
+        assert S.peak_month_kind(dm, Stem("丙"), Branch("午")) == "same_god", dm
+    panel = S.peak_month_line(Stem("戊"), Stem("丙"), Branch("午"), s)
+    assert panel == (
+        "10월에는 천간과 지지가 같은 성격의 글자로 들어와 강하게 영향받을 수 있어요. "
+        "이 영향은 무언가의 멈춤으로 나타나기도 해요. 아프거나 게을러지지 않게, "
+        "제대로 쉬고 부지런히 다음을 준비해보세요."
+    )
+    assert "십성" not in panel  # 오늘의 운세 패널은 용어 비노출(docs/17 §3)
+    chat = S.peak_month_chat_line(
+        Stem("戊"), Stem("戊"), Branch("戌"), Stem("丙"), Branch("午"), s,
+    )
+    assert chat == S.PEAK_MONTH_LEAD_TERMS["same_god"] + " " + s["peak_month"]["인성"]
+    assert chat.startswith("이 달은 천간과 지지가 같은 십성의 글자로 들어와")
+    # 절정 달이 아닌 달(己亥월)은 채팅 절정 문장이 없다.
+    assert S.peak_month_chat_line(
+        Stem("戊"), Stem("己"), Branch("亥"), Stem("丙"), Branch("午"), s,
+    ) is None
+    # 반례 — 같은 십성이 아닌 절정 달에 같은 십성 문장을 쓰지 않는다.
+    assert S.peak_months(Stem("甲"), Stem("丁"), Branch("未")) == [6]
+    assert S.peak_month_kind(Stem("甲"), Stem("丁"), Branch("未")) == "other"
+    other = S.peak_month_line(Stem("甲"), Stem("丁"), Branch("未"), s)
+    assert other and other.startswith(
+        "6월에는 올해 기운과 그 달 기운이 맞물려 강하게 영향받을 수 있어요."
+    )
+    chat_other = S.peak_month_chat_line(
+        Stem("甲"), Stem("丙"), Branch("午"), Stem("丁"), Branch("未"), s,
+    )
+    assert chat_other and chat_other.startswith(S.PEAK_MONTH_LEAD_TERMS["other"])
+    assert not S.month_is_same_god(Stem("甲"), Stem("丙"), Branch("午"))  # 식신 vs 상관
+    # 여러 절정 달 중 하나라도 같은 십성이 아니면 other(2028 戊申: 巳·未·申월).
+    assert S.peak_month_kind(Stem("甲"), Stem("戊"), Branch("申")) == "other"
+
+
+def test_peak_line_keeps_v119_contract() -> None:
+    """과거 계약(v1.19 사전 — 본문에 {months}, lead 없음)은 그 문장 하나를 그대로 쓴다."""
+    legacy = {"peak_month": {g: "{months}에는 옛 문장이에요." for g in S.GROUPS}}
+    dm, ys, yb = Stem("戊"), Stem("丙"), Branch("午")
+    assert S.peak_month_line(dm, ys, yb, legacy) == "10월에는 옛 문장이에요."
+    chat = S.peak_month_chat_line(dm, Stem("戊"), Branch("戌"), ys, yb, legacy)
+    assert chat == "올해 흐름이 가장 강해지는 달이기도 해요. 10월에는 옛 문장이에요."
 
 
 def test_peak_months_generalize_by_generating_group() -> None:
@@ -242,9 +302,18 @@ def test_reference_line_uses_terms_and_prefix() -> None:
     assert oct_line.startswith(
         "간단히 봤을 때, 戊戌월은 기(己) 일간에게 비겁(겁재·겁재)의 달이에요."
     )
-    assert s["god_scene"]["겁재"]["돈"] in oct_line and s["month_same_group"]["비겁"] in oct_line
+    assert s["god_scene"]["겁재"]["돈"] in oct_line
     assert s["year_tone"]["인성+인성"] not in oct_line and "올해 丙午년은" not in oct_line
-    assert "올해 결이 가장 세지는 달이기도 해요. 10월에는" in oct_line
+    # 2026-11-09 최종안: 그 달만 가리키는 절정 첫 문장 + 올해 흐름 본문. 같은 근거("천간과 지지가
+    # 같은 …")의 강조 문장은 빠지고(한 문단에 두 번 금지), 다른 절정 달 나열("10월에는")도 없다.
+    assert oct_line.endswith(
+        "이 달은 천간과 지지가 같은 십성의 글자로 들어와, 올해 흐름의 영향을 가장 강하게 받을 수 "
+        "있는 달이에요. " + s["peak_month"]["인성"]
+        + " (일간과 운의 십성만 본 단식 풀이라 참고용이에요.)"
+    )
+    assert oct_line.count("천간과 지지가 같은") == 1
+    assert s["month_same_group"]["비겁"][len("이번 달은"):] not in oct_line
+    assert "10월에는" not in oct_line and "이번 달" not in oct_line and "결이 가장" not in oct_line
     assert "이 달만 따로 보면" not in oct_line
     # 절정이 아닌 달(己亥월)은 올해 언급이 없다.
     nov_line = S.simple_reference_line("己", "己亥", "month", s, _month_layer(), year_ganji="丙午")
@@ -256,6 +325,25 @@ def test_reference_line_uses_terms_and_prefix() -> None:
     assert s["god_scene"]["정인"]["일"] in day_line
     assert S.simple_reference_line("", "丙午", "year", _simple()) == ""
     assert S.simple_reference_line("戊", "丙午", "week", _simple()) == ""
+
+
+def test_chat_emphasis_uses_scope_demonstrative() -> None:
+    """채팅은 다른 달·날도 묻는다 — 패널 '이번 달은·오늘은'을 '이 달은·이 날은'으로(2026-11-09)."""
+    s, ml = _simple(), _month_layer()
+    # 甲寅 = 비견·비견, 세운 간지 없음 → 절정 문장 없음.
+    month = S.simple_reference_line("甲", "甲寅", "month", s, ml)
+    assert "이 달은 " + s["month_same_group"]["비겁"][len("이번 달은 "):] in month
+    assert "이번 달" not in month
+    day = S.simple_reference_line("己", "丙午", "day", s, ml)  # 정인·편인 — 같은 군
+    assert "이 날은 " + s["day_same_group"]["인성"][len("오늘은 "):] in day
+    assert "오늘은" not in day
+    assert S.chat_scoped("다른 문장이에요.", "month") == "다른 문장이에요."
+    # 절정 달이지만 그 달이 같은 십성이 아니면(2027 丁未 甲 일간 6월 丙午 — 식신·상관, 같은 군)
+    # 강조 문장은 남고 절정 첫 문장은 'other'.
+    june = S.simple_reference_line("甲", "丙午", "month", s, ml, year_ganji="丁未")
+    assert "이 달은 천간과 지지가 같은 성격의 글자라" in june
+    assert S.PEAK_MONTH_LEAD_TERMS["other"] in june
+    assert june.count("이 달은") == 1
 
 
 def test_chat_period_fortune_carries_simple_reading_line() -> None:
@@ -298,8 +386,37 @@ def test_chat_period_fortune_carries_simple_reading_line() -> None:
 
 
 def test_balanced_sentences_carry_both_faces() -> None:
-    """양면 어휘(2026-11-08 데굴님 '안 좋은 쪽만 정리') — 연 결 25개 전부 발판/소모 두 갈래."""
+    """양면 어휘(2026-11-08 데굴님 '안 좋은 쪽만 정리') — 2026-11-09 형식 개편.
+
+    연 흐름 25개는 "발판이면/소모면" 두 갈래 대신 조심할 얼굴 + 좋은 얼굴을 한 문장 조언
+    ("~하지 않게, ~해보세요")으로 담는다(데굴님 지정 형식, 절정 달 문장과 같은 꼴). 발판·소모
+    설명은 패널 안내(`direction_note`)에만 남는다.
+    """
     s = _simple()
     for pair, text in s["year_tone"].items():
-        assert "발판이 되는 쪽이면" in text and "소모가 되는 쪽이면" in text, pair
+        assert "발판" not in text and "소모" not in text, pair
+        assert re.search(r"[^ ]+지 않게, [^.]+보세요\.", text), pair
     assert "발판" in s["direction_note"] and "소모" in s["direction_note"]
+    assert s["direction_note"].startswith("같은 흐름이라도")
+
+
+def test_simple_layer_avoids_gyeol_wording() -> None:
+    """2026-11-09 데굴님 "결이라는 어려운 단어는 지양" — 강조·절정·안내 문장과 프롬프트 상수."""
+    from saju_engines.context_reducer import (
+        SIMPLE_READING_DIRECTION_RULE,
+        SIMPLE_READING_HEADER,
+        SIMPLE_READING_USAGE_RULE,
+    )
+
+    s = _simple()
+    keys = ("year_same_group", "month_same_group", "day_same_group", "peak_month_lead",
+            "peak_month")
+    texts = [t for k in keys for t in s[k].values()] + [s["direction_note"]]
+    texts += list(S.PEAK_MONTH_LEAD_TERMS.values())
+    texts += [SIMPLE_READING_HEADER, SIMPLE_READING_USAGE_RULE, SIMPLE_READING_DIRECTION_RULE]
+    for t in texts:
+        # '결과·결실·결정·결혼·종결' 같은 다른 낱말은 허용, 단독 '결'만 금지.
+        assert not re.search(r"결(?![과실정혼])", t.replace("종결", "")), t
+    for h in S.HORIZONS:
+        for g in S.GROUPS:
+            assert "천간과 지지가 같은 성격의 글자라" in s[f"{h}_same_group"][g], (h, g)
