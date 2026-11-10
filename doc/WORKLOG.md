@@ -13578,3 +13578,11 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - **결과:** 원장 84행(confirmed 34)·대상 5명·직업 70/학업 14(재물·관계 0). 행 단위 세운 투출 lift 1.48 은 **한 대상의 한 해 10행**이 만든 숫자라 연도 단위로는 1해 중 1. 세운 자극 9해 중 7(lift 1.46, 6해가 한 대상), 대운 자극 14해 중 11(대상 2명). 사례집은 표본 2~5건.
 - **판단:** 표본 부족 — 점수 반영 근거 없음, 서술 전용 유지. 교훈: 원장 행 단위 집계는 같은 해의 사건 키 수만큼 표본을 부풀린다 → 대상-연도 단위를 함께 낸다.
 - **다시 잴 조건:** 잠복 십성 대상의 사건 연도가 십성군별 20해 이상(특히 재물·관계). 대조 문서 §3-1.
+
+## 2026-11-10 — 오늘의 운세 '올해의 흐름' 패널: 간여지동 달 문단 제거 (데굴님 "이런 내용이 표시되는 영역은 제거하자. 불필요해보여")
+
+- **변경:** 프론트 `YearFlowPanel` 에서 `peak_months` 문단 렌더 삭제, 백엔드 `daily_month_layer.year_flow` 는 `peak_months=None`(필드는 계약 호환으로 유지). 사전·버전·캐시 불변 — 이미 생성된 보드에 값이 있어도 표시하지 않는다.
+- **범위 밖(그대로):** 채팅 월 참고 문단의 간여지동 달 문장, 패널의 연 흐름·강조·체감 포인트·방향 안내.
+- **남긴 것:** `peak_month_line`·`strong_months`·`months_label`·사전 `strong_month_lead` 는 호출처 없이 남음(오늘 오전의 '다음 해 1월' 교정도 표시 경로가 사라져 화면에는 드러나지 않는다). 정리는 사전 재빌드가 필요해 보류. docs/17 §30.
+- **테스트:** `test_board_carries_year_flow_and_same_group_notes` 에 `peak_months is None` 단언 추가.
+- **게이트(커밋 직전 트리):** `run_suite.sh` → `VALID_SUITE_PASS`(`var/run_suite_20261110_panel.log`) · ruff `All checks passed` · `production mypy gate clean` · `maintained scripts mypy gate clean`(`var/gates_quick_20261110k.log`) · 프론트 `tsc` 통과 · production build 성공 · vitest 38건 통과. 렌더 확인: `/daily` 에서 해당 문단 0건. 이 줄은 스위트 실행 뒤에 추가한 문서 기록이다.

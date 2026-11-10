@@ -306,7 +306,9 @@ def year_label(ctx: DayGanjiContext) -> str:
 def year_flow(
     ctx: DayGanjiContext, simple: dict[str, Any], layer: dict[str, Any]
 ) -> list[DailyYearStemFlow]:
-    """10일간의 올해의 결(단식, docs/17 §26) — 쌍 결·같은 결 강조·체감 포인트 3·절정 달.
+    """10일간의 올해의 흐름(단식, docs/17 §26) — 연 흐름·같은 군 강조·체감 포인트 3.
+
+    간여지동 달 문단(`peak_months`)은 2026-11-10 제거돼 항상 None 이다(docs/17 §30).
 
     Args:
         ctx: 오늘 일진·월운·세운 간지(세운만 쓴다).
@@ -322,7 +324,10 @@ def year_flow(
             tone=sr.tone,
             emphasis=sr.emphasis,
             points=list(sr.points),
-            peak_months=_simple.peak_month_line(stem, year_stem, year_branch, simple),
+            # 간여지동 달 문단은 2026-11-10 패널에서 제거(데굴님 "불필요해보여", docs/17 §30) —
+            # 필드는 보드 계약 호환으로 남기고 항상 None. `simple_reading.peak_month_line` 은
+            # 호출처가 없다(채팅 월 문단의 `strong_month_chat_line` 은 그대로).
+            peak_months=None,
         ))
     return flows
 

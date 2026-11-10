@@ -35,12 +35,8 @@ export function YearFlowPanel({
           ))}
         </ul>
       )}
-      {flow.peak_months && (
-        // 간여지동 달(docs/17 §28-5) — 십성군별 한 줄씩 "\n" 구분(戊·癸년은 최대 5줄).
-        <p className="mt-3 whitespace-pre-line border-t pt-3 text-sm leading-relaxed text-gray-700">
-          {flow.peak_months}
-        </p>
-      )}
+      {/* 간여지동 달 문단("10월에는 천간과 지지가 모두 같은 성격의 글자로 …")은 2026-11-10 제거
+          (데굴님 "불필요해보여", docs/17 §30). 과거 보드의 peak_months 값도 표시하지 않는다. */}
       {directionNote && (
         <p className="mt-3 border-t pt-3 text-xs leading-relaxed text-gray-500">{directionNote}</p>
       )}

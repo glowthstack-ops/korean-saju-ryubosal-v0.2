@@ -234,6 +234,8 @@ def test_board_carries_year_flow_and_same_group_notes(board: DailyFortuneBoard) 
     assert board.year_direction_note and "발판" in board.year_direction_note
     for yf in board.year_flow:
         assert yf.tone and yf.emphasis and len(yf.points) == 3  # 丙午 — 전 일간 같은 군
+        # 간여지동 달 문단은 2026-11-10 패널에서 제거(§30) — 보드에 싣지 않는다.
+        assert yf.peak_months is None
     # 己亥월(11/8~): 천간 己·지지 亥(壬) — 어느 일간도 같은 군이 아니다 → 월 강조 없음.
     assert board.month_flow is not None
     assert all(m.same_group_note is None for m in board.month_flow)

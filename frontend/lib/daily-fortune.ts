@@ -51,6 +51,7 @@ export interface DailyYearStemFlow {
   tone: string;
   emphasis?: string | null;
   points: string[];
+  /** 간여지동 달 문단 — 2026-11-10 패널에서 제거(docs/17 §30). 새 보드는 null, 표시하지 않는다. */
   peak_months?: string | null;
 }
 
