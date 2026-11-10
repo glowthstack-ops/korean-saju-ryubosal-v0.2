@@ -2623,9 +2623,11 @@ class _ReportData:
         from saju_engines.context_reducer import SIMPLE_READING_USAGE_RULE as _simple_rule
         from saju_engines.simple_reading import simple_reference_line as _simple_ref
 
+        # 대상 연도가 이미 끝난 해(한해풀이 Y-04 의 지난 연도)면 과거형 문단 — 채팅 지난 기간 질문과
+        # 같은 기준(기간 끝 12/31 < 오늘, 2026-11-10 점검: 채팅만 고치고 이 입구를 놓쳤다).
         _simple_line = _simple_ref(
             self.result.pillars.day_master if self.result.pillars else "",
-            str(pillar.ganji), "year",
+            str(pillar.ganji), "year", past=date(year, 12, 31) < self.today,
         )
         if _simple_line:
             lines.append(f"{SIMPLE_READING_HEADER} {_simple_line}")

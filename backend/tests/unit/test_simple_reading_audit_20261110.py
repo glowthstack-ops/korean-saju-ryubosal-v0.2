@@ -9,15 +9,20 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import date
 from pathlib import Path
 
 import pytest
 
 from saju_api.services import chat_service
+from saju_api.services.report_service import _ReportData
 from saju_engines import simple_reading as S
 from saju_engines.speech_style import STYLES, has_haeyo_ending, past_sentence, restyle, to_past
+from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.enums import Branch, Stem
+from saju_shared_types.intent import SubjectKind, SubjectRef
 from saju_shared_types.llm_input import LlmInput, PeriodFortune
+from saju_shared_types.report import ReportPeriod, ReportSpec
 
 _DICT = Path(__file__).resolve().parents[2] / "dictionaries" / "daily_fortune"
 _SPLIT = re.compile(r"(?<=[.!?])\s+")
@@ -191,6 +196,32 @@ def test_present_reference_line_unchanged_by_default() -> None:
     """반례: past 를 주지 않으면 종전 현재형 문단 그대로."""
     line = S.simple_reference_line("己", "戊戌", "month")
     assert "달이에요" in line and "움직여요" in line and "모아보세요" in line
+
+
+def test_report_yearly_block_uses_past_form_only_for_finished_year() -> None:
+    """리포트 연 세운 블록(한해풀이 Y-04)도 지난 연도는 과거형 — 채팅만 고치고 놓친 입구."""
+    birth = BirthInput(
+        birth_date=date(1980, 11, 22), birth_time="09:08:00", birth_place_name="서울",
+        gender="male",
+    )
+    today = date(2026, 11, 10)
+
+    def simple_line(year: int) -> str:
+        spec = ReportSpec(
+            product_code="RPT_YEAR", topic="general",
+            subjects=[SubjectRef(kind=SubjectKind.SELF, label="본인")],
+            period=ReportPeriod(start=f"{year}-01", end=f"{year}-12"),
+        )
+        block = _ReportData(birth, spec, today).yearly_sewoon_block(year)
+        return next(ln for ln in block if ln.startswith("[단식 참고"))
+
+    past = simple_line(2025)
+    assert "乙巳년은" in past and "해였어요" in past and "세요" not in past
+    # 반례: 올해(아직 끝나지 않은 해)·내년은 현재형 그대로(권유 문장 포함).
+    for year, ganji in ((2026, "丙午"), (2027, "丁未")):
+        now = simple_line(year)
+        assert f"{ganji}년은" in now and "해예요" in now and "해였어요" not in now
+        assert "보세요" in now
 
 
 # ── '다음 해 1월' 표기 ───────────────────────────────────────────────────────
