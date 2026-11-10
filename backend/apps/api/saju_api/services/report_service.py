@@ -81,6 +81,7 @@ from saju_engines.folk_direction import (
 from saju_engines.gongmang_state import same_xun_line, transit_state, transit_suffix
 from saju_engines.hap_lines import luck_hap_mode_lines
 from saju_engines.health_vulnerability import analyze_health_vulnerability
+from saju_engines.hidden_latent_activation import hidden_latent_block
 from saju_engines.horizon import ENTRY_WINDOW_DIRECTIVE
 from saju_engines.impossible_relation_audit import strip_impossible_relation_claims
 from saju_engines.intent_event_filter import IntentEventFilter
@@ -1753,12 +1754,18 @@ class _ReportData:
         - relocation: `mobility_marker_flip_lines`(이동지 양면 1줄, 후보 무관 — 2026-11-03)
         - 네 도메인 공통: `luck_clash_relief_block`(충 완화 글자 — 후보 기간 운 지지가 원국 용·희신
           글자를 충할 때, 2026-11-07)
+        - 직업·재물·관계 공통: `hidden_latent_block`(지장간 잠복 십성 발현 — 섹션 도메인의
+          십성군만, 2026-11-10. 이사 섹션은 대상 군이 없어 빈 목록)
         네 도메인 밖이거나(이사 제외) 후보가 없으면 빈 목록. 점수·판정 불변(서술 전용).
         """
         periods = [(c.period, self._ganji_by_label.get(c.period, "")) for c in cands]
         # 충 완화 글자(2026-11-07) — 섹션 후보 기간의 운 지지가 원국 용·희신 글자를 충하면 채팅
         # 말미와 같은 블록을 네 도메인 섹션 끝에 함께 싣는다(서술 전용).
         relief = luck_clash_relief_block(self.result, periods) if cands else []
+        # 지장간 잠복 십성 발현(2026-11-10) — 채팅 말미와 같은 블록(섹션 도메인의 십성군만,
+        # 서술 전용).
+        # 충 완화 블록과 함께 섹션 끝에 싣는다(이사 섹션은 `domain_groups` 가 None 이라 빈 목록).
+        relief = [*relief, *(hidden_latent_block(self.result, periods, domain) if cands else [])]
         if domain == "relocation":
             # 이동지 양면 줄(2026-11-03) — 후보 유무와 무관하게 보유 글자가 있으면 항상(채팅과
             # 같은 줄).

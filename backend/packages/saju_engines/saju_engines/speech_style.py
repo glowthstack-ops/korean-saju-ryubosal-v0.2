@@ -2,7 +2,8 @@
 
 채팅 답변에 **코드가 직접 삽입·교체**하는 문장(단식 참고 문단)은 LLM 을 거치지 않으므로 설정 말투가
 적용되지 않았다(데굴님 실답: 합쇼체 답 한가운데 해요체 문단). 이 모듈은 종결어미만 바꾼다 —
-내용·어휘·숫자는 그대로다(페르소나 = 문체 전용, CLAUDE.md 원칙 12).
+내용·어휘·숫자는 그대로다(페르소나 = 문체 전용, CLAUDE.md 원칙 12). 지난 기간 질문용 과거형
+변환(`to_past`, 2026-11-10)도 같은 원칙 — 문장 끝만 바꾸고 권유 문장은 뺀다.
 
 대상은 우리 사전 문장(단식·이번 달 층·조언)이라 종결 형태가 한정돼 있다. 규칙은 한글 자모 분해로
 일반화하되, 불규칙(ㅂ·르·으 탈락)은 표로 둔다. 커버리지는 `test_speech_style_20261108` 가 사전 전
@@ -145,6 +146,59 @@ def restyle(text: str, style: str) -> str:
         return text
     parts = [p for p in _SENT_SPLIT_RE.split(text.strip()) if p]
     return " ".join(restyle_sentence(p, style) for p in parts)
+
+
+_JONG_SS = 20  # 받침 ㅆ — 과거 선어말어미 '-았/었-'
+#: 과거형 특수 치환(문장 끝 일치, 긴 것 우선) — 일반 규칙('~ㅆ을 수 있어요')이 어색해지는 꼴.
+_PAST_SPECIAL: tuple[tuple[str, str], ...] = (
+    ("나타나기도 해요", "나타났을 수 있어요"),  # '~기도 했을 수 있어요' 이중 완곡 회피
+    ("수 있어요", "수 있었어요"),  # '~ㄹ 수 있었을 수 있어요' 회피
+)
+
+
+def past_sentence(sentence: str) -> str | None:
+    """해요체 **현재** 서술 문장 하나를 과거형으로 바꾼다(지난 기간 질문의 단식 문단용, 2026-11-10).
+
+    - 서술격('~이에요/~예요' — 간지·구조 사실): '~이었어요/~였어요'(사실이라 추정형으로 흐리지
+      않는다).
+    - 그 밖의 서술('~어요/~아요/축약형'): 끝 음절에 ㅆ + '을 수 있어요' — 과거 추정형
+      (움직여요→움직였을 수 있어요, 쉬워요→쉬웠을 수 있어요). 단식 문장은 그 십성의 일반 장면이라
+      지난 일을 단정하지 않는다(회고 모드 지시 `_RETRO_TENSE_DIRECTIVE` 와 같은 꼴).
+    - 권유('~세요')·종결어미 없는 조언('서류는 꼼꼼히.')은 None — 지난 기간에는 싣지 않는다.
+
+    내용·어휘·숫자는 그대로다(문체 전용). 문장 가운데 연결어미('~지만', '~면')는 손대지 않는다.
+    """
+    if not sentence.strip():
+        return None
+    m = _TAIL_RE.match(sentence.rstrip())
+    assert m is not None
+    body, punct, paren = m.group("body"), m.group("punct"), m.group("paren")
+    for suffix, repl in _PAST_SPECIAL:
+        if body.endswith(suffix):
+            return body[: -len(suffix)] + repl + punct + paren
+    words = body.split(" ")
+    last = words[-1]
+    if last.endswith("세요") or not last.endswith("요") or len(last) < 2:
+        return None
+    if last.endswith("이에요"):
+        words[-1] = last[:-3] + "이었어요"
+    elif last.endswith("예요"):
+        words[-1] = last[:-2] + "였어요"
+    else:
+        d = _decompose(last[-2])
+        if d is None or d[2] != _JONG_NONE:
+            return None
+        cho, jung, _ = d
+        words[-1] = last[:-2] + _compose(cho, jung, _JONG_SS) + "을 수 있어요"
+    return " ".join(words) + punct + paren
+
+
+def to_past(text: str) -> str:
+    """문단(여러 문장)을 과거형으로 — 바꿀 수 없는 문장(권유·조언)은 뺀다. `past_sentence` 참조."""
+    if not text.strip():
+        return text
+    parts = [p for p in _SENT_SPLIT_RE.split(text.strip()) if p]
+    return " ".join(s for s in (past_sentence(p) for p in parts) if s)
 
 
 _HAEYO_RESIDUE_RE = re.compile(r"(?:요|세요)[.!?]?\)?$")

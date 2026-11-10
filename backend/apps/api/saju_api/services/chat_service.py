@@ -105,6 +105,7 @@ from saju_engines.event_engine_config import build_event_engine_v2
 from saju_engines.event_lexicon import event_narration_directive
 from saju_engines.gender_kin_audit import audit_gender_kin_claims
 from saju_engines.gongmang_claim_audit import audit_gongmang_claims
+from saju_engines.hidden_latent_activation import hidden_latent_block
 from saju_engines.horizon import (
     ENTRY_WINDOW_DIRECTIVE,
     horizon_directive,
@@ -1383,13 +1384,16 @@ def _build_period_fortune(
     # 단식 참고 문단(docs/17 §26-3·§27, 2026-11-08) — 일간×운 십성 체감 결("간단히 봤을 때,").
     # 월·일 지평은 그 달/그 날 장면만 싣고, 절정 달일 때만 올해 결 문장 1개(세운 간지 필요). 2차
     # 실답 "이달 운세인데 올해 흐름을 반복"으로 올해 결 서술을 뺐다. 점수·판정 불변, 문단은 생성 후
-    # 원문 고정.
+    # 원문 고정. 이미 끝난 기간(지난달·어제·작년)은 과거형 문단(2026-11-10 데굴님 "과거형 문단" —
+    # 지난달 답 한가운데 현재형 문단이 끼고, LLM 이 과거형으로 바꿔 쓴 문단을 감사가 못 알아봐
+    # 같은 내용이 두 번 나갔다). 기준 = 기간 끝 날짜 < 오늘(절기월은 절입 전날까지).
     from saju_engines.simple_reading import simple_reference_line as _simple_ref
 
     simple_reading_line = _simple_ref(
         chart.pillars.day_master if chart.pillars else "", str(pillar.ganji),
         {"daily": "day", "monthly": "month", "yearly": "year"}[fortune_type],
         year_ganji=stack_ganji.get("세운"),
+        past=date.fromisoformat(period.end) < today,
     )
     # P1 계층형 grounding(2026-07-27) — ON이면 관계 렌더를 **이쪽으로 완전히 대체**한다.
     # 기존 build_luck_grounding의 형충회합 줄과 함께 내보내면 같은 관계가 두 표현으로
@@ -7348,6 +7352,13 @@ def chat(
         trailing.extend(luck_clash_relief_block(
             result, [(c.period, c.ganji) for c in payload.event_candidates],
         ))
+    # 지장간 잠복 십성 발현(2026-11-10) — 원국 천간·본기에 없고 중기·여기에만 있는 십성이 후보 기간
+    # 운에서 드러나는지(투출·자극) 엔진 판정을 싣는다. 싣는 십성군은 질문 도메인이 정한다
+    # (`hidden_latent_activation.domain_groups`), 서술 전용·점수 불변.
+    if result is not None:
+        trailing.extend(hidden_latent_block(
+            result, [(c.period, c.ganji) for c in payload.event_candidates], intent.domain.value,
+        ))
     # 상대 외모 지시 대상(2026-10-26) — 구조 블록 안의 지시만으로는 LLM 이 본인 외모를 답했다(실답
     # 재현 d3). 프롬프트 말미에 한 번 더 고정하고, 답변 후 본인 외모 서술 감사(로그 전용)의
     # 표지로 쓴다.
@@ -8664,13 +8675,35 @@ def _simple_paragraph_score(engine_line: str, paragraph: str) -> float:
     return sum(bests) / len(bests)
 
 
+#: 첫 판정 문단에서 걷어 낼 문장 하한 — 엔진 문장 하나와 줄기 유사도가 이 값 이상이면 단식 내용의
+#: 되풀이로 본다(실답 2026-11-09: 풀어 쓴 문장 0.53·0.67, 판정 문장 0.29).
+SIMPLE_READING_SENT_DUP_MIN = 0.5
+
+
+def _simple_sentence_dup(engine_line: str, sentence: str) -> bool:
+    """문장 하나가 엔진 단식 문장 중 하나를 풀어 쓴 것인가(줄기 유사도 기준)."""
+    core = engine_line.split("(일간과 운의", 1)[0]
+    stem = _ENDING_STRIP_RE.sub("", sentence).strip()
+    if not stem:
+        return False
+    return any(
+        difflib.SequenceMatcher(None, es, stem).ratio() >= SIMPLE_READING_SENT_DUP_MIN
+        for es in _sentence_stems(core)
+    )
+
+
 def _simple_paragraph_keys(engine_line: str, paragraph: str) -> int:
     """엔진 줄의 핵심 표지(운 간지·'일간'·십성군·발판/소모)가 문단에 몇 개 있는가 — LLM 이 문장을
     요약·병합해 유사도가 낮아도(실답 0.27) 간지·일간·십성군이 함께 있으면 단식 문단이다."""
-    keys: set[str] = set(_SIMPLE_GANJI_RE.findall(engine_line))
-    keys |= {g for g in _SIMPLE_GROUPS if g in engine_line}
+    # 운 간지는 한글 병기를 허용한다 — 엔진 줄은 '戊戌월'인데 LLM 은 표기 규칙대로 '戊戌(무술)월'로
+    # 써서 문자열 일치가 항상 빗나갔다(2026-11-09 실답 3건: 간지 키가 빠져 하한 미달 → 중복 삽입).
+    hits = sum(
+        1 for g in set(_SIMPLE_GANJI_RE.findall(engine_line))
+        if re.search(re.escape(g[:2]) + r"(?:\([가-힣]{2}\))?" + g[2], paragraph)
+    )
+    keys = {g for g in _SIMPLE_GROUPS if g in engine_line}
     keys |= {k for k in ("일간", "발판", "소모") if k in engine_line}
-    return sum(1 for k in keys if k in paragraph)
+    return hits + sum(1 for k in keys if k in paragraph)
 
 
 def _ensure_simple_reading_line(
@@ -8685,6 +8718,10 @@ def _ensure_simple_reading_line(
     그대로(페르소나 말투 유지), 아니면 엔진 문단을 설정 말투로 변환(`speech_style.restyle`)해
     교체하되 그 문단에 섞여 있던 개인 판정 문장(이 명식·용신·발판 …)은 뒤에 살린다. 문단이
     없으면 첫 문단 뒤에 변환본 삽입.
+    2026-11-10 보완(실답 3건 중복): ① 후보 문단은 문단마다 따로 판정해 유사도 최고를 고른다
+    ② 운 간지 표지는 한글 병기('戊戌(무술)월')를 허용한다 ③ 찾은 문단이 **첫 판정 문단**이면 통째로
+    바꾸지 않고 겹치는 문장만 걷어 낸 뒤 엔진 문단을 뒤에 둔다(`split_first`). 지난 기간 질문의
+    엔진 문단은 과거형으로 온다(`simple_reference_line(past=True)`).
     점수·판정 불변, 재호출 없음.
     """
     from saju_engines.speech_style import restyle
@@ -8700,9 +8737,15 @@ def _ensure_simple_reading_line(
             (_simple_paragraph_keys(line, p), _simple_paragraph_score(line, p), i)
             for i, p in enumerate(paras)
         ]
-        keys, best, bi = max(scored, default=(0, 0.0, -1))
-        if keys >= SIMPLE_READING_KEY_MIN or best >= SIMPLE_READING_DETECT_MIN:
-            idx = bi
+        # 문단마다 따로 판정하고, 통과한 것 가운데 **유사도**가 가장 높은 문단을 고른다. 종전
+        # `max(scored)` 는 (키 개수, 유사도) 순이라 키 1개·유사도 0.21 문단이 키 0개·유사도 0.88
+        # 문단(LLM 이 쓴 단식 문단)을 이겨 미탐지 → 엔진 문단 추가 삽입 → 중복(2026-11-09 실답).
+        hits = [
+            (score, keys, -i) for keys, score, i in scored
+            if keys >= SIMPLE_READING_KEY_MIN or score >= SIMPLE_READING_DETECT_MIN
+        ]
+        if hits:
+            idx = -max(hits)[2]
     styled = restyle(line, speech_style)
     if idx is None:
         if len(paras) >= 2:
@@ -8712,6 +8755,15 @@ def _ensure_simple_reading_line(
         result = "inserted"
     elif paras[idx].strip() in (line, styled) or _simple_paragraph_faithful(line, paras[idx]):
         return answer  # 내용 그대로(종결어미만 페르소나 말투인 경우 포함) — 바이트 불변
+    elif idx == 0:
+        # 첫 판정 문단에 단식 내용을 녹여 쓴 경우(실답: 지난달 질문) — 문단을 통째로 바꾸면 판정
+        # 문장이 사라진다. 첫 문장(판정)은 항상 남기고, 엔진 문장과 겹치는 문장만 걷어 낸 뒤 엔진
+        # 문단을 바로 뒤에 둔다.
+        sents = [s for s in _SENT_SPLIT_RE.split(paras[0].strip()) if s.strip()]
+        rest = sents[:1] + [s for s in sents[1:] if not _simple_sentence_dup(line, s)]
+        paras[0] = " ".join(rest)
+        paras.insert(1, styled)
+        result = "split_first"
     else:
         kept = [
             s for s in _SENT_SPLIT_RE.split(paras[idx].strip())

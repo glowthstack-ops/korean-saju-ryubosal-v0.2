@@ -627,6 +627,39 @@ class WealthLectureTextFile(_AliasModel):
     items: list[WealthLectureTextItem] = Field(min_length=22, max_length=22)
 
 
+#: hidden_latent_text.json id 정확 커버리지(2026-11-10 지장간 잠복 십성 발현 층).
+HIDDEN_LATENT_TEXT_IDS: tuple[str, ...] = (
+    "group_wealth",
+    "group_resource",
+    "group_officer",
+    "group_output",
+    "group_peer",
+    "group_partner",
+    "grade_clear",
+    "grade_emerge",
+    "grade_stir",
+    "caution",
+)
+
+
+class HiddenLatentTextItem(_AliasModel):
+    """지장간 잠복 십성 발현 문구 1건 (hidden_latent_text.json, 2026-11-10) — 서술 전용."""
+
+    id: str
+    condition: str
+    text: str = Field(min_length=20)
+    basis: str = Field(min_length=10)
+    reviewed: bool
+
+
+class HiddenLatentTextFile(_AliasModel):
+    """잠복 십성 발현 문구 사전 — 10항목 정확 커버리지(십성군 5·배우자성·등급 3·주의)."""
+
+    version: str
+    note: str | None = None
+    items: list[HiddenLatentTextItem] = Field(min_length=10, max_length=10)
+
+
 class RelationshipTendencyTextItem(_AliasModel):
     """관계에서 나타나기 쉬운 결 문구 1건 (relationship_tendency_text.json, 2026-10-29)."""
 
@@ -2951,6 +2984,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/love_separation_lecture_text.json": LoveSeparationTextFile,
     "interpretations/clash_relief_text.json": ClashReliefTextFile,
     "interpretations/wealth_lecture_text.json": WealthLectureTextFile,
+    "interpretations/hidden_latent_text.json": HiddenLatentTextFile,
     "interpretations/relationship_tendency_text.json": RelationshipTendencyTextFile,
     "interpretations/daewoon_turn_text.json": DaewoonTurnTextFile,
     "interpretations/yearly_environment.json": YearlyEnvironmentFile,
@@ -3562,6 +3596,20 @@ def _lint_wealth_lecture_text(file: WealthLectureTextFile) -> list[str]:
         errors.append(f"{head}: id 집합이 22종과 다름 — {ids}")
     for it in file.items:
         for bad in ("반드시", "확실히", "틀림없이", "무조건", "당첨된다", "부자가 된다"):
+            if bad in it.text:
+                errors.append(f"{head}: {it.id} 문구에 단정 어휘 '{bad}'")
+    return errors
+
+
+def _lint_hidden_latent_text(file: HiddenLatentTextFile) -> list[str]:
+    """hidden_latent_text.json — 10 id 정확 커버리지·단정/횡재 확정 어휘 금지(서술 전용 층)."""
+    head = "interpretations/hidden_latent_text.json"
+    errors: list[str] = []
+    ids = [it.id for it in file.items]
+    if sorted(ids) != sorted(HIDDEN_LATENT_TEXT_IDS):
+        errors.append(f"{head}: id 집합이 10종과 다름 — {ids}")
+    for it in file.items:
+        for bad in ("반드시", "확실히", "틀림없이", "무조건", "당첨", "대박", "횡재한다"):
             if bad in it.text:
                 errors.append(f"{head}: {it.id} 문구에 단정 어휘 '{bad}'")
     return errors
@@ -4414,6 +4462,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_clash_relief_text(parsed))
         elif isinstance(parsed, WealthLectureTextFile):
             errors.extend(_lint_wealth_lecture_text(parsed))
+        elif isinstance(parsed, HiddenLatentTextFile):
+            errors.extend(_lint_hidden_latent_text(parsed))
         elif isinstance(parsed, RelationshipTendencyTextFile):
             errors.extend(_lint_relationship_tendency_text(parsed))
         elif isinstance(parsed, DaewoonTurnTextFile):

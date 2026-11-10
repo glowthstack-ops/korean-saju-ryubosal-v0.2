@@ -256,11 +256,27 @@ def peak_month_line(
     if not by_group:
         return None
     lines = [
-        f"{simple['strong_month_lead'].format(months='·'.join(str(m) for m in ms) + '월')} "
+        f"{simple['strong_month_lead'].format(months=months_label(ms))} "
         f"{simple['strong_month'][group]}"
         for group, ms in by_group.items()
     ]
     return "\n".join(lines)
+
+
+def months_label(months: list[int]) -> str:
+    """간여지동 달 표기 — '2·3월' / '다음 해 1월' / '12월·다음 해 1월'.
+
+    세운은 寅월(양력 2월)에 시작해 丑월(양력 1월)에 끝나므로, 월 번호 1 은 그 세운의 **마지막 달 =
+    다음 해 1월**이다. '1월'로만 적으면 그 해 1월(전년도 세운의 丑월 — 간지가 다르다)로 읽힌다
+    (2026-11-10 점검: 乙·庚년의 己丑월, 데굴님 "다음해 1월로 표기하자").
+    """
+    this_year = [m for m in months if m != 1]
+    parts: list[str] = []
+    if this_year:
+        parts.append("·".join(str(m) for m in this_year) + "월")
+    if 1 in months:
+        parts.append("다음 해 1월")
+    return "·".join(parts)
 
 
 def _ro(word: str) -> str:
@@ -343,6 +359,7 @@ def simple_reference_line(
     *,
     year_ganji: str | None = None,
     prefix: str = REFERENCE_PREFIX,
+    past: bool = False,
 ) -> str:
     """채팅·테마사주 참고 문단(§26-3) — 용어 허용 경로. 호출자는 이 문단을 **그대로** 싣는다.
 
@@ -358,6 +375,11 @@ def simple_reference_line(
     Args:
         year_ganji: 호출 호환용으로 남긴 인자 — 2026-11-09 부터 문단이 세운에 의존하지 않아 쓰지
             않는다.
+        past: 이미 지난 기간(지난달·어제·작년)을 묻는 질문이면 True — 문단을 과거형으로 싣는다
+            (`speech_style.to_past`: 서술 '~했을 수 있어요', 간지 사실 '~달이었어요', 권유 문장
+            제외. 2026-11-10 데굴님 "과거형 문단" — 지난달 답에 현재형 문단이 끼고, LLM 이
+            과거형으로 바꿔 쓴 문단을 감사가 못 알아봐 같은 내용이 두 번 나갔다). 끝의 참고 안내는
+            현재형 그대로.
     """
     del year_ganji  # 호환 인자(미사용)
     if not day_master or horizon not in HORIZONS:
@@ -393,8 +415,12 @@ def simple_reference_line(
             parts.append(chat_scoped(sr.emphasis, horizon))
     elif sr.tone:
         parts.append(sr.tone)
-    parts.append(_REFERENCE_SUFFIX)
-    return " ".join(p for p in parts if p)
+    core = " ".join(p for p in parts if p)
+    if past:
+        from saju_engines.speech_style import to_past  # 지연 import — 문체 모듈은 이 경로에서만
+
+        core = to_past(core)
+    return f"{core} {_REFERENCE_SUFFIX}"
 
 
 def ganji_ko(stem: Stem, branch: Branch) -> str:

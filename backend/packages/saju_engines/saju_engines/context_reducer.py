@@ -95,6 +95,7 @@ from .event_scoring import favorability_map
 from .folk_direction import FOLK_TABOO_INSTRUCTION, folk_taboo_summary, format_folk_taboo_lines
 from .gongmang_state import natal_slot_lines, same_xun_line, transit_state, transit_suffix
 from .hap_lines import luck_hap_mode_lines
+from .hidden_latent_activation import NATAL_LATENT_PERIOD_RULE
 from .layer_evidence_scope import (
     classify_layer_evidence_scope,
     normalize_layers,
@@ -3001,6 +3002,8 @@ def serialize_chart_prefix(summary: BirthChartSummary, ci: ChartInterpretation |
             "'존재'와 '작동'이 다르다: 천간에 드러난 오행과 동급으로 서술하지 말고 "
             "잠재·조건부로만 다루며, 운에서 같은 오행·천간이 오거나 그 지지가 합·충으로 "
             "자극될 때 살아나는 결로 설명할 것(충 자극 활성은 안정보다 사건화·변동 동반)."
+            # 기간 판정은 엔진 블록만(2026-11-10) — 일반 조건문을 특정 시기로 합성하지 않게 한다.
+            + NATAL_LATENT_PERIOD_RULE
         )
     if summary.flow_note:
         lines.append(
