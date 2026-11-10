@@ -316,6 +316,7 @@ compiled/
 - 문구 10항목 `HiddenLatentTextFile`(id 정확 커버리지: `group_wealth·resource·officer·output·peer·partner` 6 + `grade_clear·emerge·stir` 3 + `caution`). lint: 단정·횡재 확정 어휘(반드시·무조건·당첨·대박 …) 금지. 전부 reviewed:false.
 - 원국 요약 잠재 신호 줄 꼬리 `NATAL_LATENT_PERIOD_RULE`(`context_reducer`): 발현 기간은 엔진 블록에 적힌 것만.
 - 기저율(20만 명식 모의 계산, 세운 연간): 투출 12.4% · 자극 43.8% · 둘 다 5.8% — 자극 단독은 '약함(참고)'.
+- 실사례 측정(2026-11-10, `scripts/measure_hidden_latent_activation.py`): 원장 표본 84행·대상 5명(직업·학업뿐, 재물·관계 0) — 세운 투출은 독립 표본 1해, 자극은 lift 1.5 안팎이 한두 대상에 몰림. 사례집 표본 2~5건. **표본 부족으로 점수 반영 보류**(대조 문서 §3-1).
 - 검증 픽스처: 1975-01-21 09:30 남(丑 중기 辛 편재·癸 편관 잠복) · 1980-11-22 09:08 남(재성 본기 — 재물 블록 없음). 테스트 `test_hidden_latent_activation_20261110`.
 
 ### interpretations/love_separation_lecture_text.json + 연애 실험 키 `separation_*` — 외부 강의 「남녀의 이별운」 번역층 (2026-10-29 데굴님 결정)
