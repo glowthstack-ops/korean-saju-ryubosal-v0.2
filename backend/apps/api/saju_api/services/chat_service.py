@@ -127,7 +127,7 @@ from saju_engines.lifetime_scan import (
     merge_yearly_luck,
     select_lifetime_years,
 )
-from saju_engines.llm_event_serializer import EXAM_CURRENT_RULE
+from saju_engines.llm_event_serializer import EXAM_CURRENT_RULE, needs_exam_current_rule
 from saju_engines.llm_guard import TokenBudgetExceeded, estimate_tokens
 from saju_engines.love_separation import love_separation_block, love_separation_natal_lines
 from saju_engines.luck_hierarchy import build_luck_hierarchy
@@ -8063,6 +8063,10 @@ def chat(
         )
 
     prompt_text = prompt_text + "".join("\n" + part for part in trailing)
+    # 합격 기류 표지 읽는 법(2026-11-11 점검) — 표지는 후보 줄을 따라 직업운·총운·일 단위 질문에도
+    # 실린다. 질문 종류로 붙인 규칙(`_structural_context`)이 없는 본문이면 여기서 붙인다.
+    if needs_exam_current_rule(prompt_text):
+        prompt_text = prompt_text + "\n" + EXAM_CURRENT_RULE
     # 범위 라벨 ~ → – (dry-run 미리보기와 실호출 본문을 같게 — llm_client 에서도 한 번 더 적용).
     prompt_text = normalize_range_tilde(prompt_text)
 

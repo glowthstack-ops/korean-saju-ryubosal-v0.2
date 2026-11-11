@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 from datetime import date
 from pathlib import Path
 
@@ -32,13 +33,23 @@ from saju_engines.exam_stage_traits import (
     EXAM_STAGE_RULE,
     exam_stage_trait_lines,
 )
-from saju_engines.llm_event_serializer import EXAM_CURRENT_RULE
+from saju_engines.llm_event_serializer import (
+    EXAM_CURRENT_LABEL,
+    EXAM_CURRENT_RULE,
+    exam_current_note,
+    needs_exam_current_rule,
+)
 from saju_engines.query_parser import is_pass_fail_question, parse_message
+from saju_engines.report_event_input import (
+    month_overview_lines,
+    precise_candidate_clusters,
+    score_table_lines,
+)
 from saju_engines.report_plan import build_section_plans
 from saju_engines.rewriter import assess
 from saju_engines.time_parser import extract_time_constraints
 from saju_shared_types.birth_input import BirthInput
-from saju_shared_types.events import EventKey
+from saju_shared_types.events import EventCandidate, EventKey
 from saju_shared_types.intent import (
     Domain,
     IntentJson,
@@ -279,3 +290,144 @@ def test_exam_stage_block_wired_into_education_report_only() -> None:
     assert _sections_with_block("education", _OUTPUT_MANY) == ["C-02"]
     assert _sections_with_block("career", _OUTPUT_MANY) == []
     assert _sections_with_block("education", _NONE_MANY) == []
+
+
+# ── 읽는 법 규칙은 표지를 따라간다 (2026-11-11 점검) ──────────────────────────
+# 표지는 후보 줄에 붙어 질문 종류·섹션과 무관하게 실리는데 규칙은 질문 종류로만 붙여, 직업운·일
+# 단위 질문과 학업 리포트 C-02·C-05~07 에 표지만 실렸다. 본문 조립 뒤 한 번 더 확인해 붙인다.
+
+# 2026-11-11 기준 취업·합격 후보에 '합격 기류 있음' 표지가 실리는 명식(탐색 결과).
+_LABELLED = ("1990-05-05", "12:00")
+
+
+def _labelled(text: str) -> bool:
+    """규칙 문장의 인용을 뺀 본문에 표지가 실렸는가."""
+    return EXAM_CURRENT_LABEL in text.replace(EXAM_CURRENT_RULE, "")
+
+
+def test_needs_exam_current_rule_helper() -> None:
+    assert needs_exam_current_rule(f"취업·합격: 용기신 품질 → {EXAM_CURRENT_LABEL}")
+    assert not needs_exam_current_rule("취업·합격: 용기신 품질")  # 표지 없음
+    # 규칙이 이미 있으면 다시 붙이지 않는다(규칙 문장이 표지 문자열을 인용한다).
+    assert not needs_exam_current_rule(f"… → {EXAM_CURRENT_LABEL}\n{EXAM_CURRENT_RULE}")
+    assert not needs_exam_current_rule(EXAM_CURRENT_RULE)
+
+
+@pytest.mark.parametrize("q", ["내년 직업운 어때?", "12월 3일 면접 보는데 어때?"])
+def test_rule_follows_label_in_non_exam_chat_questions(q: str) -> None:
+    """합격·취업 사건으로 분류되지 않는 질문도 표지가 실리면 규칙이 한 번 붙는다."""
+    intent = _intent(q)
+    assert intent.event_key not in (EventKey.EDUCATION_ADMISSION, EventKey.JOB_GAIN)  # 전제
+    res = cs.chat(_birth(*_LABELLED), q, _T, dry_run=True)
+    assert res.prompt_preview is not None
+    assert _labelled(res.prompt_preview), q  # 전제 — 표지가 실린다
+    assert res.prompt_preview.count(EXAM_CURRENT_RULE) == 1, q
+
+
+def test_rule_not_duplicated_for_exam_chat_question() -> None:
+    res = cs.chat(_birth(*_LABELLED), "취업 언제 될까?", _T, dry_run=True)
+    assert res.prompt_preview is not None and _labelled(res.prompt_preview)
+    assert res.prompt_preview.count(EXAM_CURRENT_RULE) == 1
+
+
+def test_rule_absent_when_no_label_in_non_exam_chat_question() -> None:
+    """반례 — 표지가 실리지 않는 질문에는 같은 명식이어도 규칙이 없다."""
+    res = cs.chat(_birth(*_LABELLED), "올해 운세 어때?", _T, dry_run=True)
+    assert res.prompt_preview is not None
+    assert not _labelled(res.prompt_preview)
+    assert EXAM_CURRENT_RULE not in res.prompt_preview
+
+
+def _section_bodies(topic: str, birth: tuple[str, str]) -> dict[str, str]:
+    spec = ReportSpec(
+        product_code="RPT_FOCUS",
+        subjects=[SubjectRef(kind=SubjectKind.SELF, label="본인")],
+        topic=topic, period=ReportPeriod(start="2026-01", end="2027-12"),
+    )
+    data = _ReportData(_birth(*birth), spec, _T, owner_id=None, subject_id=None)
+    return {
+        plan.section_id: build_section_context(plan, spec, data).body_prompt
+        for plan in build_section_plans(spec)
+    }
+
+
+def test_rule_follows_label_in_every_education_report_section() -> None:
+    bodies = _section_bodies("education", _LABELLED)
+    labelled = {sid for sid, body in bodies.items() if _labelled(body)}
+    # 전제 — 종전에 규칙이 없던 섹션(C-01·03·04 밖)에도 표지가 실린다.
+    assert labelled - {"C-01", "C-03", "C-04"}
+    for sid in labelled:
+        assert bodies[sid].count(EXAM_CURRENT_RULE) == 1, sid
+    # 표지도 없고 요약·기간 섹션도 아니면 규칙이 없다(반례).
+    for sid, body in bodies.items():
+        if sid not in labelled and sid not in {"C-01", "C-03", "C-04"}:
+            assert EXAM_CURRENT_RULE not in body, sid
+
+
+# ── 리포트 기간 줄의 표지 (2026-11-11) ────────────────────────────────────────
+# 종전에는 리포트에서 표지가 '[내부 근거]' 블록(상위 3건의 사유 사슬 — 기간 없음)으로만 실려, 어느
+# 기간에 합격 기류가 있는지 LLM 이 알 수 없었고 상위 3건에 못 든 후보의 표지는 아예 빠졌다.
+
+_PERIOD_ROW = re.compile(r"^\d{4}-\d{2} ")
+
+
+def _has_pass(c: EventCandidate) -> bool:
+    return any(code.startswith("EXAM_PASS") for code in c.evidence_path)
+
+
+def test_exam_current_note_only_for_pass_reasons() -> None:
+    assert exam_current_note(["RELATION_HIT", "EXAM_PASS_관인상생"]) == f" · {EXAM_CURRENT_LABEL}"
+    assert exam_current_note([]) == ""
+    assert exam_current_note(["RELATION_HIT"]) == ""
+    assert exam_current_note(["EXAM_FAIL_상관견관"]) == ""  # 불합격 패턴은 표지가 아니다
+
+
+def _report_data(topic: str) -> _ReportData:
+    spec = ReportSpec(
+        product_code="RPT_FOCUS",
+        subjects=[SubjectRef(kind=SubjectKind.SELF, label="본인")],
+        topic=topic, period=ReportPeriod(start="2026-01", end="2027-12"),
+    )
+    return _ReportData(_birth(*_LABELLED), spec, _T, owner_id=None, subject_id=None)
+
+
+def test_cluster_candidate_rows_carry_label_per_candidate() -> None:
+    """시점 클러스터의 후보 줄 — 합격 기류 사유가 있는 후보 줄에만 표지가 붙는다."""
+    data = _report_data("education")
+    with_pass = sum(1 for c in data.candidates if _has_pass(c))
+    assert 0 < with_pass < len(data.candidates)  # 전제 — 있는 후보와 없는 후보가 섞여 있다
+    rows = [
+        ln for ln in precise_candidate_clusters(data.result, data.candidates)
+        if ln.startswith("  - ")
+    ]
+    assert len(rows) == len(data.candidates)
+    assert sum(1 for ln in rows if ln.endswith(f" · {EXAM_CURRENT_LABEL}")) == with_pass
+    assert sum(1 for ln in rows if EXAM_CURRENT_LABEL in ln) == with_pass
+
+
+def test_month_rows_carry_label_with_period_in_career_report() -> None:
+    """직업 주제 월별 흐름 — 대표 사건에 합격 기류 사유가 있는 달의 줄에 표지가 붙는다."""
+    data = _report_data("career")
+    rows = month_overview_lines(data.result, data.scored, "career")
+    labelled = [ln for ln in rows if EXAM_CURRENT_LABEL in ln]
+    assert labelled and len(labelled) < len([ln for ln in rows if _PERIOD_ROW.match(ln)])
+    for ln in labelled:
+        assert _PERIOD_ROW.match(ln), ln  # 표지가 기간과 한 줄에 있다
+        assert "취업·합격" in ln, ln  # 합격 기류 대상 사건의 줄에만
+
+
+def test_rule_follows_label_in_career_report_sections() -> None:
+    bodies = _section_bodies("career", _LABELLED)
+    labelled = {sid for sid, body in bodies.items() if _labelled(body)}
+    assert labelled  # 전제 — 월별 흐름 줄로 표지가 실린다
+    for sid, body in bodies.items():
+        assert body.count(EXAM_CURRENT_RULE) == (1 if sid in labelled else 0), sid
+
+
+def test_score_table_never_carries_label() -> None:
+    """반례 — 부록 점수표는 사용자 본문에 그대로 복사되는 표라 표지를 붙이지 않는다."""
+    data = _report_data("education")
+    assert any(_has_pass(c) for c in data.candidates)
+    assert not any(
+        EXAM_CURRENT_LABEL in ln for ln in score_table_lines(data.result, data.candidates)
+    )

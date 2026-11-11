@@ -7,6 +7,8 @@ temporal_mode·궁성·12운성 단계)을 한글 톤 힌트로 직렬화한다.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from saju_shared_types.event_engine import EventCandidateV2
 from saju_shared_types.event_taxonomy_v2 import (
     CONFIDENCE_KO,
@@ -168,6 +170,31 @@ EXAM_CURRENT_RULE = (
     "위험이나 나쁜 결과로 말하지 말 것(신호가 없다는 뜻이지 불리하다는 뜻이 아니다). "
     "합격 기류가 있어도 합격을 확정하지 말 것."
 )
+#: 후보 줄에 붙는 합격 기류 표지(사유 라벨 SSOT 와 같은 문자열).
+EXAM_CURRENT_LABEL = _REASON_PREFIX_KO["EXAM_PASS"]
+
+
+def needs_exam_current_rule(text: str) -> bool:
+    """본문에 합격 기류 표지가 실렸는데 읽는 법 규칙이 아직 없으면 True.
+
+    표지는 후보 줄을 따라 질문 종류·섹션과 무관하게 실린다(직업운·총운·일 단위 질문, 학업 리포트의
+    구조·전망 섹션 등). 규칙을 질문 종류로만 붙이면 표지만 실리는 자리가 생기므로(2026-11-11 점검),
+    채팅·리포트가 본문 조립 뒤 이 함수로 한 번 더 확인해 규칙을 붙인다. 규칙 문장 자체가 표지
+    문자열을 인용하므로 규칙이 이미 있으면 False 다(중복 방지).
+    """
+    return EXAM_CURRENT_RULE not in text and EXAM_CURRENT_LABEL in text
+
+
+def exam_current_note(reason_codes: Iterable[str]) -> str:
+    """기간 줄 접미사 — 후보 근거에 합격 기류 사유(`EXAM_PASS_*`)가 있으면 ' · 합격 기류 있음'.
+
+    리포트의 기간 줄(시점 클러스터 후보 줄·월별 흐름·연도별 흐름)에 붙인다(2026-11-11). 종전에는
+    리포트에서 표지가 '[내부 근거]' 블록(상위 3건의 사유 사슬, 기간 없음)으로만 실려 어느 기간의
+    표지인지 알 수 없었다. 사유가 없으면 빈 문자열 — 줄은 종전 그대로다(표기 전용, 점수·판정 불변).
+    """
+    if any(str(code).startswith("EXAM_PASS") for code in reason_codes):
+        return f" · {EXAM_CURRENT_LABEL}"
+    return ""
 
 # event_key → 금기룰 설명(있으면 LLM 입력에 톤 제한으로 부착).
 _PROHIBITION_BY_KEY: dict[str, list[str]] = {}

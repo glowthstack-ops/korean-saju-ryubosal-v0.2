@@ -26,7 +26,7 @@ from .candidate_semantics import candidate_semantics, review_month_from_signals
 from .chart_interpretation import incoming_stage_note, incoming_ten_god_note, luck_has_pianyin
 from .context_reducer import _dominant_trigger, event_ko, polarity_ko
 from .ganji_calendar import relation_hits
-from .llm_event_serializer import score_band
+from .llm_event_serializer import exam_current_note, score_band
 from .opportunity_engine import EVENT_DOMAINS, detect_opportunities, format_opportunity_notes
 from .sinsal_numeric_scoring import apply_sinsal_channel_shadow, channel_note_ko
 
@@ -168,6 +168,10 @@ def precise_candidate_clusters(
     ↗통관 순화/⚠길신 누설)와 후보별 검토월(공망 충발 한정)을 함께 표기하고,
     rank_by_period를 주면 '기간 내 상대 N/M위'(절대 강도와 분리)를 병기한다.
     판정·점수 불변 — 표기 전용.
+
+    2026-11-11: 후보 근거에 합격 기류 사유가 있으면 그 후보 줄에 '합격 기류 있음'을 붙인다(채팅 후보
+    줄과 같은 표지 — 리포트에서는 표지가 기간과 묶이지 않던 결함 교정). 월별·연도별 흐름의 대표
+    사건 줄도 같다. 부록 점수표(사용자에게 그대로 복사되는 표)와 생애 연표에는 붙이지 않는다.
     """
     dosik_done = False
     day_master_for_dosik = result.pillars.day_master if result.pillars else ""
@@ -231,7 +235,7 @@ def precise_candidate_clusters(
                 f"  - {event_display_ko(str(c.event_key), c.quality, c.timing)}: "
                 f"신호 강도 {c.score} · "
                 f"신뢰도 {confidence_ko(c.confidence)} · {_dir(c)}"
-                f"{review}{_marriage_stage_note(c)}"
+                f"{review}{_marriage_stage_note(c)}{exam_current_note(c.evidence_path)}"
             )
     return lines
 
@@ -457,7 +461,8 @@ def month_overview_lines(
                 dom = _DOMAIN_KO.get(_DOMAIN_BY_KEY.get(str(cand.event_key), ""), "일반")
                 lines.append(
                     f"{p.label} {p.ganji}({tg}){grade}: {dom} {score_band(cand.score)} · "
-                    f"{_dir(cand)} · {event_ko(cand.event_key)}{star}"
+                    f"{_dir(cand)} · {event_ko(cand.event_key)}"
+                    f"{exam_current_note(cand.evidence_path)}{star}"
                 )
     return lines
 
@@ -514,6 +519,7 @@ def year_spectrum_lines(
             dom = _DOMAIN_KO.get(_DOMAIN_BY_KEY.get(str(cand.event_key), ""), "일반")
             lines.append(
                 f"{y}년 {p.ganji}({tg}){grade}: {dom} {score_band(cand.score)} · "
-                f"{_dir(cand)} · {event_ko(cand.event_key)}{star}"
+                f"{_dir(cand)} · {event_ko(cand.event_key)}"
+                f"{exam_current_note(cand.evidence_path)}{star}"
             )
     return lines

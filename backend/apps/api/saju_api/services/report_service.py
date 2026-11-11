@@ -104,7 +104,7 @@ from saju_engines.lifetime_scan import (
     merge_yearly_luck,
     select_lifetime_years,
 )
-from saju_engines.llm_event_serializer import EXAM_CURRENT_RULE
+from saju_engines.llm_event_serializer import EXAM_CURRENT_RULE, needs_exam_current_rule
 from saju_engines.llm_guard import TokenBudgetExceeded
 from saju_engines.love_period_notes import LOVE_NOTE_EVENT_KEYS, love_period_note_items
 from saju_engines.love_separation import love_separation_block, love_separation_natal_lines
@@ -4693,6 +4693,10 @@ def build_section_context(
                 lines += ["", *_career_block]
         except Exception:  # noqa: BLE001 — beta 노출 실패는 섹션 생성 비차단
             _logger.exception("career transition 리포트 블록 실패 — 비차단")
+    # 합격 기류 표지 읽는 법(2026-11-11 점검) — 표지는 후보 줄을 따라 주제·섹션과 무관하게 실린다
+    # (학업 리포트 C-02·C-05~07 등). 위에서 규칙을 붙이지 않은 섹션이면 본문 끝에 붙인다.
+    if needs_exam_current_rule("\n".join(lines)):
+        lines += ["", EXAM_CURRENT_RULE]
     subject_label = spec.subjects[0].label if spec.subjects else "본인"
     return SectionContext(
         section_id=plan.section_id,
