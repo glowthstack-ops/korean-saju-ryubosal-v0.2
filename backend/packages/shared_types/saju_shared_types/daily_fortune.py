@@ -58,7 +58,13 @@ ENGINE_VERSION = "engine.v1"
 #   공통 줄은 십성 장면 + 12운성 + 행동(다음 달/내년 연결 문장 삭제), 일주별 흐름은 60일주 전부(관계
 #   문장 또는 자리 문장, 내년 세운 지지 관계 삭제, 왕지 없는 반합 포함). 같은 경계(11/8) — v1.19 는
 #   11/8 선생성에만 쓰였고 서비스 중 대체된다.
-DICT_VERSION = "dict.v1.20"
+# v1.21(2026-11-11): 단식 연 지평 확장(docs/17 §31, 데굴님 "내년 단식 글을 바탕으로 추가 개선" →
+#   "A 를 진행 · B 는 한번 추가 · D 는 가능 여부 판단 후 반영 · 조건이 있을 경우의 간단한 설명").
+#   올해의 흐름 패널에 ① 연내 구간(가장 강한 때 + 전환 뒤 흐름) ② 여러 해 흐름(세운 지지 계절 3년
+#   묶음) ③ 일주별 올해 한 줄 ④ 조건 줄(신강약·필요한 기운·지지 충형 글자·과다 기운). 채팅·테마 연
+#   문단에도 ①②가 붙고, ④는 엔진이 확인한 항목만 따로 싣는다. 판정·사건·점수 불변(문체 전용).
+#   경계 YEAR_PHASE_EFFECTIVE_FROM(11/12 — 11/11 보드는 이미 생성·교정돼 v1.20 유지).
+DICT_VERSION = "dict.v1.21"
 PROMPT_VERSION = "polish.v1"
 #: 서사 family 회전 계약(OA-8b). 값이 바뀌면 새 epoch 이 시작되며 **캐시만** 무효화된다
 #: — 선택 seed 에는 들어가지 않으므로 사건 배정은 흔들리지 않는다(OA-6d1).
@@ -114,6 +120,12 @@ DICT_VERSION_BEFORE_STAGE_DIRECTION = "dict.v1.17"
 SIMPLE_LAYER_EFFECTIVE_FROM = date(2026, 11, 8)
 #: 그 기준일 이전(11/5~11/7)에 적용되는 사전 버전.
 DICT_VERSION_BEFORE_SIMPLE_LAYER = "dict.v1.18"
+#: 단식 연 지평 확장(v1.21, docs/17 §31) 활성화 기준일 — 11/11 보드는 이미 생성·교정돼 v1.20 을
+#: 유지하고 11/12 보드(11/11 20시 선생성)부터 쓴다. 판정·사건은 그대로고 올해의 흐름 패널 필드만
+#: 늘지만, 당일 보드 재생성·재교정을 막으려고 날짜로 계약을 고른다.
+YEAR_PHASE_EFFECTIVE_FROM = date(2026, 11, 12)
+#: 그 기준일 이전(11/8~11/11)에 적용되는 사전 버전.
+DICT_VERSION_BEFORE_YEAR_PHASE = "dict.v1.20"
 
 
 def stage_direction_forward(target_date: date) -> bool:
@@ -136,8 +148,8 @@ def active_dict_version(target_date: date) -> str:
 
     Returns:
         7/30 이전 v1.10 → 9/3 이전 v1.11 → 9/12 이전 v1.12 → 9/20 이전 v1.13 → 11/2 이전
-        v1.14 → 11/3 이전 v1.16 → 11/5 이전 v1.17 → 11/8 이전 v1.18 → 이후 현재
-        `DICT_VERSION`(v1.20 — v1.19 는 같은 경계에서 당일 대체).
+        v1.14 → 11/3 이전 v1.16 → 11/5 이전 v1.17 → 11/8 이전 v1.18 → 11/12 이전 v1.20
+        (v1.19 는 11/8 경계에서 당일 대체) → 이후 현재 `DICT_VERSION`(v1.21).
     """
     if target_date < SMALL_FIND_HEADLINE_REVERT_EFFECTIVE_FROM:
         return PREVIOUS_DICT_VERSION
@@ -155,6 +167,8 @@ def active_dict_version(target_date: date) -> str:
         return DICT_VERSION_BEFORE_STAGE_DIRECTION
     if target_date < SIMPLE_LAYER_EFFECTIVE_FROM:
         return DICT_VERSION_BEFORE_SIMPLE_LAYER
+    if target_date < YEAR_PHASE_EFFECTIVE_FROM:
+        return DICT_VERSION_BEFORE_YEAR_PHASE
     return DICT_VERSION
 
 
@@ -261,6 +275,15 @@ class DailyYearStemFlow(BaseModel):
     emphasis: str | None = None  # 천간·지지 십성군이 같은 해에만
     points: list[str] = Field(default_factory=list)  # 체감 포인트 3줄(일·돈·사람·몸·연애 중)
     peak_months: str | None = None  # 2026-11-10 패널에서 제거(§30) — 계약 호환 필드, 항상 None
+    # 단식 연 지평 확장(docs/17 §31, dict.v1.21) — 과거 계약 보드는 전부 기본값(None·빈 목록).
+    # 연내 구간: 가장 강한 때 1문장(지났으면 과거형) + 전환 뒤 흐름·조언. 土 세운 해는 None.
+    phase: list[str] | None = None
+    # 여러 해 흐름: 세운 지지 계절 3년 묶음(직전 3년 → 지금 3년 중 몇 번째 해 → 다음 3년).
+    span: str | None = None
+    # 일주별 올해 한 줄: 일지↔세운 지지(충·육합·삼합·형·같은 글자·없음) — 그 일간의 6일주 전부.
+    ilju_notes: list[DailyMonthIljuFlow] = Field(default_factory=list)
+    # 조건 줄: 신강약 / 필요한 기운 / 지지 충·형 글자 / 과다 기운 — 조건 보유는 사용자 판단.
+    conditions: list[str] = Field(default_factory=list)
 
 
 class DailyTop5(BaseModel):

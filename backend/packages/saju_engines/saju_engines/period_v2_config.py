@@ -68,6 +68,17 @@ SEWOON_DAEWOON_CONTEXT_ENABLED: bool = _env_flag("SAJU_SEWOON_DAEWOON_CONTEXT_EN
 # 0.9×0.6·여기 0.9×0.35(원국 통근 ROOT_HIDDEN_WEIGHT 비율 재사용), 같은 십성군은 max(중복 가산
 # 없음). **실험용 채택 규칙**(고전 수치 아님).
 TRANSIT_HIDDEN_STEM_ENABLED: bool = _env_flag("SAJU_TRANSIT_HIDDEN_STEM_ENABLED")
+# 관할 상위 운을 절기 기준으로 고른다(2026-11-11 데굴님 승인 — 합격운 글 점검 중 발견). 세운은
+# 입춘에, 월운은 절(節)에 바뀌는데 종전에는 라벨의 양력 연·월로 골랐다. 두 갈래를 따로 켠다
+# (측정 `scripts/measure_jeolgi_parent_luck.py` — 기본 OFF, 기존 출력 보존).
+# - MONTH: 일운의 관할 월운을 절기월로 — 절입 전 초순 날에 다음 절기월의 월운이 붙던 것, 기준 연도
+#   12달 밖 절기월(1월 등)의 날에 월운 층이 없던 것. 사건 엔진 스택·택일 월 적합. 사전계산은 이미
+#   절기월을 쓴다(`_seolgi_month_labels`).
+# - YEAR: 丑월(라벨 'YYYY-01')과 입춘 전 날의 관할 세운을 전년으로. 사건 엔진 스택·사전계산 상위 운·
+#   건강 창 월 배경·반복 구조 위층·충 완화 연도 보탬·택일 연 흐름. 실사례(丑월 입사 2건)에서는
+#   종전 쪽이 표지를 더 잡아 보류 — 동지·양력 세수 관점과 맞닿는 논점이라 표본이 더 필요하다.
+JEOLGI_PARENT_MONTH_ENABLED: bool = _env_flag("SAJU_JEOLGI_PARENT_MONTH_ENABLED")
+JEOLGI_PARENT_YEAR_ENABLED: bool = _env_flag("SAJU_JEOLGI_PARENT_YEAR_ENABLED")
 # CALIBRATE: 관운 강화 favorability 가산(데굴님 승인 제안값, shadow 실측 후 조정).
 HAP_OFFICER_BOOST: float = 0.3
 # 관계 용어 층위 정리 v2(2026-09-18 데굴님 승인, 전문가 참고 기준) — 서술·표기 전용, 점수·판정 불변:
@@ -296,6 +307,8 @@ def active_versions() -> dict[str, str | bool]:
         "wealth_natal_complement_enabled": WEALTH_NATAL_COMPLEMENT_ENABLED,
         "sewoon_daewoon_context_enabled": SEWOON_DAEWOON_CONTEXT_ENABLED,
         "transit_hidden_stem_enabled": TRANSIT_HIDDEN_STEM_ENABLED,
+        "jeolgi_parent_month_enabled": JEOLGI_PARENT_MONTH_ENABLED,
+        "jeolgi_parent_year_enabled": JEOLGI_PARENT_YEAR_ENABLED,
         "domain_family_scope_enabled": DOMAIN_FAMILY_SCOPE_ENABLED,
         "relation_hit_dedup_enabled": RELATION_HIT_DEDUP_ENABLED,
         "period_other_signals_enabled": PERIOD_OTHER_SIGNALS_ENABLED,

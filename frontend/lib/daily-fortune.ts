@@ -53,6 +53,15 @@ export interface DailyYearStemFlow {
   points: string[];
   /** 간여지동 달 문단 — 2026-11-10 패널에서 제거(docs/17 §30). 새 보드는 null, 표시하지 않는다. */
   peak_months?: string | null;
+  // 단식 연 지평 확장(docs/17 §31, dict.v1.21~) — 과거 계약 보드는 null·빈 배열·필드 없음.
+  /** 연내 구간 — 가장 강한 때 1문장 + 전환 뒤 흐름·조언. 같은 계절이 없는 해는 null. */
+  phase?: string[] | null;
+  /** 여러 해 흐름 — 지지 계절 3년 묶음(직전 3년 → 지금 3년 중 몇 번째 해 → 다음 3년). */
+  span?: string | null;
+  /** 일주별 올해 한 줄 — 그 일간의 6일주 전부. */
+  ilju_notes?: DailyMonthIljuFlow[];
+  /** 조건 줄 — 신강약·필요한 기운·지지 충형 글자·과다 기운(조건 보유는 사용자 판단). */
+  conditions?: string[];
 }
 
 export interface DailyTop5 {

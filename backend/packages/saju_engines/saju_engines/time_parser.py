@@ -39,6 +39,17 @@ _LIFE_STAGES = {
     "평생": "평생", "일생": "평생",
 }
 _YOUTH_STAGE_RE = re.compile(r"청년\s*(?:기|때|시절|에)")
+#: C6 '이 해'를 가리키는 표기 — 올해·금년 + 띄어쓰기·축약 변형(2026-11-11 실답: '올한해 난 힘든
+#: 운이었을까?'가 시점 미파싱 → too_broad 로 반려). 앞 글자 가드는 '다가올 한 해'·'돌아올 한 해'
+#: (앞날을 꾸미는 말)를 올해로 읽지 않기 위한 것이다. '이번 해'는 '이번 해고 통보'·'이번 해외여행'과
+#: 동형이라 조사·문장 끝·띄어쓰기가 뒤따를 때만 인정한다.
+THIS_YEAR_PATTERN = (
+    r"올해|금년|(?<![가-힣])올\s*한\s*해|(?<![가-힣])올핸"
+    r"|이번\s*[년연]도|이번\s*해(?=[는엔에의가를]|\s|[?.!,~]|$)"
+)
+THIS_YEAR_RE = re.compile(THIS_YEAR_PATTERN)
+#: C6 '지난 해'(=작년) 변형 — '지지난해'(재작년)·'지난 해외여행'은 제외한다.
+LAST_YEAR_RE = re.compile(r"작년|(?<![가-힣])지난해(?!외)|(?<![가-힣])지난\s*한\s*해")
 #: C14 대운 단위 — 지금·이번·다음 대운, 대운 교운·교체(2026-10-29: '지금 대운은 어때요?'가
 #: 시점 미파싱 → too_broad 로 반려되던 결함 — '지금·요즘' 추가, '대운이 언제 바뀌어요?' 포함).
 DAEWOON_UNIT_RE = re.compile(
@@ -1021,7 +1032,7 @@ def parse_time(
             type="absolute", granularity=Granularity.YEAR, start=year_key, end=year_key,
             urgency=urgency,
         ), TimeScope.MID_TERM
-    if "올해" in text or "금년" in text:
+    if THIS_YEAR_RE.search(text):  # 올해·금년·올 한 해·올핸·이번 해·이번 년도
         year_key = str(today.year)
         return TimeRange(
             type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
@@ -1047,7 +1058,7 @@ def parse_time(
             type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
             urgency=urgency,
         ), TimeScope.MID_TERM
-    if "작년" in text:
+    if LAST_YEAR_RE.search(text):  # 작년·지난해·지난 한 해
         year_key = str(today.year - 1)
         return TimeRange(
             type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
@@ -1191,6 +1202,10 @@ _POS_PRED_RE = re.compile(
 _CORRECTION_MARK_RE = re.compile(r"말고|아니라|아니고|[은는]\s*됐고|까지는\s*아니고")
 # 비교 신호 — 복수 그룹이 모두 비교 대상(comparison, 스팬 유지).
 _COMPARE_MARK_RE = re.compile(r"비교|둘\s*중|중\s*(?:언제|어디|뭐|누가|어느)|어느\s*(?:해|쪽)|vs")
+# 과거 서술절 — 연도 그룹 뒤 창에서 과거형 음절(종성 ㅆ) + 연결어미. 그 연도는 지난 일을
+# 가리키는 배경(reference)이고 분석 대상이 아니다('올해 떨어졌는데 내년엔 붙을까?', 2026-11-11).
+_PAST_CONNECTIVE_RE = re.compile(r"([가-힣])(?:는데|더니|지만|으니|어서|고\b|고\s)")
+_SSANG_SIOT_JONG = 20  # 한글 음절 종성 인덱스 — ㅆ
 # 가정 신호 — 그룹 직후 어미('2030년이라면').
 _HYPO_TAIL_RE = re.compile(r"^\s*(?:이?라면|이면)")
 # 연도 그룹 내부 구분자 — 이것만으로 이어지면 같은 그룹("2026년 27년", "2026, 2027년").
@@ -1200,8 +1215,9 @@ _YEAR_SEP_RE = re.compile(r"^[\s,·~\-—∼과와랑년및]*(?:이랑)?[\s,·~\
 # '에서'('2027년에서 2028년으로 미뤄도')·'그리고'(비교 나열)는 종전대로 그룹을 끊는다.
 _YEAR_RANGE_OPEN_RE = re.compile(r"^\s*년?\s*(?:부터|에서)(?:는|라도|만)?\s*$")
 _YEAR_RANGE_CLOSE_RE = re.compile(r"^\s*년?\s*(?:까지|사이|동안)")
-# 상대 연도 어휘 — 배제/정정 구문에 흔한 '올해 말고 내년' 지원.
-_REL_YEAR_WORDS = {"올해": 0, "금년": 0, "내년": 1, "내후년": 2}
+# 상대 연도 어휘(정규식 → 올해 기준 차이) — 배제/정정 구문에 흔한 '올해 말고 내년' 지원.
+# '이 해' 표기는 C6 과 같은 THIS_YEAR_PATTERN 을 쓴다('올 한 해 말고 내년').
+_REL_YEAR_WORDS = {THIS_YEAR_PATTERN: 0, "내년": 1, "내후년": 2}
 
 
 def _year_mentions(text: str, today: date) -> list[tuple[int, int, int]]:
@@ -1240,6 +1256,22 @@ def _year_mentions(text: str, today: date) -> list[tuple[int, int, int]]:
     return dedup
 
 
+def _is_past_syllable(ch: str) -> bool:
+    """과거 선어말어미가 축약된 음절(했·됐·졌·었·았 …)인가 — 종성 ㅆ, '있'·'겠' 제외."""
+    return (
+        "가" <= ch <= "힣" and ch not in "있겠"
+        and (ord(ch) - 0xAC00) % 28 == _SSANG_SIOT_JONG
+    )
+
+
+def _past_connective_pos(window: str) -> int | None:
+    """창 안 첫 과거 서술 연결절('떨어졌는데'·'힘들었지만')의 위치(없으면 None)."""
+    for m in _PAST_CONNECTIVE_RE.finditer(window):
+        if _is_past_syllable(m.group(1)):
+            return m.start()
+    return None
+
+
 def extract_time_constraints(text: str, today: date) -> list[TimeConstraintItem]:
     """연 단위 시간 표현을 전수 추출해 담화 역할을 부여한다 (P1).
 
@@ -1266,12 +1298,21 @@ def extract_time_constraints(text: str, today: date) -> list[TimeConstraintItem]
             groups.append([cur])
     comparison = bool(_COMPARE_MARK_RE.search(text)) and len(groups) >= 2
 
+    # 그룹별 술어 창(다음 그룹 전까지)과, 창에 과거형 음절이 하나도 없는 그룹 — 과거 서술절
+    # 배경(reference) 판정은 '뒤에 과거형이 아닌 그룹이 있을 때'만 한다(둘 다 지난 일이면
+    # 종전대로 단순 언급 — '2025년에 결혼했는데 2026년에 이혼했어').
+    windows = [
+        text[grp[-1][2]:(groups[gi + 1][0][1] if gi + 1 < len(groups) else len(text))]
+        for gi, grp in enumerate(groups)
+    ]
+    non_past = [not any(_is_past_syllable(ch) for ch in w) for w in windows]
+
     items: list[TimeConstraintItem] = []
     prev_neg_correction = False  # 직전 그룹이 정정 접속으로 배제됐는가
     for gi, grp in enumerate(groups):
         g_start, g_end = grp[0][1], grp[-1][2]
-        window_end = groups[gi + 1][0][1] if gi + 1 < len(groups) else len(text)
-        window = text[g_end:window_end]
+        window = windows[gi]
+        past_pos = _past_connective_pos(window) if any(non_past[gi + 1:]) else None
         years = sorted(y for y, _, _ in grp)
         span_text = text[g_start:g_end]
         neg = _NEG_PRED_RE.search(window)
@@ -1292,6 +1333,9 @@ def extract_time_constraints(text: str, today: date) -> list[TimeConstraintItem]
         elif comparison:
             role = TimeConstraintRole.COMPARISON
             reason = "비교 구문"
+        elif past_pos is not None and (not pos or past_pos < pos.start()):
+            role = TimeConstraintRole.REFERENCE
+            reason = "과거 서술절"
         elif pos:
             role = TimeConstraintRole.TARGET
             reason = pos.group(0)

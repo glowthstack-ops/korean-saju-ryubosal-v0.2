@@ -63,7 +63,7 @@ from .query_parser import (
     parse_message,
     strip_parenthetical,
 )
-from .time_parser import reframe_week, week_frame_start_weekday
+from .time_parser import THIS_YEAR_PATTERN, reframe_week, week_frame_start_weekday
 from .user_facts import extract_user_facts, merge_user_facts
 
 # 대상 정정(A10) — subject 교체 + 동일 intent 재실행.
@@ -943,7 +943,9 @@ class ConversationEngine:
         compact = text.replace(" ", "")
         if len(compact) <= 10:
             if re.search(
-                r"\d{1,2}월|오늘|내일|모레|글피|올해|내년|이번\s*주|다음\s*주|금주"
+                r"\d{1,2}월|오늘|내일|모레|글피|내년|이번\s*주|다음\s*주|금주"
+                # '이 해' 표기는 시점 파서(C6)와 같은 정의를 쓴다('올한해는?').
+                rf"|{THIS_YEAR_PATTERN}"
                 # 달·요일 단답('이번달은?'·'토요일은 어때?') — 직전 질문의 시점만 바꾸는 후속
                 # (2026-10-04: 로또 택일 뒤 일반 운세로 끊기던 공백).
                 r"|이번\s*달|다음\s*달|이달|내달|[월화수목금토일]요일"

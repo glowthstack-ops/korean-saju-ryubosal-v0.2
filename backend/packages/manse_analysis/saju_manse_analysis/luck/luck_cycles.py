@@ -9,6 +9,7 @@ from __future__ import annotations
 import calendar as _cal
 import os
 from datetime import date, datetime, timedelta
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from saju_manse_analysis.luck.climate import climate_need, climate_score
@@ -880,6 +881,22 @@ def _daily(pillars, dm, useful, unfavorable, year: int, month: int) -> list[Luck
     return _daily_range(
         pillars, dm, useful, unfavorable, date(year, month, 1), date(year, month, days)
     )
+
+
+def luck_role_sets(yongsin: Any) -> tuple[set[str], set[str]]:
+    """운 판정에 쓰는 (유리 오행, 불리 오행) — 검증 전이라도 최종 역할 배정(용·희 / 기·구) 우선.
+
+    최종 배정이 비어 있으면 후보 목록으로 폴백한다. 서비스 계층과 엔진(절기 기준 월운 보충)이
+    같은 기준을 쓰도록 한 곳에 둔다.
+    """
+    final = yongsin.final or {}
+    useful = {v for v in (final.get("yongsin"), final.get("heesin")) if v}
+    unfavorable = {v for v in (final.get("gisin"), final.get("gusin")) if v}
+    if not useful:
+        useful = {c.element for c in yongsin.useful_candidates}
+    if not unfavorable:
+        unfavorable = {c.element for c in yongsin.unfavorable_candidates}
+    return useful, unfavorable
 
 
 def monthly_luck_for_year(

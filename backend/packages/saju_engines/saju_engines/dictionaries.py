@@ -660,6 +660,29 @@ class HiddenLatentTextFile(_AliasModel):
     items: list[HiddenLatentTextItem] = Field(min_length=10, max_length=10)
 
 
+#: exam_stage_traits.json id → 십성군 정확 커버리지(2026-11-11 합격 준비 성향 서술층).
+EXAM_STAGE_TRAIT_GROUPS: dict[str, str] = {"output_many": "식상", "wealth_many": "재성"}
+
+
+class ExamStageTraitItem(_AliasModel):
+    """합격 준비 성향 문구 1건 (exam_stage_traits.json, 2026-11-11) — 서술 전용."""
+
+    id: str
+    group: str
+    condition: str
+    text: str = Field(min_length=20)
+    basis: str = Field(min_length=10)
+    reviewed: bool
+
+
+class ExamStageTraitsFile(_AliasModel):
+    """합격 준비 성향 사전 — 식상 다자·재성 다자 2항목 정확 커버리지."""
+
+    version: str
+    note: str | None = None
+    items: list[ExamStageTraitItem] = Field(min_length=2, max_length=2)
+
+
 class RelationshipTendencyTextItem(_AliasModel):
     """관계에서 나타나기 쉬운 결 문구 1건 (relationship_tendency_text.json, 2026-10-29)."""
 
@@ -2985,6 +3008,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/clash_relief_text.json": ClashReliefTextFile,
     "interpretations/wealth_lecture_text.json": WealthLectureTextFile,
     "interpretations/hidden_latent_text.json": HiddenLatentTextFile,
+    "interpretations/exam_stage_traits.json": ExamStageTraitsFile,
     "interpretations/relationship_tendency_text.json": RelationshipTendencyTextFile,
     "interpretations/daewoon_turn_text.json": DaewoonTurnTextFile,
     "interpretations/yearly_environment.json": YearlyEnvironmentFile,
@@ -3612,6 +3636,23 @@ def _lint_hidden_latent_text(file: HiddenLatentTextFile) -> list[str]:
         for bad in ("반드시", "확실히", "틀림없이", "무조건", "당첨", "대박", "횡재한다"):
             if bad in it.text:
                 errors.append(f"{head}: {it.id} 문구에 단정 어휘 '{bad}'")
+    return errors
+
+
+def _lint_exam_stage_traits(file: ExamStageTraitsFile) -> list[str]:
+    """exam_stage_traits.json — 2 id·십성군 정합, 당락·단정 어휘 금지(준비 방식 해설 전용)."""
+    head = "interpretations/exam_stage_traits.json"
+    errors: list[str] = []
+    got = {it.id: it.group for it in file.items}
+    if got != EXAM_STAGE_TRAIT_GROUPS:
+        errors.append(f"{head}: id·십성군이 정의와 다름 — {got}")
+    for it in file.items:
+        for bad in (
+            "반드시", "확실히", "틀림없이", "무조건", "합격한다", "합격합니다", "불합격",
+            "떨어진다", "붙는다", "당락",
+        ):
+            if bad in it.text:
+                errors.append(f"{head}: {it.id} 문구에 당락·단정 어휘 '{bad}'")
     return errors
 
 
@@ -4464,6 +4505,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_wealth_lecture_text(parsed))
         elif isinstance(parsed, HiddenLatentTextFile):
             errors.extend(_lint_hidden_latent_text(parsed))
+        elif isinstance(parsed, ExamStageTraitsFile):
+            errors.extend(_lint_exam_stage_traits(parsed))
         elif isinstance(parsed, RelationshipTendencyTextFile):
             errors.extend(_lint_relationship_tendency_text(parsed))
         elif isinstance(parsed, DaewoonTurnTextFile):

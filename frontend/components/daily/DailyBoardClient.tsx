@@ -95,6 +95,7 @@ export function DailyBoardClient({ initial }: { initial: DailyFortuneBoard | nul
           <YearFlowPanel
             key={`year-${stem}`}
             flow={yearFlow}
+            myIlju={myIlju}
             yearLabel={board.year_label}
             directionNote={board.year_direction_note}
           />

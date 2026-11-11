@@ -73,6 +73,7 @@ from saju_engines.event_engine_config import (
 )
 from saju_engines.event_lexicon import event_narration_directive
 from saju_engines.event_scoring import confirmed_yongsin_note, favorability_map
+from saju_engines.exam_stage_traits import exam_stage_trait_lines
 from saju_engines.folk_direction import (
     FOLK_TABOO_INSTRUCTION,
     folk_taboo_summary,
@@ -103,6 +104,7 @@ from saju_engines.lifetime_scan import (
     merge_yearly_luck,
     select_lifetime_years,
 )
+from saju_engines.llm_event_serializer import EXAM_CURRENT_RULE
 from saju_engines.llm_guard import TokenBudgetExceeded
 from saju_engines.love_period_notes import LOVE_NOTE_EVENT_KEYS, love_period_note_items
 from saju_engines.love_separation import love_separation_block, love_separation_natal_lines
@@ -1055,6 +1057,8 @@ _MARRIAGE_RESOURCE_SECTIONS = {
 # 건강 취약 구조 블록을 부착하는 건강 섹션(Y-09·F-18은 건강 전용, C-02·C-06은 health 주제만).
 _HEALTH_VULN_SECTIONS = {"Y-09", "F-18"}
 _HEALTH_TOPIC_SECTIONS = {"C-02", "C-06"}
+#: 학업 주제 집중 리포트에서 합격 기류 읽는 법을 싣는 섹션 — 요약·연도 흐름·월 타임라인.
+_EXAM_CURRENT_RULE_SECTIONS = {"C-01", "C-03", "C-04"}
 # 부/귀 지향 블록을 부착하는 명식 구조·직업 섹션.
 _WEALTH_STATUS_SECTIONS = {"F-04", "J-02", "J-03", "W-02", "F-06c"}
 # (블록 한글화 매핑은 structural_context 단일 소스로 이관됨 — 누출 방지 포맷 일원화.)
@@ -2625,14 +2629,29 @@ class _ReportData:
 
         # 대상 연도가 이미 끝난 해(한해풀이 Y-04 의 지난 연도)면 과거형 문단 — 채팅 지난 기간 질문과
         # 같은 기준(기간 끝 12/31 < 오늘, 2026-11-10 점검: 채팅만 고치고 이 입구를 놓쳤다).
+        # 연 지평 확장(docs/17 §31, 2026-11-11) — 연내 구간·여러 해 흐름이 같은 문단에 붙고,
+        # 조건 줄은 엔진이 확인한 항목만(채팅 연 총운과 같은 함수·같은 규칙).
         _simple_line = _simple_ref(
             self.result.pillars.day_master if self.result.pillars else "",
             str(pillar.ganji), "year", past=date(year, 12, 31) < self.today,
+            year=year, today=self.today,
         )
         if _simple_line:
             lines.append(f"{SIMPLE_READING_HEADER} {_simple_line}")
             lines.append(_simple_rule)
             lines.append(SIMPLE_READING_DIRECTION_RULE)
+            from saju_engines.context_reducer import (
+                SIMPLE_CONDITION_HEADER,
+                SIMPLE_CONDITION_RULE,
+            )
+
+            from .chat_service import _simple_condition_lines
+
+            _cond_lines = _simple_condition_lines(self.result, str(pillar.ganji))
+            if _cond_lines:
+                lines.append(SIMPLE_CONDITION_HEADER)
+                lines += [f"- {c}" for c in _cond_lines]
+                lines.append(SIMPLE_CONDITION_RULE)
         lines += [f"형충회합: {rl}" for rl in g["relation_lines"]]
         lines += list(g["sinsal_lines"])
         if g["gongmang"]:
@@ -4217,6 +4236,17 @@ def build_section_context(
         _doc_block = document_caution_block(data.result) or document_contrast_block(data.result)
         if _doc_block:
             lines += ["", _doc_block, DOCUMENT_IMAGERY_DIRECTIVE]
+    # 합격 준비 성향(2026-11-11 외부 '합격운' 글 5·6번, 채팅과 같은 줄) — 학업 주제 집중 리포트의
+    # 원국 구조 섹션(C-02)에만. 학업은 전용 섹션 도메인이 없어(_SECTION_DOMAIN) 주제로 판정한다.
+    # 원국 식상·재성 다자일 때만 성립하고, 미성립이면 미주입(기존 섹션 프롬프트 byte 불변).
+    if sid == "C-02" and spec.topic == "education":
+        _exam_stage = exam_stage_trait_lines(data.result)
+        if _exam_stage:
+            lines += ["", *_exam_stage]
+    # 합격 기류 표지 읽는 법(2026-11-11 데굴님) — 학업 주제의 요약·기간 섹션(후보 줄이 실리는 곳).
+    # '합격 기류 있음' 표지가 없는 기간은 관련 신호 없음이지 불합격 위험이 아니다.
+    if spec.topic == "education" and sid in _EXAM_CURRENT_RULE_SECTIONS:
+        lines += ["", EXAM_CURRENT_RULE]
     # 상담 결론(CDS 리포트 배선, 2026-08-21) — 도메인 섹션에 stage 행동지침·요약 태세
     # 주입(테마사주 패리티). 플래그 OFF=byte 불변, 목차·판정·점수 불변(절대원칙 10).
     if _ds_domain:

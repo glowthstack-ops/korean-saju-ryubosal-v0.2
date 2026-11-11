@@ -16,6 +16,7 @@ from saju_manse_analysis.luck import (
     compute_luck_cycles,
     daily_luck_for_month,
     daily_luck_for_range,
+    luck_role_sets,
     monthly_luck_for_year,
     yearly_luck_for_range,
 )
@@ -385,15 +386,12 @@ def _term_basis_instant(birth: BirthInput, tc, tz) -> datetime:
 
 
 def _luck_role_sets(y) -> tuple[set[str], set[str]]:
-    """운 판정은 검증 전이라도 최종 역할 배정(용·희 / 기·구)을 우선 사용한다."""
-    final = y.final or {}
-    useful = {v for v in (final.get("yongsin"), final.get("heesin")) if v}
-    unfavorable = {v for v in (final.get("gisin"), final.get("gusin")) if v}
-    if not useful:
-        useful = {c.element for c in y.useful_candidates}
-    if not unfavorable:
-        unfavorable = {c.element for c in y.unfavorable_candidates}
-    return useful, unfavorable
+    """운 판정은 검증 전이라도 최종 역할 배정(용·희 / 기·구)을 우선 사용한다.
+
+    기준은 `saju_manse_analysis.luck.luck_role_sets` 한 곳에 있다(엔진의 절기 기준 월운 보충과
+    공용).
+    """
+    return luck_role_sets(y)
 
 
 # 시두 경계 민감 임계(초) — 출생기록 ±2~3분 오차로 시주가 바뀔 수 있는 범위(데굴님 감수).

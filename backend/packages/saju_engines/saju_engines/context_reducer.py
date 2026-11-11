@@ -1355,6 +1355,16 @@ SIMPLE_READING_DIRECTION_RULE = (
     "인성=받기만 하고 멈춤·게으름, 식상=벌이기만 하고 결실 적음, 재성=감당 안 되는 욕심, "
     "관성=압박 과중)대로 쓴다(강한 용신운으로 미화 금지)."
 )
+#: 단식 조건 줄 머리·사용 규칙(docs/17 §31-4, 2026-11-11 데굴님 "채팅·테마는 조건 보유 여부를 풀이
+#: 엔진에서 확인해 해당 항목만 전달") — 연 지평 전용. 신강약·과다 오행은 엔진 판정값이고 문장은 사전
+#: (`simple_layer.year_cond`) 원문이다.
+SIMPLE_CONDITION_HEADER = "[단식 조건 — 이 명식에 해당하는 항목만(엔진 확인), 점수·판정 아님]"
+SIMPLE_CONDITION_RULE = (
+    "단식 조건 사용 규칙: 위 항목은 단식 문단에 넣지 말고 '다만 이 명식에서는 ~' 문단에서 "
+    "항목마다 한 문장으로 쓴다. 용신·희신·기신·구신 방향은 운 줄의 역할 표기가 정하고, 이 항목은 "
+    "그 해 흐름이 이 명식에서 얼마나 세게 느껴지는지를 설명하는 데만 쓴다. 여기 없는 조건(신강약·"
+    "오행 과다)을 새로 판정해 덧붙이지 말 것."
+)
 _REL_FAMILY_FRAME_UNKNOWN = (
     "교제 상태 미입력 — 두 경우를 한 문장씩 나눠 쓸 것: 만나는 사람이 있다면 관계 진전·공식화, "
     "없다면 이 시기 만남이 진지한 관계로 이어질 가능성. 어느 쪽인지 단정하지 말 것."
@@ -3877,6 +3887,11 @@ def serialize_llm_input(payload: LlmInput) -> str:
             lines.append(f"{SIMPLE_READING_HEADER} {pf.simple_reading_line}")
             lines.append(SIMPLE_READING_USAGE_RULE)
             lines.append(SIMPLE_READING_DIRECTION_RULE)
+            # 단식 조건 줄(§31-4) — 엔진이 확인한 항목이 있을 때만(연 지평).
+            if pf.simple_condition_lines:
+                lines.append(SIMPLE_CONDITION_HEADER)
+                lines += [f"- {c}" for c in pf.simple_condition_lines]
+                lines.append(SIMPLE_CONDITION_RULE)
         # 2026-10-16 — 비겁 이동 시드 × 이후 흐름 조건부 문구(이동 뒤 기반은 이후 운이 정한다).
         lines += pf.mobility_flow_lines
         # F8-P1(2026-10-17) — 운 적용 구조 상태. 성립≠길흉, 기간 한정 작동(사전 문구).

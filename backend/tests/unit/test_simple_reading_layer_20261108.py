@@ -57,7 +57,7 @@ def board() -> DailyFortuneBoard:
 
 
 def test_version_boundary() -> None:
-    assert DICT_VERSION == "dict.v1.20"
+    assert DICT_VERSION == "dict.v1.21"  # 11/12 부터(단식 연 지평 확장 §31) — 이 파일은 v1.20 계약
     assert active_dict_version(_FIRST) == "dict.v1.20"
     assert active_dict_version(_FIRST - dt.timedelta(days=1)) == "dict.v1.18"
 

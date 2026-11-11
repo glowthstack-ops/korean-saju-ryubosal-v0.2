@@ -309,6 +309,8 @@ def year_flow(
     """10일간의 올해의 흐름(단식, docs/17 §26) — 연 흐름·같은 군 강조·체감 포인트 3.
 
     간여지동 달 문단(`peak_months`)은 2026-11-10 제거돼 항상 None 이다(docs/17 §30).
+    dict.v1.21(§31)부터 연내 구간(`phase`)·여러 해 흐름(`span`)·일주별 올해 한 줄(`ilju_notes`)·
+    조건 줄(`conditions`)을 함께 채운다 — 사전에 해당 키가 없는 과거 계약은 전부 기본값이다.
 
     Args:
         ctx: 오늘 일진·월운·세운 간지(세운만 쓴다).
@@ -316,9 +318,27 @@ def year_flow(
         layer: 사전의 `month_layer`(연 지평은 쓰지 않지만 시그니처 통일).
     """
     year_stem, year_branch = Stem(ctx.year_stem), Branch(ctx.year_branch)
+    extended = "year_phase_turn" in simple  # dict.v1.21(§31) 계약인가
+    # 세운 연도(입춘 기준) — 1월·2월 초는 양력 연도와 다르므로 세운 시작일의 연도를 쓴다.
+    sewoon_year = year_span(ctx)[0].year if extended else 0
+    peak_passed = extended and _simple.phase_peak_passed(year_stem, Branch(ctx.month_branch))
     flows: list[DailyYearStemFlow] = []
     for stem in Stem:
         sr = _simple.simple_reading(stem, year_stem, year_branch, "year", simple, layer)
+        phase = (
+            _simple.year_phase_lines(stem, year_stem, simple, peak_passed=peak_passed)
+            if extended else []
+        )
+        notes = [
+            DailyMonthIljuFlow(
+                ilju=f"{ilju_stem.value}{ilju_branch.value}",
+                ilju_ko=f"{STEM_KO[ilju_stem]}{BRANCH_KO[ilju_branch]}",
+                note=note,
+            )
+            for ilju_stem, ilju_branch in map(ganzi_from_index, range(60))
+            if ilju_stem == stem
+            and (note := _simple.year_ilju_line(ilju_branch, year_branch, simple))
+        ]
         flows.append(DailyYearStemFlow(
             day_stem_ko=STEM_KO[stem],
             tone=sr.tone,
@@ -328,6 +348,13 @@ def year_flow(
             # 필드는 보드 계약 호환으로 남기고 항상 None. `simple_reading.peak_month_line` 은
             # 호출처가 없다(채팅 월 문단의 `strong_month_chat_line` 은 그대로).
             peak_months=None,
+            phase=phase or None,
+            span=(
+                _simple.year_span_line(stem, sewoon_year, simple, year_branch=year_branch) or None
+                if extended else None
+            ),
+            ilju_notes=notes,
+            conditions=_simple.year_condition_lines(stem, year_stem, year_branch, simple),
         ))
     return flows
 

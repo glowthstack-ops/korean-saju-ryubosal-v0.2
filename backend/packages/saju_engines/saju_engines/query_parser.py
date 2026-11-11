@@ -576,6 +576,35 @@ ACCIDENT_SAGO_RE = re.compile(
 )
 
 
+# 입시 추가 합격·예비 번호(2026-11-11 점검: '예비 3번인데 붙을 수 있을까?'·'추합 전화 올까?'가
+# 분야·사건 어휘 없이 too_broad 로 반려). '추합'은 '유추합니다'와 동형이라 앞 글자가 한글이면
+# 인정하지 않는다. 학업 도메인 + 입학·합격 사건으로 본다.
+_ADMISSION_WAITLIST_RE = re.compile(
+    r"(?<![가-힣])추합|예비\s*(?:\d+\s*번|번호|순위)|충원\s*합격"
+)
+# 합격·불합격의 구어('붙다'·'떨어지다') — 한쪽만으로는 다의어다('불이 붙을까'·'주가가 떨어졌는데').
+# 떨어짐과 붙음이 한 발화에 함께 있을 때만 합격 여부 질문으로 본다('올해 떨어졌는데 내년엔
+# 붙을까?').
+_FAIL_COLLOQUIAL_RE = re.compile(r"떨어[졌지질]|낙방|탈락")
+_PASS_COLLOQUIAL_RE = re.compile(r"붙[을었는]|붙나|붙고\s*싶")
+#: 사람과 떨어지고 붙는 이야기('남친이랑 떨어졌는데 다시 붙을 수 있을까') — 합격 질문이 아니다.
+_PASS_FAIL_PERSON_RE = re.compile(
+    r"(?:랑|와|과|하고|한테서|에게서)\s*떨어|남친|여친|남자\s*친구|여자\s*친구|애인|연인|썸"
+    r"|남편|아내|와이프|전\s*(?:남|여)|그\s*(?:사람|애|남자|여자|분)"
+)
+
+
+def is_pass_fail_question(text: str) -> bool:
+    """'떨어졌는데 … 붙을까' — 합격·불합격 구어가 짝으로 있는 합격 여부 질문인가.
+
+    다른 분야·사건 어휘가 없을 때만 호출 측이 입학·합격 사건으로 앵커한다(관계 문맥의
+    '다시 붙다' 같은 쓰임을 학업으로 끌어오지 않기 위해 — parse_message 의 가드).
+    """
+    if _PASS_FAIL_PERSON_RE.search(text):
+        return False
+    return bool(_FAIL_COLLOQUIAL_RE.search(text) and _PASS_COLLOQUIAL_RE.search(text))
+
+
 def _domain_word_position(text: str, word: str) -> int:
     """도메인 어휘의 본문 내 첫 위치(-1=없음) — '사이'·'사고'만 경계 매칭, 나머지는 부분문자열."""
     if word == "사이":
@@ -592,6 +621,8 @@ def _detect_domains(text: str) -> list[Domain]:
     found: list[tuple[int, Domain]] = []
     for domain, words in _DOMAIN_WORDS.items():
         positions = [p for w in words if (p := _domain_word_position(text, w)) >= 0]
+        if domain is Domain.EDUCATION and (m := _ADMISSION_WAITLIST_RE.search(text)):
+            positions.append(m.start())  # 추합·예비 번호 — 학업 도메인 어휘로 본다
         if positions:
             found.append((min(positions), domain))
     return [d for _pos, d in sorted(found)]
@@ -726,6 +757,8 @@ def _detect_event(text: str) -> EventKey | None:
     found: list[tuple[int, EventKey]] = []
     for key, words in _EVENT_WORDS.items():
         positions = [text.find(w) for w in words if w in text]
+        if key is EventKey.EDUCATION_ADMISSION and (m := _ADMISSION_WAITLIST_RE.search(text)):
+            positions.append(m.start())  # 추합·예비 번호 — 입학·합격 사건
         if positions:
             found.append((min(positions), key))
     return min(found)[1] if found else None
@@ -1452,6 +1485,13 @@ def parse_message(
         if event_key is None and is_business_in_progress(piece or text):
             event_key = EventKey.BUSINESS_EXPANSION
         domains = _detect_domains(piece) or _detect_domains(text)
+        # 합격·불합격 구어 짝('올해 떨어졌는데 내년엔 붙을까?', 2026-11-11) — 다른 분야·사건 어휘가
+        # 없을 때만 입학·합격 사건으로 앵커한다(종전: 분야 없음 → 일반 종합운).
+        pass_fail_anchor = (
+            event_key is None and not domains and is_pass_fail_question(piece or text)
+        )
+        if pass_fail_anchor:
+            event_key = EventKey.EDUCATION_ADMISSION
         if real_estate_trade and not domains:
             domains = [Domain.WEALTH]  # EVENT_DOMAIN[contract_document]=career 를 쓰지 않는다
         # 도메인어가 없어도 이벤트가 잡히면 이벤트의 도메인을 따른다 — '취직 언제쯤?'처럼
@@ -1467,7 +1507,14 @@ def parse_message(
             piece_time, piece_scope = time_range, time_scope
         intents.append(IntentJson(
             intent_id=f"i{idx + 1}",
-            query_type=_detect_query_type(piece, mode),
+            # 합격·불합격 구어 짝은 분야 어휘가 없어 종합운(Q1)으로 떨어진다 — '내년에 합격할 수
+            # 있을까?'와 같은 분야 분석(Q2)으로 맞춘다.
+            query_type=(
+                QueryType.DOMAIN_ANALYSIS
+                if pass_fail_anchor
+                and _detect_query_type(piece, mode) is QueryType.FORTUNE_OVERVIEW
+                else _detect_query_type(piece, mode)
+            ),
             subjects=subjects,
             subject_mode=mode,
             relation_type=next(

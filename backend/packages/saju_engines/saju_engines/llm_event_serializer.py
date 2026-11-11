@@ -22,8 +22,9 @@ from saju_shared_types.event_taxonomy_v2 import (
 # (예: PROFILE_public_official_* 는 일반 PROFILE_ 보다 앞).
 _REASON_PREFIX_KO: dict[str, str] = {
     # 직업운 결과 길흉(자료 9-3·9-4·9-6·12·13-1) — LLM이 자연어로 풀어 설명해야 할 '내용' 신호.
-    "EXAM_PASS": "합격 기류",
-    "EXAM_FAIL": "불합격 위험",
+    # 합격 기류는 '있다'만 표지한다(2026-11-11 데굴님) — 표지가 없으면 '관련 신호 없음'이고 불합격
+    # 위험이 아니다. 불합격 패턴 사유(EXAM_FAIL_*)는 엔진이 더 이상 내보내지 않고 라벨도 없다.
+    "EXAM_PASS": "합격 기류 있음",
     "CAREER_EXIT": "퇴직·이탈 리스크",
     "CAREER_SPECIAL": "특수직군 길화",
     "JOBCHANGE_PRESSURE": "압박성 이직",
@@ -148,7 +149,7 @@ _REASON_PREFIX_KO: dict[str, str] = {
 # (나머지는 명백한 내부 용어 — 본문 노출 시 순화 대상).
 _CONTENT_LABELS = frozenset({
     "상생 흐름", "역행 흐름",
-    "합격 기류", "불합격 위험", "퇴직·이탈 리스크", "특수직군 길화",
+    "합격 기류 있음", "퇴직·이탈 리스크", "특수직군 길화",
     "압박성 이직", "기회성 이직", "공직 발령·전보",
     # 인성 동요 신호 — LLM이 그대로 풀어 써야 할 '내용'(교체 방향/동요 게이트).
     "문서 교체 자극(기존 계약·문서를 깨고 갈아타는 흐름)",
@@ -158,6 +159,14 @@ INTERNAL_JARGON_LABELS: tuple[str, ...] = tuple(
     ko
     for ko in dict.fromkeys(_REASON_PREFIX_KO.values())
     if ko not in _CONTENT_LABELS
+)
+
+#: 합격 기류 표지 읽는 법(2026-11-11 데굴님) — 시험·합격·취업 질문과 학업 리포트에 함께 싣는다.
+EXAM_CURRENT_RULE = (
+    "[합격 기류 읽는 법] 후보 줄에 '합격 기류 있음'이 붙은 기간만 합격 기류가 있다고 말할 것. "
+    "표지가 없는 기간은 '합격과 관련한 신호가 따로 보이지 않는다'까지만 말하고, 불합격·탈락 "
+    "위험이나 나쁜 결과로 말하지 말 것(신호가 없다는 뜻이지 불리하다는 뜻이 아니다). "
+    "합격 기류가 있어도 합격을 확정하지 말 것."
 )
 
 # event_key → 금기룰 설명(있으면 LLM 입력에 톤 제한으로 부착).

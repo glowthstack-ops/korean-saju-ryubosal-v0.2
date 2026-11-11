@@ -103,6 +103,7 @@ from saju_engines.entry_slots import (
 )
 from saju_engines.event_engine_config import build_event_engine_v2
 from saju_engines.event_lexicon import event_narration_directive
+from saju_engines.exam_stage_traits import exam_stage_trait_lines
 from saju_engines.gender_kin_audit import audit_gender_kin_claims
 from saju_engines.gongmang_claim_audit import audit_gongmang_claims
 from saju_engines.hidden_latent_activation import hidden_latent_block
@@ -126,6 +127,7 @@ from saju_engines.lifetime_scan import (
     merge_yearly_luck,
     select_lifetime_years,
 )
+from saju_engines.llm_event_serializer import EXAM_CURRENT_RULE
 from saju_engines.llm_guard import TokenBudgetExceeded, estimate_tokens
 from saju_engines.love_separation import love_separation_block, love_separation_natal_lines
 from saju_engines.luck_hierarchy import build_luck_hierarchy
@@ -911,6 +913,11 @@ _JOB_CHANGED_DIRECTIVE = (
     "풀이하고 되묻지 말 것."
 )
 _JOB_ENTRY_EVENT_KEYS: frozenset[EventKey] = frozenset({EventKey.CAREER_CHANGE, EventKey.JOB_GAIN})
+#: 합격 준비 성향 줄을 싣는 사건 — 시험·입학 합격과 취업 합격(학업 도메인 질문은 사건 키 없이도
+#: 싣는다).
+_EXAM_STAGE_EVENT_KEYS: frozenset[EventKey] = frozenset(
+    {EventKey.EDUCATION_ADMISSION, EventKey.JOB_GAIN}
+)
 # 설명 요청(2026-10-28 데굴님 승인) — 실로그: 직전 답의 '서쪽 申·酉 방위 활용' 문장을 붙여
 # "위의 내용 쉽게 설명해줘"라고 했는데 방위 설명 뒤에 2028~2031년 연운·삼재 서술이 붙었다.
 # 사건 후보·지평을 비우고 인용 본문만 쉬운 말로 풀이한다.
@@ -1389,11 +1396,19 @@ def _build_period_fortune(
     # 같은 내용이 두 번 나갔다). 기준 = 기간 끝 날짜 < 오늘(절기월은 절입 전날까지).
     from saju_engines.simple_reading import simple_reference_line as _simple_ref
 
+    # 연 지평(docs/17 §31, 2026-11-11): 연내 구간(가장 강한 때·전환) + 여러 해 흐름이 문단에
+    # 붙는다 — 대상 연도와 오늘을 넘겨 올해 질문에서 이미 지난 구간만 과거형으로 쓴다.
+    _simple_year = int(start[:4]) if fortune_type == "yearly" else None
     simple_reading_line = _simple_ref(
         chart.pillars.day_master if chart.pillars else "", str(pillar.ganji),
         {"daily": "day", "monthly": "month", "yearly": "year"}[fortune_type],
         year_ganji=stack_ganji.get("세운"),
         past=date.fromisoformat(period.end) < today,
+        year=_simple_year, today=today,
+    )
+    # 단식 조건 줄(§31-4) — 신강약·과다 오행은 엔진 판정값. 해당 항목이 없으면 빈 목록(줄 생략).
+    simple_condition_lines = (
+        _simple_condition_lines(chart, str(pillar.ganji)) if fortune_type == "yearly" else []
     )
     # P1 계층형 grounding(2026-07-27) — ON이면 관계 렌더를 **이쪽으로 완전히 대체**한다.
     # 기존 build_luck_grounding의 형충회합 줄과 함께 내보내면 같은 관계가 두 표현으로
@@ -1500,7 +1515,44 @@ def _build_period_fortune(
         dohwa_text_keys=list(grounding.get("dohwa_text_keys", [])),
         environment_lines=environment_lines,
         simple_reading_line=simple_reading_line,
+        simple_condition_lines=simple_condition_lines,
         stack_ganji=stack_ganji,
+    )
+
+
+def _simple_condition_lines(chart: ManseV2Result, year_ganji: str) -> list[str]:
+    """단식 조건 줄(docs/17 §31-4) — 이 명식이 가진 조건(신강약·과다 오행)에 해당하는 문장만.
+
+    판정은 전부 엔진 값이다: 신강약 `force_analysis.strength.band`, 과다 오행
+    `five_elements.excessive_elements`, 용희기구한 `favorability_map`. 문장은 사전
+    (`simple_layer.year_cond`) 원문이며 점수·판정에 관여하지 않는다. 일간·간지·세력 분석이 없으면
+    빈 목록(기능 차단 금지). 출생시간 미상으로 신강약이 12시진 후보 사이에서 갈리면 신강약 항목을
+    싣지 않는다(불완전 정보는 확정이 아니다 — 2026-10-06 원칙).
+
+    Args:
+        chart: 대상 명식 계산 결과.
+        year_ganji: 대상 연도의 세운 간지(예: '丁未').
+    """
+    from saju_engines.event_scoring import favorability_map as _fav_map
+    from saju_engines.simple_reading import year_condition_hits
+    from saju_shared_types.enums import Branch as _Branch
+    from saju_shared_types.enums import Stem as _Stem
+
+    if chart.pillars is None or chart.force_analysis is None or len(year_ganji) < 2:
+        return []
+    try:
+        dm = _Stem(chart.pillars.day_master)
+        stem, branch = _Stem(year_ganji[0]), _Branch(year_ganji[1])
+    except ValueError:
+        return []
+    fa = chart.force_analysis
+    hu = getattr(chart, "hour_unknown", None)
+    band_known = hu is None or not hu.is_unconfirmed("strength_band")
+    return year_condition_hits(
+        dm, stem, branch,
+        band=str(fa.strength.band) if band_known else "",
+        excessive_elements=list(fa.five_elements.excessive_elements),
+        roles=_fav_map(chart),
     )
 
 
@@ -4668,6 +4720,13 @@ def _structural_context(
         # 식상생재 강의(2026-10-29) — 원국 식상이 있고 식상을 막는 구조가 성립하면 1줄(재물 질문은
         # wealth_vessel_lines 가 이미 싣는다).
         out += output_blocked_lines(result)
+    if domain is Domain.EDUCATION or intent.event_key in _EXAM_STAGE_EVENT_KEYS:
+        # 합격 준비 성향(2026-11-11 외부 '합격운' 글 5·6번) — 원국 식상·재성 다자일 때만 준비 방식
+        # 해설 한 줄. 당락·시기와 무관한 서술 전용 재료(점수·판정 불변).
+        out += exam_stage_trait_lines(result)
+        # 합격 기류 표지 읽는 법(2026-11-11 데굴님) — '있음' 표지가 없는 기간은 관련 신호 없음이지
+        # 불합격 위험이 아니다.
+        out.append(EXAM_CURRENT_RULE)
     if (general or domain is Domain.RELATIONSHIP) and relation_frame is not None:
         # 비연애 관계(부모·자식·친구·직장) — 연애·결혼 블록 대신 관계 유형 프레임 + 궁위 관계망만.
         out += palace_network_lines(analyze_palace_network(result), domain)
