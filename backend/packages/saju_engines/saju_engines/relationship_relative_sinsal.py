@@ -14,7 +14,12 @@ from __future__ import annotations
 from saju_shared_types.enums import Branch
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.relative_sinsal import RelativeSinsalResult
-from saju_shared_types.twelve_sinsal import BASE_MAPS, BRANCH_ORDER, TWELVE_SINSAL_ORDER
+from saju_shared_types.twelve_sinsal import (
+    BASE_MAPS,
+    BRANCH_ORDER,
+    SELF_SINSAL_BASE_SLOTS,
+    TWELVE_SINSAL_ORDER,
+)
 
 # 12지지 순서·12신살 표는 공용 SSOT(saju_shared_types.twelve_sinsal)에서 가져온다 —
 # 방위(공간)·삼재(시간)·관계 세 소비처가 같은 표를 공유한다(2026-09-20). 기존 이름은 호환 별칭.
@@ -64,7 +69,7 @@ def relative_sinsal_lines(
     self_chart: ManseV2Result, partner_chart: ManseV2Result,
     self_label: str = "본인", partner_label: str = "상대",
 ) -> list[str]:
-    """[12신살 상대위치] — 두 사람의 년지(사회)·일지(친밀) 기준 상대 12신살을 양방향으로 서술한다.
+    """[12신살 상대위치] — 두 사람의 일지(친밀) 기준 상대 12신살을 양방향으로 서술한다.
 
     노출 tier(expose·movement)만 문구화하고 internal(겁살·재살·월살)은 생략한다. 승패·서열이 아니라
     비대칭 관계 역학 경향으로만 서술하도록 안내한다(점수 미개입).
@@ -80,9 +85,14 @@ def relative_sinsal_lines(
     if sp is None or pp is None or sp.day is None or pp.day is None:
         return []
     body: list[str] = []
-    contexts = [("친밀(일지)", sp.day, pp.day)]
-    if sp.year is not None and pp.year is not None:
-        contexts.append(("사회(연지)", sp.year, pp.year))
+    # 기준 자리는 공용 상수(SELF_SINSAL_BASE_SLOTS — 2026-11-12 부터 일지만. 종전에는
+    # 사회(연지)도 봤다).
+    ctx_label = {"day": "친밀(일지)", "year": "사회(연지)"}
+    contexts = [
+        (ctx_label[slot], getattr(sp, slot), getattr(pp, slot))
+        for slot in SELF_SINSAL_BASE_SLOTS
+        if getattr(sp, slot, None) is not None and getattr(pp, slot, None) is not None
+    ]
     for ctx, self_pil, partner_pil in contexts:
         sb, pb = Branch(self_pil.branch), Branch(partner_pil.branch)
         for actor, subject, base, target in (

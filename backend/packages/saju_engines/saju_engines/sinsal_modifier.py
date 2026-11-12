@@ -182,6 +182,8 @@ def derive_natal_sinsal_modifiers(
             continue
         if item.name in cfg.BRANCH_MARKER_NAMES:
             continue  # 보유 표지(이동지)는 활성 판정·LLM 노출로 흐르지 않는다
+        if item.hidden:
+            continue  # 숨김 항목(현대 자료 미사용, 2026-11-12)은 LLM 노출로 흐르지 않는다
         polarity = _polarity_of(item.name)
         mode, stage_weight = cfg.LIFE_STAGE_CURVE[position][stage]
         reactivated = _is_reactivated(
@@ -240,7 +242,15 @@ def select_llm_sinsal_modifiers(
     상한: 총 max_per_event(기본 3); domain_match=False 최대 1; 연주 background 최대 1.
     domain_match=False 배경(tier5)은 연주 background 길성/흉살만 허용한다.
     """
-    ranked = sorted(modifiers, key=lambda m: (_payload_tier(m), -m.internal_weight, m.name))
+    # 자리별 12신살 9종·감수 전 신규 12종은 같은 tier 안에서 뒤 순위(2026-11-12 — 기존 신살의
+    # 슬롯을 밀어내지 않게. cfg.SINSAL_PAYLOAD_LOW_PRIORITY).
+    ranked = sorted(
+        modifiers,
+        key=lambda m: (
+            _payload_tier(m), m.name in cfg.SINSAL_PAYLOAD_LOW_PRIORITY, -m.internal_weight,
+            m.name,
+        ),
+    )
     out: list[LlmSinsalModifier] = []
     dm_false = 0
     year_bg = 0

@@ -89,8 +89,34 @@ CATALOG_META: dict[str, dict] = {
     "조객": {
         "category": "isolation_conflict", "polarity": "caution", "tags": ["상실", "애도(상징)"],
     },
+    # 2026-11-12 신살 전수 점검 후 추가 12종(데굴님 승인) — 출처 간 표가 일치한 것만. 보조 상징이며
+    # 사건 예측 근거 아님. 근거·출처는 doc/v2_2/SINSAL_AUDIT_20261112.md.
+    "급각살": {"category": "health_risk", "polarity": "caution", "tags": ["다리·관절(상징)"]},
+    "효신살": {"category": "isolation_conflict", "polarity": "caution", "tags": ["인성 일지"]},
+    "유하살": {"category": "health_risk", "polarity": "caution", "tags": ["혈광(상징)"]},
+    "십악대패": {"category": "wealth_status", "polarity": "caution", "tags": ["록 공망"]},
+    "절로공망": {"category": "movement_change", "polarity": "caution", "tags": ["길 막힘", "지체"]},
+    "천덕합": {"category": "noble_stars", "polarity": "positive", "tags": ["덕", "보호"]},
+    "월덕합": {"category": "noble_stars", "polarity": "positive", "tags": ["덕", "보호"]},
+    "월공귀인": {"category": "noble_stars", "polarity": "positive", "tags": ["귀인"]},
+    "육수": {"category": "academic_document", "polarity": "positive", "tags": ["총명", "재능"]},
+    "진신": {"category": "noble_stars", "polarity": "positive", "tags": ["전진", "추진"]},
+    "홍란": {"category": "relationship_social", "polarity": "positive", "tags": ["혼인", "경사"]},
+    "천희": {"category": "relationship_social", "polarity": "positive", "tags": ["경사"]},
     # 공망은 신살과 별개 레이어(StructureAnalysis.gongmang)로 표시한다.
 }
+
+#: 화면·LLM 에 내보내지 않는 이름(2026-11-12 데굴님 "현대명리에서 사용되지 않는 것들이 있다면
+#: 숨김처리"). 기준: 현대 한국 자료 6곳(나무위키·위키백과 신살 문서, 두루미사주 사전, 사공만세력
+#: 가이드, devcomma 계산기 목록, sajuabc 글 목록)을 원문으로 읽어 **1곳 이하**에만 실린 이름.
+#: 판정은 그대로 하고(위험 보조 증폭 등 엔진이 읽는다) 표시·발췌·payload 에서만 뺀다.
+#: 근거 표는 doc/v2_2/SINSAL_AUDIT_20261112.md §8.
+#: 예외: 천사(天赦)도 1곳뿐이지만 2026-10-15 에 현대 교재 대조로 데굴님이 추가를 승인한 항목이라
+#: 숨기지 않는다.
+HIDDEN_NAMES: frozenset[str] = frozenset({
+    "일덕", "일귀", "격각살", "구교살", "원진(元辰)",
+    "유하살", "십악대패", "절로공망", "천덕합", "월덕합", "진신", "천희",
+})
 
 ALL_CATEGORIES = [
     "twelve_sinsal", "noble_stars", "academic_document", "movement_change",
@@ -114,9 +140,11 @@ for _members, _gen in [
     for _b in _members:
         TRINE_SAENGJI[_b] = _gen
 
-# 역마·도화·화개는 글자살이 아니라 연지·일지 삼합국 기준 상대 12신살(역마살·년살·화개살)로 산출한다
-# (2026-10-06 정의 통일 — structure_patterns.json yeokma_rule 과 동일 원칙). 사생지·사정지·사고지
-# 글자 보유는 각각 '이동지'·'사정지'·'사고지' 표지로만 남긴다(성립·활성화와 분리).
+# 역마·도화·화개는 글자살이 아니라 삼합국 기준 상대 12신살(역마살·년살·화개살)로 산출한다
+# (2026-10-06 정의 통일 — structure_patterns.json yeokma_rule 과 동일 원칙). 기준 자리는 역마·화개가
+# 일지, 도화만 연지·일지다(twelve_sinsal.SELF_SINSAL_BASE_SLOTS·DOHWA_BASE_SLOTS).
+# 사생지·사정지·사고지 글자 보유는 각각 '이동지'·'사정지'·'사고지' 표지로만 남긴다(성립·활성화와
+# 분리).
 SASAENG: frozenset[B] = frozenset({B.IN, B.SIN, B.SA, B.HAE})   # 寅申巳亥 — 이동지(보유 표지)
 SAJEONG: frozenset[B] = frozenset({B.JA, B.O, B.MYO, B.YU})      # 子午卯酉 — 사정지(보유 표지)
 SAGO: frozenset[B] = frozenset({B.JIN, B.SUL, B.CHUK, B.MI})     # 辰戌丑未 — 사고지(보유 표지)
@@ -153,6 +181,11 @@ HONGYEOM: dict[S, B] = {
     S.GI: B.JIN, S.GYEONG: B.SUL, S.SIN: B.YU, S.IM: B.JA, S.GYE: B.SIN,
 }
 
+# 홍염 이설 병기(2026-11-12): 口訣 "甲乙午申庚見戌" 을 甲午·乙申 으로 나눠 읽는 표가 한국 자료의
+# 절반이라 乙 일간은 午·申 을 함께 본다. **신살 집계기 전용** — HONGYEOM 을 직접 읽는 궁합 점수·
+# 오늘의 운세 채널은 바꾸지 않는다(점수·사전 버전 불변).
+HONGYEOM_EXTRA: dict[S, list[B]] = {S.EUL: [B.SIN]}
+
 # 금여 (일간 → 지지)
 GEUMYEO: dict[S, B] = {
     S.GAP: B.JIN, S.EUL: B.SA, S.BYEONG: B.MI, S.JEONG: B.SIN, S.MU: B.MI,
@@ -180,8 +213,11 @@ CHEONDEOK: dict[B, object] = {
 }
 
 # 괴강 / 백호 (일주/주 간지)
+# 괴강 4일주는 현대 한국 자료 기준 庚辰·庚戌·壬辰·壬戌(2026-11-13 데굴님 결정 — 위키백과·두루미
+# 사전·사공만세력·devcomma 가 공통 4일주로 싣는다. 해석 사전 sinsal_text.json 의 basis 도 같은 표).
+# 원전(연해자평·삼명통회 본문)은 壬戌 대신 戊戌이고, 戊戌은 '5일주 기준'으로 덧붙이는 자료가 있다.
 GOEGANG: set[tuple[S, B]] = {
-    (S.GYEONG, B.JIN), (S.GYEONG, B.SUL), (S.IM, B.JIN), (S.MU, B.SUL),
+    (S.GYEONG, B.JIN), (S.GYEONG, B.SUL), (S.IM, B.JIN), (S.IM, B.SUL),
 }
 BAEKHO: set[tuple[S, B]] = {
     (S.GAP, B.JIN), (S.EUL, B.MI), (S.BYEONG, B.SUL), (S.JEONG, B.CHUK),
@@ -314,17 +350,99 @@ EUMYANG_CHACHAK: set[tuple[S, B]] = {
 GORAN: set[tuple[S, B]] = {
     (S.GAP, B.IN), (S.EUL, B.SA), (S.JEONG, B.SA), (S.MU, B.SIN), (S.SIN, B.HAE),
 }
-# 탕화살(湯火煞) — 일지 丑·寅·午(통설). 실제 사고 예측 근거 아님.
+# 탕화살(湯火煞) — 일지 丑·寅·午 + 동반 글자(TANGHWA_COMPANIONS). 실제 사고 예측 근거 아님.
 TANGHWA_DAY_BRANCHES: set[B] = {B.CHUK, B.IN, B.O}
+# 탕화 동반 글자(2026-11-12): 일지 단독이 아니라 **월지·시지**에 짝 글자가 있어야 성립으로 본다
+# (寅일+寅巳申 / 午일+午辰丑 / 丑일+丑戌未). 조세일보 칼럼 원문 "일지를 기준으로 월지와 시지를
+# 살펴서 판단한다 … 인사신 / 오진축 / 축술미", 두루미 사전 "월지·시지에 … 사·신 / 진·축 / 술·미".
+# 같은 날 1차 반영 때 丑일 짝을 午戌未로, 범위를 연지 포함으로 넣었던 것을 원문 재대조로 고쳤다.
+TANGHWA_COMPANIONS: dict[B, frozenset[B]] = {
+    B.IN: frozenset({B.IN, B.SA, B.SIN}),
+    B.O: frozenset({B.O, B.JIN, B.CHUK}),
+    B.CHUK: frozenset({B.CHUK, B.SUL, B.MI}),
+}
+TANGHWA_COMPANION_POSITIONS: frozenset[str] = frozenset({"month", "hour"})
 # 상문(喪門)=연지 앞 두 자리(+2), 조객(弔客)=연지 뒤 두 자리(−2) — 통설. 사망 예고 해석 금지.
+# 기준은 생년지(삼명통회 "取命前二辰為喪門，命後二辰為吊客"). 운에서는 세운·월운에만 본다.
 SANGMUN_OFFSET = 2
 JOGAEK_OFFSET = -2
-# 구교살(勾絞煞) — 연지 기준 앞 세 자리(勾, +3)·뒤 세 자리(絞, −3). 陽年生은 勾=+3·絞=−3, 陰年生은
-# 반대(통설). 여기서는 연간 음양으로 구분한다.
+# 구교살(勾絞煞) — 연지 기준 앞 세 자리(+3)·뒤 세 자리(−3). 陽男陰女는 勾=+3·絞=−3, 陰男陽女는
+# 반대(삼명통회 권3). 두 자리 모두 '구교살'로 판정하므로 성별은 근거 문구의 勾/絞 표기에만 쓴다.
 GUGYO_OFFSETS_YANG = (3, -3)
-# 원진(元辰) — 연지 기준, 양간년: 子→未 丑→申 寅→酉 卯→戌 辰→亥 巳→子 午→丑 未→寅 申→卯 酉→辰
-# 戌→巳 亥→午(충 지지의 다음 자리, +7). 음간년: 子→巳 … (충 지지의 앞 자리, +5). 怨嗔과 다른 개념.
-WONJIN_YUAN_OFFSET_YANG = 7
-WONJIN_YUAN_OFFSET_YIN = 5
+# 원진(元辰) — 연지 기준. 陽男陰女는 충 지지의 다음 자리(+7, 子→未), 陰男陽女는 충 지지의 앞 자리
+# (+5, 子→巳). 삼명통회 권3 "陽男陰女，在沖前一位支辰；陰男陽女，在沖後一位支辰". 怨嗔과 다른 개념.
+# 성별이 필요하다 — 성별 미상이면 판정하지 않는다(2026-11-12 교정: 종전에는 연간 음양만 써서
+# 여성 명식이 반대로 나왔다).
+WONJIN_YUAN_OFFSET_YANGNAM_EUMNYEO = 7
+WONJIN_YUAN_OFFSET_EUMNAM_YANGNYEO = 5
 YANG_STEMS: set[S] = {S.GAP, S.BYEONG, S.MU, S.GYEONG, S.IM}
+
+# ---------------------------------------------------------------------------
+# 2026-11-12 추가 12종 — 출처 간 표가 일치한 것만(doc/v2_2/SINSAL_AUDIT_20261112.md).
+# ---------------------------------------------------------------------------
+# 급각살(急脚殺) — 월지 계절 → 일지·시지. 봄 亥子 / 여름 卯未 / 가을 寅戌 / 겨울 丑辰.
+GEUPGAK: dict[B, frozenset[B]] = {
+    **dict.fromkeys((B.IN, B.MYO, B.JIN), frozenset({B.HAE, B.JA})),
+    **dict.fromkeys((B.SA, B.O, B.MI), frozenset({B.MYO, B.MI})),
+    **dict.fromkeys((B.SIN, B.YU, B.SUL), frozenset({B.IN, B.SUL})),
+    **dict.fromkeys((B.HAE, B.JA, B.CHUK), frozenset({B.CHUK, B.JIN})),
+}
+# 효신살(梟神殺) — 일지가 인성인 일주 12종.
+HYOSIN: set[tuple[S, B]] = {
+    (S.GAP, B.JA), (S.EUL, B.HAE), (S.BYEONG, B.IN), (S.JEONG, B.MYO), (S.MU, B.O), (S.GI, B.SA),
+    (S.GYEONG, B.JIN), (S.GYEONG, B.SUL), (S.SIN, B.CHUK), (S.SIN, B.MI), (S.IM, B.SIN),
+    (S.GYE, B.YU),
+}
+# 유하살(流霞殺) — 일간 → 지지. 甲酉 乙戌 丙未 丁申 戊巳 己午 庚辰 辛卯 壬亥 癸寅.
+YUHA: dict[S, B] = {
+    S.GAP: B.YU, S.EUL: B.SUL, S.BYEONG: B.MI, S.JEONG: B.SIN, S.MU: B.SA,
+    S.GI: B.O, S.GYEONG: B.JIN, S.SIN: B.MYO, S.IM: B.HAE, S.GYE: B.IN,
+}
+# 십악대패(十惡大敗) — 일주 10종(록이 공망에 드는 날).
+SIBAK_DAEPAE: set[tuple[S, B]] = {
+    (S.GAP, B.JIN), (S.EUL, B.SA), (S.BYEONG, B.SIN), (S.JEONG, B.HAE), (S.MU, B.SUL),
+    (S.GI, B.CHUK), (S.GYEONG, B.JIN), (S.SIN, B.SA), (S.IM, B.SIN), (S.GYE, B.HAE),
+}
+# 절로공망(截路空亡) — 일간 → 시지. 甲己 申酉 / 乙庚 午未 / 丙辛 辰巳 / 丁壬 寅卯 / 戊癸 子丑.
+JEOLLO_GONGMANG: dict[S, frozenset[B]] = {
+    **dict.fromkeys((S.GAP, S.GI), frozenset({B.SIN, B.YU})),
+    **dict.fromkeys((S.EUL, S.GYEONG), frozenset({B.O, B.MI})),
+    **dict.fromkeys((S.BYEONG, S.SIN), frozenset({B.JIN, B.SA})),
+    **dict.fromkeys((S.JEONG, S.IM), frozenset({B.IN, B.MYO})),
+    **dict.fromkeys((S.MU, S.GYE), frozenset({B.JA, B.CHUK})),
+}
+# 천덕합(天德合) — 천덕의 천간합·지지 육합(월지 → 천간 또는 지지).
+CHEONDEOK_HAP: dict[B, object] = {
+    B.IN: S.IM, B.MYO: B.SA, B.JIN: S.JEONG, B.SA: S.BYEONG, B.O: B.IN, B.MI: S.GI,
+    B.SIN: S.MU, B.YU: B.HAE, B.SUL: S.SIN, B.HAE: S.GYEONG, B.JA: B.SIN, B.CHUK: S.EUL,
+}
+# 월덕합(月德合) — 월덕의 천간합(월지 삼합국 → 천간).
+WOLDEOK_HAP: dict[B, S] = {
+    B.IN: S.SIN, B.O: S.SIN, B.SUL: S.SIN,
+    B.SIN: S.JEONG, B.JA: S.JEONG, B.JIN: S.JEONG,
+    B.HAE: S.GI, B.MYO: S.GI, B.MI: S.GI,
+    B.SA: S.EUL, B.YU: S.EUL, B.CHUK: S.EUL,
+}
+# 월공귀인(月空) — 월덕의 충(월지 삼합국 → 천간).
+WOLGONG: dict[B, S] = {
+    B.IN: S.IM, B.O: S.IM, B.SUL: S.IM,
+    B.SIN: S.BYEONG, B.JA: S.BYEONG, B.JIN: S.BYEONG,
+    B.HAE: S.GYEONG, B.MYO: S.GYEONG, B.MI: S.GYEONG,
+    B.SA: S.GAP, B.YU: S.GAP, B.CHUK: S.GAP,
+}
+# 육수(六秀) — 일주 6종. 진신(進神) — 일주 4종.
+YUKSU: set[tuple[S, B]] = {
+    (S.BYEONG, B.O), (S.JEONG, B.MI), (S.MU, B.JA), (S.MU, B.O), (S.GI, B.CHUK), (S.GI, B.MI),
+}
+JINSIN: set[tuple[S, B]] = {
+    (S.GAP, B.JA), (S.GAP, B.O), (S.GI, B.MYO), (S.GI, B.YU),
+}
+# 홍란(紅鸞) — 연지 → 지지(子→卯에서 역행: 子卯 丑寅 寅丑 卯子 辰亥 …). 천희(天喜)=홍란의 충.
+HONGRAN_BASE_INDEX = 3  # 卯
+CHEONHUI_FROM_HONGRAN_OFFSET = 6
+
+
+def hongran_branch(year_branch: B) -> B:
+    """연지 기준 홍란 지지(子년→卯에서 한 해에 한 자리씩 역행)."""
+    return branch_at(HONGRAN_BASE_INDEX - _BRANCH_SEQ.index(year_branch))
 

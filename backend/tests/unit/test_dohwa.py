@@ -484,17 +484,22 @@ _NAKED_ABSENT = (date(1980, 2, 21), "05:30:00")   # 庚申·戊寅·甲子·丙�
 _NAKED_UNKNOWN_HOUR = (date(1980, 2, 21), None)   # 시주 미상
 
 
-def test_naked_days_are_exactly_bathing_day_pillars():
-    """일지가 일간의 12운성 목욕인 일주는 60갑자 중 甲子·乙巳·庚午·辛亥뿐이다(엔진값 기준)."""
-    from saju_engines.dictionaries import _expected_twelve_stage
-    from saju_shared_types.enums import Branch, Stem
+def test_naked_days_are_the_four_modern_korean_day_pillars():
+    """나체도화 일주는 甲子·丁卯·庚午·癸酉 — 일지가 도화 글자(子午卯酉)인 네 일주(2026-11-13)."""
+    from saju_engines.dohwa import NAKED_DOHWA_DAY_PILLARS
 
-    stems, branches = "甲乙丙丁戊己庚辛壬癸", "子丑寅卯辰巳午未申酉戌亥"
-    days = {
-        stems[i % 10] + branches[i % 12] for i in range(60)
-        if _expected_twelve_stage(Stem(stems[i % 10]), Branch(branches[i % 12])) == "목욕"
-    }
-    assert days == {"甲子", "乙巳", "庚午", "辛亥"}
+    assert NAKED_DOHWA_DAY_PILLARS == {"甲子", "丁卯", "庚午", "癸酉"}
+    assert all(day[1] in "子午卯酉" for day in NAKED_DOHWA_DAY_PILLARS)
+
+
+def test_bathing_only_day_pillars_are_no_longer_naked():
+    """반례: 乙巳·辛亥(음포태 목욕)는 종전 기준에서만 나체도화였다 — 지금은 성립하지 않는다."""
+    eulsa = analyze_dohwa(_chart(date(1980, 4, 2), "12:00:00"))   # 乙巳 일주
+    sinhae = analyze_dohwa(_chart(date(1980, 4, 8), "12:00:00"))  # 辛亥 일주
+    jeongmyo = analyze_dohwa(_chart(date(1980, 2, 24), "12:00:00"))  # 丁卯 일주
+    assert eulsa is not None and sinhae is not None and jeongmyo is not None
+    assert eulsa.naked is None and sinhae.naked is None
+    assert jeongmyo.naked is not None and jeongmyo.naked.day_ganji == "丁卯"
 
 
 @pytest.mark.parametrize(
@@ -512,7 +517,7 @@ def test_naked_dohwa_clash_status(spec, status, positions):
     assert (prof.naked.clash_status, prof.naked.clash_positions) == (status, positions)
 
 
-def test_non_bathing_day_has_no_naked():
+def test_other_day_pillar_has_no_naked():
     prof = analyze_dohwa(_chart(*_WOLLDAM))  # 丁未 일주
     assert prof is not None and prof.naked is None
 
@@ -520,8 +525,8 @@ def test_non_bathing_day_has_no_naked():
 @pytest.mark.parametrize(
     ("spec", "phrase"),
     [
-        (_NAKED_PRESENT, "천충지충 동반(시주) — 일지 목욕만으로 성립한다는 견해와 천충지충을 추가"),
-        (_NAKED_ABSENT, "천충지충 미동반 — 일지 목욕만으로 성립한다는 견해에 해당"),
+        (_NAKED_PRESENT, "천충지충 동반(시주) — 해당 일주만으로 성립한다는 견해와 천충지충을 추가"),
+        (_NAKED_ABSENT, "천충지충 미동반 — 해당 일주만으로 성립한다는 견해에 해당"),
         (_NAKED_UNKNOWN_HOUR, "천충지충 동반 여부 미확정(시주 미상"),
     ],
 )
@@ -529,7 +534,7 @@ def test_naked_block_line(spec, phrase):
     """블록 — 성립·견해 구분·성향 문구·별도 유형(가산 금지) 규칙, 노출 키."""
     lines, keys = dohwa_structure_lines(analyze_dohwa(_chart(*spec)), _intent())
     line = next(ln for ln in lines if ln.startswith("나체도화:"))
-    assert "성립(일지 목욕 — 甲子 일주)" in line and phrase in line
+    assert "성립(甲子 일주 — 일지가 도화 글자)" in line and phrase in line
     assert "가식 없는 솔직함·꾸미지 않은 매력" in line
     assert "진도화와 별도 유형이다" in line
     assert "type:naked" in keys

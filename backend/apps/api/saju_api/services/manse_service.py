@@ -607,7 +607,7 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
         solar_terms_version=table.version,
     )
 
-    chart_analysis = analyze_chart(pillars)
+    chart_analysis = analyze_chart(pillars, birth.gender)
 
     # 출생시간 미상 — 12시진(또는 시간대/추정 시진) 후보 비교. 운 계산 **앞**에서 돌려 용희신이
     # 후보 간 갈리면 운 극성(용신운/기신운)도 중립으로 둔다(2026-10-06 데굴님 원칙: 불완전 정보는

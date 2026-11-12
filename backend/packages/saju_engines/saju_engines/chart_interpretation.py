@@ -45,6 +45,7 @@ from saju_shared_types.llm_input import (
     YongsinOperationalSummary,
 )
 from saju_shared_types.manse_result import ManseV2Result
+from saju_shared_types.twelve_sinsal import TWELVE_SINSAL_POSITIONAL
 
 from .clash_relief import natal_clash_relief_by_name
 from .dohwa import analyze_luck_dohwa
@@ -228,8 +229,13 @@ def canonical_sinsal_names() -> frozenset[str]:
     570건 중 '격격살' 1건 — 격각살의 훼손), 출력 정리 단계가 "사전에 있는 이름인가"를
     물을 수 있어야 한다. 이름의 출처를 그 이름이 정의된 이 모듈에 두어, 표기 목록이
     두 곳으로 갈라지지 않게 한다.
+
+    해석 문구 사전(sinsal_text.json)과 엔진 판정 카탈로그(CATALOG_META) 이름을 합친다 — 판정은
+    되지만 문구가 아직 없는 이름(급각살 등)이 '격각살의 훼손'으로 오탐되지 않게(2026-11-12).
     """
-    return frozenset(_sinsal_text_by_name())
+    from saju_manse_analysis.sinsal.sinsal_catalog import CATALOG_META
+
+    return frozenset(_sinsal_text_by_name()) | frozenset(CATALOG_META)
 
 
 @lru_cache(maxsize=1)
@@ -402,8 +408,12 @@ def build_luck_grounding(
     for s in getattr(luck_pillar, "luck_sinsal", []) or []:
         name = getattr(s, "name", None) or (s.get("name") if isinstance(s, dict) else None)
         item = texts.get(name) if name else None
-        if item is not None and name is not None:
+        hidden = getattr(s, "hidden", False) or (isinstance(s, dict) and s.get("hidden", False))
+        if item is not None and name is not None and not hidden:
             named.append((name, item))
+    # 자리별 12신살 9종(2026-11-12 판정 복원)은 모든 운 지지에 하나씩 붙는 일반 표지라,
+    # 특정 조건으로 성립한 신살 뒤로 보낸다(안정 정렬) — 3개 슬롯이 남을 때만 실린다.
+    named.sort(key=lambda e: e[0] in TWELVE_SINSAL_POSITIONAL)
     selected = named[:3]
     dohwa_entry = next((e for e in named if e[0] == "도화"), None)
     if dohwa_entry is not None and dohwa_entry not in selected:
@@ -1096,6 +1106,8 @@ def _sinsal_branch_advice_note(item: dict, branches: list[str]) -> str:
 
 
 _YEOKMA = "역마살"
+#: 일지 삼합국 기준으로 성립하는 상대 신살의 집계기 표시명(년살=도화).
+_RELATIVE_BASE_SINSAL: tuple[str, ...] = ("역마살", "도화", "화개살")
 #: 운 역마 블록 줄 상한 — 긴 창(5년 이상)에서 월·연 역마 줄이 불어나지 않게.
 _YEOKMA_PERIOD_MAX = 6
 
@@ -1137,7 +1149,7 @@ _SEASON_OF: dict[str, str] = {"寅": "寅卯辰", "巳": "巳午未", "申": "�
 def _mobility_marker_facts(result: ManseV2Result, pos: list[str]) -> str:
     """이동지 양면 줄의 엔진 사실 병기(2026-11-03 데굴님 "예외 사례라면 거기까지 보여주는 게 맞지").
 
-    값만 적는다 — 보유 자리(십성·12운성), 같은 글자 반복(자형 여부), 역마 성립(연지·일지 삼합 기준,
+    값만 적는다 — 보유 자리(십성·12운성), 같은 글자 반복(자형 여부), 역마 성립(일지 삼합 기준,
     미성립이면 그 글자의 12신살 이름), 이동지 충·형, 방합 완성 여부. 점수·판정 비개입.
     계기: 亥×4(전부 지살·제왕) 여성이 출생지에 계속 거주 — '역마 다수 정착'이 아니라 '지살 극단
     중첩'
@@ -1146,7 +1158,11 @@ def _mobility_marker_facts(result: ManseV2Result, pos: list[str]) -> str:
     from collections import Counter
 
     from saju_shared_types.enums import Branch
-    from saju_shared_types.twelve_sinsal import branch_of_sinsal, relative_twelve_sinsal
+    from saju_shared_types.twelve_sinsal import (
+        branch_of_sinsal,
+        relative_twelve_sinsal,
+        self_sinsal_bases,
+    )
 
     pil = result.pillars
     assert pil is not None
@@ -1164,27 +1180,26 @@ def _mobility_marker_facts(result: ManseV2Result, pos: list[str]) -> str:
         parts.append("같은 글자 반복: " + "·".join(
             f"{g}×{n}" + ("(자형 1그룹)" if g == "亥" else "(1그룹)") for g, n in rep
         ))
-    # 역마 성립 — 연지·일지 기준. 미성립이면 보유 글자의 12신살 이름(예: 亥=지살)을 밝힌다.
-    refs = [("연지", pil.year.branch), ("일지", pil.day.branch)]
+    # 역마 성립 — 기준 자리(SELF_SINSAL_BASE_SLOTS, 2026-11-12 부터 일지만). 미성립이면 보유 글자의
+    # 12신살 이름(예: 亥=지살)을 밝힌다.
+    refs = self_sinsal_bases(pil.year.branch, pil.day.branch)
     est: list[str] = []
-    for ref_ko, ref in refs:
-        try:
-            ym = branch_of_sinsal(Branch(ref), "역마살").value
-        except (ValueError, KeyError):
-            continue
+    for _slot, ref_ko, ref in refs:
+        ym = branch_of_sinsal(ref, "역마살").value
         for p, x in held:
             if x.branch == ym:
-                est.append(f"{label[p]} {ym}({ref_ko} {ref} 기준)")
+                est.append(f"{label[p]} {ym}({ref_ko} {ref.value} 기준)")
     if est:
         parts.append("역마 성립: " + "·".join(dict.fromkeys(est)))
     else:
+        _slot0, ref_ko0, ref0 = refs[0]
         names: list[str] = []
         for g in dict.fromkeys(x.branch for _p, x in held):
             try:
-                names.append(f"{g}={relative_twelve_sinsal(Branch(pil.year.branch), Branch(g))}")
+                names.append(f"{g}={relative_twelve_sinsal(ref0, Branch(g))}")
             except (ValueError, KeyError):
                 continue
-        parts.append(f"역마 성립: 없음(연지 {pil.year.branch} 기준 " + "·".join(names) + ")")
+        parts.append(f"역마 성립: 없음({ref_ko0} {ref0.value} 기준 " + "·".join(names) + ")")
     # 이동지 충·형(원국 관계 목록) — 자형은 반복 항목이 담당.
     sa = result.structure_analysis
     hits: list[str] = []
@@ -1212,7 +1227,7 @@ def _mobility_marker_facts(result: ManseV2Result, pos: list[str]) -> str:
 
 
 def yeokma_natal_lines(result: ManseV2Result) -> list[str]:
-    """원국 역마 성립(연지·일지 삼합 기준 12신살) 1블록 — 이사·직업 질문 전용(2026-10-29).
+    """원국 역마 성립(일지 삼합 기준 12신살) 1블록 — 이사·직업 질문 전용(2026-10-29).
 
     원국 신살 발췌(`_sinsal_excerpts`)는 고정 prefix 라 질문과 무관하게 같아야 하고, 중립 신살인
     역마는 5개 상한에 자주 밀린다(표본 96명식: 시주 43·연주 9·일주 6 성립, 발췌 노출은 드묾). 그래서
@@ -1238,7 +1253,7 @@ def yeokma_natal_lines(result: ManseV2Result) -> list[str]:
         pos_texts.append(bypos["personal"])
     branches = [getattr(getattr(result.pillars, p, None), "branch", "") for p in pos]
     return [
-        "[역마 — 원국 성립(연지·일지 삼합 기준 12신살), 서술 전용 — 성립만으로 이사·이직을 "
+        "[역마 — 원국 성립(일지 삼합 기준 12신살), 서술 전용 — 성립만으로 이사·이직을 "
         "단정하지 말고 운의 이동 신호와 함께 볼 것]",
         f"위치: {where} — {item['meaning']}"
         + (" 위치별: " + " / ".join(pos_texts) if pos_texts else "")
@@ -1310,10 +1325,18 @@ def _sinsal_excerpts(result: ManseV2Result) -> list[InterpretationExcerpt]:
         return []
     analysis = result.traditional_extras.sinsal
     positions = _sinsal_positions(analysis)
+    # 일지 기준 상대 신살(역마살·도화·화개살)은 어느 자리에 서든 '나(일지)를 기준으로 한 판정'이라
+    # 일주 신살 보충분 앞에 둔다. 기준 자리가 일지만이 된 뒤로(2026-11-12) 역마·도화는 일주 자리에
+    # 서는 일이 없어, 일주 목록만 보면 성립한 역마·도화가 발췌 후보에서 통째로 빠진다.
+    established_relative = [
+        name for name in _RELATIVE_BASE_SINSAL
+        if any(name in analysis.by_pillar.get(p, []) for p in ("year", "month", "day", "hour"))
+    ]
     names: list[str] = []
     for name in [
         *analysis.summary.major_positive,
         *analysis.summary.major_caution,
+        *established_relative,
         *analysis.by_pillar.get("day", []),
     ]:
         if name not in names:

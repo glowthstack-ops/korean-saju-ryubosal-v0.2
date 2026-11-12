@@ -76,6 +76,7 @@ from saju_shared_types.life_event import LifeEventRow
 from saju_shared_types.luck import DaewoonItem, LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.risk_engine import RiskCandidate, RiskEngineMode
+from saju_shared_types.twelve_sinsal import self_sinsal_bases
 from saju_shared_types.wealth_capacity import WealthCapacity
 
 from . import period_v2_config
@@ -1289,22 +1290,27 @@ class EventEngineV2:
 
     @staticmethod
     def _yeokma_reference_sets(result: ManseV2Result) -> dict[str, set[str]]:
-        """기준 지지(연·일지)별 실제 역마 글자 — 삼합국 상대 계산(사고수 확장 2026-07-23).
+        """기준 지지별 실제 역마 글자 — 삼합국 상대 계산(사고수 확장 2026-07-23).
 
         글자살(寅申巳亥 보유)로 판정하지 않는다(승인 조건 1). relativeStarMatch 룰이
         이 집합과 피자극 글자를 대조한다. pillars 부재 시 빈 dict(fail-closed).
+
+        기준 자리는 공용 상수(SELF_SINSAL_BASE_SLOTS — 2026-11-12 부터 일지만)를 따른다. 위험 사전
+        룰의 reference 목록에 'year_branch' 가 남아 있어도 여기서 그 키를 내지 않으므로 연지 기준
+        역마는 성립하지 않는다(감수 해시로 잠긴 사전을 고치지 않고 사실 쪽에서 좁힌다).
         """
         pillars = result.pillars
         if pillars is None:
             return {}
         from .relationship_relative_sinsal import get_relative_sinsal
         out: dict[str, set[str]] = {}
-        for ref, pil in (("year_branch", pillars.year), ("day_branch", pillars.day)):
-            if pil is None:
-                continue
-            out[ref] = {
+        for slot, _label, base in self_sinsal_bases(
+            pillars.year.branch if pillars.year is not None else None,
+            pillars.day.branch if pillars.day is not None else None,
+        ):
+            out[f"{slot}_branch"] = {
                 b.value for b in Branch
-                if get_relative_sinsal(Branch(pil.branch), b).sinsal == "역마살"
+                if get_relative_sinsal(base, b).sinsal == "역마살"
             }
         return out
 

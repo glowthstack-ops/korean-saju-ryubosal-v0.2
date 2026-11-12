@@ -111,6 +111,14 @@ REACTIVATION_RELATION_PREFIXES: tuple[str, ...] = (
 
 # ── payload pruning(가드) — 후보당 노출 상한·도메인 비정렬/연주 배경 캡 ──
 SINSAL_PAYLOAD_MAX_PER_EVENT = 3
+#: 같은 tier 안에서 뒤 순위로 두는 이름(2026-11-12 신살 전수 점검). ①자리별 12신살 9종 — 모든
+#: 자리에 하나씩 붙는 일반 표지 ②같은 날 추가한 12종 — 해석 문구·효과 태그 감수 전. 판정·화면
+#: 표시는 동등하고, 후보 payload 3칸에서 기존 신살을 밀어내지 않게만 한다(빈 칸이 있으면 실린다).
+SINSAL_PAYLOAD_LOW_PRIORITY: frozenset[str] = frozenset({
+    "겁살", "재살", "천살", "지살", "월살", "망신살", "장성살", "반안살", "육해살",
+    "급각살", "효신살", "유하살", "십악대패", "절로공망", "천덕합", "월덕합", "월공귀인",
+    "육수", "진신", "홍란", "천희",
+})
 # natal 신살은 도메인 레벨(모든 후보 동일) → 토큰 절약 위해 상위 N개 후보에만 부착.
 SINSAL_PAYLOAD_MAX_CANDIDATES = 2
 SINSAL_PAYLOAD_MAX_DOMAIN_UNMATCHED = 1  # domain_match=False 최대 노출

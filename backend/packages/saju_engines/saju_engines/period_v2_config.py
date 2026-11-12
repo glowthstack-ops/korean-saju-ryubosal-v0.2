@@ -115,6 +115,12 @@ OPPORTUNITY_MIN_SCORE: float = 0.5  # CALIBRATE: 노출 문턱(base + 트리거 
 # _AUX_MAX_BONUS)로 덧붙인다. 후보 생성·적격성·원인 수·persistence 불변(rankable 우선도만
 # 소폭 보정). 기본 OFF.
 RISK_AUX_AMPLIFIER_ENABLED: bool = _env_flag("SAJU_RISK_AUX_AMPLIFIER_ENABLED")
+# 2026-11-12 신살 전수 점검에서 판정을 되살린 이름(자리별 12신살 9종 + 세운·월운 상문·조객)을
+# 보조 증폭 조건에 넣을지. 사전은 이 이름들을 처음부터 조건으로 들고 있었으나 판정이 없어 한 번도
+# 성립하지 않았다. 켜면 위험 후보의 약 10.6%에 aux 근거가 새로 붙는다(60명식×2년 월운 51,705건
+# 측정: aux_bonus 평균 +0.037·최대 +0.066, 하락 0건). 위험 점수 변화라 기본 OFF — 판정·표시는
+# 플래그와 무관하게 나간다.
+RISK_AUX_REVIVED_SINSAL_ENABLED: bool = _env_flag("SAJU_RISK_AUX_REVIVED_SINSAL_ENABLED")
 # C5-1(2026-10-07 데굴님 승인): 연 단위 health_attention 후보를 건강 창 점수
 # (health_vulnerability)에서 파생해 기존 health.json 규칙 후보를 치환. OFF 면 기존 동작.
 HEALTH_WINDOW_CHANNEL_ENABLED: bool = _env_flag("SAJU_HEALTH_WINDOW_CHANNEL_ENABLED")
@@ -293,6 +299,7 @@ def active_versions() -> dict[str, str | bool]:
         "structure_background_enabled": STRUCTURE_BACKGROUND_ENABLED,
         "opportunity_enabled": OPPORTUNITY_ENABLED,
         "risk_aux_amplifier_enabled": RISK_AUX_AMPLIFIER_ENABLED,
+        "risk_aux_revived_sinsal_enabled": RISK_AUX_REVIVED_SINSAL_ENABLED,
         "health_window_channel_enabled": HEALTH_WINDOW_CHANNEL_ENABLED,
         "peer_yongsin_mobility_enabled": PEER_YONGSIN_MOBILITY_ENABLED,
         "peer_gisin_mobility_enabled": PEER_GISIN_MOBILITY_ENABLED,

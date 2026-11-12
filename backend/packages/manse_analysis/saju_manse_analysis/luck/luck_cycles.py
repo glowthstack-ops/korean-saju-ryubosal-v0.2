@@ -707,7 +707,7 @@ def _luck_pillar(
         luck_label_code=eff["luck_label_code"],
         luck_summary=eff["luck_summary"],
         solar_term_range=solar_range,
-        luck_sinsal=sinsal_for_luck(pillars, stem, branch),
+        luck_sinsal=sinsal_for_luck(pillars, stem, branch, period_type),
         # 삼재(세운만) — 원국 연지 삼합국 기준 역마/육해/화개 세운. 맥락 라벨 전용(점수 무관).
         samjae=(
             samjae_for(Branch(pillars.year.branch), branch) if period_type == "year" else None

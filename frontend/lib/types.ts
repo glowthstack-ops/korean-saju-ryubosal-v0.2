@@ -389,6 +389,7 @@ export interface LuckPolarity {
 export interface LuckSinsal {
   name: string;
   polarity: string; // positive(길신) / caution(흉성) / neutral(신살)
+  hidden?: boolean; // 화면 비표시(현대 자료 미사용 — 백엔드 HIDDEN_NAMES)
 }
 
 /** 삼재 단계(세운 전용) — 연지 삼합 기준 역마/육해/화개 세운. 흉운 점수가 아니라 3년 흐름 라벨. */
@@ -502,6 +503,7 @@ export interface SinsalItem {
   intensity: string;
   repeated: boolean;
   interpretation_tags: string[];
+  hidden?: boolean; // 화면 비표시(현대 자료 미사용 — 백엔드 HIDDEN_NAMES)
 }
 
 export type CalibrationEventRating = "positive" | "negative" | "na";

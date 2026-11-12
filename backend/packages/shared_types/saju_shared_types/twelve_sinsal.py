@@ -52,6 +52,52 @@ TWELVE_SINSAL_HANJA: dict[str, str] = {
 #: 통용 별칭 — 년살은 도화살, 재살은 수옥살로도 불린다(서비스 노출은 병기).
 TWELVE_SINSAL_ALIAS: dict[str, str] = {"년살": "도화살", "재살": "수옥살"}
 
+#: 자기 명식의 상대 12신살(역마·도화·화개·자리별 9종)을 따질 때 쓰는 기준 자리 — **일지만**
+#: (2026-11-12 데굴님 결정: "연주와 일주 모두 기준으로 판단하는 것들은 일주만 인정 — 현대는 조상이나
+#: 가문보다는 내가 중심"). 종전에는 연지·일지를 함께 썼다. 원국·운 신살 집계, 도화 구조, 역마 성립
+#: (구조 패턴·기회·위험 사실), 두 사람 사이 상대 12신살이 모두 이 상수를 읽는다. 도화만 예외
+#: (DOHWA_BASE_SLOTS).
+#: 띠 기준 체계(삼재·12신살 방위)와 연지 전용 신살(고신·과숙·상문·조객 등)은 대상이 아니다.
+SELF_SINSAL_BASE_SLOTS: tuple[Literal["year", "day"], ...] = ("day",)
+#: 예외 — **도화(년살) 판단만은 연지·일지를 함께 본다**(2026-11-13 데굴님 결정: "도화 판단에
+#: 대해서만은 연지와 일지를 함께 보는 걸로"). 일지만 기준으로 삼으면 일지 자신이 도화가 되는
+#: 경우(배우자 자리 도화)가 사라지기 때문이다. 진도화·월담도화·운 도화·신살 집계의 '도화'가 이
+#: 상수를 읽는다.
+DOHWA_BASE_SLOTS: tuple[Literal["year", "day"], ...] = ("year", "day")
+#: 도화로 취급하는 12신살명·집계기 표시명.
+_DOHWA_NAMES: frozenset[str] = frozenset({"년살", "도화"})
+SELF_SINSAL_BASE_LABEL_KO: dict[str, str] = {"year": "연지", "day": "일지"}
+
+
+def self_sinsal_bases(
+    year_branch: Branch | str | None, day_branch: Branch | str | None,
+    sinsal: str | None = None,
+) -> list[tuple[Literal["year", "day"], str, Branch]]:
+    """자기 명식 상대 12신살의 기준 지지 목록 — (자리, 한글 라벨, 지지). 없는 자리는 건너뛴다.
+
+    Args:
+        year_branch: 원국 연지.
+        day_branch: 원국 일지.
+        sinsal: 판정하려는 12신살명. '년살'·'도화'면 연지·일지(DOHWA_BASE_SLOTS), 그 밖이나
+            생략이면 일지만(SELF_SINSAL_BASE_SLOTS).
+    """
+    slots = DOHWA_BASE_SLOTS if sinsal in _DOHWA_NAMES else SELF_SINSAL_BASE_SLOTS
+    src = {"year": year_branch, "day": day_branch}
+    out: list[tuple[Literal["year", "day"], str, Branch]] = []
+    for slot in slots:
+        value = src[slot]
+        if value is not None:
+            out.append((slot, SELF_SINSAL_BASE_LABEL_KO[slot], Branch(value)))
+    return out
+
+
+#: 자리별 12신살 9종 — 역마살·년살(도화)·화개살을 뺀 나머지(2026-11-12 원국·운 판정 복원).
+#: 모든 지지 자리에 기준 지지(일지)에 따라 하나씩 붙는 일반 표지라, LLM 발췌·payload 선별에서는
+#: 특정 조건으로 성립하는 다른 신살보다 뒤 순위로 둔다(판정·화면 표시는 동등).
+TWELVE_SINSAL_POSITIONAL: frozenset[str] = frozenset({
+    "겁살", "재살", "천살", "지살", "월살", "망신살", "장성살", "반안살", "육해살",
+})
+
 _GOJI = {Branch.JIN, Branch.SUL, Branch.CHUK, Branch.MI}
 
 

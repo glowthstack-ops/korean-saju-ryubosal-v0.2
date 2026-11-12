@@ -6,7 +6,7 @@ import { Collapsible } from "@/components/layout/Collapsible";
 import { InfoTooltip } from "@/components/layout/InfoTooltip";
 import { ConsensusBadge, GhostOverlay, hourUnknownOf, isHourUnknown } from "./HourUnknown";
 import { fetchLuckMonths, fetchPatternTimeline } from "@/lib/api";
-import { withoutBranchMarkers } from "@/lib/sinsal-display";
+import { visibleSinsal } from "@/lib/sinsal-display";
 import { ELEMENT_KO, elementLabel, elementStyle, ganjiKo } from "@/lib/elements";
 import { applyCalibrationToLuckCycles, applyCalibrationToLuckPillars } from "@/lib/luck-calibration";
 import {
@@ -793,7 +793,7 @@ export function StructurePanel({ result }: { result: ManseResult }) {
   const allItems = [...items, ...amplifiers].sort((a, b) => itemOrder(a) - itemOrder(b));
   const gm = result.structure_analysis.gongmang as Record<string, unknown> | null;
   const dayVoid = (gm?.day_basis_empty_branches as string[] | undefined) ?? [];
-  const yearVoid = (gm?.year_basis_empty_branches as string[] | undefined) ?? [];
+  // 년 기준 공망은 표시하지 않는다(2026-11-12 데굴님: 연주·일주 병용 기준은 일주만 인정).
   // 천을귀인(일간 기준 지지) · 월령 — 공망과 함께 하단에 참고 표기.
   // 백엔드 산출값(cheoneul_targets) 우선, 없으면(구버전 응답) 로컬 표 fallback.
   const cheoneul =
@@ -866,7 +866,7 @@ export function StructurePanel({ result }: { result: ManseResult }) {
           {gm && (
             <div>
               <span className="mr-2 font-bold text-gray-700">공망</span>
-              일 기준: {dayVoid.join("") || "없음"} · 년 기준: {yearVoid.join("") || "없음"}(미사용)
+              일 기준: {dayVoid.join("") || "없음"}
             </div>
           )}
           <div>
@@ -888,7 +888,7 @@ export function StructurePanel({ result }: { result: ManseResult }) {
 }
 
 export function SinsalPanel({ result }: { result: ManseResult }) {
-  const sinsal = withoutBranchMarkers(result.traditional_extras?.sinsal?.full_list ?? []);
+  const sinsal = visibleSinsal(result.traditional_extras?.sinsal?.full_list ?? []);
   // 시주·일주·월주·연주 — 상단 명식과 동일한 순서로 자리별 박스 구분.
   const cols: [("hour" | "day" | "month" | "year"), string][] = [
     ["hour", "시주"], ["day", "일주"], ["month", "월주"], ["year", "연주"],
@@ -1047,10 +1047,10 @@ function LuckCol({
           흉방 {Array.from(new Set(folk.map((h) => h.direction))).join("·")}
         </span>
       )}
-      {sinsal && withoutBranchMarkers(sinsal).length > 0 && (
+      {sinsal && visibleSinsal(sinsal).length > 0 && (
         <div className="mt-0.5 w-full border-t border-gray-200 pt-0.5">
           <div className="flex flex-wrap justify-center gap-x-0.5 gap-y-px leading-tight">
-            {withoutBranchMarkers(sinsal).map((s, i) => (
+            {visibleSinsal(sinsal).map((s, i) => (
               <span
                 key={i}
                 className={s.name === "복음"
