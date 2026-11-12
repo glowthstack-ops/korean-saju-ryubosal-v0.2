@@ -13726,3 +13726,12 @@ maintained scripts mypy gate clean) · `./scripts/run_suite.sh` 최종 트리(no
 - **결과(측정, 무작위 200명식):** 원국 도화 46 → 90건(병용 때와 동일, 일주 자리 17건), 역마 54·화개 117건 그대로, 괴강 19 → 20건, 운 도화 770건 복원, 신살 발췌 변화 5/200. 위험 엔진 후보·aux 변화 없음(60명식 표본).
 - **테스트:** `test_dohwa.py`·`test_external_impression.py`·`test_marriage_resource.py` 는 (4)의 수정을 되돌리고(도화 병용 표본 그대로 유효), 나체도화 일주 테스트만 교체(4일주 집합·乙巳/辛亥 반례·丁卯 성립·문구). `test_sinsal.py`(도화 두 기준·화개 일지만 반례), `test_sinsal_audit_20261112.py` +2(도화만 두 기준·일주 도화 복원·화개 연지 기준 반례, 괴강 壬戌 성립·戊戌/戊辰 반례).
 - **게이트(미커밋 작업 트리, HEAD 0b0e679):** `run_suite.sh` → `VALID_SUITE_PASS`(`var/run_suite_20261113_sinsal5.log` — 시작·종료 지문 동일) · ruff `All checks passed` · `production mypy gate clean` · `maintained scripts mypy gate clean`(`var/gates_quick_20261113_sinsal5.log`). 프론트는 이번 차수에 변경 없음(직전 `tsc`·build 통과분 그대로). 이 줄은 스위트 종료 뒤에 덧붙였다(문서 한 줄, 코드 불변).
+
+### 2026-11-13 (2) 오늘의 운세 상해 채널의 백호 — 일주 기준(model.v2.4·경계 11/14) (데굴님 "오늘의 운세 백호채널을 추가 개선해")
+
+- **배경:** 원국·운 신살은 백호를 일주 기준으로 좁혔는데(2026-11-12 (3)), 오늘의 운세는 그날 일진이 백호 간지면 일주와 무관하게 60일주 전부에 상해 채널 .6 을 붙이고 있었다.
+- **해결:** `daily_fortune_v2.sinsal_channels(…, baekho_day_basis=…)` — 오늘 일진과 일주가 모두 백호 간지일 때만 .6. 양인(1.0)·현침(.4)은 그대로. 날짜 경계 `BAEKHO_DAY_BASIS_EFFECTIVE_FROM = 2026-11-14`·`baekho_needs_day_pillar(date)` 로 과거 날짜는 종전 규칙(model.v2.3)으로 재생된다. `MODEL_V2_VERSION = "model.v2.4"`, 스냅샷 `compiled/daily_fortune_v2_model.v2.4.json`. 사전 문구 불변이라 dict 버전은 v1.21 그대로.
+- **결과(측정):** 경계 뒤 60일 중 백호 일진 7일 × 60일주 420장 — 65장이 달라지고 헤드라인 변경은 5장. 백호 일진이 아닌 날의 보드는 동일.
+- **문서:** `docs/17` §32 신설, §22-9 표의 백호 칸 갱신. `SINSAL_AUDIT_20261112.md` §10 의 '같은 계열로 남은 곳' 해소.
+- **테스트:** `test_daily_baekho_day_basis_20261113.py` 4건(경계·dict 버전 불변·캐시 키 분리, 일진·일주 둘 다 필요 + 반례 2종 + 종전 규칙 재생, 양인·현침 불변, 날짜 경계에 따른 `day_channels`). `test_daily_sinsal_channels.py`·`test_daily_stage_direction_20261103.py` 기대값 갱신.
+- **게이트(미커밋 작업 트리, HEAD 9ad5395):** `run_suite.sh` → `VALID_SUITE_PASS`(`var/run_suite_20261113_baekho.log` — 시작·종료 지문 동일) · ruff `All checks passed` · `production mypy gate clean` · `maintained scripts mypy gate clean`(`var/gates_quick_20261113_baekho.log`). 프론트 변경 없음. 이 줄은 스위트 종료 뒤에 덧붙였다(문서 한 줄, 코드 불변).

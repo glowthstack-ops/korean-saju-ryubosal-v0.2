@@ -128,6 +128,25 @@ YEAR_PHASE_EFFECTIVE_FROM = date(2026, 11, 12)
 DICT_VERSION_BEFORE_YEAR_PHASE = "dict.v1.20"
 
 
+#: 상해 채널의 백호를 일주 기준으로 좁히는 기준일(model.v2.4, docs/17 §32) — 11/13 보드는 11/12
+#: 선생성으로 이미 만들어져 v2.3 을 유지하고, 11/14 보드부터 쓴다. 판정 기준만 바뀌고 사전 문구는
+#: 그대로라 dict 버전은 올리지 않는다(캐시 키는 model 버전으로 갈린다).
+BAEKHO_DAY_BASIS_EFFECTIVE_FROM = date(2026, 11, 14)
+
+
+def baekho_needs_day_pillar(target_date: date) -> bool:
+    """그 날짜의 백호 채널 기준 — True 면 오늘 일진과 일주가 모두 백호 간지일 때만 성립한다.
+
+    False 면 종전 규칙(오늘 일진이 백호 간지면 일주와 무관하게 성립). 과거 날짜는 그날 계약으로
+    재생돼야 하므로 날짜가 기준을 고른다(docs/17 §32, 2026-11-13 데굴님 지시 — 원국·운 신살의
+    '백호는 일주 기준' 결정과 맞춤).
+
+    Args:
+        target_date: 운세 대상 날짜(KST 기준).
+    """
+    return target_date >= BAEKHO_DAY_BASIS_EFFECTIVE_FROM
+
+
 def stage_direction_forward(target_date: date) -> bool:
     """그 날짜의 12운성 방향 — True 면 일간→운 지지(통설·만세력 엔진과 동일), False 면 종전
     '오늘(월운) 천간→일지'.

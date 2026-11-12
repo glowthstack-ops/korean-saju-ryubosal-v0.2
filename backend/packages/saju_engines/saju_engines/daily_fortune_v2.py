@@ -37,6 +37,7 @@ from saju_shared_types.constants import BRANCH_ELEMENT, STEM_ELEMENT
 from saju_shared_types.daily_fortune import (
     DailyFortuneBoard,
     DayGanjiContext,
+    baekho_needs_day_pillar,
     content_version_for,
     stage_direction_forward,
 )
@@ -247,7 +248,10 @@ def day_channels(
         ch[_tg(hs)] = max(ch[_tg(hs)], grade)
 
     # 신살 채널(§22-9, 4차) — 일간·일지 기준 오늘 일진 신살. evidence 전용(게이트는 스키마가 거부).
-    ch.update(sinsal_channels(ilju_stem, ilju_branch, ds, db, helpers[0]))
+    ch.update(sinsal_channels(
+        ilju_stem, ilju_branch, ds, db, helpers[0],
+        baekho_day_basis=baekho_needs_day_pillar(ctx.the_date),
+    ))
 
     # 오행 활성(간이 object hazard) — 金·火: 천간·본기 1.0 / 지장간만 0.5
     main_elem = BRANCH_ELEMENT[db].value
@@ -263,7 +267,7 @@ def day_channels(
 
 def sinsal_channels(
     ilju_stem: Stem, ilju_branch: Branch, day_stem: Stem, day_branch: Branch,
-    month_branch: Branch,
+    month_branch: Branch, *, baekho_day_basis: bool = True,
 ) -> dict[str, float]:
     """신살 채널 8종 (§22-9) — 일간·일지 기준 오늘 일진의 신살만 본다(개인 명식 불사용).
 
@@ -276,6 +280,9 @@ def sinsal_channels(
         day_stem: 오늘 일진 천간.
         day_branch: 오늘 일진 지지.
         month_branch: 오늘의 절기 월지(천덕·월덕 기준).
+        baekho_day_basis: True(기본, model.v2.4~)면 백호는 오늘 일진과 일주가 모두 백호 간지일 때만
+            성립한다 — 원국·운 신살의 '백호는 일주 기준'과 같은 규칙. False 면 종전(일진만) 규칙으로
+            과거 날짜를 재생한다(docs/17 §32).
 
     Returns:
         SINSAL_CHANNELS 전부를 키로 갖는 채널값(0..1) — 매칭 없으면 0.0.
@@ -290,10 +297,11 @@ def sinsal_channels(
         ch["sinsal_noble"] = max(ch["sinsal_noble"], 0.6)
     if _sc.GEUMYEO.get(ilju_stem) == day_branch or _sc.AMROK.get(ilju_stem) == day_branch:
         ch["sinsal_noble"] = max(ch["sinsal_noble"], 0.5)
-    # 상해 — 양인(일간→오늘 지지) 1.0 / 백호(오늘 일진 간지) .6 / 현침(오늘 글자) .4
+    # 상해 — 양인(일간→오늘 지지) 1.0 / 백호(오늘 일진 간지 × 일주 간지) .6 / 현침(오늘 글자) .4
     if _sc.YANGIN.get(ilju_stem) == day_branch:
         ch["sinsal_hazard"] = 1.0
-    if (day_stem, day_branch) in _sc.BAEKHO:
+    baekho_today = (day_stem, day_branch) in _sc.BAEKHO
+    if baekho_today and (not baekho_day_basis or (ilju_stem, ilju_branch) in _sc.BAEKHO):
         ch["sinsal_hazard"] = max(ch["sinsal_hazard"], 0.6)
     if day_stem in _sc.HYEONCHIM_STEMS or day_branch in _sc.HYEONCHIM_BRANCHES:
         ch["sinsal_hazard"] = max(ch["sinsal_hazard"], 0.4)
