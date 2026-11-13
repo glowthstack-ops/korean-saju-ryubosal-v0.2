@@ -1166,10 +1166,13 @@ const FLAG_KO: Record<string, string> = {
   reversal: "해소를 넘어 일간 쪽이 과해져 반대 불균형으로 넘어갈 수 있음",
   no_yin: "인성이 없는 무인(無印) 구조",
   wealth_feeds_killing: "재성이 칠살을 생해 제살 효과가 상쇄될 수 있음",
-  excessive: "제살이 과해 칠살의 쓸모까지 줄어들 수 있음",
   dm_lacks_support: "일간이 통근·비겁·인성 어디에도 의지할 곳이 없음",
   yin_restrains_output: "인성이 식상을 눌러 과한 제살이 완화됨",
   rescued: "인성 또는 재성이 끼어 충돌이 완화됨",
+  mixed_officer: "정관·편관이 함께 있는 관살혼잡(강한 쪽 이름으로 표시)",
+  via_transform: "합화(合化)로 바뀐 세력이 포함됨",
+  weak_dm: "일간이 약해 감당이 부족(비겁·인성 운에서 쓸 힘이 생김)",
+  supported: "비겁·인성이 일간을 받쳐 감당할 힘이 생김",
 };
 
 function SelectedYearNote({ pillar, bare = false }: { pillar: LuckPillar; bare?: boolean }) {

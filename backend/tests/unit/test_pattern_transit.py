@@ -489,3 +489,369 @@ def test_condition_patterns_natal_parity_with_base_operating() -> None:
             )
             assert ev is not None
             assert ev.operating == (pid in natal_ids), (d, pid, ev.evidence)
+
+
+# ── 2026-11-13 데굴님 검수("재생관과 재생살이 관과는 무관한 대운에 의해 모두 성립") ──────────
+# SSOT §6. 표본 = 데굴님 명식(庚申 丁亥 己亥 己巳 — 원국 편관 0%·정관은 亥 속 甲뿐).
+
+
+def _degool():
+    return _chart("1980-11-22", "09:40", "male")
+
+
+def _daewoon_states(r, natal, ganji: str):
+    states = evaluate_pattern_states(r, natal, [LuckGlyph("daewoon", ganji[0], ganji[1])])
+    return {st.pattern_id: st for st in states}
+
+
+def test_transformed_strength_stays_in_group_and_creates_no_polarity() -> None:
+    # 壬辰 대운: 운 천간 壬(정재)이 월간 丁과 丁壬合化木 → 관성 '그룹' 세력만 는다.
+    # 종전에는 化 세력을 정관·편관에 반씩 나눠 편관 11%가 생겼고 재생관·재생살이 함께 섰다.
+    r = _degool()
+    p = r.pillars
+    assert [x.stem + x.branch for x in (p.year, p.month, p.day, p.hour)] == [
+        "庚申", "丁亥", "己亥", "己巳"
+    ]
+    natal = detect_structure_patterns(r)
+    assert compute_adjusted_strength(r, []).ten_gods.get("편관", 0.0) == 0.0
+    s = compute_adjusted_strength(r, [LuckGlyph("daewoon", "壬", "辰")])
+    assert s.transformed_groups.get("officer", 0.0) > 10.0
+    assert s.ten_gods.get("편관", 0.0) < 5.0 and s.ten_gods.get("정관", 0.0) < 10.0
+    assert s.groups["officer"] > 20.0
+    assert abs(sum(s.ten_gods.values()) + sum(s.transformed_groups.values()) - 100.0) < 0.5
+    states = _daewoon_states(r, natal, "壬辰")
+    for pid in ("JAE_SAENGGWAN", "JAE_SAENGSAL", "SANGGWAN_JESAL", "SANGGWAN_GYEONGWAN"):
+        assert pid not in states, pid
+    # 신약 원국이라 일간이 힘을 쓰는 구조(생재·관살유제)는 이 대운에 새로 서지 않는다(§7).
+    for pid in ("SIKSANG_SAENGJAE", "SANGGWAN_SAENGJAE", "GWANSAL_YUJE"):
+        assert pid not in states, pid
+    # 化 세력으로 선 운 생성 그룹 단위 배합에는 표지가 붙는다(재관인상생 — 2026년 3월 층).
+    month = evaluate_pattern_states(r, natal, [
+        LuckGlyph("daewoon", "壬", "辰"), LuckGlyph("year", "丙", "午"),
+        LuckGlyph("month", "辛", "卯"),
+    ])
+    chain = {st.pattern_id: st for st in month}.get("JAEGWANIN_SANGSAENG")
+    assert chain is not None and "via_transform" in chain.flags
+    # 반례: 정관 글자가 직접 오는 운에는 재생관이 새로 선다 — 중화신약 庚일간(乙丑 己卯 庚戌 癸未)의
+    # 丁丑 대운(丁 = 정관). 데굴님 명식은 신약이라 甲午 대운에도 서지 않는다(§7).
+    assert "JAE_SAENGGWAN" not in _daewoon_states(r, natal, "甲午")
+    other = _chart()
+    gwan = _daewoon_states(other, detect_structure_patterns(other), "丁丑").get("JAE_SAENGGWAN")
+    assert gwan is not None and gwan.status_vs_parent == "new"
+    assert "via_transform" not in gwan.flags
+
+
+def test_new_requires_direct_supply_from_the_luck_glyph() -> None:
+    r = _degool()
+    natal = detect_structure_patterns(r)
+    # 辛卯(식신·편관)는 상관견관의 다리(상관·정관)를 공급하지 않는다 — 종전에는 재정규화로 신규였다.
+    assert "SANGGWAN_GYEONGWAN" not in _daewoon_states(r, natal, "辛卯")
+    # 반례: 庚寅(상관·정관 본기)은 두 다리를 직접 공급한다.
+    st = _daewoon_states(r, natal, "庚寅").get("SANGGWAN_GYEONGWAN")
+    assert st is not None and st.status_vs_parent == "new"
+    # 제살태과는 원국 편관이 실재해야 한다 — 살이 오는 辛卯 대운에도 서지 않는다(종전 신규).
+    assert "JESAL_TAEGWA" not in _daewoon_states(r, natal, "辛卯")
+
+
+def test_contributes_and_touches_rules() -> None:
+    from saju_engines import pattern_transit as pt
+    from saju_engines.pattern_conditions import contribution_spec
+
+    def mk(tgs, grps=(), lost=None):
+        return pt.AdjustedStrength(
+            {}, {}, {}, luck_supply=[(frozenset(tgs), frozenset(grps))], natal_lost=lost or {}
+        )
+
+    gwan = contribution_spec("JAE_SAENGGWAN")
+    assert pt._contributes(gwan, mk({"정관"}), None) and pt._contributes(gwan, mk({"정재"}), None)
+    assert not pt._contributes(gwan, mk({"편관"}), None)  # 정·편 불일치
+    assert not pt._contributes(gwan, mk({"겁재"}, {"officer"}), None)  # 化 그룹 ≠ 정·편 지정 다리
+    chain = contribution_spec("JAEGWANIN_SANGSAENG")
+    assert pt._contributes(chain, mk({"겁재"}, {"officer"}), None)  # 그룹 전체 다리는 化 로 공급
+    # 차단자(비겁)를 이 층에서 덜어냈으면 기여, 직전 층에서 이미 덜어낸 것은 기여가 아니다.
+    relieved = mk({"정인"}, lost={"peer": 5.0})
+    assert pt._contributes(gwan, relieved, None)
+    assert not pt._contributes(gwan, relieved, mk({"정인"}, lost={"peer": 5.0}))
+    taegwa = contribution_spec("JESAL_TAEGWA")
+    assert pt._contributes(taegwa, mk({"식신"}), None)
+    assert not pt._contributes(taegwa, mk({"식신", "편관"}), None)  # 살을 보태는 운은 금지
+    related = frozenset({"wealth", "officer"})
+    assert pt._touches(related, mk({"편관"}), None)  # 접촉은 그룹 단위
+    assert not pt._touches(related, mk({"정인"}), None)
+    assert pt._touches(related, mk({"정인"}, lost={"wealth": 3.0}), None)
+    assert pt._touches(None, mk({"정인"}), None)  # 게이트 없는 유형(T5)
+
+
+def test_unrelated_luck_does_not_change_natal_pattern() -> None:
+    # 원국 수화기제. 己丑(비견)은 水·火 어느 쪽도 공급하지 않는다 — 운 글자가 더해져 몫이 줄어도
+    # (희석) 변동 없음. 종전에는 '약화'로 찍혔다.
+    r = _degool()
+    natal = detect_structure_patterns(r)
+    assert "SUHWA_GIJE" in {d.pattern_id for d in natal}
+    st = _daewoon_states(r, natal, "己丑").get("SUHWA_GIJE")
+    assert st is not None and st.operating and st.status_vs_parent == "unchanged"
+    # 반례: 癸巳(水·火 글자 공급)는 맞닿는 운이라 상태가 움직인다.
+    assert _daewoon_states(r, natal, "癸巳")["SUHWA_GIJE"].status_vs_parent == "strengthened"
+
+
+def test_suhwa_transit_condition_matches_natal_detector() -> None:
+    from saju_engines import pattern_transit as pt
+
+    def st(su: float, hwa: float):
+        return pt.AdjustedStrength({}, {}, {"水": su, "火": hwa})
+
+    # 水 20·火 12 는 기제(둘 다 15%+)도 미제(결핍 또는 차 30+)도 아니다.
+    # 종전 운 판정은 '기제가 아니면 전부 미제'라 이 구간이 미제였다.
+    mid = st(20.0, 12.0)
+    assert not pt._eval_t4("SUHWA_GIJE", mid, False).operating
+    assert not pt._eval_t4("SUHWA_MIJE", mid, False).operating
+    assert pt._eval_t4("SUHWA_GIJE", st(20.0, 22.0), False).operating
+    assert pt._eval_t4("SUHWA_MIJE", st(45.0, 12.0), False).operating
+    assert pt._eval_t4("SUHWA_MIJE", st(20.0, 6.0), False).operating  # 한쪽 결핍
+
+
+_RIVAL_PAIRS = (
+    ("JAE_SAENGGWAN", "JAE_SAENGSAL"),
+    ("SUHWA_GIJE", "SUHWA_MIJE"),
+    ("JESAL_TAEGWA", "SIKSIN_JESAL"),
+    ("JESAL_TAEGWA", "SANGGWAN_JESAL"),
+    ("JESAL_TAEGWA", "GWANSAL_YUJE"),
+    ("GWANSAL_YUJE", "SALJUNG_JEGYEONG"),
+)
+
+
+def test_rival_patterns_never_operate_in_the_same_layer() -> None:
+    charts = (*_WEAK_CHARTS, _STRONG_CHART, ("1980-11-22", "09:40", "male"),
+              ("1975-06-06", "13:03", "female"), ("1981-06-15", "12:00", "male"),
+              ("1980-01-20", "10:00", "male"))
+    seen_on: set[str] = set()
+    for d, t, g in charts:
+        r = _chart(d, t, g)
+        natal = detect_structure_patterns(r)
+        dw_by_year = daewoon_ganji_by_year(r)
+        for dwi in r.luck_cycles.daewoon_table:
+            for p in dwi.sewoon:
+                if not p.label.isdigit():
+                    continue
+                dw = dw_by_year.get(int(p.label))
+                stack = [LuckGlyph("daewoon", dw[0], dw[1])] if dw else []
+                for upto in (stack, [*stack, LuckGlyph("year", p.stem, p.branch)]):
+                    if not upto:
+                        continue
+                    on = {st.pattern_id for st in evaluate_pattern_states(r, natal, upto)
+                          if st.operating}
+                    seen_on |= on
+                    for a, b in _RIVAL_PAIRS:
+                        assert not {a, b} <= on, (d, [x.stem + x.branch for x in upto], a, b)
+    # 반례 보장: 맞수 양쪽이 표본 어딘가에서는 각각 작동한다(아예 안 나오면 검증이 아니다).
+    for pid in ("JAE_SAENGGWAN", "JAE_SAENGSAL", "SUHWA_GIJE", "SUHWA_MIJE", "JESAL_TAEGWA"):
+        assert pid in seen_on, pid
+
+
+def test_standing_natal_pattern_beats_freshly_formed_rival() -> None:
+    # 乙卯 辛巳 癸未 戊午(원국 재생살: 편관 > 정관). 庚寅 대운은 재·관을 공급하지 않고 식신(乙)을
+    # 합으로 덜어낼 뿐이다 — 재생살은 그대로 이어지고 재생관이 그 옆에 새로 서지 않는다.
+    r = _chart("1975-06-06", "13:03", "female")
+    natal = detect_structure_patterns(r)
+    assert "JAE_SAENGSAL" in {d.pattern_id for d in natal}
+    states = _daewoon_states(r, natal, "庚寅")
+    assert states["JAE_SAENGSAL"].operating and "JAE_SAENGGWAN" not in states
+
+
+# ── 2026-11-13 (2) 데굴님 검수("식상생재는 일간의 힘이 필요 … 내 경우에는 신약 사주") — SSOT §7 ──
+
+
+def _all_layer_states(r):
+    """대운 층과 세운 층의 상태를 모두 낸다."""
+    natal = detect_structure_patterns(r)
+    dw_by_year = daewoon_ganji_by_year(r)
+    for dwi in r.luck_cycles.daewoon_table:
+        for p in dwi.sewoon:
+            if not p.label.isdigit():
+                continue
+            dw = dw_by_year.get(int(p.label))
+            stack = [LuckGlyph("daewoon", dw[0], dw[1])] if dw else []
+            if stack:
+                yield from evaluate_pattern_states(r, natal, stack)
+            year = LuckGlyph("year", p.stem, p.branch)
+            yield from evaluate_pattern_states(r, natal, [*stack, year])
+
+
+def test_dm_spending_patterns_never_new_in_frail_charts() -> None:
+    from saju_engines.pattern_conditions import DM_SPENDING_IDS, FRAIL_BANDS
+
+    # 신약·태신약 원국: 식상·재·관이 더 와도 생재·재생관·제살 구조는 '신규 성립'이 아니다.
+    for d, t, g in (("1980-11-22", "09:40", "male"), ("2001-01-19", "10:00", "female"),
+                    ("1992-11-02", "06:10", "female"), ("1980-01-20", "10:00", "male")):
+        r = _chart(d, t, g)
+        assert r.force_analysis.strength.band in FRAIL_BANDS, d
+        bad = [st for st in _all_layer_states(r)
+               if st.pattern_id in DM_SPENDING_IDS and st.status_vs_parent == "new"]
+        assert not bad, (d, [(st.pattern_id, st.evidence) for st in bad[:3]])
+    # 반례: 중화신약·중화신강 명식에서는 같은 구조가 운에서 새로 선다.
+    seen: set[str] = set()
+    for d, t, g in (("1985-03-12", "14:30", "male"), ("1966-09-30", "09:00", "male")):
+        r = _chart(d, t, g)
+        assert r.force_analysis.strength.band not in FRAIL_BANDS
+        seen |= {st.pattern_id for st in _all_layer_states(r)
+                 if st.pattern_id in DM_SPENDING_IDS and st.status_vs_parent == "new"}
+    assert {"JAE_SAENGGWAN", "SIKSANG_SAENGJAE"} <= seen, seen
+
+
+def test_frail_chart_ignores_self_side_loss_as_blocker_relief() -> None:
+    from saju_engines import pattern_transit as pt
+    from saju_engines.pattern_conditions import contribution_spec
+
+    def mk(tgs, lost):
+        return pt.AdjustedStrength(
+            {}, {}, {}, luck_supply=[(frozenset(tgs), frozenset())], natal_lost=lost
+        )
+
+    geugin = contribution_spec("JAE_GEUGIN")  # 차단자 = 비겁·관성
+    lost_peer = mk({"식신"}, {"peer": 5.0})
+    assert pt._contributes(geugin, lost_peer, None)  # 신강·중화: 비겁이 덜어지면 길이 열린다
+    assert not pt._contributes(geugin, lost_peer, None, frail=True)  # 신약: 일간 받침이 빠진 것
+    # 반례: 일간 쪽이 아닌 차단자(관성 통관)가 덜어진 것은 신약 원국에서도 기여다.
+    assert pt._contributes(geugin, mk({"식신"}, {"officer": 5.0}), None, frail=True)
+
+
+def test_natal_dm_spending_pattern_carries_weak_dm_note_and_flag() -> None:
+    # 己未 丁丑 壬辰 乙巳(태신약) — 원국 식상생재·재생관·상관제살 성립.
+    r = _chart("1980-01-20", "10:00", "male")
+    assert r.force_analysis.strength.band == "태신약"
+    natal = detect_structure_patterns(r)
+    by_id = {d.pattern_id: d for d in natal}
+    for pid in ("SIKSANG_SAENGJAE", "JAE_SAENGGWAN", "SANGGWAN_JESAL"):
+        assert "신약형" in by_id[pid].basis_note and "신약형" in by_id[pid].llm_line
+    # 반례: 억부 줄의 근거(표면·보정 세력)는 그대로다.
+    assert "신약형" not in by_id["GWANDA_SINYAK"].basis_note
+    # 운에서도 표지가 상시 붙는다 — 식상·재가 더 오는 丁卯 대운의 '강화'에도.
+    st = _daewoon_states(r, natal, "丁卯")["SIKSANG_SAENGJAE"]
+    assert st.status_vs_parent == "strengthened" and "weak_dm" in st.flags
+    # 반례: 신강 명식의 원국 구조에는 신약형 근거가 없다.
+    strong = detect_structure_patterns(_chart(*_STRONG_CHART))
+    assert all("신약형" not in d.basis_note for d in strong)
+
+
+def test_support_luck_keeps_frail_natal_pattern_and_flags_it() -> None:
+    # 壬申 대운(비견·편인만 공급)은 幫身 운이다 — 원국 상관제살은 해소·완화되지 않고 표지가 붙는다.
+    r = _chart("1980-01-20", "10:00", "male")
+    natal = detect_structure_patterns(r)
+    st = _daewoon_states(r, natal, "壬申")["SANGGWAN_JESAL"]
+    assert st.status_vs_parent == "unchanged" and st.operating and "supported" in st.flags
+    # 같은 대운이라도 巳申合으로 재성 글자가 묶인 생재·재생관은 실제 손상이라 幫身 층이 아니다.
+    assert "supported" not in _daewoon_states(r, natal, "壬申")["SIKSANG_SAENGJAE"].flags
+    # 반례: 식상·재가 오는 丁卯 대운에는 표지가 없다.
+    assert "supported" not in _daewoon_states(r, natal, "丁卯")["SANGGWAN_JESAL"].flags
+
+
+# ── 2026-11-13 (3) 같은 계열 추가 교정(데굴님 "제안대로 진행 … C 는 신강계 미성립") — §8 ──
+
+
+def test_new_never_reports_pattern_already_met_in_natal() -> None:
+    # 운 모델 기준으로 원국 세력만으로 이미 조건이 충족되는 구조는 운이 만든 것이 아니다 —
+    # 운 글자가 스쳐도 '신규 성립'이 아니다(종전: 신규의 30%가 이런 경우였다).
+    from saju_engines import pattern_transit as pt
+
+    news = 0
+    for d, t, g in (*_WEAK_CHARTS, _STRONG_CHART, ("1966-09-30", "09:00", "male"),
+                    ("1951-05-16", "00:41", "female"), ("1979-02-17", "04:06", "male")):
+        r = _chart(d, t, g)
+        band = r.force_analysis.strength.band
+        base = pt.compute_adjusted_strength(r, [])
+        for st in _all_layer_states(r):
+            if st.status_vs_parent != "new":
+                continue
+            news += 1
+            ev = pt._evaluate(
+                st.pattern_id, base, band=band, dm_stem=r.pillars.day.stem,
+                natal_established=False, natal_weak=band in pt.WEAK_BANDS_FOR_TEST,
+            )
+            assert ev is not None and not ev.operating, (d, st.pattern_id, ev.evidence)
+    assert news > 50, "반례 없음: 신규 성립이 충분히 나오지 않으면 불변식이 검증되지 않는다"
+    # 반례(여전히 서는 신규): 신강 명식에서 식상이 원국에 약하다가 운에서 들어오면 식상설수 신규.
+    r = _chart("1951-05-16", "00:41", "female")
+    st = _daewoon_states(r, detect_structure_patterns(r), "甲午").get("SIKSANG_SEOLSU")
+    assert st is not None and st.status_vs_parent == "new"
+
+
+def test_strong_premise_patterns_never_new_in_frail_charts() -> None:
+    from saju_engines.pattern_conditions import FRAIL_BANDS, STRONG_PREMISE_IDS
+
+    # 군겁쟁재·비겁탈재·관살제겁은 신왕 전제 — 신약·태신약 원국의 비겁은 재를 다투는 쪽이 아니다.
+    for d, t, g in (("1980-11-22", "09:40", "male"), ("2001-01-19", "10:00", "female"),
+                    ("1992-11-02", "06:10", "female"), ("1980-01-20", "10:00", "male")):
+        r = _chart(d, t, g)
+        assert r.force_analysis.strength.band in FRAIL_BANDS
+        bad = [st for st in _all_layer_states(r)
+               if st.pattern_id in STRONG_PREMISE_IDS and st.status_vs_parent == "new"]
+        assert not bad, (d, [(st.pattern_id, st.evidence) for st in bad[:3]])
+    # 반례: 중화·태신강 명식에서는 운에서 새로 선다.
+    mid = _chart("1975-01-18", "03:38", "female")
+    assert mid.force_analysis.strength.band == "중화"
+    taljae = _daewoon_states(mid, detect_structure_patterns(mid), "丁卯").get("BIGEOP_TALJAE")
+    assert taljae is not None and taljae.status_vs_parent == "new"
+    strong = _chart("1961-01-27", "04:23", "male")
+    jegeop = _daewoon_states(strong, detect_structure_patterns(strong), "甲午").get(
+        "GWANSAL_JEGEOP"
+    )
+    assert jegeop is not None and jegeop.status_vs_parent == "new"
+
+
+def test_inda_sinyak_not_established_in_strong_charts() -> None:
+    # 인성 40%+ 인 태신강 명식(인왕신왕 성립) — '신약'이 붙은 인다신약은 서지 않는다.
+    strong = _chart("1983-02-05", "22:57", "male")
+    assert strong.force_analysis.strength.band == "태신강"
+    ids = {d.pattern_id for d in detect_structure_patterns(strong)}
+    assert "INWANG_SINWANG" in ids and "INDA_SINYAK" not in ids
+    # 운에서도 새로 서지 않는다.
+    assert not any(st.pattern_id == "INDA_SINYAK" for st in _all_layer_states(strong))
+    # 반례: 신약 명식의 인다신약은 그대로 선다.
+    weak = _chart("1975-02-14", "20:49", "female")
+    assert weak.force_analysis.strength.band == "신약"
+    assert "INDA_SINYAK" in {d.pattern_id for d in detect_structure_patterns(weak)}
+
+
+def test_yielding_names_never_operate_with_their_winner() -> None:
+    from saju_engines.pattern_conditions import YIELDS_TO
+    from saju_engines.structure_patterns import _drop_yielding_patterns
+    from saju_shared_types.structure_patterns import DetectedPattern
+
+    # 원국: 이기는 구조가 서면 양보하는 이름과 그 파생 신호를 뺀다.
+    def mk(pid: str) -> DetectedPattern:
+        return DetectedPattern(
+            pattern_id=pid, name_ko=pid, strength=0.5, polarity_mode="context_only"
+        )
+
+    kept = {d.pattern_id for d in _drop_yielding_patterns(
+        [mk(p) for p in ("DEUKBI_IJAE", "BIGEOP_TALJAE", "IDENTITY_AUTHORIZATION_STRESS",
+                         "JAEJA_YAKSAL", "JAE_SAENGSAL", "JAE_GEUGIN")]
+    )}
+    assert kept == {"DEUKBI_IJAE", "JAEJA_YAKSAL", "JAE_GEUGIN"}  # 재극인은 인다용재가 없어 남는다
+    # 반례: 이기는 구조가 없으면 그대로다.
+    same = [mk(p) for p in ("BIGEOP_TALJAE", "IDENTITY_AUTHORIZATION_STRESS", "JAE_SAENGSAL")]
+    assert len(_drop_yielding_patterns(same)) == 3
+    # 운: 표본 명식의 대운·세운 층에서 양보 쌍이 함께 작동하는 층이 없다.
+    seen_on: set[str] = set()
+    for d, t, g in (*_WEAK_CHARTS, _STRONG_CHART, ("1979-02-17", "04:06", "male"),
+                    ("1973-04-07", "15:57", "male"), ("2001-03-28", "00:50", "male"),
+                    ("1975-01-18", "03:38", "female")):
+        r = _chart(d, t, g)
+        natal = detect_structure_patterns(r)
+        dw_by_year = daewoon_ganji_by_year(r)
+        for dwi in r.luck_cycles.daewoon_table:
+            for p in dwi.sewoon:
+                if not p.label.isdigit():
+                    continue
+                dw = dw_by_year.get(int(p.label))
+                stack = [LuckGlyph("daewoon", dw[0], dw[1])] if dw else []
+                stack.append(LuckGlyph("year", p.stem, p.branch))
+                on = {st.pattern_id for st in evaluate_pattern_states(r, natal, stack)
+                      if st.operating}
+                seen_on |= on
+                for loser, winners in YIELDS_TO.items():
+                    assert not (loser in on and winners & on), (d, p.label, loser)
+    # 반례 보장: 이기는 쪽과 양보하는 쪽이 표본 어딘가에서는 각각 작동한다.
+    for pid in ("DEUKBI_IJAE", "JAEJA_YAKSAL", "INDA_YONGJAE", "JAE_SAENGSAL", "JAE_GEUGIN",
+                "BIGEOP_TALJAE"):
+        assert pid in seen_on, pid

@@ -219,4 +219,7 @@ def test_report_uses_same_dict_version() -> None:
     source = report_service._ReportData._build_composites.__doc__ or ""
     assert "dict_version" in source
     # 1.1.0: LuckComposite.pattern_states(F8-P1, 2026-10-17) — 올릴 때 이 리터럴도 함께 올린다.
-    assert precompute_service.PRECOMPUTE_DICT_VERSION == "1.1.0"
+    # 1.2.0: 구조 상태 판정 교정(2026-11-13) — 저장된 pattern_states 재계산.
+    # 1.3.0: 일간 감당 조건(2026-11-13 2차).
+    # 1.4.0: 같은 계열 추가 교정(2026-11-13 3차).
+    assert precompute_service.PRECOMPUTE_DICT_VERSION == "1.4.0"

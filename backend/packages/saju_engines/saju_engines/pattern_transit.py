@@ -18,13 +18,38 @@ SSOT: `doc/v2_2/PATTERN_TRANSIT_STATES.md` §2. 외부 검토 글 2편(재다신
   으로 더하고, 합반(×0.5)·합거(제거)·합화(化 오행 전환)·충(원국 지지 ×0.7)을 반영해 재정규화한다.
   운 기둥 1개의 단위 무게는 층(대운·세운·월운)에 관계없이 같다 — 층 차이는 '누적 범위'로만 드러난다.
 - 임계는 전부 기존 값 재사용: 억부 6종은 P0(`_p0_effective_ok`), T1/T2 10%·20%, 세력 변화 ±5%p,
-  T4 균형 구간 8~40%·비율 0.5~2.0, T5 金 15%·水<火. 문구는 사전(`pattern_transit_text.json`) 치환만.
+  T4 수화기제·미제는 원국 감지와 같은 함수(`evaluate_suhwa`: 15%·차 15/30·결핍 9%), T5 金 15%·水<火.
+  문구는 사전(`pattern_transit_text.json`) 치환만.
+
+2026-11-13 데굴님 검수("재생관과 재생살이 관과는 무관한 대운에 의해 모두 성립") 교정 — SSOT §6:
+- **化 세력은 그룹에만.** 合化로 넘어간 세력은 化 오행의 십성 **그룹** 세력에만 더한다. 정·편을
+  반씩 나누면 글자 없는 정관·편관이 생긴다(化神의 음양을 정하는 근거가 없다).
+- **신규 성립은 직접 기여가 있을 때만**(`_contributes`). 운 천간·운 지지 본기가 다리를 정·편까지
+  맞게 공급하거나, 확정 化·局이 그룹 전체 다리를 공급하거나, 운 글자가 원국의 차단자를 합·충으로
+  덜어낸 층에서만 '신규'다. 재정규화·여기 지장간 같은 부수 효과로 임계를 넘은 것은 신규가 아니다.
+  한번 선 운 생성 상태는 하위 층에서 조건이 유지되는 동안 이어진다.
+- 제살태과: 원국 편관 실재(5%+)가 전제, 편관을 보태는 운에서는 신규 성립하지 않는다.
+
+2026-11-13 (2) 데굴님 검수("식상생재는 일간의 힘이 필요 … 내 경우에는 신약 사주") — SSOT §7:
+- 일간이 힘을 쓰는 구조(`DM_SPENDING_IDS`)는 원국이 신약·태신약이면 운에서 **신규 성립하지 않는다**
+  (그 운은 재다신약·설기태과·관다신약 줄이 설명한다).
+- 신약·태신약 원국에서 비겁·인성 글자가 합·충으로 덜어진 것은 생극·제어 구조의 '차단자를 덜어냄'
+  기여가 아니다(일간 받침이 빠진 것). 억부·수화는 대상이 아니다(일간 쪽 손실이 곧 그 구조의 재료).
+- 신약·태신약 원국에 성립한 일간이 힘을 쓰는 구조는, 비겁·인성만 오는 층(幫身 운)에서 해소·완화를
+  내지 않고 표지 `supported` 를 단다("身輕則喜幫身").
+
+2026-11-13 (3) 같은 계열 추가 교정(데굴님 "제안대로 진행 … C 는 신강계에서 미성립") — SSOT §8:
+- **원국에서 이미 조건을 채운 구조는 신규가 아니다.** 운 모델 기준으로 원국 세력만으로 조건이
+  충족되는데 원국 감지기가 성립으로 보지 않은 구조는, 운 글자가 스쳐도 '신규 성립'으로 내지 않는다.
+- 신왕 전제 구조(`STRONG_PREMISE_IDS`: 군겁쟁재·비겁탈재·관살제겁)는 신약·태신약 원국에서
+  운 신규가 없다.
+- 같은 작용을 두 이름으로 부르지 않는다(`YIELDS_TO`): 득비이재가 서면 군겁쟁재·비겁탈재를,
+  재자약살이 서면 재생살을, 인다용재가 서면 재극인·탐재괴인을 그 층에서 끈다.
 """
 
 from __future__ import annotations
 
 import json
-import math
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -54,10 +79,21 @@ from saju_shared_types.structure_patterns import (
 )
 
 from .pattern_conditions import (
+    DM_SPENDING_IDS,
+    FRAIL_BANDS,
+    SELF_SIDE_GROUPS,
+    STRONG_PREMISE_IDS,
+    SUHWA_DEFICIENT,
     T1_PATHS,
     T2_CONTROLS,
+    WEAK_KILLING,
+    YIELDS_TO,
     ConditionInput,
+    ContributionSpec,
+    contribution_spec,
     evaluate_condition,
+    evaluate_suhwa,
+    full_group_of,
 )
 from .relation_semantics import collect_luck_relation_semantics
 from .structure_patterns import (
@@ -75,9 +111,8 @@ WEAK_BANDS_FOR_TEST = frozenset({"신약", "태신약", "중화신약"})
 _MIN_PRESENCE = 10.0  # T1 경로 양단 최소 세력(%) — 구조 패턴 사전 '존재' 임계와 동일
 _MIN_CONTROLLED = 20.0  # T2 피제어자 최소 세력(%)
 _DELTA = 5.0  # 강화·완화 판정 세력 변화(%p)
-_BALANCE_LO, _BALANCE_HI = 8.0, 40.0  # T4 균형 구간(%)
-_BALANCE_RATIO = 2.0  # T4 비율 상한(하한 = 1/2)
-_BALANCE_BROKEN = 3.0  # T4 중단 비율
+_BALANCE_LO = 8.0  # T4 조후 need/lack 임계·수화 신규 전제(%)
+_BALANCE_RATIO = 2.0  # 역전 플래그 비율(일간 측 ≥ 압력×2)
 _T5_STRENGTH = 15.0  # T5 제련 대상 오행 최소 세력(%)
 #: 재다신약 감당 능력에서 인성을 제외하는 재극인 비율 — 용신 모듈 `_jaeda_sinyak`(재 > 인×3) 재사용.
 _JAEDA_RESOURCE_RATIO = 3.0
@@ -235,9 +270,18 @@ class AdjustedStrength:
     stems: set[str] = field(default_factory=set)  # 원국 천간(일간 포함) + 운 천간
     branches: set[str] = field(default_factory=set)  # 원국 지지 + 운 지지
     element_of_group: dict[str, str] = field(default_factory=dict)  # 그룹 → 오행(한자)
+    #: 化 세력(그룹별, %). `groups` 에는 들어 있고 `ten_gods` 에는 없다(정·편 미배분).
+    transformed_groups: dict[str, float] = field(default_factory=dict)
+    #: 원국 글자가 합·충·化로 잃은 단위(그룹별) — 층 간 차이로 '차단자를 덜어냄'을 판정한다.
+    natal_lost: dict[str, float] = field(default_factory=dict)
+    #: 운 글자별 직접 공급(스택 순서): (십성 집합 — 천간·지지 본기, 化 그룹 집합).
+    luck_supply: list[tuple[frozenset[str], frozenset[str]]] = field(default_factory=list)
 
     def group(self, tgs: Sequence[str]) -> float:
-        """십성 목록의 세력 합(%)."""
+        """십성 목록의 세력 합(%). 그룹 전체 목록이면 化 세력을 포함한 그룹 세력."""
+        grp = full_group_of(tgs)
+        if grp is not None and grp in self.groups:
+            return float(self.groups[grp])
         return float(sum(self.ten_gods.get(t, 0.0) for t in tgs))
 
     def group_element(self, grp: str) -> str:
@@ -381,12 +425,15 @@ def compute_adjusted_strength(
                 group_units[grp] = group_units.get(grp, 0.0) + sum(g.contrib.values())
     damaged: set[str] = set()
 
+    # 化 세력은 그룹 단위로만 쌓는다(2026-11-13). 종전에는 化 오행 그룹의 正·偏에 반씩 나눠
+    # 글자 없는 십성(예: 丁壬化木 → 편관)이 생겼고, 재생관·재생살이 함께 '신규 성립'했다.
+    group_extra: dict[str, float] = {}
+
     def _add_transformed(amount: float, element: str) -> None:
         grp = group_of_el.get(element)
         if grp is None or amount <= 0:
             return
-        for tg in _TG_GROUPS[grp]:
-            adj[tg] = adj.get(tg, 0.0) + amount / 2.0  # 正/偏 균등(근사)
+        group_extra[grp] = group_extra.get(grp, 0.0) + amount
 
     for g in natal:
         if g.factor >= 1.0 and g.transform_to is None:
@@ -422,10 +469,27 @@ def compute_adjusted_strength(
                 _add_transformed(u * g.factor, g.transform_to)
             else:
                 adj[tg] = adj.get(tg, 0.0) + u * g.factor
-    total = sum(max(v, 0.0) for v in adj.values()) or 1.0
+    total = (sum(max(v, 0.0) for v in adj.values()) + sum(group_extra.values())) or 1.0
     ten_gods = {tg: round(max(v, 0.0) / total * 100.0, 3) for tg, v in adj.items()}
-    groups = {grp: round(sum(ten_gods.get(t, 0.0) for t in m), 3) for grp, m in _TG_GROUPS.items()}
+    transformed = {grp: round(v / total * 100.0, 3) for grp, v in group_extra.items()}
+    groups = {
+        grp: round(sum(ten_gods.get(t, 0.0) for t in m) + transformed.get(grp, 0.0), 3)
+        for grp, m in _TG_GROUPS.items()
+    }
     elements = {el_of_group[grp]: v for grp, v in groups.items()}
+    # 운 글자별 직접 공급: 化하지 않은 천간·지지 본기의 십성, 化한 글자는 化 오행 그룹.
+    luck_supply: list[tuple[frozenset[str], frozenset[str]]] = []
+    for i in range(len(stack)):
+        tgs: set[str] = set()
+        grps: set[str] = set()
+        for g in luck[2 * i : 2 * i + 2]:  # (천간, 지지)
+            if g.transform_to is not None:
+                grp = group_of_el.get(g.transform_to)
+                if grp is not None:
+                    grps.add(grp)
+            elif g.factor > 0:
+                tgs |= g.main_tgs
+        luck_supply.append((frozenset(tgs), frozenset(grps)))
 
     rooted: set[str] = set()
     branches: set[str] = set()
@@ -443,7 +507,8 @@ def compute_adjusted_strength(
             stems.add(p.stem)
     stems |= {g.stem for g in stack}
     return AdjustedStrength(
-        ten_gods, groups, elements, damaged, rooted, stems, branches, el_of_group
+        ten_gods, groups, elements, damaged, rooted, stems, branches, el_of_group,
+        transformed_groups=transformed, natal_lost=dict(damaged_units), luck_supply=luck_supply,
     )
 
 
@@ -536,23 +601,18 @@ def _eval_t3(pid: str, s: AdjustedStrength, band: str, natal_established: bool) 
 def _eval_t4(pid: str, s: AdjustedStrength, natal_established: bool) -> _Eval:
     mode, arg = _T4_RULES[pid]
     if mode in ("balance", "imbalance"):
+        # 원국 감지와 같은 조건 함수(2026-11-13). 종전 운 판정은 8~40%·비율 0.5~2 를 따로 썼고
+        # 미제를 '기제가 아닌 전부'로 보아 대운의 39%에서 수화미제가 신규 성립했다.
         su, hwa = s.elements.get("水", 0.0), s.elements.get("火", 0.0)
-        in_band = _BALANCE_LO <= su <= _BALANCE_HI and _BALANCE_LO <= hwa <= _BALANCE_HI
-        ratio = (su / hwa) if hwa > 0 else math.inf
-        balanced = in_band and (1 / _BALANCE_RATIO) <= ratio <= _BALANCE_RATIO
-        broken = ratio > _BALANCE_BROKEN or ratio < 1 / _BALANCE_BROKEN
+        deficient = {el for el, v in (("水", su), ("火", hwa)) if v < SUHWA_DEFICIENT}
+        gije, mije = evaluate_suhwa(su, hwa, deficient)
         damaged = bool({"水", "火"} & _damaged_elements(s))
-        off = abs(math.log(ratio, _BALANCE_RATIO)) if 0 < ratio < math.inf else 2.0
-        metric = 1.0 - min(off, 2.0) / 2.0
+        gap = abs(su - hwa)
         ev = [f"水 {su:.0f}%·火 {hwa:.0f}%"]
         if mode == "balance":
-            return _Eval(
-                balanced and not damaged,
-                metric * 100.0,
-                ev,
-                ["broken"] if (broken or damaged) else [],
-            )
-        return _Eval((not balanced) and su + hwa > 0, (1.0 - metric) * 100.0, ev, [])
+            # 지표 = 100 − 차(%p): 차가 줄면 강화, 벌어지면 약화.
+            return _Eval(gije and not damaged, 100.0 - gap, ev, ["broken"] if damaged else [])
+        return _Eval(mije, gap, ev, [])
     el = arg
     v = s.elements.get(el, 0.0)
     if mode == "need":
@@ -648,10 +708,15 @@ def _natal_prereq(
       살중용인/용식=관다신약, 인다용재=인다신약, 관살제겁=쟁재, 재제효인=편인도식,
       양인합살=양인격)는 원국 성립 여부로.
     - 억부 6종: 주 그룹 원국 10%+(밴드 조건은 `_p0_effective_ok` 안의 원국 밴드).
-    - 수화기제/미제: 원국에 水·火 둘 다 존재. 천간 배합: 필요 천간 중 하나 이상 원국 출현.
+    - 수화기제/미제: 원국에 水·火 둘 다 8%+. 천간 배합: 필요 천간 중 하나 이상 원국 출현.
+    - 제살태과: 원국 편관 5%+(실제 글자) ∧ 식상 존재.
     """
     g, e, stems = s0.groups, s0.elements, s0.stems
     strong = band in _STRONG_BANDS
+    if pid in DM_SPENDING_IDS and band in FRAIL_BANDS:
+        return False  # 일간이 감당하지 못하는 원국 — 식상·재·관이 더 와도 '성립'이 아니다
+    if pid in STRONG_PREMISE_IDS and band in FRAIL_BANDS:
+        return False  # 신왕 전제 구조 — 신약 원국의 비겁은 재를 다투는 쪽이 아니라 받침이다
 
     def has(grp: str) -> bool:
         return g.get(grp, 0.0) >= _MIN_PRESENCE
@@ -684,14 +749,15 @@ def _natal_prereq(
     if pid in ("SALJUNG_JEGYEONG", "GWANSAL_MUJE"):
         return g.get("officer", 0.0) >= _MIN_CONTROLLED
     if pid == "JESAL_TAEGWA":
-        return g.get("officer", 0.0) >= 5.0 and has("output")
+        # 제살태과는 약한 칠살이 원국에 실재해야 한다(운이 살을 데려와 생기는 구조가 아니다).
+        return s0.group(["편관"]) >= WEAK_KILLING and has("output")
     if pid in _T2_CONTROLS:
         controlled, controller = _T2_CONTROLS[pid]
         return s0.group(controlled) >= _MIN_PRESENCE or s0.group(controller) >= _MIN_PRESENCE
     if pid in _T3_P0:
         return has(_P0_MAIN_GROUP[pid])
     if pid in _T4_NEW_ALLOWED:
-        return e.get("水", 0.0) > 0 and e.get("火", 0.0) > 0
+        return e.get("水", 0.0) >= _BALANCE_LO and e.get("火", 0.0) >= _BALANCE_LO
     if pid == "JEONGHWA_YEONGEUM":
         return bool({"丁", "庚"} & stems)
     if pid == "BYEOKGAP_INJEONG":
@@ -705,6 +771,158 @@ def _natal_prereq(
     if pid == "MUTO_JESU":
         return "戊" in stems or e.get("水", 0.0) >= _T5_STRENGTH
     return False
+
+
+#: 감당 능력 모델 억부(압력 > 일간 측)에서 '일간 측이 덜어짐'도 기여다.
+_T3_P0_LEGS: dict[str, tuple[str, ...]] = {
+    "JAEDA_SINYAK": ("wealth",),
+    "GWANDA_SINYAK": ("officer",),
+    "INDA_SINYAK": ("resource",),
+    "SEOLGI_TAEGWA": ("output",),
+    "GUNGEOP_JAENGJAE": ("peer", "wealth"),
+    "BIGEOP_TALJAE": ("peer", "wealth"),
+}
+
+
+def _transit_contribution_spec(pid: str, element_groups: dict[str, str]) -> ContributionSpec | None:
+    """패턴의 직접 기여 조건 — T1·T2 는 성립 조건 SSOT, T3 억부·T4 수화는 여기서 정의.
+
+    None 이면 기여 게이트를 적용하지 않는다(T5 천간 배합처럼 글자 출현 자체가 조건인 유형).
+
+    Args:
+        element_groups: 오행(한자) → 십성 그룹(일간 기준).
+    """
+    spec = contribution_spec(pid)
+    if spec is not None:
+        return spec
+    if pid in _T3_P0_LEGS:
+        legs = tuple(tuple(_TG_GROUPS[g]) for g in _T3_P0_LEGS[pid])
+        blockers = frozenset({"peer", "resource"}) if pid in _T3_CAPACITY else frozenset()
+        return ContributionSpec(legs, blockers)
+    if pid in _T4_NEW_ALLOWED:
+        grps = [element_groups[el] for el in ("水", "火") if el in element_groups]
+        return ContributionSpec(tuple(tuple(_TG_GROUPS[g]) for g in grps), frozenset(grps))
+    return None
+
+
+def _contributes(
+    spec: ContributionSpec | None,
+    now: AdjustedStrength,
+    prev: AdjustedStrength | None,
+    *,
+    frail: bool = False,
+) -> bool:
+    """이 층의 운 글자가 패턴에 직접 기여하는가(신규 성립 조건, 2026-11-13).
+
+    기여 = ①운 천간·지지 본기의 십성이 다리에 든다 ②확정 化·局의 그룹이 그룹 전체 다리와 같다
+    ③이 층에서 원국의 차단자 그룹이 합·충·化로 새로 덜어졌다. 금지 십성(veto)을 공급하면 불가.
+
+    Args:
+        spec: 직접 기여 조건. None 이면 게이트 미적용(True).
+        now: 이 층까지 누적한 세력. prev: 직전 층까지의 세력(대운 층이면 None).
+        frail: 원국이 신약·태신약이고 생극·제어 구조인가. True 면 비겁·인성 글자가 덜어진 것은
+            ③ 기여로 보지 않는다 — 일간 받침이 빠진 것이지 길이 열린 것이 아니다.
+    """
+    if spec is None:
+        return True
+    if not now.luck_supply:
+        return False
+    tgs, grps = now.luck_supply[-1]
+    if tgs & spec.veto:
+        return False
+    blockers = spec.blockers - SELF_SIDE_GROUPS if frail else spec.blockers
+    for leg in spec.legs:
+        if tgs & set(leg):
+            return True
+        leg_grp = full_group_of(leg)
+        if leg_grp is not None and leg_grp in grps:
+            return True
+    before = prev.natal_lost if prev is not None else {}
+    return any(now.natal_lost.get(b, 0.0) > before.get(b, 0.0) + 1e-9 for b in blockers)
+
+
+#: 맞수 구조 — 같은 재료를 반대로 부르는 이름이라 한 층에서 함께 켜지지 않는다. 조건 함수가 이미
+#: 배타이지만, 운과 맞닿지 않아 이어진 상태(희석 무시)와 새로 선 상태가 겹치는 경우를 막는다.
+_RIVALS: dict[str, frozenset[str]] = {
+    "JAE_SAENGGWAN": frozenset({"JAE_SAENGSAL"}),
+    "JAE_SAENGSAL": frozenset({"JAE_SAENGGWAN"}),
+    "SUHWA_GIJE": frozenset({"SUHWA_MIJE"}),
+    "SUHWA_MIJE": frozenset({"SUHWA_GIJE"}),
+    "JESAL_TAEGWA": frozenset({"SIKSIN_JESAL", "SANGGWAN_JESAL", "GWANSAL_YUJE"}),
+    "SIKSIN_JESAL": frozenset({"JESAL_TAEGWA"}),
+    "SANGGWAN_JESAL": frozenset({"JESAL_TAEGWA"}),
+    "GWANSAL_YUJE": frozenset({"JESAL_TAEGWA", "SALJUNG_JEGYEONG"}),
+    "SALJUNG_JEGYEONG": frozenset({"GWANSAL_YUJE"}),
+}
+
+
+def _related_groups(pid: str, element_groups: dict[str, str]) -> frozenset[str] | None:
+    """패턴과 맞닿는 십성 그룹(다리·차단자·주 세력과 그 극제자). None 이면 접촉 게이트 미적용.
+
+    운 글자가 이 그룹을 공급하지도, 원국의 이 그룹 글자를 덜어내지도 않으면 그 층에서 패턴 상태는
+    바뀌지 않는다(`_touches`). T5 천간 배합은 글자 출현이 조건이라 게이트를 두지 않는다.
+    """
+    spec = _transit_contribution_spec(pid, element_groups)
+    if spec is not None:
+        groups = {_GROUP_OF[t] for leg in spec.legs for t in leg} | set(spec.blockers)
+        groups |= {_GROUP_OF[t] for t in spec.veto}
+        if pid in _T3_P0_LEGS and pid not in _T3_CAPACITY:
+            groups |= {_CONTROLLER_OF[g] for g in _T3_P0_LEGS[pid]}
+        return frozenset(groups)
+    if pid in _T3_ELEMENT_OVERLOAD:
+        grp = element_groups.get(_T3_ELEMENT_OVERLOAD[pid])
+        return frozenset({grp, _CONTROLLER_OF[grp]}) if grp is not None else None
+    key = _T3_DELTA_ONLY.get(pid)
+    if key is not None:
+        if key.startswith("group:"):
+            grp = key.split(":", 1)[1]
+            return frozenset({grp, _CONTROLLER_OF[grp]})
+        if key == "neg_group_sum":
+            return frozenset({"output", "wealth", "officer"})
+        return frozenset({"officer", "peer"})
+    if pid in _T4_RULES:
+        grp = element_groups.get(_T4_RULES[pid][1])
+        return frozenset({grp, _CONTROLLER_OF[grp]}) if grp is not None else None
+    return None
+
+
+def _touches(
+    related: frozenset[str] | None, now: AdjustedStrength, prev: AdjustedStrength | None
+) -> bool:
+    """이 층의 운 글자가 패턴과 맞닿는가(상태 변화의 전제, 2026-11-13).
+
+    맞닿음 = 운 천간·지지 본기의 십성 그룹 또는 化 그룹이 관련 그룹에 든다, 또는 이 층에서 원국의
+    관련 그룹 글자가 합·충·化로 새로 덜어졌다. 맞닿지 않으면 세력 몫이 줄어도(희석) 그 구조는
+    그대로다 — 종전에는 운과 무관한 원국 구조가 재정규화만으로 '완화·해소'로 찍혔다.
+    """
+    if related is None:
+        return True
+    if not now.luck_supply:
+        return False
+    tgs, grps = now.luck_supply[-1]
+    if ({_GROUP_OF[t] for t in tgs if t in _GROUP_OF} | set(grps)) & related:
+        return True
+    before = prev.natal_lost if prev is not None else {}
+    return any(now.natal_lost.get(g, 0.0) > before.get(g, 0.0) + 1e-9 for g in related)
+
+
+def _is_support_layer(pid: str, now: AdjustedStrength) -> bool:
+    """이 층이 幫身 운인가 — 운 글자가 비겁·인성만 공급하고 패턴의 다리 그룹이 손상되지 않았다.
+
+    신약·태신약 원국에 성립한 '일간이 힘을 쓰는 구조'에만 쓴다. 이 층에서는 구조가 꺼진 것이
+    아니라 일간이 받쳐진 것이라 해소·완화를 내지 않는다. 다리 그룹이 합·충·化로 절반 이상
+    깎였으면(`damaged_groups`) 실제 손상이므로 幫身 층으로 보지 않는다 — 글자 하나가 충을 받은
+    정도는 손상이 아니다.
+    """
+    if not now.luck_supply:
+        return False
+    tgs, grps = now.luck_supply[-1]
+    supplied = {_GROUP_OF[t] for t in tgs if t in _GROUP_OF} | set(grps)
+    if not supplied or not supplied <= SELF_SIDE_GROUPS:
+        return False
+    spec = contribution_spec(pid)
+    legs = {_GROUP_OF[t] for leg in spec.legs for t in leg} if spec is not None else set()
+    return not (legs & now.damaged_groups)
 
 
 def _new_allowed(pid: str) -> bool:
@@ -778,14 +996,26 @@ def evaluate_pattern_states(
     s_natal = compute_adjusted_strength(result, [])
     geok_main = (result.geokguk.main_structure if result.geokguk is not None else None) or ""
     excessive = set(force.five_elements.excessive_elements or [])
-    # 신규 성립 후보 = 원국 전제를 통과한 패턴. 원국 성립 패턴은 항상 후보(강화·완화·해소 판정).
+    def _already_met_in_natal(pid: str) -> bool:
+        """운 모델 기준으로 원국 세력만으로 이미 조건이 충족되는가(원국 감지기는 미성립).
+
+        이런 구조는 운이 만든 것이 아니다 — 운 글자가 스쳐도 '신규 성립'이 아니다(2026-11-13 3차).
+        """
+        ev = _evaluate(
+            pid, s_natal, band=band, dm_stem=dm_stem, natal_established=False,
+            natal_weak=natal_weak,
+        )
+        return ev is not None and ev.operating
+
+    # 신규 성립 후보 = 원국 전제를 통과했고 원국에서 아직 조건이 충족되지 않은 패턴.
+    # 원국 성립 패턴은 항상 후보(강화·완화·해소 판정).
     candidates = [
         pid for pid in _TYPE_OF
         if pid in natal_ids or (
             _new_allowed(pid) and _natal_prereq(
                 pid, s_natal, natal_ids=set(natal_ids), band=band, dm_stem=dm_stem,
                 geok_main=geok_main, excessive=excessive,
-            )
+            ) and not _already_met_in_natal(pid)
         )
     ]
     layers = [compute_adjusted_strength(result, stack[: i + 1]) for i in range(len(stack))]
@@ -809,26 +1039,122 @@ def evaluate_pattern_states(
     base_eval = _eval_all(s_natal)
     layer_evals = [_eval_all(s) for s in layers]
     now = layer_evals[-1]
-    parent = layer_evals[-2] if len(layer_evals) >= 2 else base_eval
+
+    # 층별 유효 상태(2026-11-13) — (작동, 지표)를 대운 층부터 차례로 잇는다.
+    # ① 운 글자가 패턴과 맞닿지 않는 층은 직전 층 상태를 그대로 잇는다(희석만으로 완화·해소·강화
+    #    없음). ② 운 생성 패턴이 새로 켜지려면 그 층의 운 글자가 직접 기여해야 한다.
+    # ③ 원국 감지기는 성립으로 보지만 운 모델의 작동 조건이 원국에서부터 미충족인 패턴(예: 관인상생
+    #    인데 원국 식상 > 관)은 '해소'를 낼 수 없다 — 성립을 고정으로 두고 세력 변화만 본다.
+    # ④ 맞수 구조(`_RIVALS`)는 한 층에서 함께 켜지지 않는다.
+    element_groups = {el: grp for grp, el in s_natal.element_of_group.items()}
+    specs = {pid: _transit_contribution_spec(pid, element_groups) for pid in candidates}
+    related = {pid: _related_groups(pid, element_groups) for pid in candidates}
+    fixed = {
+        pid for pid in candidates
+        if pid in natal_ids and pid in base_eval and not base_eval[pid].operating  # ③
+    }
+    cur: dict[str, tuple[bool, float]] = {
+        pid: (pid in natal_ids, base_eval[pid].metric if pid in base_eval else 0.0)
+        for pid in candidates
+    }
+    chains: dict[str, list[tuple[bool, float]]] = {pid: [] for pid in candidates}
+    frail = band in FRAIL_BANDS
+    # ⑤ 幫身 층: 신약·태신약 원국에 성립한 '일간이 힘을 쓰는 구조'는 비겁·인성만 오는 층에서
+    #    직전 상태를 잇고(해소·완화 없음) 표지 `supported` 를 단다.
+    supported: set[str] = set()
+    for i, evs in enumerate(layer_evals):
+        prev_layer = layers[i - 1] if i else None
+        fresh: set[str] = set()  # 이 층에서 새로 켜진 운 생성 패턴
+        nxt: dict[str, tuple[bool, float]] = {}
+        for pid in candidates:
+            on, metric = cur[pid]
+            ev_i = evs.get(pid)
+            if (
+                frail and pid in natal_ids and pid in DM_SPENDING_IDS
+                and _is_support_layer(pid, layers[i])
+            ):
+                if i == len(layer_evals) - 1:
+                    supported.add(pid)
+                nxt[pid] = (on, metric)
+                continue
+            if ev_i is not None and _touches(related[pid], layers[i], prev_layer):
+                if pid in natal_ids:
+                    now_ok = True if pid in fixed else ev_i.operating
+                else:
+                    now_ok = ev_i.operating and (
+                        on or _contributes(
+                            specs[pid], layers[i], prev_layer,
+                            frail=frail and contribution_spec(pid) is not None,
+                        )
+                    )
+                    if now_ok and not on:
+                        fresh.add(pid)
+                on, metric = now_ok, ev_i.metric
+            nxt[pid] = (on, metric)
+        for pid in candidates:  # ④ 맞수 정리
+            if not nxt[pid][0]:
+                continue
+            for rival in _RIVALS.get(pid, ()):
+                if rival not in nxt or not nxt[rival][0]:
+                    continue
+                # 성립 고정(③) 원국 패턴은 운에서 실제로 선 맞수에게 자리를 내주고, 그 밖에는
+                # 먼저 서 있던 쪽(원국 성립·직전 층 작동)이 남고 이 층에서 새로 켜진 쪽이 꺼진다.
+                loser: str | None = None
+                if rival in fixed and pid not in natal_ids:
+                    loser = rival
+                elif pid in fixed and rival not in natal_ids:
+                    loser = pid
+                elif pid in fresh:
+                    loser = pid
+                elif rival in fresh:
+                    loser = rival
+                if loser is not None:
+                    nxt[loser] = (False, nxt[loser][1])
+                if loser == pid:
+                    break
+        for pid in candidates:  # ⑥ 같은 작용의 다른 이름 — 양보(`YIELDS_TO`)
+            if not nxt[pid][0]:
+                continue
+            for winner in YIELDS_TO.get(pid, ()):
+                w_ev = evs.get(winner)
+                # 성립 고정(③) 원국 패턴은 운 모델에서 실제로 작동할 때만 이긴다.
+                if winner in nxt and nxt[winner][0] and (
+                    winner not in fixed or (w_ev is not None and w_ev.operating)
+                ):
+                    nxt[pid] = (False, nxt[pid][1])
+                    break
+        for pid in candidates:
+            chains[pid].append(nxt[pid])
+        cur = nxt
 
     states: list[PatternState] = []
     for pid, ev in now.items():
         natal_on = pid in natal_ids  # 원국 성립은 감지기 결과로 고정(P0 포함)
-        prev_on = parent[pid].operating if pid in parent else natal_on
-        if pid in parent and parent is base_eval:
-            prev_on = natal_on  # 대운 층의 부모 = 원국 성립 여부
+        chain = chains[pid]
+        now_on, now_metric = chain[-1]
+        prev_on, parent_metric = chain[-2] if len(chain) >= 2 else (
+            natal_on, base_eval[pid].metric if pid in base_eval else 0.0
+        )
         # 운만으로 생긴 패턴은 지금 작동 중일 때만 상태를 낸다(꺼진 뒤 '해소'·'완화'를 쓰지 않는다).
-        if not natal_on and not ev.operating:
+        if not natal_on and not now_on:
             continue
         base_metric = base_eval[pid].metric if pid in base_eval else 0.0
-        parent_metric = parent[pid].metric if pid in parent else base_metric
-        # 원국 감지기는 성립으로 보지만 운 모델의 작동 조건이 원국에서부터 미충족인 패턴
-        # (예: 관인상생인데 원국 식상 > 관)은 '해소'를 낼 수 없다 — 성립을 고정으로 두고
-        # 세력 변화(강화·완화)만 본다.
-        base_on = base_eval[pid].operating if pid in base_eval else natal_on
-        now_on, prev_for_status = ev.operating, prev_on
-        if natal_on and not base_on:
-            now_on, prev_for_status = True, True
+        flags = list(ev.flags)
+        # 운 생성 패턴의 다리에 化 세력이 들어 있으면 표지 — 운 글자의 십성과 다른 그룹이 선
+        # 까닭을 읽게 한다. 원국 성립 패턴에는 달지 않는다(월별 局 변화까지 행 표지로 번진다).
+        spec = specs[pid]
+        if spec is not None and not natal_on and now_on and any(
+            layers[-1].transformed_groups.get(grp, 0.0) > 0
+            for leg in spec.legs
+            if (grp := full_group_of(leg)) is not None
+        ):
+            flags.append("via_transform")
+        if pid in supported and now_on:
+            flags.append("supported")
+        # 성립 고정(③) 패턴의 `operating` 은 운 모델의 실제 조건 충족 여부를 그대로 둔다.
+        operating = (now_on and ev.operating) if pid in fixed else now_on
+        ev = _Eval(operating, now_metric, ev.evidence, flags)
+        prev_for_status = prev_on
         st_parent = _status(
             prev_for_status,
             now_on,

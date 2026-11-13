@@ -32,7 +32,11 @@ _logger = logging.getLogger(__name__)
 _DICTS = Path(__file__).resolve().parents[4] / "dictionaries"
 
 #: 사전계산 사전 버전 — 사전·계산 규칙이 바뀌면 올린다(구버전 레코드는 무효화 대상).
-PRECOMPUTE_DICT_VERSION = "1.1.0"  # 1.1.0: LuckComposite.pattern_states(F8-P1, 2026-10-17)
+# 1.1.0: LuckComposite.pattern_states(F8-P1, 2026-10-17)
+# 1.2.0: 구조 상태 판정 교정(化 그룹 세력·직접 기여·맞수 배타·관살유제 재정의, 2026-11-13)
+# 1.3.0: 일간 감당 조건(신약 원국의 신규 성립 금지·幫身 운 표지, 2026-11-13 2차)
+# 1.4.0: 원국에서 이미 충족된 구조의 신규 금지·신왕 전제·양보 표·인다신약 신강 미성립(3차)
+PRECOMPUTE_DICT_VERSION = "1.4.0"
 
 #: `off` 로 두면 저장소를 쓰지 않고 항상 즉석 빌드한다(로컬·CI 기본 동작 보존).
 _MODE_ENV = "SAJU_PRECOMPUTE_MODE"

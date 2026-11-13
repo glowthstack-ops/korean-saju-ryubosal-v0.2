@@ -379,4 +379,16 @@ def test_p0_basis_note_only_on_six_overload_patterns() -> None:
     r = _p0_result("1970-07-24", "04:30")
     six = {"JAEDA_SINYAK", "GWANDA_SINYAK", "INDA_SINYAK", "SEOLGI_TAEGWA",
            "GUNGEOP_JAENGJAE", "BIGEOP_TALJAE"}
-    assert all((d.pattern_id in six) or not d.basis_note for d in detect_structure_patterns(r))
+    # 2026-11-13: 신약·태신약 원국의 '일간이 힘을 쓰는 구조'에는 신약형 근거가 붙는다(이 명식은
+    # 신약). 그 밖의 패턴에는 여전히 근거 줄이 없다.
+    from saju_engines.pattern_conditions import DM_SPENDING_IDS
+
+    detected = detect_structure_patterns(r)
+    for d in detected:
+        if d.pattern_id in six:
+            continue
+        if d.pattern_id in DM_SPENDING_IDS:
+            assert "신약형" in d.basis_note, d.pattern_id
+        else:
+            assert not d.basis_note, d.pattern_id
+    assert all("신약형" not in d.basis_note for d in detected if d.pattern_id in six)
