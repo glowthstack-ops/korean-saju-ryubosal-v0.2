@@ -21,6 +21,8 @@ import json
 import logging
 from pathlib import Path
 
+from saju_manse_analysis.luck.luck_calendar import sewoon_year_of
+
 from saju_shared_types.constants import STEM_ELEMENT
 from saju_shared_types.enums import Stem
 from saju_shared_types.event_taxonomy_v2 import EVENT_DOMAIN as EVENT_DOMAIN_V2
@@ -38,6 +40,7 @@ from saju_shared_types.precompute import (
     TenGodPair,
 )
 
+from . import period_v2_config
 from .dictionaries import FavorabilityRulesFile, RelationsFile
 from .event_scoring import favorability_map
 from .interactions import (
@@ -296,6 +299,15 @@ class CompositeBuilder:
         if dw:
             upper.append((InteractionSource.DAEWOON, dw))
         if level in (CompositeLevel.MONTH, CompositeLevel.DAY):
+            if period_v2_config.JEOLGI_PARENT_YEAR_ENABLED:
+                # 관할 세운은 절기 연도 — 丑월('YYYY-01')과 입춘 전 날은 전년 세운(대운은 종전대로).
+                jeolgi_label = (
+                    label[:7] if level is CompositeLevel.MONTH
+                    else seolgi_month.get(label, label[:7])
+                )
+                jeolgi_year = sewoon_year_of(jeolgi_label)
+                if jeolgi_year is not None:
+                    year_label = str(jeolgi_year)
             yg = year_ganji.get(year_label)
             parent.year = yg
             if yg:

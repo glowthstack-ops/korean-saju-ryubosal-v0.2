@@ -6,7 +6,7 @@ import { Collapsible } from "@/components/layout/Collapsible";
 import { InfoTooltip } from "@/components/layout/InfoTooltip";
 import { ConsensusBadge, GhostOverlay, hourUnknownOf, isHourUnknown } from "./HourUnknown";
 import { fetchLuckMonths, fetchPatternTimeline } from "@/lib/api";
-import { withoutBranchMarkers } from "@/lib/sinsal-display";
+import { visibleSinsal } from "@/lib/sinsal-display";
 import { ELEMENT_KO, elementLabel, elementStyle, ganjiKo } from "@/lib/elements";
 import { applyCalibrationToLuckCycles, applyCalibrationToLuckPillars } from "@/lib/luck-calibration";
 import {
@@ -530,7 +530,7 @@ export function GeokgukPanel({ result }: { result: ManseResult }) {
       {special && (
         <div className="mt-1.5 rounded border border-violet-200 bg-violet-50 p-2 text-xs text-violet-700">
           <b>{special.override ? "특수격: " : "특수격 가능성: "}{String(special.name)}</b>
-          <span className="text-violet-500"> ({SPECIAL_TYPE_KO[String(special.type)] ?? String(special.type)})</span>
+          <span className="text-violet-500"> ({SPECIAL_TYPE_KO[String(special.type)] ?? "특수격"})</span>
           <div className="text-violet-500">
             {String(special.reason)}
             {special.override ? ` — 정격(${String(special.jeonggyeok)})과 병행 해석` : " — 정격과 병행 검토"}
@@ -629,7 +629,8 @@ function itemLabel(item: Record<string, unknown>): string {
     case "stem_duplication": return "천간 병존";
     case "branch_duplication": return "지지 병존";
     case "gan_yeo_ji_dong": return "간여지동";
-    default: return rt;
+    // 표에 없는 종류는 원값(영문 코드) 대신 관계 라벨 표 → 일반 라벨 순으로 대체한다.
+    default: return REL_LABEL[rt] ?? "관계";
   }
 }
 
@@ -721,7 +722,7 @@ const colCenter = (i: number) => (i + 0.5) * 25;
 function InteractionRow({ item, pillars }: { item: Record<string, unknown>; pillars: Pillars }) {
   const scope = String(item.scope);
   const positions = (item.positions as string[]) ?? [];
-  const label = REL_LABEL[String(item.relation_type)] ?? String(item.relation_type);
+  const label = REL_LABEL[String(item.relation_type)] ?? "관계";
   const cols = [...new Set(positions.map((p) => COL_ORDER.indexOf(p as typeof COL_ORDER[number])))]
     .filter((c) => c >= 0)
     .sort((a, b) => a - b);
@@ -793,7 +794,7 @@ export function StructurePanel({ result }: { result: ManseResult }) {
   const allItems = [...items, ...amplifiers].sort((a, b) => itemOrder(a) - itemOrder(b));
   const gm = result.structure_analysis.gongmang as Record<string, unknown> | null;
   const dayVoid = (gm?.day_basis_empty_branches as string[] | undefined) ?? [];
-  const yearVoid = (gm?.year_basis_empty_branches as string[] | undefined) ?? [];
+  // 년 기준 공망은 표시하지 않는다(2026-11-12 데굴님: 연주·일주 병용 기준은 일주만 인정).
   // 천을귀인(일간 기준 지지) · 월령 — 공망과 함께 하단에 참고 표기.
   // 백엔드 산출값(cheoneul_targets) 우선, 없으면(구버전 응답) 로컬 표 fallback.
   const cheoneul =
@@ -866,7 +867,7 @@ export function StructurePanel({ result }: { result: ManseResult }) {
           {gm && (
             <div>
               <span className="mr-2 font-bold text-gray-700">공망</span>
-              일 기준: {dayVoid.join("") || "없음"} · 년 기준: {yearVoid.join("") || "없음"}(미사용)
+              일 기준: {dayVoid.join("") || "없음"}
             </div>
           )}
           <div>
@@ -888,7 +889,7 @@ export function StructurePanel({ result }: { result: ManseResult }) {
 }
 
 export function SinsalPanel({ result }: { result: ManseResult }) {
-  const sinsal = withoutBranchMarkers(result.traditional_extras?.sinsal?.full_list ?? []);
+  const sinsal = visibleSinsal(result.traditional_extras?.sinsal?.full_list ?? []);
   // 시주·일주·월주·연주 — 상단 명식과 동일한 순서로 자리별 박스 구분.
   const cols: [("hour" | "day" | "month" | "year"), string][] = [
     ["hour", "시주"], ["day", "일주"], ["month", "월주"], ["year", "연주"],
@@ -1047,10 +1048,10 @@ function LuckCol({
           흉방 {Array.from(new Set(folk.map((h) => h.direction))).join("·")}
         </span>
       )}
-      {sinsal && withoutBranchMarkers(sinsal).length > 0 && (
+      {sinsal && visibleSinsal(sinsal).length > 0 && (
         <div className="mt-0.5 w-full border-t border-gray-200 pt-0.5">
           <div className="flex flex-wrap justify-center gap-x-0.5 gap-y-px leading-tight">
-            {withoutBranchMarkers(sinsal).map((s, i) => (
+            {visibleSinsal(sinsal).map((s, i) => (
               <span
                 key={i}
                 className={s.name === "복음"
@@ -1151,7 +1152,7 @@ function PatternTimelinePanel({ tl, loading }: { tl: PatternTimeline | null; loa
         {tl.rows.map((r) => (
           <li key={r.pattern_id}>
             <span className="font-semibold">{r.name_ko}</span> — {r.summary}
-            {r.flags.length > 0 && <span className="ml-1 text-[10px] text-gray-400">({r.flags.map((f) => FLAG_KO[f] ?? f).join(" · ")})</span>}
+            {r.flags.some((f) => FLAG_KO[f]) && <span className="ml-1 text-[10px] text-gray-400">({r.flags.map((f) => FLAG_KO[f]).filter(Boolean).join(" · ")})</span>}
           </li>
         ))}
       </ul>
@@ -1166,10 +1167,13 @@ const FLAG_KO: Record<string, string> = {
   reversal: "해소를 넘어 일간 쪽이 과해져 반대 불균형으로 넘어갈 수 있음",
   no_yin: "인성이 없는 무인(無印) 구조",
   wealth_feeds_killing: "재성이 칠살을 생해 제살 효과가 상쇄될 수 있음",
-  excessive: "제살이 과해 칠살의 쓸모까지 줄어들 수 있음",
   dm_lacks_support: "일간이 통근·비겁·인성 어디에도 의지할 곳이 없음",
   yin_restrains_output: "인성이 식상을 눌러 과한 제살이 완화됨",
   rescued: "인성 또는 재성이 끼어 충돌이 완화됨",
+  mixed_officer: "정관·편관이 함께 있는 관살혼잡(강한 쪽 이름으로 표시)",
+  via_transform: "합화(合化)로 바뀐 세력이 포함됨",
+  weak_dm: "일간이 약해 감당이 부족(비겁·인성 운에서 쓸 힘이 생김)",
+  supported: "비겁·인성이 일간을 받쳐 감당할 힘이 생김",
 };
 
 function SelectedYearNote({ pillar, bare = false }: { pillar: LuckPillar; bare?: boolean }) {

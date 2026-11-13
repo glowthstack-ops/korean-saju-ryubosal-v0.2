@@ -28,6 +28,7 @@ from saju_shared_types.manse_result import ManseV2Result
 from .event_scoring import favorability_map
 from .health_vulnerability import (
     analyze_health_vulnerability,
+    governing_sewoon_year,
     health_percentile_thresholds,
     health_window_scores,
     health_window_scores_monthly,
@@ -106,7 +107,7 @@ def inject_health_window_candidates(
         kept.append(_candidate(w, thresholds, []))
     if months:
         # 월 배경용 세운 창: 결과 yearly_luck 에 없는 해는 생애 창에서 보충.
-        need_years = {int(lbl[:4]) for lbl in month_scope} - set(yearly)
+        need_years = {governing_sewoon_year(lbl) for lbl in month_scope} - set(yearly)
         if need_years:
             life = lifetime_health_scores(result, profile)
             yearly = {**{y: life[y] for y in need_years if y in life}, **yearly}
@@ -115,7 +116,7 @@ def inject_health_window_candidates(
             w = monthly.get(label)
             if w is None or w.score < HEALTH_CANDIDATE_MIN_WINDOW:
                 continue
-            yw = yearly.get(int(label[:4]))
+            yw = yearly.get(governing_sewoon_year(label))
             year_flagged = yw is not None and p85 > 0 and yw.score >= p85
             if not (year_flagged or w.score >= MONTH_STANDALONE_MIN_WINDOW):
                 continue

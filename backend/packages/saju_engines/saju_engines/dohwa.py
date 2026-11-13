@@ -27,13 +27,20 @@ from saju_shared_types.dohwa import (
 from saju_shared_types.enums import Branch
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.pillars import Pillar
-from saju_shared_types.twelve_sinsal import branch_of_sinsal, trine_group_label
+from saju_shared_types.twelve_sinsal import (
+    branch_of_sinsal,
+    self_sinsal_bases,
+    trine_group_label,
+)
 
 #: 子午卯酉 — 사정지(왕지) 보유 표지. 신살 집계기 SAJEONG 과 같은 집합.
 _SAJEONG: frozenset[Branch] = frozenset({Branch.JA, Branch.O, Branch.MYO, Branch.YU})
 
 #: 天干四沖 — 공용 상수(`saju_shared_types.constants.STEM_CLASHES`).
 _STEM_CLASHES = STEM_CLASHES
+
+#: 나체도화 일주(현대 한국 자료 기준, 2026-11-13) — 일지가 도화 글자(子午卯酉)인 네 일주.
+NAKED_DOHWA_DAY_PILLARS: frozenset[str] = frozenset({"甲子", "丁卯", "庚午", "癸酉"})
 
 #: 십성 → 십성군. 편관·정관은 관성, 편인·정인은 인성으로 묶는다.
 _TEN_GOD_GROUP: dict[str, DohwaTenGodGroup] = {
@@ -64,8 +71,10 @@ def analyze_dohwa(result: ManseV2Result) -> DohwaProfile | None:
     if p.hour is not None:
         slots.append(("hour", p.hour))
 
+    # 기준 자리는 공용 상수(DOHWA_BASE_SLOTS — 도화는 연지·일지를 함께 본다)를 따른다.
     bases_src: list[tuple[Literal["year", "day"], Branch]] = [
-        ("year", Branch(p.year.branch)), ("day", Branch(p.day.branch)),
+        (slot, base)
+        for slot, _label, base in self_sinsal_bases(p.year.branch, p.day.branch, "년살")
     ]
     established: list[DohwaEstablishment] = []
     for position, pillar in slots:
@@ -106,14 +115,15 @@ def analyze_dohwa(result: ManseV2Result) -> DohwaProfile | None:
 def _naked_dohwa(
     day: Pillar, slots: list[tuple[PillarSlot, Pillar]], hour_known: bool,
 ) -> NakedDohwa | None:
-    """나체도화 — 일지가 일간의 12운성 목욕이면 성립, 천충지충 원국 기둥 동반 여부를 기록한다.
+    """나체도화 — 일주가 甲子·丁卯·庚午·癸酉이면 성립, 천충지충 원국 기둥 동반 여부를 기록한다.
 
-    12운성은 만세 결과값(day.twelve_unseong)을 그대로 쓴다 — 60갑자 중 甲子·乙巳·庚午·辛亥뿐이다.
+    일주 범위는 현대 한국 자료 기준이다(2026-11-13 데굴님 결정 — 나무위키 각주·역학동·조세일보·
+    sajustudy 4곳이 모두 丁卯·癸酉를 넣는다. 논리는 '일지가 도화 글자 子午卯酉'). 종전에는 '일지가
+    일간의 12운성 목욕'(甲子·乙巳·庚午·辛亥)이었다 — 乙巳·辛亥는 4곳 중 2곳만 넣어 뺐다.
     천충지충은 일주와 천간충(天干四沖)·지지충(BRANCH_CLASHES)을 동시에 이루는 다른 원국 기둥이다
     (포스텔러 소개 견해 — 이를 추가 요건으로 보는 입장, 2026-10-13 데굴님 지시로 결합).
     """
-    # 12운성이 없는 입력(부분 스텁 등)은 나체도화를 판정하지 않는다 — 실제 만세 결과에는 항상 있다.
-    if getattr(day, "twelve_unseong", "") != "목욕":
+    if f"{day.stem}{day.branch}" not in NAKED_DOHWA_DAY_PILLARS:
         return None
     clash: list[PillarSlot] = [
         slot for slot, pl in slots
@@ -159,7 +169,8 @@ def analyze_luck_dohwa(
         return None
     branch = Branch(str(getattr(luck_pillar, "branch", "")))
     base_src: list[tuple[Literal["year", "day"], Branch]] = [
-        ("year", Branch(p.year.branch)), ("day", Branch(p.day.branch)),
+        (slot, base)
+        for slot, _label, base in self_sinsal_bases(p.year.branch, p.day.branch, "년살")
     ]
     bases = [
         DohwaBase(slot=slot, branch=base.value, trine=trine_group_label(base))

@@ -42,6 +42,21 @@ def luck_month_label(day: date, table: SolarTermTable, tz_name: str = "Asia/Seou
     return f"{local.year}-{local.month:02d}"
 
 
+def sewoon_year_of(label: str) -> int | None:
+    """기간 라벨이 속한 세운 연도 — 'YYYY' 는 그 해, 'YYYY-MM' 은 02~12월이면 그 해·01월이면 전년.
+
+    월운 라벨은 절기월의 양력 달이고 세운은 입춘(寅월 = 02)에 바뀌므로 01(丑월)은 전년도 세운이다.
+    일 라벨('YYYY-MM-DD')은 절기월이 아니라 양력 달이라 여기에 넘기지 않는다 — 먼저
+    ``luck_month_label`` 로 절기월 라벨을 구한 뒤 넘긴다.
+    """
+    if len(label) < 4 or not label[:4].isdigit():
+        return None
+    year = int(label[:4])
+    if len(label) >= 7 and label[5:7].isdigit() and int(label[5:7]) == 1:
+        return year - 1
+    return year
+
+
 def shift_month_label(label: str, delta: int) -> str:
     """``"YYYY-MM"`` 라벨을 delta개월 이동한 라벨을 반환한다.
 

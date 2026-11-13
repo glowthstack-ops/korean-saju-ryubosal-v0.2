@@ -1,7 +1,7 @@
 {
   "schema": "exam_outcome_patterns.v1",
   "reviewed": false,
-  "purpose": "시험·합격·취업의 '결과 길흉(favorability)'을 정하는 십성 구조 패턴(career_mobility 자료 9-3·9-4). 사건 형성도(activation)는 바꾸지 않고 favorability 채널(fav_adj)만 가감한다 — '합격 신호가 떠도 결과는 별개'(자료 0·16장, 절대원칙 3·4). 그 시점 운 십성(transit present_gods)에 패턴 쌍이 모두 있으면 적용.",
+  "purpose": "시험·합격·취업에 '합격 기류'가 있는지를 정하는 십성 구조 패턴(career_mobility 자료 9-3·9-4). 사건 형성도(activation)는 바꾸지 않고 favorability 채널(fav_adj)만 반영한다 — '합격 신호가 떠도 결과는 별개'(자료 0·16장, 절대원칙 3·4). 그 시점 운 십성(transit present_gods)에 패턴 쌍이 모두 있으면 성립. 2026-11-11 데굴님 결정: 합격 기류는 '있다'만 말한다 — 합·불 패턴의 합이 양수일 때만 가산·표지하고, 0 이하이면 아무것도 하지 않는다('관련 신호 없음'이지 불합격 위험이 아님). fail_patterns 는 pass_patterns 를 상쇄하는 데만 쓰인다.",
   "target_events": ["education_admission", "job_gain"],
   "fav_adj_cap": 0.5,
   "pass_patterns": [

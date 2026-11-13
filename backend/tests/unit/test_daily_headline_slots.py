@@ -215,11 +215,12 @@ def test_lucky_places_revision_date_gate() -> None:
     assert active_dict_version(HEADLINE_CLOSING_REMOVAL_EFFECTIVE_FROM) == "dict.v1.16"
     assert active_dict_version(WORDING_REVISION_EFFECTIVE_FROM) == "dict.v1.17"
     assert active_dict_version(STAGE_DIRECTION_EFFECTIVE_FROM) == "dict.v1.18"
-    assert DICT_VERSION == "dict.v1.20"  # 11/8 부터(단식 결 층 §26 → 십성별 §27)
+    # 11/8 부터 v1.20(단식 결 층 §26 → 십성별 §27), 11/12 부터 v1.21(단식 연 지평 확장 §31).
+    assert DICT_VERSION == "dict.v1.21"
     for ver in (
         PREVIOUS_DICT_VERSION, DICT_VERSION_BEFORE_LUCKY_PLACES_REVISION,
         DICT_VERSION_BEFORE_CATALOG_EXPANSION, DICT_VERSION_BEFORE_HEADLINE_CLOSING_REMOVAL,
-        DICT_VERSION,
+        "dict.v1.20", DICT_VERSION,
     ):
         assert load_snapshot(ver) is not None, ver
 

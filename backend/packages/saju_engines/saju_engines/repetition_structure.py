@@ -21,6 +21,8 @@ from functools import lru_cache
 from itertools import combinations
 from pathlib import Path
 
+from saju_manse_analysis.luck.luck_calendar import sewoon_year_of
+
 from saju_shared_types.constants import (
     BRANCH_CLASHES,
     BRANCH_ELEMENT,
@@ -36,6 +38,8 @@ from saju_shared_types.repetition_structure import (
     RepetitionGroup,
     RepetitionPair,
 )
+
+from . import period_v2_config
 
 _POSITIONS = ("year", "month", "day", "hour")
 _POS_KO = {"year": "연", "month": "월", "day": "일", "hour": "시"}
@@ -162,8 +166,14 @@ def _upper_layers(result: ManseV2Result, layer: str, period: str) -> list[tuple[
                 out.append(("daewoon", d.stem, d.branch))
                 break
     if layer == "month":
+        # 관할 세운 — 절기 기준이 켜지면 丑월('YYYY-01')은 전년 세운(대운은 종전대로 양력 연도).
+        sewoon_label = period[:4]
+        if period_v2_config.JEOLGI_PARENT_YEAR_ENABLED:
+            jeolgi_year = sewoon_year_of(period[:7])
+            if jeolgi_year is not None:
+                sewoon_label = str(jeolgi_year)
         for y in lc.yearly_luck:
-            if y.label == period[:4]:
+            if y.label == sewoon_label:
                 out.append(("year", y.stem, y.branch))
                 break
     return out

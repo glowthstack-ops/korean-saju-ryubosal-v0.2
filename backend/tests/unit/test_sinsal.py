@@ -37,11 +37,23 @@ def test_known_sinsal_anchor() -> None:
     # 寅申巳亥 보유는 '이동지' 표지 — 申(년)·亥(월·일) 위치에 표시(역마 성립과 별개).
     marker = [it for it in s.full_list if it.name == "이동지"]
     assert {it.position for it in marker} >= {"year", "month", "day"}
-    # 역마살은 연지·일지 삼합국 기준 상대 12신살 — 연지 申(申子辰국)·일지 亥(亥卯未국)의 역마는
-    # 각각 寅·巳라 이 명식(申亥亥…)에는 성립하지 않는다(글자살이면 세 자리에 떴을 것).
+    # 역마살은 일지 삼합국 기준 상대 12신살 — 일지 亥(亥卯未국)의 역마는 巳라 이 명식(申亥亥辰)에는
+    # 성립하지 않는다(글자살이면 세 자리에 떴을 것).
     assert not any(it.name == "역마살" for it in s.full_list)
-    # 위치별 12신살(겁살·망신·지살 등)은 펼치지 않는다.
-    assert not any(it.name in ("망신살", "지살", "겁살") for it in s.full_list)
+    # 자리별 12신살 9종은 일지 삼합국 기준으로 판정한다(2026-11-12 복원, 같은 날 연지 기준 제외).
+    # 일지 亥(亥卯未국): 申=겁살·亥=지살·辰=반안살.
+    got = {(it.position, it.name) for it in s.full_list if it.category == "twelve_sinsal"}
+    assert got == {
+        ("year", "겁살"), ("month", "지살"), ("day", "지살"), ("hour", "반안살"),
+    }
+    # 반례: 연지 申(申子辰국) 기준이면 亥=망신살·辰=화개살이지만 연지 기준은 인정하지 않는다.
+    assert not any(it.name in ("망신살", "화개살") for it in s.full_list)
+    # 이 명식에는 천살 자리(일지 기준 戌)가 없다 — 없는 것을 만들어 내지 않는다.
+    assert not any(it.name == "천살" for it in s.full_list)
+    # 일반 표지라 '주요' 요약에는 넣지 않는다.
+    assert not {"지살", "겁살", "망신살", "반안살"} & set(
+        s.summary.major_positive + s.summary.major_caution
+    )
 
 
 def test_repeated_sinsal_intensity_increases() -> None:
@@ -78,12 +90,14 @@ def test_yeokma_is_relative_not_glyph_based() -> None:
     yeokma = [it for it in s.full_list if it.name == "역마살"]
     assert [it.position for it in yeokma] == ["hour"]
     assert "일지 亥 기준 역마" in yeokma[0].basis and "亥卯未" in yeokma[0].basis
-    assert not any(it.name in ("망신살", "지살", "겁살") for it in s.full_list)
+    # 반례: 같은 시지 巳가 연지 申 기준으로는 겁살이지만 연지 기준은 인정하지 않는다.
+    assert not any(it.name == "겁살" and it.position == "hour" for it in s.full_list)
+    assert all("연지" not in it.basis for it in s.full_list if it.category == "twelve_sinsal")
 
 
 def test_luck_yeokma_is_relative() -> None:
-    # 운 지지도 같은 원칙: 寅 운은 연지 申(申子辰국) 기준 역마 → 역마살+이동지, 巳 운은 일지 亥
-    # 기준 역마, 卯 운은 사생지가 아니라 둘 다 아님.
+    # 운 지지도 같은 원칙: 巳 운은 일지 亥(亥卯未국) 기준 역마 → 역마살+이동지, 寅 운은 연지 申
+    # 기준으로만 역마라 이동지 표지뿐(연지 기준 미인정), 卯 운은 사생지가 아니라 둘 다 아님.
     from saju_manse_analysis.sinsal.sinsal_aggregator import sinsal_for_luck
 
     from saju_shared_types.enums import Branch as B
@@ -91,9 +105,11 @@ def test_luck_yeokma_is_relative() -> None:
 
     r, _s = _sinsal()
     assert r.pillars is not None
+    names_sa = {x.name for x in sinsal_for_luck(r.pillars, S.EUL, B.SA)}
     names_in = {x.name for x in sinsal_for_luck(r.pillars, S.GAP, B.IN)}
     names_myo = {x.name for x in sinsal_for_luck(r.pillars, S.EUL, B.MYO)}
-    assert {"역마살", "이동지"} <= names_in
+    assert {"역마살", "이동지"} <= names_sa
+    assert "이동지" in names_in and "역마살" not in names_in
     assert not {"역마살", "이동지"} & names_myo
 
 
@@ -122,22 +138,26 @@ def test_sinsal_does_not_affect_strength_or_yongsin() -> None:
 
 
 def test_dohwa_hwagae_are_relative_with_glyph_markers() -> None:
-    """도화(년살)·화개살도 연지·일지 삼합국 기준 상대 산출 — 글자 보유는 사정지·사고지 표지."""
+    """화개살은 일지, 도화(년살)는 연지·일지 삼합국 기준 — 글자 보유는 사정지·사고지 표지."""
     from saju_manse_analysis.sinsal.sinsal_aggregator import sinsal_for_luck
 
     from saju_shared_types.enums import Branch as B
     from saju_shared_types.enums import Stem as S
 
-    # 1980-11-22 09:40 申亥亥巳: 연지 申(申子辰국) 년살 酉·화개 辰 / 일지 亥(亥卯未국) 년살 子·
-    # 화개 未 → 원국에 子午卯酉·辰戌丑未 글자가 없어 표지도, 도화·화개 성립도 없다.
+    # 1980-11-22 09:40 申亥亥巳: 도화는 연지 申(申子辰국) 酉·일지 亥(亥卯未국) 子, 화개는 일지 기준
+    # 未 → 원국에 子午卯酉·辰戌丑未 글자가 없어 표지도, 도화·화개 성립도 없다.
     r, s = _sinsal(birth_time="09:40")
     names = {it.name for it in s.full_list}
     assert not names & {"도화", "화개살", "사정지", "사고지"}
     assert r.pillars is not None
-    # 운 酉 → 연지 申 기준 년살(도화)+사정지 / 운 辰 → 연지 기준 화개+사고지 / 운 午 → 표지만.
+    # 도화는 두 기준: 운 子(일지 亥 기준)·운 酉(연지 申 기준) 모두 도화+사정지, 운 午는 표지만.
+    ja = {x.name for x in sinsal_for_luck(r.pillars, S.GAP, B.JA)}
     yu = {x.name for x in sinsal_for_luck(r.pillars, S.GYE, B.YU)}
-    jin = {x.name for x in sinsal_for_luck(r.pillars, S.GAP, B.JIN)}
     o = {x.name for x in sinsal_for_luck(r.pillars, S.GAP, B.O)}
-    assert {"도화", "사정지"} <= yu and "화개살" not in yu
-    assert {"화개살", "사고지"} <= jin and "도화" not in jin
+    assert {"도화", "사정지"} <= ja and {"도화", "사정지"} <= yu
     assert "사정지" in o and "도화" not in o
+    # 화개는 일지 기준만: 운 未(일지 亥 기준) 화개+사고지, 운 辰은 연지 申 기준으로만 화개라 표지뿐.
+    mi = {x.name for x in sinsal_for_luck(r.pillars, S.EUL, B.MI)}
+    jin = {x.name for x in sinsal_for_luck(r.pillars, S.GAP, B.JIN)}
+    assert {"화개살", "사고지"} <= mi and "도화" not in mi
+    assert "사고지" in jin and "화개살" not in jin

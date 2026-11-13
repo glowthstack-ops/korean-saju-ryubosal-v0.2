@@ -103,8 +103,10 @@ from saju_engines.entry_slots import (
 )
 from saju_engines.event_engine_config import build_event_engine_v2
 from saju_engines.event_lexicon import event_narration_directive
+from saju_engines.exam_stage_traits import exam_stage_trait_lines
 from saju_engines.gender_kin_audit import audit_gender_kin_claims
 from saju_engines.gongmang_claim_audit import audit_gongmang_claims
+from saju_engines.hidden_latent_activation import hidden_latent_block
 from saju_engines.horizon import (
     ENTRY_WINDOW_DIRECTIVE,
     horizon_directive,
@@ -125,6 +127,7 @@ from saju_engines.lifetime_scan import (
     merge_yearly_luck,
     select_lifetime_years,
 )
+from saju_engines.llm_event_serializer import EXAM_CURRENT_RULE, needs_exam_current_rule
 from saju_engines.llm_guard import TokenBudgetExceeded, estimate_tokens
 from saju_engines.love_separation import love_separation_block, love_separation_natal_lines
 from saju_engines.luck_hierarchy import build_luck_hierarchy
@@ -326,6 +329,7 @@ from .manse_service import (
     luck_days,
     luck_months,
     luck_years,
+    pattern_timeline,
 )
 from .personalization import (
     fetch_calibration_expression_hints,
@@ -910,6 +914,11 @@ _JOB_CHANGED_DIRECTIVE = (
     "풀이하고 되묻지 말 것."
 )
 _JOB_ENTRY_EVENT_KEYS: frozenset[EventKey] = frozenset({EventKey.CAREER_CHANGE, EventKey.JOB_GAIN})
+#: 합격 준비 성향 줄을 싣는 사건 — 시험·입학 합격과 취업 합격(학업 도메인 질문은 사건 키 없이도
+#: 싣는다).
+_EXAM_STAGE_EVENT_KEYS: frozenset[EventKey] = frozenset(
+    {EventKey.EDUCATION_ADMISSION, EventKey.JOB_GAIN}
+)
 # 설명 요청(2026-10-28 데굴님 승인) — 실로그: 직전 답의 '서쪽 申·酉 방위 활용' 문장을 붙여
 # "위의 내용 쉽게 설명해줘"라고 했는데 방위 설명 뒤에 2028~2031년 연운·삼재 서술이 붙었다.
 # 사건 후보·지평을 비우고 인용 본문만 쉬운 말로 풀이한다.
@@ -1383,13 +1392,24 @@ def _build_period_fortune(
     # 단식 참고 문단(docs/17 §26-3·§27, 2026-11-08) — 일간×운 십성 체감 결("간단히 봤을 때,").
     # 월·일 지평은 그 달/그 날 장면만 싣고, 절정 달일 때만 올해 결 문장 1개(세운 간지 필요). 2차
     # 실답 "이달 운세인데 올해 흐름을 반복"으로 올해 결 서술을 뺐다. 점수·판정 불변, 문단은 생성 후
-    # 원문 고정.
+    # 원문 고정. 이미 끝난 기간(지난달·어제·작년)은 과거형 문단(2026-11-10 데굴님 "과거형 문단" —
+    # 지난달 답 한가운데 현재형 문단이 끼고, LLM 이 과거형으로 바꿔 쓴 문단을 감사가 못 알아봐
+    # 같은 내용이 두 번 나갔다). 기준 = 기간 끝 날짜 < 오늘(절기월은 절입 전날까지).
     from saju_engines.simple_reading import simple_reference_line as _simple_ref
 
+    # 연 지평(docs/17 §31, 2026-11-11): 연내 구간(가장 강한 때·전환) + 여러 해 흐름이 문단에
+    # 붙는다 — 대상 연도와 오늘을 넘겨 올해 질문에서 이미 지난 구간만 과거형으로 쓴다.
+    _simple_year = int(start[:4]) if fortune_type == "yearly" else None
     simple_reading_line = _simple_ref(
         chart.pillars.day_master if chart.pillars else "", str(pillar.ganji),
         {"daily": "day", "monthly": "month", "yearly": "year"}[fortune_type],
         year_ganji=stack_ganji.get("세운"),
+        past=date.fromisoformat(period.end) < today,
+        year=_simple_year, today=today,
+    )
+    # 단식 조건 줄(§31-4) — 신강약·과다 오행은 엔진 판정값. 해당 항목이 없으면 빈 목록(줄 생략).
+    simple_condition_lines = (
+        _simple_condition_lines(chart, str(pillar.ganji)) if fortune_type == "yearly" else []
     )
     # P1 계층형 grounding(2026-07-27) — ON이면 관계 렌더를 **이쪽으로 완전히 대체**한다.
     # 기존 build_luck_grounding의 형충회합 줄과 함께 내보내면 같은 관계가 두 표현으로
@@ -1496,7 +1516,44 @@ def _build_period_fortune(
         dohwa_text_keys=list(grounding.get("dohwa_text_keys", [])),
         environment_lines=environment_lines,
         simple_reading_line=simple_reading_line,
+        simple_condition_lines=simple_condition_lines,
         stack_ganji=stack_ganji,
+    )
+
+
+def _simple_condition_lines(chart: ManseV2Result, year_ganji: str) -> list[str]:
+    """단식 조건 줄(docs/17 §31-4) — 이 명식이 가진 조건(신강약·과다 오행)에 해당하는 문장만.
+
+    판정은 전부 엔진 값이다: 신강약 `force_analysis.strength.band`, 과다 오행
+    `five_elements.excessive_elements`, 용희기구한 `favorability_map`. 문장은 사전
+    (`simple_layer.year_cond`) 원문이며 점수·판정에 관여하지 않는다. 일간·간지·세력 분석이 없으면
+    빈 목록(기능 차단 금지). 출생시간 미상으로 신강약이 12시진 후보 사이에서 갈리면 신강약 항목을
+    싣지 않는다(불완전 정보는 확정이 아니다 — 2026-10-06 원칙).
+
+    Args:
+        chart: 대상 명식 계산 결과.
+        year_ganji: 대상 연도의 세운 간지(예: '丁未').
+    """
+    from saju_engines.event_scoring import favorability_map as _fav_map
+    from saju_engines.simple_reading import year_condition_hits
+    from saju_shared_types.enums import Branch as _Branch
+    from saju_shared_types.enums import Stem as _Stem
+
+    if chart.pillars is None or chart.force_analysis is None or len(year_ganji) < 2:
+        return []
+    try:
+        dm = _Stem(chart.pillars.day_master)
+        stem, branch = _Stem(year_ganji[0]), _Branch(year_ganji[1])
+    except ValueError:
+        return []
+    fa = chart.force_analysis
+    hu = getattr(chart, "hour_unknown", None)
+    band_known = hu is None or not hu.is_unconfirmed("strength_band")
+    return year_condition_hits(
+        dm, stem, branch,
+        band=str(fa.strength.band) if band_known else "",
+        excessive_elements=list(fa.five_elements.excessive_elements),
+        roles=_fav_map(chart),
     )
 
 
@@ -1522,6 +1579,137 @@ def _period_stack_ganji(composites, target_level, target_key, pillar) -> dict[st
     if len(pillar.ganji) >= 2:
         out[own_label] = pillar.ganji
     return out
+
+
+#: 기간 창 구조 블록을 싣는 최대 달 수·해 수(그보다 긴 창은 층별 줄이 표를 밀어낸다).
+_WINDOW_STRUCTURE_MAX_MONTHS = 12
+_WINDOW_STRUCTURE_MAX_YEARS = 12
+#: 질문이 신살을 묻는가 — 이때만 기간별 운 신살 줄을 더한다(신살은 보조 참고라 평소엔 싣지 않는다).
+_SINSAL_ASK_RE = re.compile(r"신살|귀인|도화|역마|화개|공망|살\s*(?:이|은|의)?\s*(?:발동|들어|있)")
+_SINSAL_POLARITY_KO: tuple[tuple[str, str], ...] = (
+    ("positive", "도움"), ("caution", "주의"), ("neutral", "중립"),
+)
+
+
+def _luck_sinsal_groups(pillar) -> str:
+    """운 기둥의 신살을 도움/주의/중립으로 묶은 한 줄(없으면 '해당 없음').
+
+    도움이 되는 것만 고르지 않는다 — 주의 신살도 함께 싣는다.
+    """
+    groups = [
+        f"{ko} — " + "·".join(s.name for s in pillar.luck_sinsal if s.polarity == pol)
+        for pol, ko in _SINSAL_POLARITY_KO
+        if any(s.polarity == pol for s in pillar.luck_sinsal)
+    ]
+    return " / ".join(groups) or "해당 없음"
+
+
+def _window_structure_block(
+    birth: BirthInput, overview, question: str, time_range=None, today: date | None = None
+) -> str | None:
+    """기간 질문에 싣는 '운에서 서는 구조'·'창고(입고·개고)'(+ 신살을 물으면 운 신살) 블록.
+
+    기간 운세 블록(단일 연·월·일)에는 `[구조 변화]` 줄이 실리지만, 월별·연도별 요약으로 답하는
+    기간 질문에는 운 적용 구조 상태가 전혀 실리지 않았다 — "도움되는 신살의 발동이나 구조는 없어?"
+    에 원국 신살·원국 구조와 방위표만으로 답하던 결함(2026-11-13 데굴님 실답). 만세력 '구조 배합
+    흐름'과 같은 타임라인(`pattern_timeline`)을 읽어 그대로 옮긴다(재판정 없음, 길흉 아님).
+    월 단위 행은 월운 줄로, 연 단위 행은 세운 줄로 싣는다(데굴님 "여러 해는 세운 단위로").
+
+    창고 블록(`storage_gates.storage_gate_block`)은 같은 타임라인으로 만들되, 단일 기간 질문이나
+    시점이 없는 질문에도 싣는다 — 단일 달·해는 그 기간, 시점이 없으면 올해(대운·세운 층)를 본다.
+
+    Args:
+        birth: 대상 출생 정보(단일 대상 질문만).
+        overview: 요약 표의 행(`MonthOverviewRow` 목록) — 기간 라벨(YYYY-MM 또는 YYYY)만 쓴다.
+        question: 질문 원문(신살을 묻는지 판별).
+        time_range: 질문의 시점 범위(`TimeRange`). 여러 해에 걸치면 그 해들을 세운 줄로 싣는다 —
+            여러 해 질문도 요약 표는 앞 12~13개월만 월 단위라, 표의 행만 보면 뒤 해가 빠진다.
+        today: 기준일 — 시점이 없는 질문의 창고 블록이 올해를 보는 데 쓴다.
+
+    Returns:
+        블록 문자열. 실을 내용이 없거나 시주 미상·산출 불가면 None. 달·해가 상한(12)을 넘으면
+        앞에서부터 상한까지만 싣는다.
+    """
+    from saju_engines.pattern_transit import window_structure_lines
+    from saju_engines.storage_gates import storage_gate_block
+
+    month_labels = [r.period for r in (overview or []) if len(r.period) == 7]
+    year_labels = [r.period for r in (overview or []) if len(r.period) == 4]
+    start = getattr(time_range, "start", None) or ""
+    end = getattr(time_range, "end", None) or ""
+    if start[:4].isdigit() and end[:4].isdigit():
+        # 범위가 12개월을 넘을 때만 해 단위로 본다 — "11월부터 1월까지"처럼 해를 걸친 짧은 범위에
+        # 다음 해 세운 줄을 붙이면 질문 밖의 해를 끌어온다.
+        s_month = int(start[5:7]) if start[5:7].isdigit() else 1
+        e_month = int(end[5:7]) if end[5:7].isdigit() else 12
+        span_months = (int(end[:4]) - int(start[:4])) * 12 + (e_month - s_month) + 1
+        if span_months > 12:
+            year_labels += [
+                str(y) for y in range(int(start[:4]), int(end[:4]) + 1)
+                if str(y) not in year_labels
+            ]
+    month_labels = month_labels[:_WINDOW_STRUCTURE_MAX_MONTHS]
+    year_labels = sorted(set(year_labels))[:_WINDOW_STRUCTURE_MAX_YEARS]
+    windowed = bool(month_labels or year_labels)  # 요약 표·여러 해 범위가 있는 기간 질문인가
+    if not windowed:
+        # 창고 블록 전용 기간 — 단일 달·해 질문은 그 기간, 시점이 없으면 올해.
+        if start and start == end and len(start) in (4, 7):
+            (month_labels if len(start) == 7 else year_labels).append(start)
+        elif today is not None and not start:
+            year_labels.append(str(today.year))
+    if not month_labels and not year_labels:
+        return None
+    labels = [*month_labels, *year_labels]
+    # 절기월 라벨은 그 해 타임라인(2월~이듬해 1월)에 속한다 — 1월 라벨은 앞 해 타임라인.
+    month_years = {int(lb[:4]) - (1 if lb[5:7] == "01" else 0) for lb in month_labels}
+    years = sorted(month_years | {int(lb) for lb in year_labels})
+    try:
+        # 월운 줄이 필요한 해만 월 12층을 계산하고, 세운 줄만 필요한 해는 대운·세운 층만 낸다.
+        timelines = [
+            pattern_timeline(birth, y, include_months=y in month_years) for y in years
+        ]
+        chart = calculate(birth)
+    except ValueError:
+        return None
+    span = f"{min(labels)}–{max(labels)}" if len(labels) > 1 else labels[0]
+    out: list[str] = []
+    lines = window_structure_lines(timelines, labels) if windowed else []
+    if lines:
+        out += [
+            f"[운에서 서는 구조 — {span}, 엔진 판정(구조 작동의 변화이며 길흉이 아님)] "
+            "운에서 서거나 달라지는 구조를 말할 때는 아래 항목만 쓴다 — 여기 없는 구조를 운에서 "
+            "성립했다고 말하지 말 것. 구조 이름은 합격·성사 확정이 아니라 그 기간의 작동 방식 "
+            "설명이며, '변동 없음'인 층은 새로 서는 구조가 없다고 그대로 말할 것. 원국에 원래 있는 "
+            "구조([구조 패턴])와 운에서 선 구조를 구분해 서술할 것. 도움이 되는 변화만 고르지 말고 "
+            "부담이 되는 변화(예: 재다신약 강화)도 같은 비중으로 다룰 것. 층의 크기를 지킬 것 — "
+            "대운 줄이 가장 큰 배경 흐름이다. 여러 해를 볼 때는 먼저 대운의 구조 상태로 큰 흐름을 "
+            "밝히고, 세운은 그 배경 위에서 해마다 달라지는 점으로, 월운은 그 해 안의 짧은 변화로 "
+            "서술한다. 기간 안에서 대운이 바뀌면 그 해를 배경이 바뀌는 지점으로 짚을 것.",
+            *lines,
+        ]
+    # 창고(입고·개고) — 원국 창고 상태 + 이 기간의 개고·입고(2026-11-13 데굴님 승인).
+    out += storage_gate_block(chart, timelines, labels)
+    if windowed and _SINSAL_ASK_RE.search(question):
+        sinsal_lines: list[str] = []
+        for y in sorted(month_years):
+            sinsal_lines += [
+                f"월운 {m.label} {m.ganji} 신살: {_luck_sinsal_groups(m)}"
+                for m in luck_months(birth, y) if m.label in month_labels
+            ]
+        if year_labels:
+            sinsal_lines += [
+                f"세운 {p.label}년 {p.ganji} 신살: {_luck_sinsal_groups(p)}"
+                for p in luck_years(birth, [int(lb) for lb in year_labels])
+            ]
+        if sinsal_lines:
+            out.append(
+                f"[운 신살 — {span}, 엔진 판정(보조 참고)] 이 기간에 운에서 들어오는 신살이다 — "
+                "원국에 원래 있는 신살과 구분해 '이 달(해)에 들어오는 신살'로 말하고, 신살만으로 "
+                "사건·길흉을 단정하지 말 것. 여기 없는 신살을 운에서 들어왔다고 말하지 말 것. "
+                "'도움'만 고르지 말고 '주의' 신살도 함께 알릴 것."
+            )
+            out += sinsal_lines
+    return "\n".join(out) if out else None
 
 
 def _period_pattern_change_lines(composites, target_level, target_key, fortune_type) -> list[str]:
@@ -3576,7 +3764,7 @@ _ACCIDENT_RISK_DIRECTIVE = (
     "이 질문의 주제는 '사고 위험'이다. 재물·직업 등 다른 주제로 흩어지지 말고, 아래 축 중 "
     "**제공된 후보·근거(충·형·기신 시기, 위험 신호 블록)에 실제로 존재하는 축만** 골라 "
     "'주의가 필요한 시기와 장면'으로 풀어라. 근거에 없는 축은 언급하지 않는다.\n"
-    "①이동·교통 축: 역마(연지·일지 삼합국 기준)가 충·형으로 흔들리는 시기나 寅巳申 삼형이 "
+    "①이동·교통 축: 역마(일지 삼합국 기준)가 충·형으로 흔들리는 시기나 寅巳申 삼형이 "
     "성립하는 시기는 이동 중 돌발·차량·낙상 같은 횡액성 주의 시기다(寅申巳亥 글자 보유만으로는 "
     "역마로 보지 않는다). 방어운전·일정 여유·무리한 이동 자제처럼 실행 "
     "가능한 대비로 연결하라.\n"
@@ -4664,6 +4852,13 @@ def _structural_context(
         # 식상생재 강의(2026-10-29) — 원국 식상이 있고 식상을 막는 구조가 성립하면 1줄(재물 질문은
         # wealth_vessel_lines 가 이미 싣는다).
         out += output_blocked_lines(result)
+    if domain is Domain.EDUCATION or intent.event_key in _EXAM_STAGE_EVENT_KEYS:
+        # 합격 준비 성향(2026-11-11 외부 '합격운' 글 5·6번) — 원국 식상·재성 다자일 때만 준비 방식
+        # 해설 한 줄. 당락·시기와 무관한 서술 전용 재료(점수·판정 불변).
+        out += exam_stage_trait_lines(result)
+        # 합격 기류 표지 읽는 법(2026-11-11 데굴님) — '있음' 표지가 없는 기간은 관련 신호 없음이지
+        # 불합격 위험이 아니다.
+        out.append(EXAM_CURRENT_RULE)
     if (general or domain is Domain.RELATIONSHIP) and relation_frame is not None:
         # 비연애 관계(부모·자식·친구·직장) — 연애·결혼 블록 대신 관계 유형 프레임 + 궁위 관계망만.
         out += palace_network_lines(analyze_palace_network(result), domain)
@@ -7348,6 +7543,13 @@ def chat(
         trailing.extend(luck_clash_relief_block(
             result, [(c.period, c.ganji) for c in payload.event_candidates],
         ))
+    # 지장간 잠복 십성 발현(2026-11-10) — 원국 천간·본기에 없고 중기·여기에만 있는 십성이 후보 기간
+    # 운에서 드러나는지(투출·자극) 엔진 판정을 싣는다. 싣는 십성군은 질문 도메인이 정한다
+    # (`hidden_latent_activation.domain_groups`), 서술 전용·점수 불변.
+    if result is not None:
+        trailing.extend(hidden_latent_block(
+            result, [(c.period, c.ganji) for c in payload.event_candidates], intent.domain.value,
+        ))
     # 상대 외모 지시 대상(2026-10-26) — 구조 블록 안의 지시만으로는 LLM 이 본인 외모를 답했다(실답
     # 재현 d3). 프롬프트 말미에 한 번 더 고정하고, 답변 후 본인 외모 서술 감사(로그 전용)의
     # 표지로 쓴다.
@@ -7694,6 +7896,13 @@ def chat(
         _pack = detect_task_pack(_task_scan)
         if _pack is not None:
             trailing.append(procedure_reference_block(_pack))
+    # 여러 달 기간 질문 — 운에서 서는 구조(와, 신살을 물으면 그 달의 운 신살)를 싣는다(2026-11-13).
+    if not plan.per_subject:
+        _win_block = _window_structure_block(
+            birth, payload.monthly_overview, question, intent.time_range, today
+        )
+        if _win_block:
+            trailing.append(_win_block)
     # 특정일 질문 — 당일 중심·기간 서술 최소화·데이터 밖 간지 계산 금지(2026-07-22).
     # 과업 점검이 발동했으면 생략 — 질문의 실창은 과업 기간이지 확정일 당일이 아니다.
     if (
@@ -7993,6 +8202,10 @@ def chat(
         )
 
     prompt_text = prompt_text + "".join("\n" + part for part in trailing)
+    # 합격 기류 표지 읽는 법(2026-11-11 점검) — 표지는 후보 줄을 따라 직업운·총운·일 단위 질문에도
+    # 실린다. 질문 종류로 붙인 규칙(`_structural_context`)이 없는 본문이면 여기서 붙인다.
+    if needs_exam_current_rule(prompt_text):
+        prompt_text = prompt_text + "\n" + EXAM_CURRENT_RULE
     # 범위 라벨 ~ → – (dry-run 미리보기와 실호출 본문을 같게 — llm_client 에서도 한 번 더 적용).
     prompt_text = normalize_range_tilde(prompt_text)
 
@@ -8664,13 +8877,35 @@ def _simple_paragraph_score(engine_line: str, paragraph: str) -> float:
     return sum(bests) / len(bests)
 
 
+#: 첫 판정 문단에서 걷어 낼 문장 하한 — 엔진 문장 하나와 줄기 유사도가 이 값 이상이면 단식 내용의
+#: 되풀이로 본다(실답 2026-11-09: 풀어 쓴 문장 0.53·0.67, 판정 문장 0.29).
+SIMPLE_READING_SENT_DUP_MIN = 0.5
+
+
+def _simple_sentence_dup(engine_line: str, sentence: str) -> bool:
+    """문장 하나가 엔진 단식 문장 중 하나를 풀어 쓴 것인가(줄기 유사도 기준)."""
+    core = engine_line.split("(일간과 운의", 1)[0]
+    stem = _ENDING_STRIP_RE.sub("", sentence).strip()
+    if not stem:
+        return False
+    return any(
+        difflib.SequenceMatcher(None, es, stem).ratio() >= SIMPLE_READING_SENT_DUP_MIN
+        for es in _sentence_stems(core)
+    )
+
+
 def _simple_paragraph_keys(engine_line: str, paragraph: str) -> int:
     """엔진 줄의 핵심 표지(운 간지·'일간'·십성군·발판/소모)가 문단에 몇 개 있는가 — LLM 이 문장을
     요약·병합해 유사도가 낮아도(실답 0.27) 간지·일간·십성군이 함께 있으면 단식 문단이다."""
-    keys: set[str] = set(_SIMPLE_GANJI_RE.findall(engine_line))
-    keys |= {g for g in _SIMPLE_GROUPS if g in engine_line}
+    # 운 간지는 한글 병기를 허용한다 — 엔진 줄은 '戊戌월'인데 LLM 은 표기 규칙대로 '戊戌(무술)월'로
+    # 써서 문자열 일치가 항상 빗나갔다(2026-11-09 실답 3건: 간지 키가 빠져 하한 미달 → 중복 삽입).
+    hits = sum(
+        1 for g in set(_SIMPLE_GANJI_RE.findall(engine_line))
+        if re.search(re.escape(g[:2]) + r"(?:\([가-힣]{2}\))?" + g[2], paragraph)
+    )
+    keys = {g for g in _SIMPLE_GROUPS if g in engine_line}
     keys |= {k for k in ("일간", "발판", "소모") if k in engine_line}
-    return sum(1 for k in keys if k in paragraph)
+    return hits + sum(1 for k in keys if k in paragraph)
 
 
 def _ensure_simple_reading_line(
@@ -8685,6 +8920,10 @@ def _ensure_simple_reading_line(
     그대로(페르소나 말투 유지), 아니면 엔진 문단을 설정 말투로 변환(`speech_style.restyle`)해
     교체하되 그 문단에 섞여 있던 개인 판정 문장(이 명식·용신·발판 …)은 뒤에 살린다. 문단이
     없으면 첫 문단 뒤에 변환본 삽입.
+    2026-11-10 보완(실답 3건 중복): ① 후보 문단은 문단마다 따로 판정해 유사도 최고를 고른다
+    ② 운 간지 표지는 한글 병기('戊戌(무술)월')를 허용한다 ③ 찾은 문단이 **첫 판정 문단**이면 통째로
+    바꾸지 않고 겹치는 문장만 걷어 낸 뒤 엔진 문단을 뒤에 둔다(`split_first`). 지난 기간 질문의
+    엔진 문단은 과거형으로 온다(`simple_reference_line(past=True)`).
     점수·판정 불변, 재호출 없음.
     """
     from saju_engines.speech_style import restyle
@@ -8700,9 +8939,15 @@ def _ensure_simple_reading_line(
             (_simple_paragraph_keys(line, p), _simple_paragraph_score(line, p), i)
             for i, p in enumerate(paras)
         ]
-        keys, best, bi = max(scored, default=(0, 0.0, -1))
-        if keys >= SIMPLE_READING_KEY_MIN or best >= SIMPLE_READING_DETECT_MIN:
-            idx = bi
+        # 문단마다 따로 판정하고, 통과한 것 가운데 **유사도**가 가장 높은 문단을 고른다. 종전
+        # `max(scored)` 는 (키 개수, 유사도) 순이라 키 1개·유사도 0.21 문단이 키 0개·유사도 0.88
+        # 문단(LLM 이 쓴 단식 문단)을 이겨 미탐지 → 엔진 문단 추가 삽입 → 중복(2026-11-09 실답).
+        hits = [
+            (score, keys, -i) for keys, score, i in scored
+            if keys >= SIMPLE_READING_KEY_MIN or score >= SIMPLE_READING_DETECT_MIN
+        ]
+        if hits:
+            idx = -max(hits)[2]
     styled = restyle(line, speech_style)
     if idx is None:
         if len(paras) >= 2:
@@ -8712,6 +8957,15 @@ def _ensure_simple_reading_line(
         result = "inserted"
     elif paras[idx].strip() in (line, styled) or _simple_paragraph_faithful(line, paras[idx]):
         return answer  # 내용 그대로(종결어미만 페르소나 말투인 경우 포함) — 바이트 불변
+    elif idx == 0:
+        # 첫 판정 문단에 단식 내용을 녹여 쓴 경우(실답: 지난달 질문) — 문단을 통째로 바꾸면 판정
+        # 문장이 사라진다. 첫 문장(판정)은 항상 남기고, 엔진 문장과 겹치는 문장만 걷어 낸 뒤 엔진
+        # 문단을 바로 뒤에 둔다.
+        sents = [s for s in _SENT_SPLIT_RE.split(paras[0].strip()) if s.strip()]
+        rest = sents[:1] + [s for s in sents[1:] if not _simple_sentence_dup(line, s)]
+        paras[0] = " ".join(rest)
+        paras.insert(1, styled)
+        result = "split_first"
     else:
         kept = [
             s for s in _SENT_SPLIT_RE.split(paras[idx].strip())

@@ -95,6 +95,7 @@ from .event_scoring import favorability_map
 from .folk_direction import FOLK_TABOO_INSTRUCTION, folk_taboo_summary, format_folk_taboo_lines
 from .gongmang_state import natal_slot_lines, same_xun_line, transit_state, transit_suffix
 from .hap_lines import luck_hap_mode_lines
+from .hidden_latent_activation import NATAL_LATENT_PERIOD_RULE
 from .layer_evidence_scope import (
     classify_layer_evidence_scope,
     normalize_layers,
@@ -1353,6 +1354,16 @@ SIMPLE_READING_DIRECTION_RULE = (
     "천간·지지에 몰려 뒷받침 없이 세기만 커진 때라, 운 요약의 십성군 얼굴(비겁=군겁쟁재·고집·놀기, "
     "인성=받기만 하고 멈춤·게으름, 식상=벌이기만 하고 결실 적음, 재성=감당 안 되는 욕심, "
     "관성=압박 과중)대로 쓴다(강한 용신운으로 미화 금지)."
+)
+#: 단식 조건 줄 머리·사용 규칙(docs/17 §31-4, 2026-11-11 데굴님 "채팅·테마는 조건 보유 여부를 풀이
+#: 엔진에서 확인해 해당 항목만 전달") — 연 지평 전용. 신강약·과다 오행은 엔진 판정값이고 문장은 사전
+#: (`simple_layer.year_cond`) 원문이다.
+SIMPLE_CONDITION_HEADER = "[단식 조건 — 이 명식에 해당하는 항목만(엔진 확인), 점수·판정 아님]"
+SIMPLE_CONDITION_RULE = (
+    "단식 조건 사용 규칙: 위 항목은 단식 문단에 넣지 말고 '다만 이 명식에서는 ~' 문단에서 "
+    "항목마다 한 문장으로 쓴다. 용신·희신·기신·구신 방향은 운 줄의 역할 표기가 정하고, 이 항목은 "
+    "그 해 흐름이 이 명식에서 얼마나 세게 느껴지는지를 설명하는 데만 쓴다. 여기 없는 조건(신강약·"
+    "오행 과다)을 새로 판정해 덧붙이지 말 것."
 )
 _REL_FAMILY_FRAME_UNKNOWN = (
     "교제 상태 미입력 — 두 경우를 한 문장씩 나눠 쓸 것: 만나는 사람이 있다면 관계 진전·공식화, "
@@ -3001,6 +3012,8 @@ def serialize_chart_prefix(summary: BirthChartSummary, ci: ChartInterpretation |
             "'존재'와 '작동'이 다르다: 천간에 드러난 오행과 동급으로 서술하지 말고 "
             "잠재·조건부로만 다루며, 운에서 같은 오행·천간이 오거나 그 지지가 합·충으로 "
             "자극될 때 살아나는 결로 설명할 것(충 자극 활성은 안정보다 사건화·변동 동반)."
+            # 기간 판정은 엔진 블록만(2026-11-10) — 일반 조건문을 특정 시기로 합성하지 않게 한다.
+            + NATAL_LATENT_PERIOD_RULE
         )
     if summary.flow_note:
         lines.append(
@@ -3874,6 +3887,11 @@ def serialize_llm_input(payload: LlmInput) -> str:
             lines.append(f"{SIMPLE_READING_HEADER} {pf.simple_reading_line}")
             lines.append(SIMPLE_READING_USAGE_RULE)
             lines.append(SIMPLE_READING_DIRECTION_RULE)
+            # 단식 조건 줄(§31-4) — 엔진이 확인한 항목이 있을 때만(연 지평).
+            if pf.simple_condition_lines:
+                lines.append(SIMPLE_CONDITION_HEADER)
+                lines += [f"- {c}" for c in pf.simple_condition_lines]
+                lines.append(SIMPLE_CONDITION_RULE)
         # 2026-10-16 — 비겁 이동 시드 × 이후 흐름 조건부 문구(이동 뒤 기반은 이후 운이 정한다).
         lines += pf.mobility_flow_lines
         # F8-P1(2026-10-17) — 운 적용 구조 상태. 성립≠길흉, 기간 한정 작동(사전 문구).

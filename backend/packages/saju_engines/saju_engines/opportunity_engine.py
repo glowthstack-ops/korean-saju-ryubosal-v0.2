@@ -38,6 +38,7 @@ from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.pillars import Pillar
+from saju_shared_types.twelve_sinsal import self_sinsal_bases
 
 from . import period_v2_config
 from .dictionaries import OpportunityMappingFile
@@ -234,9 +235,10 @@ def _period_facts(
         pass
     yeokma = False
     try:
-        # 역마는 글자살이 아니라 연지·일지 삼합국 기준 상대 12신살로만 판정한다(2026-07-23 정정).
-        for base in (p.year.branch, p.day.branch):
-            res = get_relative_sinsal(Branch(base), lb)
+        # 역마는 글자살이 아니라 기준 자리 삼합국의 상대 12신살로만 판정한다(2026-07-23 정정).
+        # 기준 자리 = SELF_SINSAL_BASE_SLOTS(2026-11-12 부터 일지만).
+        for _slot, _label, base in self_sinsal_bases(p.year.branch, p.day.branch):
+            res = get_relative_sinsal(base, lb)
             if "역마" in str(getattr(res, "name", "") or getattr(res, "sinsal", "")):
                 yeokma = True
     except Exception:  # noqa: BLE001 — 상대 신살 계산 실패는 판정 생략(보수적)

@@ -42,7 +42,14 @@ def analyze(pillars: FourPillarsResult) -> ForceAnalysis:
     return analyze_chart(pillars).force
 
 
-def analyze_chart(pillars: FourPillarsResult) -> ChartAnalysis:
+def analyze_chart(pillars: FourPillarsResult, gender: str | None = None) -> ChartAnalysis:
+    """원국 종합 분석(세력·격국·용신·신살).
+
+    Args:
+        pillars: 원국 사주.
+        gender: 'male'/'female'/그 외(미상) — 신살 원진(元辰)의 陽男陰女 구분에만 쓴다.
+            신강약·격국·용신 판정에는 쓰지 않는다.
+    """
     dm = Stem(pillars.day.stem)
 
     elements = compute_element_distribution(pillars)
@@ -92,7 +99,7 @@ def analyze_chart(pillars: FourPillarsResult) -> ChartAnalysis:
     geokguk = detect_geokguk(pillars, dm, bundle.analysis, pillars.gongmang_branches, force)
     yongsin = build_yongsin(pillars, force, bundle.analysis, geokguk)
 
-    sinsal = analyze_sinsal(pillars, bundle.analysis)
+    sinsal = analyze_sinsal(pillars, bundle.analysis, gender)
     naeum = {pos: getattr(pillars, pos).naeum
              for pos in ("year", "month", "day", "hour")
              if getattr(pillars, pos) is not None}

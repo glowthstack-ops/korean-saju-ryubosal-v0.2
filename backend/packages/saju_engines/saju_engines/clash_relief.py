@@ -21,10 +21,14 @@ from datetime import date
 from functools import lru_cache
 from pathlib import Path
 
+from saju_manse_analysis.luck.luck_calendar import sewoon_year_of
+
 from saju_manse_core.calendar.sexagenary_cycle import year_ganzi
 from saju_shared_types.constants import BRANCH_CLASHES, BRANCH_ELEMENT
 from saju_shared_types.enums import Branch
 from saju_shared_types.manse_result import ManseV2Result
+
+from . import period_v2_config
 
 _DICT_DIR = Path(__file__).resolve().parents[3] / "dictionaries"
 
@@ -222,6 +226,11 @@ def _with_year_pillars(periods: list[tuple[str, str]]) -> list[tuple[str, str]]:
     added: set[str] = set()
     for period, ganji in periods:
         year = period[:4]
+        if period_v2_config.JEOLGI_PARENT_YEAR_ENABLED and len(period) == 7:
+            # 월 후보의 세운은 절기 연도 — 丑월('YYYY-01')은 전년 세운 간지를 보탠다.
+            jeolgi_year = sewoon_year_of(period)
+            if jeolgi_year is not None:
+                year = str(jeolgi_year)
         if year.isdigit() and year not in labels and year not in added:
             stem, branch = year_ganzi(int(year))
             out.append((year, f"{stem.value}{branch.value}"))

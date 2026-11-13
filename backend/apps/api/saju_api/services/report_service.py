@@ -73,6 +73,7 @@ from saju_engines.event_engine_config import (
 )
 from saju_engines.event_lexicon import event_narration_directive
 from saju_engines.event_scoring import confirmed_yongsin_note, favorability_map
+from saju_engines.exam_stage_traits import exam_stage_trait_lines
 from saju_engines.folk_direction import (
     FOLK_TABOO_INSTRUCTION,
     folk_taboo_summary,
@@ -81,6 +82,7 @@ from saju_engines.folk_direction import (
 from saju_engines.gongmang_state import same_xun_line, transit_state, transit_suffix
 from saju_engines.hap_lines import luck_hap_mode_lines
 from saju_engines.health_vulnerability import analyze_health_vulnerability
+from saju_engines.hidden_latent_activation import hidden_latent_block
 from saju_engines.horizon import ENTRY_WINDOW_DIRECTIVE
 from saju_engines.impossible_relation_audit import strip_impossible_relation_claims
 from saju_engines.intent_event_filter import IntentEventFilter
@@ -102,6 +104,7 @@ from saju_engines.lifetime_scan import (
     merge_yearly_luck,
     select_lifetime_years,
 )
+from saju_engines.llm_event_serializer import EXAM_CURRENT_RULE, needs_exam_current_rule
 from saju_engines.llm_guard import TokenBudgetExceeded
 from saju_engines.love_period_notes import LOVE_NOTE_EVENT_KEYS, love_period_note_items
 from saju_engines.love_separation import love_separation_block, love_separation_natal_lines
@@ -268,7 +271,13 @@ from . import (
     relationship_vector_sidecar,
     variant_branching,
 )
-from .manse_service import _luck_role_sets, calculate, luck_months, luck_years
+from .manse_service import (
+    _luck_role_sets,
+    calculate,
+    luck_months,
+    luck_years,
+    pattern_timeline,
+)
 from .personalization import (
     fetch_calibration_expression_hints,
     fetch_confirmed_yongsin_override,
@@ -292,6 +301,8 @@ def _get_intent_filter() -> IntentEventFilter:
     return _intent_filter
 _SCORE_LEVELS = {GanjiLevel.YEAR, GanjiLevel.MONTH}
 _TOP_CANDIDATES = 8
+#: 구조 변화 블록의 대운 배경·세운 줄을 싣는 최대 해 수.
+_PATTERN_BACKDROP_MAX_YEARS = 12
 #: 순수 선별 헬퍼는 받은 후보 타입을 그대로 돌려준다 — `EventCandidate` 로 고정하면
 #: 테스트 스텁이 계약을 못 맞추고, 반대로 하류(`luck_block`)는 실제 DTO 를 요구한다.
 #: 그래서 헬퍼만 제네릭으로 두고 컨테이너(`PeriodGroup`)는 실제 타입을 유지한다.
@@ -1054,6 +1065,8 @@ _MARRIAGE_RESOURCE_SECTIONS = {
 # 건강 취약 구조 블록을 부착하는 건강 섹션(Y-09·F-18은 건강 전용, C-02·C-06은 health 주제만).
 _HEALTH_VULN_SECTIONS = {"Y-09", "F-18"}
 _HEALTH_TOPIC_SECTIONS = {"C-02", "C-06"}
+#: 학업 주제 집중 리포트에서 합격 기류 읽는 법을 싣는 섹션 — 요약·연도 흐름·월 타임라인.
+_EXAM_CURRENT_RULE_SECTIONS = {"C-01", "C-03", "C-04"}
 # 부/귀 지향 블록을 부착하는 명식 구조·직업 섹션.
 _WEALTH_STATUS_SECTIONS = {"F-04", "J-02", "J-03", "W-02", "F-06c"}
 # (블록 한글화 매핑은 structural_context 단일 소스로 이관됨 — 누출 방지 포맷 일원화.)
@@ -1753,12 +1766,18 @@ class _ReportData:
         - relocation: `mobility_marker_flip_lines`(이동지 양면 1줄, 후보 무관 — 2026-11-03)
         - 네 도메인 공통: `luck_clash_relief_block`(충 완화 글자 — 후보 기간 운 지지가 원국 용·희신
           글자를 충할 때, 2026-11-07)
+        - 직업·재물·관계 공통: `hidden_latent_block`(지장간 잠복 십성 발현 — 섹션 도메인의
+          십성군만, 2026-11-10. 이사 섹션은 대상 군이 없어 빈 목록)
         네 도메인 밖이거나(이사 제외) 후보가 없으면 빈 목록. 점수·판정 불변(서술 전용).
         """
         periods = [(c.period, self._ganji_by_label.get(c.period, "")) for c in cands]
         # 충 완화 글자(2026-11-07) — 섹션 후보 기간의 운 지지가 원국 용·희신 글자를 충하면 채팅
         # 말미와 같은 블록을 네 도메인 섹션 끝에 함께 싣는다(서술 전용).
         relief = luck_clash_relief_block(self.result, periods) if cands else []
+        # 지장간 잠복 십성 발현(2026-11-10) — 채팅 말미와 같은 블록(섹션 도메인의 십성군만,
+        # 서술 전용).
+        # 충 완화 블록과 함께 섹션 끝에 싣는다(이사 섹션은 `domain_groups` 가 None 이라 빈 목록).
+        relief = [*relief, *(hidden_latent_block(self.result, periods, domain) if cands else [])]
         if domain == "relocation":
             # 이동지 양면 줄(2026-11-03) — 후보 유무와 무관하게 보유 글자가 있으면 항상(채팅과
             # 같은 줄).
@@ -2306,6 +2325,7 @@ class _ReportData:
             # 재성 대운 받을 준비 — 앞 대운 끝 해와 겹치지 않게 이 대운 안쪽 해(y0+1)로 고정.
             lines += daewoon_readiness_lines(self.result, y0 + 1, y0 + 1)
             lines += daewoon_turn_lines(self.result, y0, y1)  # 교운 방향(2026-10-29 길흉 강의)
+            lines += self.decade_structure_lines(y0, y1, dw.ganji)
         rows = [
             # 시제 표식(2026-11-07) — 행 머리 'YYYY년' 뒤에 [지남]/[올해]/[예정].
             (ln[:5] + when_tag(int(ln[:4]), self.today.year) + ln[5:])
@@ -2616,14 +2636,31 @@ class _ReportData:
         from saju_engines.context_reducer import SIMPLE_READING_USAGE_RULE as _simple_rule
         from saju_engines.simple_reading import simple_reference_line as _simple_ref
 
+        # 대상 연도가 이미 끝난 해(한해풀이 Y-04 의 지난 연도)면 과거형 문단 — 채팅 지난 기간 질문과
+        # 같은 기준(기간 끝 12/31 < 오늘, 2026-11-10 점검: 채팅만 고치고 이 입구를 놓쳤다).
+        # 연 지평 확장(docs/17 §31, 2026-11-11) — 연내 구간·여러 해 흐름이 같은 문단에 붙고,
+        # 조건 줄은 엔진이 확인한 항목만(채팅 연 총운과 같은 함수·같은 규칙).
         _simple_line = _simple_ref(
             self.result.pillars.day_master if self.result.pillars else "",
-            str(pillar.ganji), "year",
+            str(pillar.ganji), "year", past=date(year, 12, 31) < self.today,
+            year=year, today=self.today,
         )
         if _simple_line:
             lines.append(f"{SIMPLE_READING_HEADER} {_simple_line}")
             lines.append(_simple_rule)
             lines.append(SIMPLE_READING_DIRECTION_RULE)
+            from saju_engines.context_reducer import (
+                SIMPLE_CONDITION_HEADER,
+                SIMPLE_CONDITION_RULE,
+            )
+
+            from .chat_service import _simple_condition_lines
+
+            _cond_lines = _simple_condition_lines(self.result, str(pillar.ganji))
+            if _cond_lines:
+                lines.append(SIMPLE_CONDITION_HEADER)
+                lines += [f"- {c}" for c in _cond_lines]
+                lines.append(SIMPLE_CONDITION_RULE)
         lines += [f"형충회합: {rl}" for rl in g["relation_lines"]]
         lines += list(g["sinsal_lines"])
         if g["gongmang"]:
@@ -2760,6 +2797,113 @@ class _ReportData:
             ):
                 lines.append(f"{layer} {ln}")
         return list(dict.fromkeys(lines))
+
+    def decade_structure_lines(self, y0: int, y1: int, ganji: str) -> list[str]:
+        """[이 대운의 구조 상태] — 대운별 페이지(F-14-D*)의 대운 층·세운 층 구조 줄(2026-11-13).
+
+        대운별 페이지에는 대운 간지·십성·역할 라벨과 세운 표만 있고, 그 대운에서 원국 구조가
+        어떻게 달라지는지는 없었다 — 데굴님 "총운에는 대운층이 반영되는 거지?". 채팅과 같은
+        타임라인(대운·세운 층만)을 읽어 옮긴다(재판정 없음, 길흉 아님).
+
+        Args:
+            y0: 페이지 창의 첫 해. y1: 마지막 해. ganji: 이 페이지의 대운 간지.
+
+        Returns:
+            머리말 + 대운 줄 1 + 그 대운에 속한 해의 세운 줄. 시주 미상·산출 불가면 빈 목록.
+            첫 페이지의 유년(첫 대운 이전 해)은 대운이 없어 싣지 않는다.
+        """
+        from saju_engines.pattern_transit import daewoon_ganji_by_year, window_structure_lines
+
+        if self.hour_unknown:
+            return []
+        by_year = daewoon_ganji_by_year(self.result)
+        years = [y for y in range(y0, y1 + 1) if by_year.get(y) == ganji]
+        if not years:
+            return []
+        try:
+            timelines = [pattern_timeline(self.birth, y, include_months=False) for y in years]
+        except Exception:  # noqa: BLE001 — 구조 줄 조회 실패가 페이지를 막지 않는다
+            return []
+        from saju_engines.storage_gates import storage_gate_block
+
+        labels = [str(y) for y in years]
+        body = window_structure_lines(timelines, labels)
+        out: list[str] = []
+        if body:
+            out += [
+                "[이 대운의 구조 상태 — 엔진 판정(구조 작동의 변화이며 길흉이 아님). 대운 줄이 이 "
+                "10년의 가장 큰 배경이고, 세운 줄은 그 위에서 해마다 달라지는 점이다. 구조 이름은 "
+                "사건 확정이 아니라 작동 방식의 설명이며, 도움이 되는 변화만 고르지 말고 부담이 "
+                "되는 변화도 함께 다룰 것. 여기 없는 구조를 운에서 성립했다고 말하지 말 것]",
+                *body,
+            ]
+        # 창고(입고·개고) — 이 대운과 그 10년 세운에서 열리고 들어가는 때(2026-11-13).
+        storage = storage_gate_block(self.result, timelines, labels)
+        if storage:
+            out += ["", *storage] if out else storage
+        return out
+
+    def storage_gate_lines(self, candidates: list[EventCandidate]) -> list[str]:
+        """[창고(입고·개고)] 블록 — 후보 기간(연·월)의 개고·입고와 원국 창고 상태(2026-11-13).
+
+        채팅과 같은 함수(`storage_gates.storage_gate_block`)·같은 타임라인을 쓴다. 후보 달은
+        월운 줄로, 후보 기간이 걸친 해는 세운 줄로 낸다. 시주 미상·산출 불가면 빈 목록.
+        """
+        from saju_engines.storage_gates import storage_gate_block
+
+        months: list[str] = []
+        years: list[int] = []
+        for c in candidates:
+            p = str(c.period)
+            if len(p) not in (4, 7) or not p[:4].isdigit():
+                continue
+            if len(p) == 7 and p not in months:
+                months.append(p)
+            y = int(p[:4]) - (1 if len(p) == 7 and p[5:7] == "01" else 0)
+            if y not in years:
+                years.append(y)
+        years = sorted(years)[:_PATTERN_BACKDROP_MAX_YEARS]
+        months = months[:_PATTERN_BACKDROP_MAX_YEARS]
+        if not years or self.hour_unknown:
+            return []
+        month_years = {int(m[:4]) - (1 if m[5:7] == "01" else 0) for m in months}
+        try:
+            timelines = [
+                pattern_timeline(self.birth, y, include_months=y in month_years) for y in years
+            ]
+        except Exception:  # noqa: BLE001 — 창고 줄 조회 실패가 섹션을 막지 않는다
+            return []
+        return storage_gate_block(self.result, timelines, [*months, *(str(y) for y in years)])
+
+    def pattern_backdrop_lines(self, candidates: list[EventCandidate]) -> list[str]:
+        """후보 기간이 걸친 해들의 대운 배경·세운 구조 상태 줄(2026-11-13).
+
+        `pattern_change_lines` 는 후보 달·해의 변동 줄(최대 3)뿐이라 여러 해를 다루는 리포트에
+        가장 큰 배경인 대운 층이 실리지 않았다 — 데굴님 "여러 해를 다룰 때는 대운에서의 배경이
+        가장 큰 흐름". 채팅과 같은 타임라인(`pattern_timeline`, 대운·세운 층만)을 읽어 옮긴다
+        (재판정 없음). 시주 미상·산출 불가·후보 없음이면 빈 목록.
+        """
+        from saju_engines.pattern_transit import window_structure_lines
+
+        years: list[int] = []
+        for c in candidates:
+            p = str(c.period)
+            if len(p) not in (4, 7) or not p[:4].isdigit():
+                continue
+            # 절기월 1월은 앞 해의 세운에 속한다.
+            y = int(p[:4]) - (1 if len(p) == 7 and p[5:7] == "01" else 0)
+            if y not in years:
+                years.append(y)
+        years = sorted(years)[:_PATTERN_BACKDROP_MAX_YEARS]
+        if not years or self.hour_unknown:
+            return []
+        try:
+            timelines = [
+                pattern_timeline(self.birth, y, include_months=False) for y in years
+            ]
+        except Exception:  # noqa: BLE001 — 배경 줄 조회 실패가 섹션을 막지 않는다
+            return []
+        return window_structure_lines(timelines, [str(y) for y in years])
 
     def pattern_change_lines(self, candidates: list[EventCandidate]) -> list[str]:
         """후보 기간(연·월)의 운 적용 구조 상태 줄(F8-P1) — composite.pattern_states 읽기만(원칙 9).
@@ -3043,14 +3187,22 @@ class _ReportData:
             )
             lines += hap_lines
         pattern_lines = self.pattern_change_lines(cands)
-        if pattern_lines:
+        backdrop_lines = self.pattern_backdrop_lines(cands)
+        if pattern_lines or backdrop_lines:
             lines.append("")
             lines.append(
                 "[구조 변화(운) — 후보 기간에 원국 구조 배합이 신규 성립·강화·완화·해소되는지"
                 "(엔진 판정, 기간 한정 작동). 구조 작동의 변화이지 길흉이 아니다 — "
-                "재물운 상승·하락으로 번역하지 말 것]"
+                "재물운 상승·하락으로 번역하지 말 것. 층의 크기를 지킬 것 — 대운 줄이 가장 큰 배경 "
+                "흐름이고, 세운은 그 위에서 해마다 달라지는 점, 달 줄은 그 해 안의 짧은 변화다. "
+                "도움이 되는 변화만 고르지 말고 부담이 되는 변화도 함께 다룰 것]"
             )
+            lines += backdrop_lines
             lines += pattern_lines
+        storage_lines = self.storage_gate_lines(cands)
+        if storage_lines:
+            lines.append("")
+            lines += storage_lines
         branch_lines = self._branch_lines(cands)
         if branch_lines:
             lines.append("")
@@ -4208,6 +4360,17 @@ def build_section_context(
         _doc_block = document_caution_block(data.result) or document_contrast_block(data.result)
         if _doc_block:
             lines += ["", _doc_block, DOCUMENT_IMAGERY_DIRECTIVE]
+    # 합격 준비 성향(2026-11-11 외부 '합격운' 글 5·6번, 채팅과 같은 줄) — 학업 주제 집중 리포트의
+    # 원국 구조 섹션(C-02)에만. 학업은 전용 섹션 도메인이 없어(_SECTION_DOMAIN) 주제로 판정한다.
+    # 원국 식상·재성 다자일 때만 성립하고, 미성립이면 미주입(기존 섹션 프롬프트 byte 불변).
+    if sid == "C-02" and spec.topic == "education":
+        _exam_stage = exam_stage_trait_lines(data.result)
+        if _exam_stage:
+            lines += ["", *_exam_stage]
+    # 합격 기류 표지 읽는 법(2026-11-11 데굴님) — 학업 주제의 요약·기간 섹션(후보 줄이 실리는 곳).
+    # '합격 기류 있음' 표지가 없는 기간은 관련 신호 없음이지 불합격 위험이 아니다.
+    if spec.topic == "education" and sid in _EXAM_CURRENT_RULE_SECTIONS:
+        lines += ["", EXAM_CURRENT_RULE]
     # 상담 결론(CDS 리포트 배선, 2026-08-21) — 도메인 섹션에 stage 행동지침·요약 태세
     # 주입(테마사주 패리티). 플래그 OFF=byte 불변, 목차·판정·점수 불변(절대원칙 10).
     if _ds_domain:
@@ -4654,6 +4817,10 @@ def build_section_context(
                 lines += ["", *_career_block]
         except Exception:  # noqa: BLE001 — beta 노출 실패는 섹션 생성 비차단
             _logger.exception("career transition 리포트 블록 실패 — 비차단")
+    # 합격 기류 표지 읽는 법(2026-11-11 점검) — 표지는 후보 줄을 따라 주제·섹션과 무관하게 실린다
+    # (학업 리포트 C-02·C-05~07 등). 위에서 규칙을 붙이지 않은 섹션이면 본문 끝에 붙인다.
+    if needs_exam_current_rule("\n".join(lines)):
+        lines += ["", EXAM_CURRENT_RULE]
     subject_label = spec.subjects[0].label if spec.subjects else "본인"
     return SectionContext(
         section_id=plan.section_id,

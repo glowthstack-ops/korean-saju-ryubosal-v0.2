@@ -11,7 +11,12 @@ import pytest
 from saju_engines.speech_style import has_haeyo_ending, restyle, restyle_sentence
 
 _DICT = Path(__file__).resolve().parents[2] / "dictionaries" / "daily_fortune"
-_SKIP_META = {"since", "decision_ref", "note", "group_axes", "god_axes"}
+# season_tone(관형구)·strength_lead·excess_lead(조건절)는 문장이 아니라 다른 문장에 끼워 쓰는
+# 조각이다(docs/17 §31, dict.v1.21) — 종결어미가 없어 변환 대상이 아니다.
+_SKIP_META = {
+    "since", "decision_ref", "note", "group_axes", "god_axes",
+    "season_tone", "strength_lead", "excess_lead",
+}
 _NO_ENDING_OK = ("늦게", "짧게", "꼼꼼히", "—")
 
 

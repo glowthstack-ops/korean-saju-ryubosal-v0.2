@@ -167,7 +167,7 @@ def test_1965_climate_emergency_water_yongsin_preserved(make_pillars) -> None:
     assert not any(
         m.model_type.startswith("food_rescue") for m in y.candidate_models
     )  # 비겁 土 mediator 승격 차단
-    assert any("mediator 승격 차단" in w for w in (y.warnings or []))
+    assert any("통관 오행 승격 차단" in w for w in (y.warnings or []))
     # 財損印(水)은 감점-존속 경쟁 후보로 남아 조후 결론을 보강한다.
     assert any(m.model_type == "wealth_breaks_resource" for m in y.candidate_models)
     # 무근·부재 감점은 작동성 계층에 남는다(canonical 순위는 불변).
@@ -207,7 +207,7 @@ def test_1953_tied_heesin_semantic_tiebreak(make_pillars) -> None:
     f = y.final
     assert f["selected_model"] == "bridge_tonggwan"
     assert f["heesin"] == "火" and f["hansin"] == "木"
-    assert any("타이브레이크" in w and "dominant_need" in w for w in (y.warnings or []))
+    assert any("타이브레이크" in w and "가장 필요한 기운" in w for w in (y.warnings or []))
 
 
 def test_food_rescue_not_generated_guards(make_pillars) -> None:

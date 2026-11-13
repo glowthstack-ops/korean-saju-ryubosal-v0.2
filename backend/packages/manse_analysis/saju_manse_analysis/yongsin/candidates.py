@@ -952,7 +952,7 @@ def _semantic_tiebreak_key(
 
 
 _TIEBREAK_REASONS = (
-    "dominant_need 일치(기후 축 직접 교정)", "주 병(과다 오행) 직접 극",
+    "가장 필요한 기운과 일치(기후 축 직접 교정)", "주 병(과다 오행) 직접 극",
     "주용신 보호(生용신)", "조후 악화 없음", "생극 흐름 완성(용신 설기)",
     "통근(operability)", "결정적 오행 순서",
 )
@@ -1172,16 +1172,16 @@ def _mediator_promotion_veto(
     """
     # 7단계(2026-10-07): '극신강' 밴드가 없어졌으므로 옛 극신강 상한(점수>75)으로 판정을 보존한다.
     if float(force.strength.score) > EXTREME_STRONG_SCORE:
-        return "극단 신강(점수>75) — 비겁 mediator 승격은 신강 악화(strength_aggravation)"
+        return "극단 신강(점수>75) — 비겁을 통관 주용신으로 올리면 신강 악화"
     fe = force.five_elements
     dist = fe.season_adjusted_element_strength or fe.distribution_environment
     total = sum(dist.values()) or 1.0
     if dist.get(mediator_el, 0.0) / total >= _MEDIATOR_SATURATED:
-        return "통관재 자체가 이미 과다(mediator_already_saturated)"
+        return "통관 오행 자체가 이미 과다"
     if month_branch in _HOT_MONTHS and mediator_el is Element.EARTH:
-        return "조열월 土 mediator — 건토 심화·金 매몰(dry_earth_aggravation)"
+        return "조열월 土 통관 — 건토 심화·金 매몰"
     if month_branch in _COLD_MONTHS and mediator_el is Element.WATER:
-        return "한습월 水 mediator — 한기 심화(climate_aggravation)"
+        return "한습월 水 통관 — 한기 심화"
     return None
 
 
@@ -1636,8 +1636,9 @@ def _johu_model(
     reasons = [
         f"궁통보감 조후: {month_branch}월 {day_stem}일간 → {'·'.join(ordered)}"
         f" (최우선 {ordered[0]})",
-        f"기후 축: 한난={axes['temperature_axis']} 조습={axes['moisture_axis']}"
-        f" → primary={primary_axis}",
+        f"기후 축: 한난={_climate_ko(str(axes['temperature_axis']))}"
+        f" 조습={_climate_ko(str(axes['moisture_axis']))}"
+        f" → 주축={_climate_ko(primary_axis)}",
         "조후는 단독 확정 금지, 억부와 함께 검증",
     ]
     if JOHU_CLIMATE_ROLE_ONLY and needs:
@@ -1648,13 +1649,15 @@ def _johu_model(
         ]
         absent = [s for s in ordered if s not in transparent and s not in hidden]
         reasons.append(
-            f"조후 역할 글자 need={'·'.join(ordered)} / present={'·'.join(present) or '없음'}"
-            f" / absent={'·'.join(absent) or '없음'}"
+            f"조후 역할 글자 필요={'·'.join(ordered)} / 원국에 있음={'·'.join(present) or '없음'}"
+            f" / 원국에 없음={'·'.join(absent) or '없음'}"
         )
         if support_needs:
             reasons.append(
                 "궁통보감 배합·구조 글자(점수 제외): " + " ".join(
-                    f"{n.get('stem')}[{'/'.join(str(r) for r in (n.get('roles') or []))}]"
+                    f"{n.get('stem')}["
+                    + "/".join(_JOHU_ROLE_KO.get(str(r), str(r)) for r in (n.get("roles") or []))
+                    + "]"
                     for n in support_needs
                 )
             )
@@ -1682,7 +1685,7 @@ def _johu_model(
             )
         elif corrective_stem is None:
             reasons.append(
-                f"severe {axis_key} 축이나 셀 내 직접 교정 천간 없음 — 구조 참고만"
+                f"극단 {_climate_ko(axis_key)} 축이나 셀 내 직접 교정 천간 없음 — 구조 참고만"
             )
         else:
             yong_el = corrective_el
@@ -1715,7 +1718,7 @@ def _johu_model(
         # 비 severe: 셀 primary 는 canonical need 참고(climate_helper) — 가산 없음.
         p0 = primary_stems[0]
         if p0 in transparent:
-            reasons.append(f"{p0} 투간 — canonical need 충족")
+            reasons.append(f"{p0} 투간 — 기준 필요 글자 충족")
         elif p0 in hidden:
             reasons.append(f"{p0} 지장간 존재 — 잠재 충족")
         else:
@@ -1766,7 +1769,8 @@ def _johu_no_candidate_warning(
     corrective = _AXIS_CORRECTIVE.get(primary_axis.removeprefix("severe_"))
     take_use = "·".join(str(n.get("stem")) for n in needs if n.get("stem"))
     return (
-        f"조후 교정 필요({_e(corrective) if corrective else '?'}, 축={primary_axis}) — "
+        f"조후 교정 필요({_e(corrective) if corrective else '?'}, "
+        f"축={_climate_ko(primary_axis)}) — "
         f"사전 {day_stem}×{month_branch} 셀에 조후 역할 천간 없음(궁통보감 취용 {take_use}); "
         "보조 후보 생성 안 함, 억부·생조 판단 참고"
     )
@@ -1843,7 +1847,10 @@ def _disease_models(
                 gisin=_e(g[role_map["gisin"]]), gusin=_e(g[role_map["gusin"]]),
                 hansin=_e(g[role_map["hansin"]]),
                 confidence=0.5,
-                reasons=[f"파격({dmg}) 제거 약신", *_DAMAGE_ROLE_REASON.get(dmg, ())],
+                reasons=[
+                    f"파격({_DAMAGE_KO.get(dmg, dmg)}) 제거 약신",
+                    *_DAMAGE_ROLE_REASON.get(dmg, ()),
+                ],
                 is_auxiliary=True,
             ))
             continue
@@ -1851,7 +1858,7 @@ def _disease_models(
             model_type=f"disease_remedy:{dmg}", label="병약용신형(약신)",
             yongsin=_e(g[grp]),
             confidence=0.5,
-            reasons=[f"파격({dmg}) 제거 약신", "병약은 패격 보정 후보"],
+            reasons=[f"파격({_DAMAGE_KO.get(dmg, dmg)}) 제거 약신", "병약은 패격 보정 후보"],
             is_auxiliary=True,
         ))
     return out
@@ -1971,6 +1978,51 @@ _CLIMATE_KO = {
     "severe_cold": "극한(寒)", "cold": "한(寒)", "severe_heat": "극열(熱)", "heat": "열(熱)",
     "severe_dry": "극조(燥)", "dry": "조(燥)", "severe_damp": "극습(濕)", "damp": "습(濕)",
 }
+
+# ── 사용자 노출 문구용 한글 표(2026-11-13 데굴님 "영문 변수명으로 출력되는 값들 … 모두 수정") ──
+# 경고·선정 경로·기각 사유는 만세력 화면에 그대로 실린다. 내부 코드는 기계용 필드(`reason`·
+# `model_type`)에만 두고, 문장에는 아래 표로 옮긴 한글만 쓴다.
+#: 파격(damage) 코드 → 한글 이름.
+_DAMAGE_KO: dict[str, str] = {
+    "shangguan_attacks_officer": "상관견관", "mixed_officer_killing": "관살혼잡",
+    "killing_overwhelms_weak": "살중신경", "wealth_overwhelms_weak": "재다신약",
+    "pyeonin_dosik": "편인도식", "bigyeob_jaengjae": "군겁쟁재",
+}
+#: 용신 판단 축 코드 → 한글.
+_AXIS_KO: dict[str, str] = {
+    "eokbu": "억부", "johu": "조후", "bridge": "통관", "disease": "병약", "pattern": "격국",
+    "special": "특수격",
+}
+#: 십성 그룹 코드 → 한글은 아래 기존 `_GROUP_KO` 를 쓴다(문제 서술과 같은 표).
+#: 궁통보감 조후 사전의 글자 역할 코드 → 한글.
+_JOHU_ROLE_KO: dict[str, str] = {
+    "climate_warm": "따뜻하게", "climate_cool": "식히기", "climate_moisten": "적시기",
+    "climate_dry": "말리기", "control": "제어", "drain": "설기", "pair": "배합",
+    "peer": "비겁", "source": "근원", "wealth": "재성",
+}
+
+
+def _climate_ko(code: str) -> str:
+    """기후 축 코드(cold·severe_dry·neutral …) → 한글. 문장에 영문 코드를 싣지 않기 위한 변환."""
+    return _CLIMATE_KO.get(code) or {"neutral": "중화"}.get(code, code)
+
+
+def rejected_reason_ko(reason: str) -> str:
+    """기각·강등 사유 코드 → 화면용 한글(`decision_trace.rejected[].reason_ko`).
+
+    코드(`reason`)는 기계용으로 그대로 두고, 화면은 이 값만 쓴다. 이미 한글 문장인 사유(경쟁
+    후보)는 그대로 돌려준다.
+    """
+    if reason == "climate_demote":
+        return "조후 역행으로 강등"
+    if reason.startswith("climate_penalty:"):
+        tag, _, rest = reason.removeprefix("climate_penalty:").partition("(")
+        level = {"mild": "약한 감점", "severe": "강한 감점"}.get(tag, "감점")
+        return f"조후 역행 {level}" + (f"({rest}" if rest else "")
+    if reason.startswith("overwhelmed_by_"):
+        grp = reason.removeprefix("overwhelmed_by_")
+        return f"{_GROUP_KO.get(grp, grp)}에 눌려 힘을 못 씀"
+    return reason
 
 
 def _heesin_function_of(model: YongsinCandidateModel | None) -> str | None:
@@ -2212,7 +2264,7 @@ def build_yongsin(
                         )
                     elif veto is not None:
                         warnings.append(
-                            f"印食 병 감지되었으나 mediator 승격 차단: {veto}"
+                            f"印食 병 감지되었으나 통관 오행 승격 차단: {veto}"
                         )
                     else:
                         models.append(_food_rescue_model(
@@ -2378,7 +2430,10 @@ def build_yongsin(
     def _demote(el: str | None, tag: str) -> None:
         if el and el in useful:
             sc = useful.pop(el)
-            demoted.append({"element": el, "model": sc[1], "score": round(sc[0], 4), "reason": tag})
+            demoted.append({
+                "element": el, "model": sc[1], "score": round(sc[0], 4), "reason": tag,
+                "reason_ko": rejected_reason_ko(tag),
+            })
             _put(unfavorable, el, sc[0] * 0.9, sc[1], tag)
 
     # ① 조후 역행(한습 水 / 조열 火)은 용·희 부적격.
@@ -2435,12 +2490,15 @@ def build_yongsin(
             _sc, _mdl, _role = useful[_pen_el]
             useful[_pen_el] = (_sc * _factor, _mdl, _role)
             _tag = "severe" if _severe else "mild"
+            _pen_reason = f"climate_penalty:{_tag}(×{_factor})"
             demoted.append({
                 "element": _pen_el, "model": _mdl, "score": round(_sc, 4),
-                "reason": f"climate_penalty:{_tag}(×{_factor})",
+                "reason": _pen_reason, "reason_ko": rejected_reason_ko(_pen_reason),
             })
+            _mdl_label = next((m.label for m in models if m.model_type == _mdl), "후보")
             warnings.append(
-                f"조후 역행 감점: {_pen_el}({_mdl}) 한난 축 {_t_axis} → ×{_factor} (후보 유지)"
+                f"조후 역행 감점: {_pen_el}({_mdl_label}) 한난 축 {_climate_ko(_t_axis)}"
+                f" → ×{_factor} (후보 유지)"
             )
     elif not CLIMATE_DEMOTE_REQUIRE_SEVERE or _climate_primary.startswith("severe_"):
         _demote(_climate_el, "climate_demote")
@@ -2641,7 +2699,7 @@ def build_yongsin(
         resolution = (
             "조후 우선" if _chosen_axis == "johu"
             else "억부 우선" if _chosen_axis == "eokbu"
-            else f"{_chosen_axis or '기타'} 축 우선"
+            else f"{_AXIS_KO.get(_chosen_axis or '', '기타')} 축 우선"
         )
         if _climate_primary.startswith("severe_"):
             resolution += f"({_CLIMATE_KO.get(_climate_primary, _climate_primary)})"
@@ -2666,10 +2724,10 @@ def build_yongsin(
     else:
         heesin_fn = "generate_yongsin"  # 정적 생극 폴백·특수분기 — 生용신
     rejected: list[dict] = [
-        {"element": e, "model": mdl, "score": round(sc, 4),
-         "reason": "경쟁 후보(점수 차 " + f"{round(useful_sorted[0][1][0] - sc, 4)})"}
+        {"element": e, "model": mdl, "score": round(sc, 4), "reason": _why, "reason_ko": _why}
         for e, (sc, mdl, _role) in useful_sorted[1:]
         if e != roles.get("heesin")  # 채택된 희신은 '기각'이 아니다
+        for _why in ["경쟁 후보(점수 차 " + f"{round(useful_sorted[0][1][0] - sc, 4)})"]
     ] + demoted
     needed: dict[str, str] = {}
     if yongsin_el:
@@ -2696,7 +2754,11 @@ def build_yongsin(
         chosen_path=(
             f"{selected_model.label} — {selected_model.reasons[0]}"
             if selected_model is not None and selected_model.reasons
-            else (selected_model.label if selected_model is not None else (top_model or "미정"))
+            else (
+                selected_model.label if selected_model is not None
+                # 모델 객체가 없으면 유형 코드 대신 같은 유형의 라벨(없으면 '미정')을 쓴다.
+                else next((m.label for m in models if m.model_type == top_model), "미정")
+            )
         ),
         heesin_function=heesin_fn,
         heesin_function_ko=HEESIN_FUNCTION_KO.get(heesin_fn or "", None),

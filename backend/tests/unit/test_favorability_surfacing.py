@@ -20,8 +20,9 @@ def test_reason_codes_ko_maps_new_career_codes() -> None:
         "JOBCHANGE_OPPORTUNITY", "PROFILE_public_official_transfer",
     ]
     out = reason_codes_ko(codes)
-    assert "합격 기류" in out
-    assert "불합격 위험" in out
+    assert "합격 기류 있음" in out
+    # 불합격 패턴 사유는 라벨이 없다(2026-11-11 — 합격 기류가 없다는 것은 관련 신호 없음).
+    assert not [ko for ko in out if "불합격" in ko]
     assert "퇴직·이탈 리스크" in out
     assert "특수직군 길화" in out
     assert "압박성 이직" in out

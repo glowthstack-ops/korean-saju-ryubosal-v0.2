@@ -39,6 +39,17 @@ _LIFE_STAGES = {
     "평생": "평생", "일생": "평생",
 }
 _YOUTH_STAGE_RE = re.compile(r"청년\s*(?:기|때|시절|에)")
+#: C6 '이 해'를 가리키는 표기 — 올해·금년 + 띄어쓰기·축약 변형(2026-11-11 실답: '올한해 난 힘든
+#: 운이었을까?'가 시점 미파싱 → too_broad 로 반려). 앞 글자 가드는 '다가올 한 해'·'돌아올 한 해'
+#: (앞날을 꾸미는 말)를 올해로 읽지 않기 위한 것이다. '이번 해'는 '이번 해고 통보'·'이번 해외여행'과
+#: 동형이라 조사·문장 끝·띄어쓰기가 뒤따를 때만 인정한다.
+THIS_YEAR_PATTERN = (
+    r"올해|금년|(?<![가-힣])올\s*한\s*해|(?<![가-힣])올핸"
+    r"|이번\s*[년연]도|이번\s*해(?=[는엔에의가를]|\s|[?.!,~]|$)"
+)
+THIS_YEAR_RE = re.compile(THIS_YEAR_PATTERN)
+#: C6 '지난 해'(=작년) 변형 — '지지난해'(재작년)·'지난 해외여행'은 제외한다.
+LAST_YEAR_RE = re.compile(r"작년|(?<![가-힣])지난해(?!외)|(?<![가-힣])지난\s*한\s*해")
 #: C14 대운 단위 — 지금·이번·다음 대운, 대운 교운·교체(2026-10-29: '지금 대운은 어때요?'가
 #: 시점 미파싱 → too_broad 로 반려되던 결함 — '지금·요즘' 추가, '대운이 언제 바뀌어요?' 포함).
 DAEWOON_UNIT_RE = re.compile(
@@ -477,6 +488,109 @@ def normalize_korean_counts(text: str) -> str:
     _sub(_KO_NATIVE_SPAN_RE, _KO_NATIVE_COUNT, frozenset())
     _sub(_KO_SINO_SPAN_RE, _KO_SINO_COUNT, frozenset({"개월"}))
     return text
+
+
+# ── C5.r 방향이 있는 월 범위(2026-11-13) ────────────────────────────────────────────
+_MONTH_RANGE_RE = re.compile(
+    r"(?:(?P<sy>20\d{2})\s*년\s*|(?P<snext>내년)\s*|올해\s*)?"
+    r"(?:(?<![\d/\-])(?P<sm>\d{1,2})\s*월|(?P<srel>이번\s*달|이달|다음\s*달|내달))"
+    r"\s*(?:부터|에서|~|∼|–|-)\s*"
+    r"(?:(?P<ey>20\d{2})\s*년\s*|(?P<enext>내년)\s*)?(?P<em>\d{1,2})\s*월"
+)
+#: "11~1월" — 시작 달에 '월'이 붙지 않는 축약형.
+_MONTH_RANGE_SHORT_RE = re.compile(
+    r"(?<![\d/\-.])(?P<sm>\d{1,2})\s*(?:~|∼|–|-)\s*(?P<em>\d{1,2})\s*월(?!\s*\d{1,2}\s*일)"
+)
+#: 나열형이 해를 넘길 때 허용하는 최대 폭(시작 달에서 끝 달까지 달 수).
+_WRAPPED_LIST_MAX_SPAN = 5
+
+
+def _directed_month_range(text: str, today: date, this_month: str) -> tuple[str, str] | None:
+    """범위 표지(부터·에서·~)가 있는 월 구간을 (시작 라벨, 끝 라벨 — YYYY-MM)로 푼다.
+
+    말한 순서를 방향으로 본다. 끝 달 번호가 시작 달보다 작으면 다음 해로 넘긴다("11월부터 1월
+    까지" → 올해 11월 ~ 내년 1월). '내년'·'20XX년'은 붙은 쪽 달에만 적용한다("11월부터 내년 1월").
+    과거 시제 문장에서 해를 넘긴 끝이 오늘보다 뒤면 한 해 당겨 지난 구간으로 읽는다.
+
+    Args:
+        text: 질문 원문.
+        today: 오늘 날짜(연도 기준).
+        this_month: 오늘이 속한 절기 월 라벨(YYYY-MM) — '이번 달'·'다음 달' 시작의 기준.
+
+    Returns:
+        (start, end) 월 라벨. 범위 표지가 없거나 달 번호가 유효하지 않으면 None.
+    """
+    m = _MONTH_RANGE_RE.search(text)
+    rel: str | None = None
+    if m is not None:
+        rel = (m.group("srel") or "").replace(" ", "") or None
+        sm_raw, em_raw = m.group("sm"), m.group("em")
+        sy, snext, ey, enext = m.group("sy"), m.group("snext"), m.group("ey"), m.group("enext")
+    else:
+        m = _MONTH_RANGE_SHORT_RE.search(text)
+        if m is None:
+            return None
+        sm_raw, em_raw = m.group("sm"), m.group("em")
+        sy = snext = ey = enext = None
+    end_month = int(em_raw)
+    if not 1 <= end_month <= 12:
+        return None
+    if rel is not None:
+        start_label = shift_month_label(this_month, 1) if rel in ("다음달", "내달") else this_month
+        start_year, start_month = int(start_label[:4]), int(start_label[5:7])
+    else:
+        start_month = int(sm_raw)
+        if not 1 <= start_month <= 12:
+            return None
+        # '내년'이 범위 앞에 떨어져 있어도("내년에는 3월부터 5월까지") 시작에 적용한다.
+        lead_next = snext or (not enext and "내년" in text[: m.start()])
+        start_year = int(sy) if sy else today.year + (1 if lead_next else 0)
+    if ey:
+        end_year = int(ey)
+    elif enext:
+        end_year = max(today.year + 1, start_year)
+    else:
+        end_year = start_year + (1 if end_month < start_month else 0)
+    if (end_year, end_month) < (start_year, start_month):
+        return None
+    wrapped = end_year > start_year and not (sy or snext or ey or enext or rel)
+    if wrapped:
+        now_year, now_month = int(this_month[:4]), int(this_month[5:7])
+        # 지금이 그 구간의 뒤쪽 달 안이면(1월에 "12월부터 2월까지") 진행 중인 구간으로 읽고,
+        # 과거 시제인데 끝이 아직 오지 않았으면("11월부터 1월까지 힘들었어") 지난 구간으로 읽는다.
+        in_tail = now_month <= end_month
+        past_ahead = bool(_PAST_TENSE_RE.search(text)) and (
+            (end_year, end_month) > (now_year, now_month)
+        )
+        if in_tail or past_ahead:
+            start_year, end_year = start_year - 1, end_year - 1
+    return f"{start_year}-{start_month:02d}", f"{end_year}-{end_month:02d}"
+
+
+def _wrapped_month_list(
+    months: list[int], today: date, *, explicit_year: bool, past: bool
+) -> tuple[int, int] | None:
+    """범위 표지 없이 나열한 달이 해를 넘기는 구간이면 (시작 달, 끝 달)을 돌려준다.
+
+    조건(모두): 연도 명시·과거 시제가 아니다 / 말한 순서가 달력 순으로 정확히 한 번 넘어간다
+    (11·12·1, 11·1) / 폭이 5개월 이내 / 시작 달이 이번 달 이후이고 끝 달은 올해 기준으로 이미
+    지났다(같은 해로 읽으면 지난 달이 되는 경우만). 그 밖에는 None — 종전의 같은 해 최소~최대 구간.
+    """
+    seq: list[int] = []
+    for mth in months:
+        if 1 <= mth <= 12 and mth not in seq:
+            seq.append(mth)
+    if explicit_year or past or len(seq) < 2:
+        return None
+    descents = sum(1 for a, b in zip(seq, seq[1:], strict=False) if b < a)
+    first, last = seq[0], seq[-1]
+    if descents != 1 or last >= first:
+        return None
+    if (last - first) % 12 > _WRAPPED_LIST_MAX_SPAN:
+        return None
+    if first < today.month or last >= today.month:
+        return None
+    return first, last
 
 
 def parse_time(
@@ -949,10 +1063,34 @@ def parse_time(
     # 6월 발화에서도 같은 해 5월과의 비교 맥락) — "내년" 명시 시에만 +1.
     # 다중 월 비교("8월과 10월 중 언제가 나아?")는 두 달을 모두 잡아 min~max 구간으로 스팬한다
     # — 첫 달만 잡혀 한쪽만 후보·근거가 붙던 비대칭 비교 결함을 차단(2026-06-16 사용자 지적).
+    # C5.r 방향이 있는 월 범위 — "11월부터 1월까지", "11~1월", "11월부터 내년 1월까지",
+    #      "이번 달부터 1월까지"(2026-11-13 데굴님 실답: 11월에 "11월부터 1월까지의 취업운"을
+    #      물었는데 아래 다중 월 규칙이 월 번호를 작은 순으로 정렬해 2026-01~2026-11 로 풀었고,
+    #      답이 지난 2~9월을 다가올 시기처럼 서술했다). 범위 표지가 있으면 말한 순서가 곧
+    #      방향이다 — 끝 달이 시작 달보다 앞 번호면 해를 넘긴다.
+    if not re.search(r"\d{1,2}\s*월\s*\d{1,2}\s*일", text):
+        ranged = _directed_month_range(text, today, this_month)
+        if ranged is not None:
+            return TimeRange(
+                type="absolute", granularity=Granularity.MONTH,
+                start=ranged[0], end=ranged[1], urgency=urgency,
+            ), (TimeScope.SHORT_TERM if ranged[0] == ranged[1] else TimeScope.MID_TERM)
     months_found = re.findall(r"(\d{1,2})\s*월", text)
     if months_found and not re.search(r"\d{1,2}\s*월\s*\d{1,2}\s*일", text):
         ym = re.search(r"(20\d{2})\s*년", text)
         year = int(ym.group(1)) if ym else today.year + (1 if "내년" in text else 0)
+        # 나열형이 해를 넘기는 경우("11월, 12월, 1월"·"11월과 1월 중") — 말한 순서가 달력 순으로
+        # 한 번 넘어가고, 같은 해로 읽으면 뒤에 말한 달이 이미 지난 달일 때만 다음 해로 잇는다.
+        wrapped = _wrapped_month_list(
+            [int(x) for x in months_found], today,
+            explicit_year=bool(ym) or "내년" in text, past=bool(_PAST_TENSE_RE.search(text)),
+        )
+        if wrapped is not None:
+            return TimeRange(
+                type="absolute", granularity=Granularity.MONTH,
+                start=f"{year}-{wrapped[0]:02d}", end=f"{year + 1}-{wrapped[1]:02d}",
+                urgency=urgency,
+            ), TimeScope.MID_TERM
         month_nums = sorted({int(x) for x in months_found if 1 <= int(x) <= 12})
         if len(month_nums) >= 2:  # 다중 시점 비교 — 양 끝 달 포함 구간(둘 다 후보·근거 확보)
             return TimeRange(
@@ -1021,7 +1159,7 @@ def parse_time(
             type="absolute", granularity=Granularity.YEAR, start=year_key, end=year_key,
             urgency=urgency,
         ), TimeScope.MID_TERM
-    if "올해" in text or "금년" in text:
+    if THIS_YEAR_RE.search(text):  # 올해·금년·올 한 해·올핸·이번 해·이번 년도
         year_key = str(today.year)
         return TimeRange(
             type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
@@ -1047,7 +1185,7 @@ def parse_time(
             type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
             urgency=urgency,
         ), TimeScope.MID_TERM
-    if "작년" in text:
+    if LAST_YEAR_RE.search(text):  # 작년·지난해·지난 한 해
         year_key = str(today.year - 1)
         return TimeRange(
             type="relative", granularity=Granularity.YEAR, start=year_key, end=year_key,
@@ -1191,6 +1329,10 @@ _POS_PRED_RE = re.compile(
 _CORRECTION_MARK_RE = re.compile(r"말고|아니라|아니고|[은는]\s*됐고|까지는\s*아니고")
 # 비교 신호 — 복수 그룹이 모두 비교 대상(comparison, 스팬 유지).
 _COMPARE_MARK_RE = re.compile(r"비교|둘\s*중|중\s*(?:언제|어디|뭐|누가|어느)|어느\s*(?:해|쪽)|vs")
+# 과거 서술절 — 연도 그룹 뒤 창에서 과거형 음절(종성 ㅆ) + 연결어미. 그 연도는 지난 일을
+# 가리키는 배경(reference)이고 분석 대상이 아니다('올해 떨어졌는데 내년엔 붙을까?', 2026-11-11).
+_PAST_CONNECTIVE_RE = re.compile(r"([가-힣])(?:는데|더니|지만|으니|어서|고\b|고\s)")
+_SSANG_SIOT_JONG = 20  # 한글 음절 종성 인덱스 — ㅆ
 # 가정 신호 — 그룹 직후 어미('2030년이라면').
 _HYPO_TAIL_RE = re.compile(r"^\s*(?:이?라면|이면)")
 # 연도 그룹 내부 구분자 — 이것만으로 이어지면 같은 그룹("2026년 27년", "2026, 2027년").
@@ -1200,8 +1342,9 @@ _YEAR_SEP_RE = re.compile(r"^[\s,·~\-—∼과와랑년및]*(?:이랑)?[\s,·~\
 # '에서'('2027년에서 2028년으로 미뤄도')·'그리고'(비교 나열)는 종전대로 그룹을 끊는다.
 _YEAR_RANGE_OPEN_RE = re.compile(r"^\s*년?\s*(?:부터|에서)(?:는|라도|만)?\s*$")
 _YEAR_RANGE_CLOSE_RE = re.compile(r"^\s*년?\s*(?:까지|사이|동안)")
-# 상대 연도 어휘 — 배제/정정 구문에 흔한 '올해 말고 내년' 지원.
-_REL_YEAR_WORDS = {"올해": 0, "금년": 0, "내년": 1, "내후년": 2}
+# 상대 연도 어휘(정규식 → 올해 기준 차이) — 배제/정정 구문에 흔한 '올해 말고 내년' 지원.
+# '이 해' 표기는 C6 과 같은 THIS_YEAR_PATTERN 을 쓴다('올 한 해 말고 내년').
+_REL_YEAR_WORDS = {THIS_YEAR_PATTERN: 0, "내년": 1, "내후년": 2}
 
 
 def _year_mentions(text: str, today: date) -> list[tuple[int, int, int]]:
@@ -1240,6 +1383,22 @@ def _year_mentions(text: str, today: date) -> list[tuple[int, int, int]]:
     return dedup
 
 
+def _is_past_syllable(ch: str) -> bool:
+    """과거 선어말어미가 축약된 음절(했·됐·졌·었·았 …)인가 — 종성 ㅆ, '있'·'겠' 제외."""
+    return (
+        "가" <= ch <= "힣" and ch not in "있겠"
+        and (ord(ch) - 0xAC00) % 28 == _SSANG_SIOT_JONG
+    )
+
+
+def _past_connective_pos(window: str) -> int | None:
+    """창 안 첫 과거 서술 연결절('떨어졌는데'·'힘들었지만')의 위치(없으면 None)."""
+    for m in _PAST_CONNECTIVE_RE.finditer(window):
+        if _is_past_syllable(m.group(1)):
+            return m.start()
+    return None
+
+
 def extract_time_constraints(text: str, today: date) -> list[TimeConstraintItem]:
     """연 단위 시간 표현을 전수 추출해 담화 역할을 부여한다 (P1).
 
@@ -1266,12 +1425,21 @@ def extract_time_constraints(text: str, today: date) -> list[TimeConstraintItem]
             groups.append([cur])
     comparison = bool(_COMPARE_MARK_RE.search(text)) and len(groups) >= 2
 
+    # 그룹별 술어 창(다음 그룹 전까지)과, 창에 과거형 음절이 하나도 없는 그룹 — 과거 서술절
+    # 배경(reference) 판정은 '뒤에 과거형이 아닌 그룹이 있을 때'만 한다(둘 다 지난 일이면
+    # 종전대로 단순 언급 — '2025년에 결혼했는데 2026년에 이혼했어').
+    windows = [
+        text[grp[-1][2]:(groups[gi + 1][0][1] if gi + 1 < len(groups) else len(text))]
+        for gi, grp in enumerate(groups)
+    ]
+    non_past = [not any(_is_past_syllable(ch) for ch in w) for w in windows]
+
     items: list[TimeConstraintItem] = []
     prev_neg_correction = False  # 직전 그룹이 정정 접속으로 배제됐는가
     for gi, grp in enumerate(groups):
         g_start, g_end = grp[0][1], grp[-1][2]
-        window_end = groups[gi + 1][0][1] if gi + 1 < len(groups) else len(text)
-        window = text[g_end:window_end]
+        window = windows[gi]
+        past_pos = _past_connective_pos(window) if any(non_past[gi + 1:]) else None
         years = sorted(y for y, _, _ in grp)
         span_text = text[g_start:g_end]
         neg = _NEG_PRED_RE.search(window)
@@ -1292,6 +1460,9 @@ def extract_time_constraints(text: str, today: date) -> list[TimeConstraintItem]
         elif comparison:
             role = TimeConstraintRole.COMPARISON
             reason = "비교 구문"
+        elif past_pos is not None and (not pos or past_pos < pos.start()):
+            role = TimeConstraintRole.REFERENCE
+            reason = "과거 서술절"
         elif pos:
             role = TimeConstraintRole.TARGET
             reason = pos.group(0)

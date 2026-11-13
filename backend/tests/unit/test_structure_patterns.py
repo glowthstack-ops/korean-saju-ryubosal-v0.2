@@ -229,7 +229,6 @@ def test_domain_filter_active_in_full_input() -> None:
 def test_tomb_patterns_natal_detection(result) -> None:
     """묘고 구조는 natal 신호(입묘 지지/충 지지쌍/병존)로 감지된다(운 activation 별개)."""
     from saju_engines.health_vulnerability import analyze_health_vulnerability
-    from saju_engines.wealth_capacity import analyze_wealth_capacity
 
     detected = {d.pattern_id for d in detect_structure_patterns(result)}
     pillars = result.pillars
@@ -248,7 +247,44 @@ def test_tomb_patterns_natal_detection(result) -> None:
         a in natal_branches and b in natal_branches for a, b in (("辰", "戌"), ("丑", "未"))
     )
     assert ("CHUNGGAE" in detected) == clash_present
-    assert ("GAEGO" in detected) == analyze_wealth_capacity(result).storage_repeat
+    # 개고(2026-11-13 재정의): 같은 창고 중복이 아니라 '충 쌍 없이 형 쌍(丑戌·戌未)이 있을 때'.
+    punish_present = any(
+        a in natal_branches and b in natal_branches for a, b in (("丑", "戌"), ("戌", "未"))
+    )
+    assert ("GAEGO" in detected) == (punish_present and not clash_present)
+
+
+def test_gaego_is_punish_opening_not_duplicate_storage() -> None:
+    """개고 표지 — 형으로 열린 창고만. 같은 창고 중복·충 쌍은 개고가 아니다(STORAGE_GATES §7-1)."""
+    import itertools
+
+    from saju_engines.wealth_capacity import analyze_wealth_capacity
+
+    seen = {"punish_only": 0, "repeat_only": 0, "clash": 0}
+    for y, m, d in itertools.product(range(1970, 1990), range(1, 13), (4, 14, 24)):
+        if all(v >= 2 for v in seen.values()):
+            break
+        res = calculate(BirthInput(
+            birth_date=f"{y}-{m:02d}-{d:02d}", birth_time="12:00",
+            birth_place_name="서울", gender="male",
+        ))
+        p = res.pillars
+        assert p is not None and p.hour is not None
+        brs = [p.year.branch, p.month.branch, p.day.branch, p.hour.branch]
+        have = set(brs)
+        clash = any(a in have and b in have for a, b in (("辰", "戌"), ("丑", "未")))
+        punish = any(a in have and b in have for a, b in (("丑", "戌"), ("戌", "未")))
+        ids = {x.pattern_id for x in detect_structure_patterns(res)}
+        if clash:
+            seen["clash"] += 1
+            assert "GAEGO" not in ids  # 충 쌍은 충개(CHUNGGAE)가 말한다
+        elif punish:
+            seen["punish_only"] += 1
+            assert "GAEGO" in ids
+        elif analyze_wealth_capacity(res).storage_repeat:
+            seen["repeat_only"] += 1
+            assert "GAEGO" not in ids  # 반례: 같은 창고가 겹친 것만으로는 개고가 아니다
+    assert all(v >= 1 for v in seen.values()), seen
 
 
 # ── 만세력 화면 노출 선별(2026-10-17) ───────────────────────────────────────
@@ -379,4 +415,16 @@ def test_p0_basis_note_only_on_six_overload_patterns() -> None:
     r = _p0_result("1970-07-24", "04:30")
     six = {"JAEDA_SINYAK", "GWANDA_SINYAK", "INDA_SINYAK", "SEOLGI_TAEGWA",
            "GUNGEOP_JAENGJAE", "BIGEOP_TALJAE"}
-    assert all((d.pattern_id in six) or not d.basis_note for d in detect_structure_patterns(r))
+    # 2026-11-13: 신약·태신약 원국의 '일간이 힘을 쓰는 구조'에는 신약형 근거가 붙는다(이 명식은
+    # 신약). 그 밖의 패턴에는 여전히 근거 줄이 없다.
+    from saju_engines.pattern_conditions import DM_SPENDING_IDS
+
+    detected = detect_structure_patterns(r)
+    for d in detected:
+        if d.pattern_id in six:
+            continue
+        if d.pattern_id in DM_SPENDING_IDS:
+            assert "신약형" in d.basis_note, d.pattern_id
+        else:
+            assert not d.basis_note, d.pattern_id
+    assert all("신약형" not in d.basis_note for d in detected if d.pattern_id in six)

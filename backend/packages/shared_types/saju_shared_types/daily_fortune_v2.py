@@ -14,6 +14,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from saju_shared_types.daily_fortune import (
+    BAEKHO_DAY_BASIS_EFFECTIVE_FROM,
     CATALOG_EXPANSION_3_EFFECTIVE_FROM,
     CATALOG_EXPANSION_EFFECTIVE_FROM,
     STAGE_DIRECTION_EFFECTIVE_FROM,
@@ -31,7 +32,12 @@ from saju_shared_types.daily_fortune import (
 #: v2.3(2026-11-03): 12운성 채널 방향 교정(docs/17 §25) — '오늘 천간→일지'에서 통설·만세력
 #: 엔진과 같은 '일간→오늘 지지'로. 카탈로그 내용은 v2.2 와 같고 채널 계산만 바뀌므로 경계
 #: (STAGE_DIRECTION_EFFECTIVE_FROM, 11/5)로 버전을 고른다 — 11/4 보드까지는 v2.2 로 재생된다.
-MODEL_V2_VERSION = "model.v2.3"
+#: v2.4(2026-11-13): 상해 채널의 백호를 일주 기준으로(docs/17 §32) — 오늘 일진이 백호 간지여도
+#: 일주가 백호 간지가 아니면 성립하지 않는다(원국·운 신살의 백호와 같은 기준). 카탈로그 내용은
+#: v2.3 과 같고 채널 계산만 바뀌므로 경계(BAEKHO_DAY_BASIS_EFFECTIVE_FROM, 11/14)로 버전을 고른다.
+MODEL_V2_VERSION = "model.v2.4"
+#: 백호 일주 기준 경계 이전(11/5~11/13)에 적용되는 v2 모델 버전(82종, 일진만 보는 백호).
+MODEL_V2_VERSION_BEFORE_BAEKHO_DAY_BASIS = "model.v2.3"
 #: 12운성 방향 교정 경계 이전(9/20~11/4)에 적용되는 v2 모델 버전(82종, 역방향 12운성).
 MODEL_V2_VERSION_BEFORE_STAGE_DIRECTION = "model.v2.2"
 #: 3차 경계 이전(9/12~9/19)에 적용되는 v2 모델 버전(64종). 스냅샷 model.v2.1 이 커밋돼 있다.
@@ -49,7 +55,8 @@ def active_model_v2_version(target_date: date) -> str:
 
     Returns:
         9/12 이전 `PREVIOUS_MODEL_V2_VERSION`(48종) → 9/20 이전 model.v2.1(64종) → 11/5 이전
-        model.v2.2(82종, 역방향 12운성) → 이후 `MODEL_V2_VERSION`(82종, 일간→오늘 지지 12운성).
+        model.v2.2(82종, 역방향 12운성) → 11/14 이전 model.v2.3(일간→오늘 지지 12운성) → 이후
+        `MODEL_V2_VERSION`(백호 일주 기준).
     """
     if target_date < CATALOG_EXPANSION_EFFECTIVE_FROM:
         return PREVIOUS_MODEL_V2_VERSION
@@ -57,6 +64,8 @@ def active_model_v2_version(target_date: date) -> str:
         return MODEL_V2_VERSION_BEFORE_EXPANSION_3
     if target_date < STAGE_DIRECTION_EFFECTIVE_FROM:
         return MODEL_V2_VERSION_BEFORE_STAGE_DIRECTION
+    if target_date < BAEKHO_DAY_BASIS_EFFECTIVE_FROM:
+        return MODEL_V2_VERSION_BEFORE_BAEKHO_DAY_BASIS
     return MODEL_V2_VERSION
 
 #: prior 3등급 → 사전확률 가산치 (§22-1: signature=출전권, prior=순위만).
@@ -97,7 +106,7 @@ HAZARD_CHANNELS: tuple[str, ...] = ("metal", "fire")
 #: 트리거가 아니므로(RISK_ENGINE.md §3-1 원칙과 동일) required_signature 에 쓰면 스키마가 거부한다.
 SINSAL_CHANNELS: tuple[str, ...] = (
     "sinsal_noble",    # 귀인: 천을 1.0 / 천덕·월덕 .6 / 금여·암록 .5
-    "sinsal_hazard",   # 상해: 양인 1.0 / 백호(오늘 일진) .6 / 현침 .4
+    "sinsal_hazard",   # 상해: 양인 1.0 / 백호(오늘 일진+일주, v2.4~) .6 / 현침 .4
     "sinsal_loss",     # 손실·노출(12신살): 겁살 1.0 / 재살·망신 .8 / 육해·천살 .6 / 월살 .5
     "sinsal_move",     # 이동(12신살): 역마 1.0 / 지살 .6
     "sinsal_charm",    # 매력: 년살(도화) 1.0 / 홍염 .8

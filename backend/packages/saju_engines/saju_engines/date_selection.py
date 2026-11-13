@@ -14,8 +14,10 @@ import json
 from datetime import date
 from pathlib import Path
 
+from saju_manse_analysis.luck.luck_calendar import luck_month_label, sewoon_year_of
 from saju_manse_analysis.yongsin.operational_role_config import is_favorable_role
 
+from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.constants import BRANCH_ELEMENT, GENERATES
 from saju_shared_types.date_selection import (
     DateCandidate,
@@ -28,6 +30,7 @@ from saju_shared_types.enums import Branch, Element
 from saju_shared_types.events import EventKey
 from saju_shared_types.precompute import CompositeLevel, LuckComposite
 
+from . import period_v2_config
 from .folk_direction import folk_note_for_day
 from .relocation import (
     _signed_weight,
@@ -205,9 +208,10 @@ class DateSelectionEngine:
                     (1 - _TEN_GOD_BLEND) * day_execution + _TEN_GOD_BLEND * fit
                 )
                 reasons.append(f"{c.ten_god.stem}/{c.ten_god.branch_main} 십성 적합 {fit}")
+            year_key, month_key = _parent_keys(c.period_key)
             scores = DateScores(
-                macro_flow=_to100(years.get(c.period_key[:4], 0.0)),
-                month_fit=_to100(months.get(c.period_key[:7], 0.0)),
+                macro_flow=_to100(years.get(year_key, 0.0)),
+                month_fit=_to100(months.get(month_key, 0.0)),
                 day_execution=day_execution,
                 calendar_rule=min(100, calendar_score),
                 reality_fit=reality_fit,
@@ -418,6 +422,26 @@ def direction_fits(
         ))
     out.sort(key=lambda d: -d.fit)
     return out
+
+
+def _parent_keys(day_key: str) -> tuple[str, str]:
+    """일운 날짜('YYYY-MM-DD')의 (연 흐름 키 'YYYY', 월 적합 키 'YYYY-MM').
+
+    종전에는 양력 연·월이다. 절기 기준 플래그가 켜지면 — `JEOLGI_PARENT_MONTH_ENABLED`: 절입 전
+    초순 날은 앞 절기월, `JEOLGI_PARENT_YEAR_ENABLED`: 입춘 전 날은 전년 세운(타임존은 월운 라벨
+    생성 기본값 Asia/Seoul).
+    """
+    by_month = period_v2_config.JEOLGI_PARENT_MONTH_ENABLED
+    by_year = period_v2_config.JEOLGI_PARENT_YEAR_ENABLED
+    if not (by_month or by_year):
+        return day_key[:4], day_key[:7]
+    try:
+        jeolgi_month = luck_month_label(date.fromisoformat(day_key[:10]), get_table())
+    except (ValueError, TypeError):
+        return day_key[:4], day_key[:7]
+    jeolgi_year = sewoon_year_of(jeolgi_month)
+    year_key = str(jeolgi_year) if by_year and jeolgi_year is not None else day_key[:4]
+    return year_key, (jeolgi_month if by_month else day_key[:7])
 
 
 def _to100(signed: float) -> int:

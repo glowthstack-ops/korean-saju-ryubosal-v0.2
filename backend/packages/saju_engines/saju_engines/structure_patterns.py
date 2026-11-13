@@ -42,20 +42,25 @@ from saju_shared_types.structure_patterns import (
     StructurePatternDict,
     StructurePatternEntry,
 )
+from saju_shared_types.twelve_sinsal import self_sinsal_bases
 
 from .event_scoring import favorability_map
 from .health_vulnerability import analyze_health_vulnerability
 from .pattern_conditions import (
     CONDITION_IDS,
     NATAL_CONDITION_IDS,
+    WEAK_DM_BASIS_NOTE,
+    YIELDS_TO,
+    dm_cannot_carry,
     evaluate_condition,
+    evaluate_suhwa,
     natal_condition_input,
 )
 from .relationship_relative_sinsal import get_relative_sinsal
-from .wealth_capacity import analyze_wealth_capacity
 
 _DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries"
 _STORAGE_CLASH_PAIRS = (("辰", "戌"), ("丑", "未"))  # 묘고 충 지지쌍(충개고)
+_STORAGE_PUNISH_PAIRS = (("丑", "戌"), ("戌", "未"))  # 묘고 형 지지쌍(충이 아닌 쌍 — 약한 개고)
 _COMPILED_DEFAULT = Path(__file__).resolve().parents[3] / "compiled"
 STRUCTURE_PATTERNS_VERSION = "1.4.0"  # 1.4.0: 조토불생금·습토회화 + 상생 기능어(2026-10-27)
 
@@ -299,7 +304,12 @@ def _p0_effective_ok(pid: str, eg: dict[str, float], band: str) -> bool:
     if pid == "GWANDA_SINYAK":
         return eg["officer"] >= two and band in _GEOK_WEAK
     if pid == "INDA_SINYAK":
-        return eg["resource"] >= 40.0 and (eg["output"] + eg["wealth"]) <= 20.0
+        # 신강·태신강이면 '신약'이 아니다 — 인성 과다로 강한 일간은 인왕신왕이 담당(2026-11-13).
+        return (
+            band not in _STRONG_BANDS
+            and eg["resource"] >= 40.0
+            and (eg["output"] + eg["wealth"]) <= 20.0
+        )
     if pid == "SEOLGI_TAEGWA":
         return band in _WEAK_BANDS and eg["output"] >= 35.0
     if pid == "GUNGEOP_JAENGJAE":
@@ -339,12 +349,17 @@ def detect_structure_patterns(
     # 성립 조건 SSOT(pattern_conditions) — 조건이 정의된 패턴은 어떤 경로(격국 구제 어댑터 등)로
     # 발동하더라도 원국 세력 조건을 통과해야 성립한다(원국 감지 ↔ 운 판정 일치, 2026-10-17 검수).
     cond_in = natal_condition_input(result)
+    hour_known = result.pillars is not None and result.pillars.hour is not None
 
     def emit(pid: str, strength: float, scope: str, extra: tuple[str, ...] = ()) -> None:
         if pid in seen:
             return
         entry = by_id.get(pid)
         if entry is None:
+            return
+        # 인다신약은 어떤 경로(격국 파격 어댑터·표면 개수·보정 세력)로 와도 신강·태신강 원국에서는
+        # 서지 않는다 — 인왕신왕과 함께 서던 모순 제거(2026-11-13 데굴님 결정).
+        if pid == "INDA_SINYAK" and cond_in is not None and cond_in.band in _STRONG_BANDS:
             return
         if pid in CONDITION_IDS and cond_in is not None:
             cond = evaluate_condition(pid, cond_in)
@@ -367,6 +382,14 @@ def detect_structure_patterns(
                 llm_tag=entry.llm_tag,
                 classical_note=entry.classical_note,
                 aliases=list(entry.aliases),
+                # 일간이 힘을 쓰는 구조가 신약·태신약 원국에 서면 근거 줄에 신약형을 밝힌다
+                # (2026-11-13 — 성립은 두되 감당 부족을 항상 표기). 시주 미상은 신강약이 미확정이라
+                # 붙이지 않는다(HOUR_UNKNOWN_POLICY — 세력 판정 미계산).
+                basis_note=(
+                    WEAK_DM_BASIS_NOTE
+                    if cond_in is not None and hour_known and dm_cannot_carry(pid, cond_in.band)
+                    else ""
+                ),
             )
         )
 
@@ -515,8 +538,17 @@ def detect_structure_patterns(
         emit("IPMYO", 0.55, "natal", ("일간/식신 묘지 지지 존재",))
     if any(a in natal_branches and b in natal_branches for a, b in _STORAGE_CLASH_PAIRS):
         emit("CHUNGGAE", 0.6, "natal", ("묘고 충 지지쌍 존재",))
-    if analyze_wealth_capacity(result).storage_repeat:
-        emit("GAEGO", 0.5, "natal", ("동일 묘고 병존(충개고 잠재)",))
+    else:
+        # 개고(開庫) — 창고가 충 없이 형으로 열려 있는 원국(2026-11-13). 종전 조건은 '같은 창고
+        # 지지 중복'이었는데 그것이 창고를 연다는 근거를 찾지 못했다(검색). 충으로 열린 경우는
+        # 위 충개가 말하므로, 여기서는 형(丑戌·戌未)으로 열린 경우만 낸다 — 창고 층
+        # (`storage_gates`)의 '약하게 열려 있음'과 같은 기준.
+        opened_by_punish = sorted(
+            f"{a}{b}" for a, b in _STORAGE_PUNISH_PAIRS
+            if a in natal_branches and b in natal_branches
+        )
+        if opened_by_punish:
+            emit("GAEGO", 0.5, "natal", (f"묘고 형({'·'.join(opened_by_punish)})으로 열림",))
 
     # 득비이재(new, P1): 재다신약을 비겁으로 운용.
     if "DEUKBI_IJAE" not in seen and "JAEDA_SINYAK" in seen and groups["peer"] >= 1:
@@ -670,21 +702,25 @@ def detect_structure_patterns(
                 emit("SINWANG_JAEWANG", 0.55, "natal", (f"{band}·재({wealth_el}) 왕",))
             elif wealth_el in defi or vis.get(wealth_el, 0.0) < 8:
                 emit("SINWANG_JAEYAK", 0.5, "natal", (f"{band}·재({wealth_el}) 약",))
-        su, hwa = vis.get("水", 0.0), vis.get("火", 0.0)  # 수화기제/미제 — P1(F4)
-        if su > 0 and hwa > 0:
-            both_healthy = "水" not in defi and "火" not in defi
-            if su >= 15 and hwa >= 15 and both_healthy and abs(su - hwa) <= 15:
-                emit("SUHWA_GIJE", 0.5, "natal", ("水火 균형",))
-            elif "水" in defi or "火" in defi or abs(su - hwa) >= 30:
-                emit("SUHWA_MIJE", 0.5, "natal", ("水火 불균형",))
+        # 수화기제/미제 — P1(F4). 조건은 운 판정과 같은 함수(pattern_conditions.evaluate_suhwa).
+        gije, mije = evaluate_suhwa(vis.get("水", 0.0), vis.get("火", 0.0), defi)
+        if gije:
+            emit("SUHWA_GIJE", 0.5, "natal", ("水火 균형",))
+        elif mije:
+            emit("SUHWA_MIJE", 0.5, "natal", ("水火 불균형",))
 
     # 살중제경(F6): 관살 2+ 이고 제(식상)·화(인성)가 있으나 관살 수에 못 미침.
     if groups["officer"] >= 2 and 1 <= groups["output"] + groups["resource"] < groups["officer"]:
         emit("SALJUNG_JEGYEONG", 0.5, "natal",
              (f"관살 {groups['officer']}·제화 {groups['output'] + groups['resource']}",))
     # 재관인상생(F6): 재·관·인 병존 + 재극인 미성립(관성이 통관).
+    # 재→정관 다리는 배타 적용 전 조건으로 본다 — 편관이 더 강해 이름이 재생살로 서더라도
+    # (재생관·재생살 배타, 2026-11-13) 재·관·인 연쇄 자체는 그대로다.
+    jae_gwan_leg = cond_in is not None and bool(
+        (leg := evaluate_condition("JAE_SAENGGWAN", cond_in, exclusive=False)) and leg.ok
+    )
     if (
-        "JAE_SAENGGWAN" in seen
+        jae_gwan_leg
         and ("GWAN_IN_SANGSAENG" in seen or "SAL_IN_SANGSAENG" in seen)
         and "JAE_GEUGIN" not in seen and "TAMJAE_GOEIN" not in seen
         and force is not None
@@ -793,14 +829,16 @@ def detect_structure_patterns(
             emit("JAPGI_INSU_GYEOK", 0.55 if revealed_in else 0.4, "natal", (note_in,))
 
     # ── H. 사고수 확장 — 역마·형 세분·행동/제어·건강 부담 (2026-07-23 승인안 A) ──
-    # 역마는 글자살(寅申巳亥 보유)이 아니라 연지·일지 삼합국 기준 상대 12신살로
-    # 산출한다(데굴님 정정). 사생지 충돌은 MOVEMENT_BRANCH_CLASH 보조 라벨로만.
-    yeokma_refs: dict[str, list[str]] = {}  # 역마 지지(한자) → 기준 라벨(연지/일지)
-    for ref_name, base_pos in (("연지", pillars.year), ("일지", pillars.day)):
-        if base_pos is None:
-            continue
+    # 역마는 글자살(寅申巳亥 보유)이 아니라 기준 자리 삼합국의 상대 12신살로 산출한다(데굴님 정정).
+    # 기준 자리는 공용 상수(SELF_SINSAL_BASE_SLOTS — 2026-11-12 부터 일지만, 종전 연지·일지).
+    # 사생지 충돌은 MOVEMENT_BRANCH_CLASH 보조 라벨로만.
+    yeokma_refs: dict[str, list[str]] = {}  # 역마 지지(한자) → 기준 라벨
+    for _slot, ref_name, base_branch in self_sinsal_bases(
+        pillars.year.branch if pillars.year is not None else None,
+        pillars.day.branch if pillars.day is not None else None,
+    ):
         for nb in natal_branches:
-            if get_relative_sinsal(Branch(base_pos.branch), Branch(nb)).sinsal == "역마살":
+            if get_relative_sinsal(base_branch, Branch(nb)).sinsal == "역마살":
                 yeokma_refs.setdefault(nb, []).append(ref_name)
 
     rel_kinds_by_branch: dict[str, set[str]] = {}  # 지지별 충·형·파·해 종류 집계
@@ -994,7 +1032,30 @@ def detect_structure_patterns(
 
     out.sort(key=lambda d: d.strength, reverse=True)
     # 시주 미상: 후보 전부 일치 패턴만 남긴다(시간이 있으면 None → 무필터).
+    out = _drop_yielding_patterns(out)
     confirmed = hour_unknown_confirmed_ids(result) if apply_hour_unknown_policy else None
     if confirmed is not None:
         out = [d for d in out if d.pattern_id in confirmed]
     return out
+
+
+def _drop_yielding_patterns(out: list[DetectedPattern]) -> list[DetectedPattern]:
+    """같은 작용을 두 이름으로 부르는 원국 감지를 정리한다(`pattern_conditions.YIELDS_TO`).
+
+    득비이재가 서면 군겁쟁재·비겁탈재를, 재자약살이 서면 재생살을, 인다용재가 서면 재극인·
+    탐재괴인을 뺀다. 감지 순서에 기대지 않도록 감지가 끝난 뒤 한 번에 적용한다.
+    """
+    ids = {d.pattern_id for d in out}
+    kept = [d for d in out if not (YIELDS_TO.get(d.pattern_id, frozenset()) & ids)]
+    # 빠진 구조에만 기대던 파생 신호도 함께 뺀다(전제가 사라진 고아 신호 방지).
+    left = {d.pattern_id for d in kept}
+    return [
+        d for d in kept
+        if not ((needs := _DERIVED_FROM_ANY.get(d.pattern_id)) and not (needs & left))
+    ]
+
+
+#: 파생 신호 → 그 전제가 되는 구조(하나라도 남아 있어야 한다).
+_DERIVED_FROM_ANY: dict[str, frozenset[str]] = {
+    "IDENTITY_AUTHORIZATION_STRESS": frozenset({"GUNGEOP_JAENGJAE", "BIGEOP_TALJAE"}),
+}

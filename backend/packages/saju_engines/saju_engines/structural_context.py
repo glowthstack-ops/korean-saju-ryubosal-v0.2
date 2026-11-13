@@ -1364,11 +1364,12 @@ _DOHWA_RULE_NAKED = (
     "진도화와 별도 유형이다 — 진도화 매력과 합쳐 키우거나 점수처럼 더하지 말 것."
 )
 #: 나체도화 천충지충 동반 상태 → 어느 견해에서 성립하는지.
-#: 데굴님 지시(2026-10-13): 일지 목욕 정의 + 포스텔러 소개 견해(천충지충 추가 요건) 결합.
+#: 일주 정의(甲子·丁卯·庚午·癸酉 — 2026-11-13 현대 한국 자료 기준) + 포스텔러 소개 견해(천충지충
+#: 추가 요건) 결합(2026-10-13 데굴님 지시).
 _NAKED_CLASH_KO = {
-    "present": "천충지충 동반({where}) — 일지 목욕만으로 성립한다는 견해와 천충지충을 추가 "
+    "present": "천충지충 동반({where}) — 해당 일주만으로 성립한다는 견해와 천충지충을 추가 "
                "요건으로 보는 견해 모두에서 성립",
-    "absent": "천충지충 미동반 — 일지 목욕만으로 성립한다는 견해에 해당(천충지충을 요건으로 보는 "
+    "absent": "천충지충 미동반 — 해당 일주만으로 성립한다는 견해에 해당(천충지충을 요건으로 보는 "
               "견해에서는 미성립)",
     "undetermined": "천충지충 동반 여부 미확정(시주 미상 — 알려진 기둥에는 없음)",
 }
@@ -1453,7 +1454,7 @@ def dohwa_structure_lines(
             where="·".join(_PILLAR_KO[s] for s in profile.naked.clash_positions)
         )
         lines.append(
-            f"나체도화: 성립(일지 목욕 — {profile.naked.day_ganji} 일주) · {clash} · 성향: "
+            f"나체도화: 성립({profile.naked.day_ganji} 일주 — 일지가 도화 글자) · {clash} · 성향: "
             f"{nk['feature']}. {_DOHWA_RULE_NAKED}"
         )
     if profile.sajeong_markers:

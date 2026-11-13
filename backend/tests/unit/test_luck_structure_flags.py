@@ -135,17 +135,23 @@ def test_seven_additional_sinsal_follow_conventional_tables() -> None:
     ))
     p = r.pillars
     assert r.structure_analysis is not None
-    names = {s.name for s in analyze_sinsal(p, r.structure_analysis).full_list}
+    names = {s.name for s in analyze_sinsal(p, r.structure_analysis, "male").full_list}
     day_gz = (Stem(p.day.stem), Branch(p.day.branch))
     assert ("음양차착" in names) == (day_gz in cat.EUMYANG_CHACHAK)
     assert ("고란살" in names) == (day_gz in cat.GORAN)
-    assert ("탕화살" in names) == (Branch(p.day.branch) in cat.TANGHWA_DAY_BRANCHES)
+    # 탕화는 일지 丑·寅·午 + 월지·시지의 동반 글자(2026-11-12).
+    month_hour = {Branch(x.branch) for x in (p.month, p.hour) if x is not None}
+    companions = cat.TANGHWA_COMPANIONS.get(Branch(p.day.branch), frozenset())
+    assert ("탕화살" in names) == bool(companions & month_hour)
     yb = BRANCH_INDEX[Branch(p.year.branch)]
     others = {Branch(x.branch) for x in (p.month, p.day, p.hour) if x is not None}
     assert ("상문" in names) == (cat.branch_at(yb + cat.SANGMUN_OFFSET) in others)
     assert ("조객" in names) == (cat.branch_at(yb + cat.JOGAEK_OFFSET) in others)
+    # 元辰은 陽男陰女(+7)·陰男陽女(+5) — 남성이면 양간년이 陽男(2026-11-12 성별 반영).
     yang = Stem(p.year.stem) in cat.YANG_STEMS
-    yuan = cat.branch_at(yb + (cat.WONJIN_YUAN_OFFSET_YANG if yang else cat.WONJIN_YUAN_OFFSET_YIN))
+    yuan = cat.branch_at(yb + (
+        cat.WONJIN_YUAN_OFFSET_YANGNAM_EUMNYEO if yang else cat.WONJIN_YUAN_OFFSET_EUMNAM_YANGNYEO
+    ))
     assert ("원진(元辰)" in names) == (yuan in others)
     for n in ("음양차착", "고란살", "구교살", "원진(元辰)", "탕화살", "상문", "조객"):
         assert cat.CATALOG_META[n]["polarity"] == "caution"

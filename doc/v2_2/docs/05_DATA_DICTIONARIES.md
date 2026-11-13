@@ -309,6 +309,16 @@ compiled/
 - 측정(2026-10-29): 85사례 전 지표 불변(재물 행 1건 맞는 방향 이동), 원장 13명 — 월 t85 정밀도 0.087→0.071·t95 0.250→0.143(후보 달만 증가), top-k 불변 → 점수층 OFF, 서술층 ON.
 - 검증 픽스처: 1973-01-12 남(신왕재왕) · 1972-01-12 남(신약재약) · 1972-07-12 남(신약재왕) · 1973-04-12 남(원국 재성만) · 1973-10-12 남(원국 식상만) · 1975-01-12 남(식상·재성 부재, 인성·관성) · 1970-01-12/1971-01-12 남(경계 문구 관성·신약 변형). 사전 reviewed:false.
 
+### interpretations/hidden_latent_text.json — 지장간 잠복 십성의 기간별 발현 판정 서술층 (2026-11-10 데굴님 결정)
+
+- 대조 문서 `doc/v2_2/EXTERNAL_TEXT_GAP_JIJANGGAN_LECTURE.md`. 결정: 다섯 십성군 모두 / 투출 = 대운·세운·월운 천간 같은 글자 / 자극 = 대운·세운 지지의 충·육합·삼합(월운 제외) / 서술 전용(점수·판정 불변).
+- `saju_engines.hidden_latent_activation`: `natal_hidden_latents`(천간(일간 제외)·본기에 없고 중기·여기에만 있는 십성군의 글자, 시주 미상은 빈 목록) · `luck_units`(후보 기간 → 대운·세운·월운 기둥, 월 라벨 01은 전년도 세운) · `judge`(뚜렷/성립/약함/None) · `domain_groups`(도메인→싣는 십성군) · `hidden_latent_block`(채팅 말미 + 리포트 `lecture_block` 공용, 어느 글자도 안 걸리면 빈 목록).
+- 문구 10항목 `HiddenLatentTextFile`(id 정확 커버리지: `group_wealth·resource·officer·output·peer·partner` 6 + `grade_clear·emerge·stir` 3 + `caution`). lint: 단정·횡재 확정 어휘(반드시·무조건·당첨·대박 …) 금지. 전부 reviewed:false.
+- 원국 요약 잠재 신호 줄 꼬리 `NATAL_LATENT_PERIOD_RULE`(`context_reducer`): 발현 기간은 엔진 블록에 적힌 것만.
+- 기저율(20만 명식 모의 계산, 세운 연간): 투출 12.4% · 자극 43.8% · 둘 다 5.8% — 자극 단독은 '약함(참고)'.
+- 실사례 측정(2026-11-10, `scripts/measure_hidden_latent_activation.py`): 원장 표본 84행·대상 5명(직업·학업뿐, 재물·관계 0) — 세운 투출은 독립 표본 1해, 자극은 lift 1.5 안팎이 한두 대상에 몰림. 사례집 표본 2~5건. **표본 부족으로 점수 반영 보류**(대조 문서 §3-1).
+- 검증 픽스처: 1975-01-21 09:30 남(丑 중기 辛 편재·癸 편관 잠복) · 1980-11-22 09:08 남(재성 본기 — 재물 블록 없음). 테스트 `test_hidden_latent_activation_20261110`.
+
 ### interpretations/love_separation_lecture_text.json + 연애 실험 키 `separation_*` — 외부 강의 「남녀의 이별운」 번역층 (2026-10-29 데굴님 결정)
 
 - 대조 문서 `doc/v2_2/EXTERNAL_TEXT_GAP_LOVE_SEPARATION.md`. 강의 4축: ① 여·원국 관성 매우 약(십성군 officer <10% — 구조 패턴 존재 임계와 같음) × 운 식신·상관 ② 남·일지 본기 정재 × 운 겁재(배우자궁 쟁재) ③ 여·원국 정인 없음(`missing_ten_gods`)·지장간에만(`hidden_only_ten_gods`) × 운 정인 ④ 원국 정재(천간 연·월·시 또는 지지 본기) × 운 비견·겁재(겁재 > 비견).

@@ -16,6 +16,7 @@ from saju_manse_analysis.luck import (
     compute_luck_cycles,
     daily_luck_for_month,
     daily_luck_for_range,
+    luck_role_sets,
     monthly_luck_for_year,
     yearly_luck_for_range,
 )
@@ -385,15 +386,12 @@ def _term_basis_instant(birth: BirthInput, tc, tz) -> datetime:
 
 
 def _luck_role_sets(y) -> tuple[set[str], set[str]]:
-    """운 판정은 검증 전이라도 최종 역할 배정(용·희 / 기·구)을 우선 사용한다."""
-    final = y.final or {}
-    useful = {v for v in (final.get("yongsin"), final.get("heesin")) if v}
-    unfavorable = {v for v in (final.get("gisin"), final.get("gusin")) if v}
-    if not useful:
-        useful = {c.element for c in y.useful_candidates}
-    if not unfavorable:
-        unfavorable = {c.element for c in y.unfavorable_candidates}
-    return useful, unfavorable
+    """운 판정은 검증 전이라도 최종 역할 배정(용·희 / 기·구)을 우선 사용한다.
+
+    기준은 `saju_manse_analysis.luck.luck_role_sets` 한 곳에 있다(엔진의 절기 기준 월운 보충과
+    공용).
+    """
+    return luck_role_sets(y)
 
 
 # 시두 경계 민감 임계(초) — 출생기록 ±2~3분 오차로 시주가 바뀔 수 있는 범위(데굴님 감수).
@@ -609,7 +607,7 @@ def _calculate(birth: BirthInput) -> ManseV2Result:
         solar_terms_version=table.version,
     )
 
-    chart_analysis = analyze_chart(pillars)
+    chart_analysis = analyze_chart(pillars, birth.gender)
 
     # 출생시간 미상 — 12시진(또는 시간대/추정 시진) 후보 비교. 운 계산 **앞**에서 돌려 용희신이
     # 후보 간 갈리면 운 극성(용신운/기신운)도 중립으로 둔다(2026-10-06 데굴님 원칙: 불완전 정보는
@@ -1030,16 +1028,24 @@ def luck_years(birth: BirthInput, years: list[int]) -> list[LuckPillar]:
     )
 
 
-def pattern_timeline(birth: BirthInput, year: int) -> PatternTimeline:
+def pattern_timeline(
+    birth: BirthInput, year: int, *, include_months: bool = True
+) -> PatternTimeline:
     """선택 연도의 구조 배합 흐름(원국 → 대운 → 세운 → 월) 종합 — 만세력 페이지 단일 영역용.
 
     월운은 `luck_months`(절기월 12개)를 그대로 쓰고, 대운·세운 간지는 결과의 대운표에서 찾는다.
     시주 미상이면 빈 행(정책). 점수·용신 불변.
+
+    Args:
+        include_months: False 면 대운·세운 층만 산출한다(여러 해 기간 질문의 세운 단위 줄용 —
+            해마다 월 12층을 돌 필요가 없다).
     """
     result = calculate(birth)
     if result.pillars is None:
         raise ValueError("pattern timeline unavailable: chart could not be computed")
-    months = luck_months(birth, year) if result.pillars.hour is not None else []
+    months = (
+        luck_months(birth, year) if include_months and result.pillars.hour is not None else []
+    )
     natal = detect_structure_patterns(result)
     return build_pattern_timeline(
         result, natal, year=year,

@@ -25,7 +25,9 @@ from saju_manse_analysis.structure.luck_structure_flags import resolve_luck_stru
 from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.risk_engine import EvidenceRole, RiskCandidate, RiskEvidence
+from saju_shared_types.twelve_sinsal import TWELVE_SINSAL_POSITIONAL
 
+from . import period_v2_config
 from .dictionaries import (
     AUX_ADVERSE_POLARITY_ROLES,
     RiskAuxiliaryAmplifierFile,
@@ -36,6 +38,12 @@ from .risk_scoring import _AUX_MAX_BONUS
 
 AUX_DICTIONARY_NAME = "risk_auxiliary_amplifiers.json"
 AUX_SOURCE_GROUP = "auxiliary"
+
+#: 2026-11-12 신살 전수 점검에서 판정을 되살린 이름 — `RISK_AUX_REVIVED_SINSAL_ENABLED` 가 꺼져
+#: 있으면 보조 사실에서 뺀다(위험 점수를 점검 이전과 같게 유지). 원국 상문·조객은 이전부터
+#: 판정되던 것이라 운 쪽에서만 뺀다.
+_REVIVED_NATAL_NAMES: frozenset[str] = TWELVE_SINSAL_POSITIONAL
+_REVIVED_LUCK_NAMES: frozenset[str] = TWELVE_SINSAL_POSITIONAL | {"상문", "조객"}
 
 
 @dataclass(frozen=True)
@@ -79,6 +87,9 @@ def build_auxiliary_facts(
     if extras is not None and extras.sinsal is not None:
         natal = {s.name for s in extras.sinsal.full_list}
     luck = {s.name for s in (target.luck_sinsal or [])}
+    if not period_v2_config.RISK_AUX_REVIVED_SINSAL_ENABLED:
+        natal -= _REVIVED_NATAL_NAMES
+        luck -= _REVIVED_LUCK_NAMES
     structure: set[str] = set()
     hap: set[str] = set()
     if result.pillars is not None:

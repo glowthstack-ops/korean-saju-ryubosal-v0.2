@@ -31,19 +31,25 @@ const CATEGORY_KO: Record<string, string> = {
   study: "학업",
 };
 
+// 화면에는 한글만 낸다 — 표에 없는 코드는 원값(영문 변수명) 대신 일반 라벨로 대체한다(2026-11-13).
 const axisKo: Record<string, string> = {
-  eokbu: "억부", johu: "조후", pattern: "격국", disease: "병약", special: "특수격",
+  eokbu: "억부", johu: "조후", pattern: "격국", disease: "병약", special: "특수격", bridge: "통관",
 };
+const axisLabel = (axis: string | undefined): string => axisKo[axis ?? ""] ?? "기타";
 
 // 모델 → 판단 축(백엔드 _AXIS_OF 미러). 검증 확정 축 라벨에 사용.
+// 모델 키는 "disease_remedy:pyeonin_dosik"처럼 접미가 붙을 수 있어 ':' 앞부분으로 찾는다.
 const axisOfModel: Record<string, string> = {
   support_day_master: "eokbu", resource_as_yongsin: "eokbu", output_as_yongsin: "eokbu",
   eokbu_normal: "eokbu", wealth_breaks_resource: "eokbu", officer_controls_peer: "eokbu",
-  resource_curbs_output: "eokbu", johu: "johu", pattern_sangsin: "pattern",
+  resource_curbs_output: "eokbu", resource_pattern_officer: "eokbu", food_rescue: "eokbu",
+  johu: "johu", pattern_sangsin: "pattern",
   disease_remedy: "disease", dominant_one_element: "special", follow_structure: "special",
   transformation_structure: "special",
-  bridge_tonggwan: "disease",
+  bridge_tonggwan: "bridge",
 };
+const axisLabelOfModel = (model: string): string =>
+  axisLabel(axisOfModel[model.split(":")[0]] ?? "eokbu");
 
 const STATUS_KO: Record<string, string> = {
   calibrated: "확정", probable: "유력", uncertain: "불확실", candidate: "후보(검증 필요)",
@@ -99,7 +105,7 @@ export function YongsinPanel({
           <b>
             {ugUnconfirmed
               ? "미확정(시주 미상)"
-              : registered ? "확정(등록됨)" : (statusKo[calibration?.status ?? y.status] ?? y.status)}
+              : registered ? "확정(등록됨)" : (statusKo[calibration?.status ?? y.status] ?? "후보(검증 필요)")}
           </b>
         </span>
         {!calibration && !registered && <ConsensusBadge hu={hu} item="useful_gods" />}
@@ -119,7 +125,7 @@ export function YongsinPanel({
       </p>
       {(y.axes ?? []).length > 0 && (
         <p className="mt-1 text-[11px] text-gray-500">
-          판단 축(가중치): {y.axes.map((a) => `${axisKo[a.axis] ?? a.axis} ${a.weight}→${a.top_element}`).join(" · ")}
+          판단 축(가중치): {y.axes.map((a) => `${axisLabel(a.axis)} ${a.weight}→${a.top_element}`).join(" · ")}
         </p>
       )}
       {calibration?.user_summary && calibration.user_summary.length > 0 && (
@@ -146,7 +152,7 @@ export function YongsinPanel({
             )}
             {y.decision_trace.rejected.length > 0 && (
               <li>
-                기각·강등: {y.decision_trace.rejected.map((r) => `${r.element}(${r.reason})`).join(" · ")}
+                기각·강등: {y.decision_trace.rejected.map((r) => `${r.element}(${r.reason_ko ?? "사유 기록 없음"})`).join(" · ")}
               </li>
             )}
             {y.decision_trace.collateral.map((c, i) => (
@@ -158,7 +164,7 @@ export function YongsinPanel({
       {calibration?.selected_model && (
         <details className="mt-1 text-[11px] text-gray-500">
           <summary className="cursor-pointer">판정 근거(자세히)</summary>
-          검증 확정 축: {axisKo[axisOfModel[calibration.selected_model] ?? ""] ?? calibration.selected_model}
+          검증 확정 축: {axisLabelOfModel(calibration.selected_model)}
           {calibration.final_yongsin ? `[${elementLabel(calibration.final_yongsin)}]` : ""}
           {" · 피드백 일치율 "}{Math.round(calibration.match_rate * 100)}%
         </details>
@@ -492,7 +498,7 @@ export function CalibrationPanel({
                           <div className="text-[13px]">
                             {ev.label}
                             <span className="ml-1 rounded bg-gray-100 px-1 py-0.5 text-[10px] text-gray-400">
-                              {CATEGORY_KO[ev.category] ?? ev.category}
+                              {CATEGORY_KO[ev.category] ?? "기타"}
                             </span>
                           </div>
                           <div className="mt-0.5 flex flex-wrap gap-1">

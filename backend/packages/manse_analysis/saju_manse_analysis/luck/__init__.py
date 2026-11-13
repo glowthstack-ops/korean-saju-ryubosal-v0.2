@@ -4,6 +4,7 @@ from .luck_cycles import (
     compute_luck_cycles,
     daily_luck_for_month,
     daily_luck_for_range,
+    luck_role_sets,
     monthly_luck_for_year,
     yearly_luck_for_range,
 )
@@ -12,6 +13,7 @@ __all__ = [
     "compute_luck_cycles",
     "daily_luck_for_month",
     "daily_luck_for_range",
+    "luck_role_sets",
     "monthly_luck_for_year",
     "yearly_luck_for_range",
 ]

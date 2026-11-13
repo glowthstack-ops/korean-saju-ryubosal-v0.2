@@ -83,8 +83,11 @@ def test_channel_values_follow_the_engine_sinsal_tables() -> None:
     assert ch(S.GI, B.SA)["sinsal_loss"] == 1.0  # 겁살(申子辰→巳)
     assert ch(S.GAP, B.IN)["sinsal_move"] == 1.0  # 역마(申子辰→寅)
     assert ch(S.GYE, B.YU) == {"sinsal_charm": 1.0, "sinsal_gwimun": 1.0}  # 년살 酉·귀문 子酉
-    # 금여(甲→辰)·백호 戊辰·화개 辰
-    assert ch(S.MU, B.JIN) == {"sinsal_noble": 0.5, "sinsal_hazard": 0.6, "sinsal_retreat": 1.0}
+    # 금여(甲→辰)·화개 辰. 오늘 戊辰은 백호 일진이지만 일주 甲子가 백호 간지가 아니라 상해
+    # 채널은 붙지 않는다(model.v2.4~, docs/17 §32). 종전 규칙으로는 .6.
+    assert ch(S.MU, B.JIN) == {"sinsal_noble": 0.5, "sinsal_retreat": 1.0}
+    legacy = sinsal_channels(S.GAP, B.JA, S.MU, B.JIN, B.YU, baekho_day_basis=False)
+    assert legacy["sinsal_hazard"] == 0.6
     assert ch(S.GAP, B.JA) == {"sinsal_hazard": 0.4, "sinsal_status": 1.0}  # 현침 甲·장성 子
     # 천덕·월덕은 오늘의 월지 기준 — 월지 寅이면 丙 천간(월덕)이 .6.
     assert ch(S.BYEONG, B.SUL, B.IN)["sinsal_noble"] == 0.6

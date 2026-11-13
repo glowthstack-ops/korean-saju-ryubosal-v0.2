@@ -21,12 +21,15 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
+from saju_manse_analysis.luck.luck_calendar import luck_month_label, sewoon_year_of
+from saju_manse_analysis.luck.luck_cycles import luck_role_sets, monthly_luck_for_year
 from saju_manse_analysis.relations.hap_mitigation import resolve_hap_mitigation
 from saju_manse_analysis.relations.hap_modes import resolve_stem_hap
 from saju_manse_analysis.structure.luck_geok_break import geok_break
 from saju_manse_analysis.structure.luck_structure_flags import resolve_luck_structure_flags
 from saju_manse_analysis.yongsin.operational_role_config import is_unfavorable_role
 
+from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.constants import (
     BRANCH_ELEMENT,
     CONTROLS,
@@ -73,6 +76,7 @@ from saju_shared_types.life_event import LifeEventRow
 from saju_shared_types.luck import DaewoonItem, LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.risk_engine import RiskCandidate, RiskEngineMode
+from saju_shared_types.twelve_sinsal import self_sinsal_bases
 from saju_shared_types.wealth_capacity import WealthCapacity
 
 from . import period_v2_config
@@ -275,6 +279,7 @@ class EventEngineV2:
         role_event_seed_rule_ids: Collection[str] | None = None,
         enable_career_exit_seed: bool = False,
         enable_wealth_natal_complement: bool = False,
+        enable_wealth_storage_strict: bool = False,
         career_exit_rule_ids: Collection[str] | None = None,
         tamhap_mangchung_mode: str = "shadow",
         love_experiments: Collection[str] | None = None,
@@ -354,6 +359,7 @@ class EventEngineV2:
         )
         # 재물 강의(2026-10-29) — 원국 한쪽 + 운 한쪽 식상생재 횡재 발동(실험, 기본 OFF).
         self._wealth_natal_complement = enable_wealth_natal_complement
+        self._wealth_storage_strict = enable_wealth_storage_strict
         # 외부 강의 번역 시드(2026-10-29 데굴님 결정) — 역할 시드 다음 자리에서 합류. 기본 OFF.
         self._career_exit_cfg = (
             load_career_exit_config(dictionaries_dir) if enable_career_exit_seed else None
@@ -1286,22 +1292,27 @@ class EventEngineV2:
 
     @staticmethod
     def _yeokma_reference_sets(result: ManseV2Result) -> dict[str, set[str]]:
-        """기준 지지(연·일지)별 실제 역마 글자 — 삼합국 상대 계산(사고수 확장 2026-07-23).
+        """기준 지지별 실제 역마 글자 — 삼합국 상대 계산(사고수 확장 2026-07-23).
 
         글자살(寅申巳亥 보유)로 판정하지 않는다(승인 조건 1). relativeStarMatch 룰이
         이 집합과 피자극 글자를 대조한다. pillars 부재 시 빈 dict(fail-closed).
+
+        기준 자리는 공용 상수(SELF_SINSAL_BASE_SLOTS — 2026-11-12 부터 일지만)를 따른다. 위험 사전
+        룰의 reference 목록에 'year_branch' 가 남아 있어도 여기서 그 키를 내지 않으므로 연지 기준
+        역마는 성립하지 않는다(감수 해시로 잠긴 사전을 고치지 않고 사실 쪽에서 좁힌다).
         """
         pillars = result.pillars
         if pillars is None:
             return {}
         from .relationship_relative_sinsal import get_relative_sinsal
         out: dict[str, set[str]] = {}
-        for ref, pil in (("year_branch", pillars.year), ("day_branch", pillars.day)):
-            if pil is None:
-                continue
-            out[ref] = {
+        for slot, _label, base in self_sinsal_bases(
+            pillars.year.branch if pillars.year is not None else None,
+            pillars.day.branch if pillars.day is not None else None,
+        ):
+            out[f"{slot}_branch"] = {
                 b.value for b in Branch
-                if get_relative_sinsal(Branch(pil.branch), b).sinsal == "역마살"
+                if get_relative_sinsal(base, b).sinsal == "역마살"
             }
         return out
 
@@ -1405,6 +1416,7 @@ class EventEngineV2:
             natal_output_present=float(groups.get("output", 0.0)) >= 10.0,
             natal_wealth_present=float(groups.get("wealth", 0.0)) >= 10.0,
             natal_complement=self._wealth_natal_complement,
+            storage_requires_wealth=self._wealth_storage_strict,
         )
 
 
@@ -1417,6 +1429,10 @@ class _StackIndex:
     def __init__(self, result: ManseV2Result) -> None:
         lc = result.luck_cycles
         assert lc is not None
+        self._result = result
+        self._tz = result.time_correction.timezone if result.time_correction else "Asia/Seoul"
+        self._jeolgi_month_cache: dict[str, str] = {}
+        self._filled_years: set[int] = set()
         self.dw_by_year: dict[int, DaewoonItem] = {}
         self.sewoon_by_year: dict[int, LuckPillar] = {}
         self.wolwoon_by_ym: dict[str, LuckPillar] = {}
@@ -1443,9 +1459,18 @@ class _StackIndex:
     def stack_for(
         self, level: GanjiLevel, label: str, target: LuckPillar
     ) -> list[tuple[LuckLayer, LuckPillar]]:
-        """시점 종류에 따라 (층위, 기둥) 스택을 구성한다(상위 관할 운 + 시점)."""
+        """시점 종류에 따라 (층위, 기둥) 스택을 구성한다(상위 관할 운 + 시점).
+
+        절기 기준 플래그가 켜지면 관할 세운·월운을 절기로 고른다 — `JEOLGI_PARENT_YEAR_ENABLED`:
+        丑월('YYYY-01')과 입춘 전 날은 전년 세운, `JEOLGI_PARENT_MONTH_ENABLED`: 절입 전 초순
+        날은 앞 절기월의 월운(그 절기월이 `monthly_luck` 기준 연도 12달에 없으면 만들어 채운다).
+        """
         if level is GanjiLevel.DAEWOON:
             return [(LuckLayer.DAEWOON, target)]
+        by_year = period_v2_config.JEOLGI_PARENT_YEAR_ENABLED
+        by_month = period_v2_config.JEOLGI_PARENT_MONTH_ENABLED and level is GanjiLevel.DAY
+        if (by_year or by_month) and level is not GanjiLevel.YEAR:
+            return self._stack_for_jeolgi(level, label, target, by_year=by_year, by_month=by_month)
         year = int(label[:4]) if label[:4].isdigit() else None
         stack: list[tuple[LuckLayer, LuckPillar]] = []
         if year is not None:
@@ -1467,6 +1492,62 @@ class _StackIndex:
             stack.append((LuckLayer.WOLWOON, self.wolwoon_by_ym[ym]))
         stack.append((LuckLayer.ILWOON, target))
         return stack
+
+
+    def _stack_for_jeolgi(
+        self, level: GanjiLevel, label: str, target: LuckPillar, *, by_year: bool, by_month: bool,
+    ) -> list[tuple[LuckLayer, LuckPillar]]:
+        """월운·일운 스택 — 관할 세운(by_year)·월운(by_month)을 절기 기준으로 고른다.
+
+        꺼진 갈래는 종전대로 라벨의 양력 연·월을 쓴다. 대운은 항상 양력 연도다.
+        """
+        year = int(label[:4]) if label[:4].isdigit() else None
+        stack: list[tuple[LuckLayer, LuckPillar]] = []
+        if year is not None:
+            dwi = self.dw_by_year.get(year)
+            if dwi is not None:
+                stack.append((LuckLayer.DAEWOON, _daewoon_pillar(dwi)))
+        jeolgi_month = label[:7] if level is GanjiLevel.MONTH else self._jeolgi_month(label)
+        sewoon_year = sewoon_year_of(jeolgi_month) if by_year else year
+        if sewoon_year is not None and sewoon_year in self.sewoon_by_year:
+            stack.append((LuckLayer.SEWOON, self.sewoon_by_year[sewoon_year]))
+        if level is GanjiLevel.MONTH:
+            stack.append((LuckLayer.WOLWOON, target))
+            return stack
+        if by_month:
+            wolwoon = self.wolwoon_by_ym.get(jeolgi_month) or self._fill_month(jeolgi_month)
+        else:
+            wolwoon = self.wolwoon_by_ym.get(label[:7])
+        if wolwoon is not None:
+            stack.append((LuckLayer.WOLWOON, wolwoon))
+        stack.append((LuckLayer.ILWOON, target))
+        return stack
+
+    def _jeolgi_month(self, day_label: str) -> str:
+        """일 라벨('YYYY-MM-DD')이 속한 절기월 라벨 — 계산 실패 시 양력 달로 폴백."""
+        cached = self._jeolgi_month_cache.get(day_label)
+        if cached is not None:
+            return cached
+        try:
+            out = luck_month_label(date.fromisoformat(day_label[:10]), get_table(), self._tz)
+        except (ValueError, TypeError):
+            out = day_label[:7]
+        self._jeolgi_month_cache[day_label] = out
+        return out
+
+    def _fill_month(self, month_label: str) -> LuckPillar | None:
+        """`monthly_luck` 에 없는 절기월 기둥 — 그 절기 연도의 월운 12달을 만들어 채운다."""
+        year = sewoon_year_of(month_label)
+        pillars, yongsin = self._result.pillars, self._result.yongsin_analysis
+        if year is None or year in self._filled_years or pillars is None or yongsin is None:
+            return self.wolwoon_by_ym.get(month_label)
+        self._filled_years.add(year)
+        useful, unfavorable = luck_role_sets(yongsin)
+        for p in monthly_luck_for_year(
+            pillars, Stem(pillars.day.stem), useful, unfavorable, year, get_table(), self._tz,
+        ):
+            self.wolwoon_by_ym.setdefault(p.label, p)
+        return self.wolwoon_by_ym.get(month_label)
 
 
 # ── 보조 함수 ──────────────────────────────────────────────────────

@@ -128,7 +128,8 @@ class PatternState(BaseModel):
     strength_operating: float = Field(ge=0.0, le=1.0, default=0.0)
     activation_sources: list[str] = Field(default_factory=list)  # daewoon|year|month
     evidence: list[str] = Field(default_factory=list)
-    flags: list[str] = Field(default_factory=list)  # burden|over_control|competition|broken
+    # burden|over_control|competition|broken|reversal|mixed_officer … (문구: pattern_transit_text)
+    flags: list[str] = Field(default_factory=list)
 
 
 class PatternTimelineCell(BaseModel):

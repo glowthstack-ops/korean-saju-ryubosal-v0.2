@@ -23,6 +23,8 @@ class SinsalItem(BaseModel):
     interpretation_tags: list[str] = Field(default_factory=list)
     caution_tags: list[str] = Field(default_factory=list)
     use_for_yongsin_decision: bool = False
+    # 현대 자료에서 거의 쓰이지 않아 화면·LLM 에 내보내지 않는 항목(판정 자체는 유지 — 엔진 전용).
+    hidden: bool = False
 
 
 class LuckSinsal(BaseModel):
@@ -34,6 +36,7 @@ class LuckSinsal(BaseModel):
 
     name: str
     polarity: str = "neutral"  # positive(길신) / caution(흉성) / neutral(신살)
+    hidden: bool = False  # 화면·LLM 비노출(판정은 유지 — 엔진 전용). sinsal_catalog.HIDDEN_NAMES
 
 
 class LlmSinsalModifier(BaseModel):
