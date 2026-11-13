@@ -366,7 +366,8 @@ export interface YongsinAnalysis {
     chosen_path: string;
     heesin_function?: string | null;
     heesin_function_ko?: string | null;
-    rejected: Array<{ element: string; model: string; score: number; reason: string }>;
+    // reason 은 기계용 코드, 화면에는 reason_ko(한글)만 쓴다.
+    rejected: Array<{ element: string; model: string; score: number; reason: string; reason_ko?: string }>;
     axis_conflict?: { eokbu: string; johu: string; resolution: string } | null;
     collateral: string[];
   } | null;

@@ -629,6 +629,13 @@ def _detect_domains(text: str) -> list[Domain]:
 
 
 # 명식 범위 표지 — '내/제/본인 사주·명식·원국' 또는 '사주에서/사주상/명식의'.
+#: '내 사주(구조)를 바탕으로 / 기준으로 / 로 볼 때' — 풀이의 전제를 밝히는 머리말. 분야 운 질문
+#: 앞에 붙으면 명식 구조 질문(Q8)이 아니라 그 분야 질문이다(2026-11-13).
+CHART_FRAME_PREAMBLE_RE = re.compile(
+    r"(?:내|제|나의|저의|본인)\s*(?:사주|명식|원국|팔자)(?:\s*(?:구조|원국|명식))?\s*"
+    r"(?:[를을]\s*(?:바탕|기준|기반|토대|근거|참고)|(?:로|으로)\s*(?:볼|봤을|보면|봐서|봐|보아)"
+    r"|\s*(?:기준|기반)\s*(?:으로|에서)|[를을]\s*(?:보고|봐서|보면))"
+)
 _CHART_SCOPE_RE = re.compile(
     r"(?:내|제|나의|저의|본인)\s*(?:사주|명식|원국)|(?:사주|명식|원국)\s*(?:에서|상|의|는)"
 )
@@ -1103,12 +1110,22 @@ def _detect_query_type(text: str, subjects_mode: SubjectMode) -> QueryType:
         return QueryType.RELATIONSHIP_ANALYSIS
     # Q8 — 명식 구조 (D2-12 포함). 일주 캐릭터/기질형 + 용희기구한 질문(v2.2.1)
     # + 반복 행동 패턴 자기 질문('왜 항상 이렇게 하나' — 2026-09-06).
-    if re.search(
-        r"용신|희신|기신|구신|한신|내\s*사주|mbti|성격|성향|격국|신강|신약|도화|역마살"
+    # 단 "내 사주 구조를 바탕으로 11월부터 1월까지의 취업운"처럼 '내 사주'가 풀이의 **전제를 밝히는
+    # 머리말**이고 실제 물음은 분야 운이면 명식 구조 질문이 아니다(2026-11-13 데굴님 실답: 머리말
+    # 때문에 Q8 로 가서 사건 후보가 줄고 일주 성향 소개로 답이 시작됐다). 다른 명식 구조 어휘
+    # (용신·성격·격국 …)가 함께 있으면 종전대로 Q8.
+    chart_strong = re.search(
+        r"용신|희신|기신|구신|한신|mbti|성격|성향|격국|신강|신약|도화|역마살"
         r"|공망|일주|캐릭터|기질|타고난|어떤\s*사람|십성|신살|궁성",
         text,
         re.IGNORECASE,
-    ) or BEHAVIOR_PATTERN_RE.search(text):
+    )
+    chart_weak = re.search(r"내\s*사주", text)
+    framing_only = bool(
+        chart_weak and not chart_strong
+        and CHART_FRAME_PREAMBLE_RE.search(text) and _detect_domains(text)
+    )
+    if (chart_strong or (chart_weak and not framing_only)) or BEHAVIOR_PATTERN_RE.search(text):
         return QueryType.CHART_ANALYSIS
     # Q9 — 관계 분석.
     if re.search(r"사이는\s*어때|부모\s*복|관계는", text):

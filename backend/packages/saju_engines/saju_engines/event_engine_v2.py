@@ -279,6 +279,7 @@ class EventEngineV2:
         role_event_seed_rule_ids: Collection[str] | None = None,
         enable_career_exit_seed: bool = False,
         enable_wealth_natal_complement: bool = False,
+        enable_wealth_storage_strict: bool = False,
         career_exit_rule_ids: Collection[str] | None = None,
         tamhap_mangchung_mode: str = "shadow",
         love_experiments: Collection[str] | None = None,
@@ -358,6 +359,7 @@ class EventEngineV2:
         )
         # 재물 강의(2026-10-29) — 원국 한쪽 + 운 한쪽 식상생재 횡재 발동(실험, 기본 OFF).
         self._wealth_natal_complement = enable_wealth_natal_complement
+        self._wealth_storage_strict = enable_wealth_storage_strict
         # 외부 강의 번역 시드(2026-10-29 데굴님 결정) — 역할 시드 다음 자리에서 합류. 기본 OFF.
         self._career_exit_cfg = (
             load_career_exit_config(dictionaries_dir) if enable_career_exit_seed else None
@@ -1414,6 +1416,7 @@ class EventEngineV2:
             natal_output_present=float(groups.get("output", 0.0)) >= 10.0,
             natal_wealth_present=float(groups.get("wealth", 0.0)) >= 10.0,
             natal_complement=self._wealth_natal_complement,
+            storage_requires_wealth=self._wealth_storage_strict,
         )
 
 

@@ -57,10 +57,10 @@ from .pattern_conditions import (
     natal_condition_input,
 )
 from .relationship_relative_sinsal import get_relative_sinsal
-from .wealth_capacity import analyze_wealth_capacity
 
 _DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries"
 _STORAGE_CLASH_PAIRS = (("辰", "戌"), ("丑", "未"))  # 묘고 충 지지쌍(충개고)
+_STORAGE_PUNISH_PAIRS = (("丑", "戌"), ("戌", "未"))  # 묘고 형 지지쌍(충이 아닌 쌍 — 약한 개고)
 _COMPILED_DEFAULT = Path(__file__).resolve().parents[3] / "compiled"
 STRUCTURE_PATTERNS_VERSION = "1.4.0"  # 1.4.0: 조토불생금·습토회화 + 상생 기능어(2026-10-27)
 
@@ -538,8 +538,17 @@ def detect_structure_patterns(
         emit("IPMYO", 0.55, "natal", ("일간/식신 묘지 지지 존재",))
     if any(a in natal_branches and b in natal_branches for a, b in _STORAGE_CLASH_PAIRS):
         emit("CHUNGGAE", 0.6, "natal", ("묘고 충 지지쌍 존재",))
-    if analyze_wealth_capacity(result).storage_repeat:
-        emit("GAEGO", 0.5, "natal", ("동일 묘고 병존(충개고 잠재)",))
+    else:
+        # 개고(開庫) — 창고가 충 없이 형으로 열려 있는 원국(2026-11-13). 종전 조건은 '같은 창고
+        # 지지 중복'이었는데 그것이 창고를 연다는 근거를 찾지 못했다(검색). 충으로 열린 경우는
+        # 위 충개가 말하므로, 여기서는 형(丑戌·戌未)으로 열린 경우만 낸다 — 창고 층
+        # (`storage_gates`)의 '약하게 열려 있음'과 같은 기준.
+        opened_by_punish = sorted(
+            f"{a}{b}" for a, b in _STORAGE_PUNISH_PAIRS
+            if a in natal_branches and b in natal_branches
+        )
+        if opened_by_punish:
+            emit("GAEGO", 0.5, "natal", (f"묘고 형({'·'.join(opened_by_punish)})으로 열림",))
 
     # 득비이재(new, P1): 재다신약을 비겁으로 운용.
     if "DEUKBI_IJAE" not in seen and "JAEDA_SINYAK" in seen and groups["peer"] >= 1:

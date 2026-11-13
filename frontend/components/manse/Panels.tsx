@@ -530,7 +530,7 @@ export function GeokgukPanel({ result }: { result: ManseResult }) {
       {special && (
         <div className="mt-1.5 rounded border border-violet-200 bg-violet-50 p-2 text-xs text-violet-700">
           <b>{special.override ? "특수격: " : "특수격 가능성: "}{String(special.name)}</b>
-          <span className="text-violet-500"> ({SPECIAL_TYPE_KO[String(special.type)] ?? String(special.type)})</span>
+          <span className="text-violet-500"> ({SPECIAL_TYPE_KO[String(special.type)] ?? "특수격"})</span>
           <div className="text-violet-500">
             {String(special.reason)}
             {special.override ? ` — 정격(${String(special.jeonggyeok)})과 병행 해석` : " — 정격과 병행 검토"}
@@ -629,7 +629,8 @@ function itemLabel(item: Record<string, unknown>): string {
     case "stem_duplication": return "천간 병존";
     case "branch_duplication": return "지지 병존";
     case "gan_yeo_ji_dong": return "간여지동";
-    default: return rt;
+    // 표에 없는 종류는 원값(영문 코드) 대신 관계 라벨 표 → 일반 라벨 순으로 대체한다.
+    default: return REL_LABEL[rt] ?? "관계";
   }
 }
 
@@ -721,7 +722,7 @@ const colCenter = (i: number) => (i + 0.5) * 25;
 function InteractionRow({ item, pillars }: { item: Record<string, unknown>; pillars: Pillars }) {
   const scope = String(item.scope);
   const positions = (item.positions as string[]) ?? [];
-  const label = REL_LABEL[String(item.relation_type)] ?? String(item.relation_type);
+  const label = REL_LABEL[String(item.relation_type)] ?? "관계";
   const cols = [...new Set(positions.map((p) => COL_ORDER.indexOf(p as typeof COL_ORDER[number])))]
     .filter((c) => c >= 0)
     .sort((a, b) => a - b);
@@ -1151,7 +1152,7 @@ function PatternTimelinePanel({ tl, loading }: { tl: PatternTimeline | null; loa
         {tl.rows.map((r) => (
           <li key={r.pattern_id}>
             <span className="font-semibold">{r.name_ko}</span> — {r.summary}
-            {r.flags.length > 0 && <span className="ml-1 text-[10px] text-gray-400">({r.flags.map((f) => FLAG_KO[f] ?? f).join(" · ")})</span>}
+            {r.flags.some((f) => FLAG_KO[f]) && <span className="ml-1 text-[10px] text-gray-400">({r.flags.map((f) => FLAG_KO[f]).filter(Boolean).join(" · ")})</span>}
           </li>
         ))}
       </ul>

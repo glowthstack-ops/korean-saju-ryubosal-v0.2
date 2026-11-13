@@ -329,6 +329,7 @@ from .manse_service import (
     luck_days,
     luck_months,
     luck_years,
+    pattern_timeline,
 )
 from .personalization import (
     fetch_calibration_expression_hints,
@@ -1578,6 +1579,137 @@ def _period_stack_ganji(composites, target_level, target_key, pillar) -> dict[st
     if len(pillar.ganji) >= 2:
         out[own_label] = pillar.ganji
     return out
+
+
+#: 기간 창 구조 블록을 싣는 최대 달 수·해 수(그보다 긴 창은 층별 줄이 표를 밀어낸다).
+_WINDOW_STRUCTURE_MAX_MONTHS = 12
+_WINDOW_STRUCTURE_MAX_YEARS = 12
+#: 질문이 신살을 묻는가 — 이때만 기간별 운 신살 줄을 더한다(신살은 보조 참고라 평소엔 싣지 않는다).
+_SINSAL_ASK_RE = re.compile(r"신살|귀인|도화|역마|화개|공망|살\s*(?:이|은|의)?\s*(?:발동|들어|있)")
+_SINSAL_POLARITY_KO: tuple[tuple[str, str], ...] = (
+    ("positive", "도움"), ("caution", "주의"), ("neutral", "중립"),
+)
+
+
+def _luck_sinsal_groups(pillar) -> str:
+    """운 기둥의 신살을 도움/주의/중립으로 묶은 한 줄(없으면 '해당 없음').
+
+    도움이 되는 것만 고르지 않는다 — 주의 신살도 함께 싣는다.
+    """
+    groups = [
+        f"{ko} — " + "·".join(s.name for s in pillar.luck_sinsal if s.polarity == pol)
+        for pol, ko in _SINSAL_POLARITY_KO
+        if any(s.polarity == pol for s in pillar.luck_sinsal)
+    ]
+    return " / ".join(groups) or "해당 없음"
+
+
+def _window_structure_block(
+    birth: BirthInput, overview, question: str, time_range=None, today: date | None = None
+) -> str | None:
+    """기간 질문에 싣는 '운에서 서는 구조'·'창고(입고·개고)'(+ 신살을 물으면 운 신살) 블록.
+
+    기간 운세 블록(단일 연·월·일)에는 `[구조 변화]` 줄이 실리지만, 월별·연도별 요약으로 답하는
+    기간 질문에는 운 적용 구조 상태가 전혀 실리지 않았다 — "도움되는 신살의 발동이나 구조는 없어?"
+    에 원국 신살·원국 구조와 방위표만으로 답하던 결함(2026-11-13 데굴님 실답). 만세력 '구조 배합
+    흐름'과 같은 타임라인(`pattern_timeline`)을 읽어 그대로 옮긴다(재판정 없음, 길흉 아님).
+    월 단위 행은 월운 줄로, 연 단위 행은 세운 줄로 싣는다(데굴님 "여러 해는 세운 단위로").
+
+    창고 블록(`storage_gates.storage_gate_block`)은 같은 타임라인으로 만들되, 단일 기간 질문이나
+    시점이 없는 질문에도 싣는다 — 단일 달·해는 그 기간, 시점이 없으면 올해(대운·세운 층)를 본다.
+
+    Args:
+        birth: 대상 출생 정보(단일 대상 질문만).
+        overview: 요약 표의 행(`MonthOverviewRow` 목록) — 기간 라벨(YYYY-MM 또는 YYYY)만 쓴다.
+        question: 질문 원문(신살을 묻는지 판별).
+        time_range: 질문의 시점 범위(`TimeRange`). 여러 해에 걸치면 그 해들을 세운 줄로 싣는다 —
+            여러 해 질문도 요약 표는 앞 12~13개월만 월 단위라, 표의 행만 보면 뒤 해가 빠진다.
+        today: 기준일 — 시점이 없는 질문의 창고 블록이 올해를 보는 데 쓴다.
+
+    Returns:
+        블록 문자열. 실을 내용이 없거나 시주 미상·산출 불가면 None. 달·해가 상한(12)을 넘으면
+        앞에서부터 상한까지만 싣는다.
+    """
+    from saju_engines.pattern_transit import window_structure_lines
+    from saju_engines.storage_gates import storage_gate_block
+
+    month_labels = [r.period for r in (overview or []) if len(r.period) == 7]
+    year_labels = [r.period for r in (overview or []) if len(r.period) == 4]
+    start = getattr(time_range, "start", None) or ""
+    end = getattr(time_range, "end", None) or ""
+    if start[:4].isdigit() and end[:4].isdigit():
+        # 범위가 12개월을 넘을 때만 해 단위로 본다 — "11월부터 1월까지"처럼 해를 걸친 짧은 범위에
+        # 다음 해 세운 줄을 붙이면 질문 밖의 해를 끌어온다.
+        s_month = int(start[5:7]) if start[5:7].isdigit() else 1
+        e_month = int(end[5:7]) if end[5:7].isdigit() else 12
+        span_months = (int(end[:4]) - int(start[:4])) * 12 + (e_month - s_month) + 1
+        if span_months > 12:
+            year_labels += [
+                str(y) for y in range(int(start[:4]), int(end[:4]) + 1)
+                if str(y) not in year_labels
+            ]
+    month_labels = month_labels[:_WINDOW_STRUCTURE_MAX_MONTHS]
+    year_labels = sorted(set(year_labels))[:_WINDOW_STRUCTURE_MAX_YEARS]
+    windowed = bool(month_labels or year_labels)  # 요약 표·여러 해 범위가 있는 기간 질문인가
+    if not windowed:
+        # 창고 블록 전용 기간 — 단일 달·해 질문은 그 기간, 시점이 없으면 올해.
+        if start and start == end and len(start) in (4, 7):
+            (month_labels if len(start) == 7 else year_labels).append(start)
+        elif today is not None and not start:
+            year_labels.append(str(today.year))
+    if not month_labels and not year_labels:
+        return None
+    labels = [*month_labels, *year_labels]
+    # 절기월 라벨은 그 해 타임라인(2월~이듬해 1월)에 속한다 — 1월 라벨은 앞 해 타임라인.
+    month_years = {int(lb[:4]) - (1 if lb[5:7] == "01" else 0) for lb in month_labels}
+    years = sorted(month_years | {int(lb) for lb in year_labels})
+    try:
+        # 월운 줄이 필요한 해만 월 12층을 계산하고, 세운 줄만 필요한 해는 대운·세운 층만 낸다.
+        timelines = [
+            pattern_timeline(birth, y, include_months=y in month_years) for y in years
+        ]
+        chart = calculate(birth)
+    except ValueError:
+        return None
+    span = f"{min(labels)}–{max(labels)}" if len(labels) > 1 else labels[0]
+    out: list[str] = []
+    lines = window_structure_lines(timelines, labels) if windowed else []
+    if lines:
+        out += [
+            f"[운에서 서는 구조 — {span}, 엔진 판정(구조 작동의 변화이며 길흉이 아님)] "
+            "운에서 서거나 달라지는 구조를 말할 때는 아래 항목만 쓴다 — 여기 없는 구조를 운에서 "
+            "성립했다고 말하지 말 것. 구조 이름은 합격·성사 확정이 아니라 그 기간의 작동 방식 "
+            "설명이며, '변동 없음'인 층은 새로 서는 구조가 없다고 그대로 말할 것. 원국에 원래 있는 "
+            "구조([구조 패턴])와 운에서 선 구조를 구분해 서술할 것. 도움이 되는 변화만 고르지 말고 "
+            "부담이 되는 변화(예: 재다신약 강화)도 같은 비중으로 다룰 것. 층의 크기를 지킬 것 — "
+            "대운 줄이 가장 큰 배경 흐름이다. 여러 해를 볼 때는 먼저 대운의 구조 상태로 큰 흐름을 "
+            "밝히고, 세운은 그 배경 위에서 해마다 달라지는 점으로, 월운은 그 해 안의 짧은 변화로 "
+            "서술한다. 기간 안에서 대운이 바뀌면 그 해를 배경이 바뀌는 지점으로 짚을 것.",
+            *lines,
+        ]
+    # 창고(입고·개고) — 원국 창고 상태 + 이 기간의 개고·입고(2026-11-13 데굴님 승인).
+    out += storage_gate_block(chart, timelines, labels)
+    if windowed and _SINSAL_ASK_RE.search(question):
+        sinsal_lines: list[str] = []
+        for y in sorted(month_years):
+            sinsal_lines += [
+                f"월운 {m.label} {m.ganji} 신살: {_luck_sinsal_groups(m)}"
+                for m in luck_months(birth, y) if m.label in month_labels
+            ]
+        if year_labels:
+            sinsal_lines += [
+                f"세운 {p.label}년 {p.ganji} 신살: {_luck_sinsal_groups(p)}"
+                for p in luck_years(birth, [int(lb) for lb in year_labels])
+            ]
+        if sinsal_lines:
+            out.append(
+                f"[운 신살 — {span}, 엔진 판정(보조 참고)] 이 기간에 운에서 들어오는 신살이다 — "
+                "원국에 원래 있는 신살과 구분해 '이 달(해)에 들어오는 신살'로 말하고, 신살만으로 "
+                "사건·길흉을 단정하지 말 것. 여기 없는 신살을 운에서 들어왔다고 말하지 말 것. "
+                "'도움'만 고르지 말고 '주의' 신살도 함께 알릴 것."
+            )
+            out += sinsal_lines
+    return "\n".join(out) if out else None
 
 
 def _period_pattern_change_lines(composites, target_level, target_key, fortune_type) -> list[str]:
@@ -7764,6 +7896,13 @@ def chat(
         _pack = detect_task_pack(_task_scan)
         if _pack is not None:
             trailing.append(procedure_reference_block(_pack))
+    # 여러 달 기간 질문 — 운에서 서는 구조(와, 신살을 물으면 그 달의 운 신살)를 싣는다(2026-11-13).
+    if not plan.per_subject:
+        _win_block = _window_structure_block(
+            birth, payload.monthly_overview, question, intent.time_range, today
+        )
+        if _win_block:
+            trailing.append(_win_block)
     # 특정일 질문 — 당일 중심·기간 서술 최소화·데이터 밖 간지 계산 금지(2026-07-22).
     # 과업 점검이 발동했으면 생략 — 질문의 실창은 과업 기간이지 확정일 당일이 아니다.
     if (

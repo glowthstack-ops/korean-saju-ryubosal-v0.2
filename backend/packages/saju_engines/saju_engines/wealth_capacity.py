@@ -28,6 +28,10 @@ _WEALTH_GODS = {"편재", "정재"}
 _OUTPUT_GODS = {"식신", "상관"}
 # 오행 상생 — 일간 오행 → 생하는 오행(=식상). 戊土→金.
 _GENERATES = {"木": "火", "火": "土", "土": "金", "金": "水", "水": "木"}
+#: 창고 지지 → 저장 오행(오행 기준 — `storage_gates.STORE` 와 같은 표, SSOT STORAGE_GATES.md).
+_STORED_ELEMENTS: dict[str, tuple[str, ...]] = {
+    "辰": ("水",), "戌": ("火", "土"), "丑": ("金",), "未": ("木",),
+}
 # 묘고 충 쌍(충개고) — 辰戌충·丑未충.
 _STORAGE_CLASH_PAIRS = ({"辰", "戌"}, {"丑", "未"})
 
@@ -121,6 +125,7 @@ def detect_wealth_activations(
     natal_output_present: bool = False,
     natal_wealth_present: bool = False,
     natal_complement: bool = False,
+    storage_requires_wealth: bool = False,
 ) -> list[str]:
     """한 시점(거버닝 스택)의 재물 발동을 판정한다 — **운 완성 경로 포함**(v2.2 Phase 2).
 
@@ -136,6 +141,10 @@ def detect_wealth_activations(
         natal_output_present / natal_wealth_present: 원국 식상·재성 세력 10%+(존재 임계).
         natal_complement: True 면 '원국 한쪽 + 운 천간 다른 한쪽' 식상생재를 별도 발동
             '식상생재(원국 보완)'으로 인정한다(2026-10-29 재물 강의 — 실험, 기본 OFF).
+        storage_requires_wealth: True 면 '묘고 충개고'를 **재성이 든 창고(재고)** 가 충으로
+            열릴 때만 인정한다(2026-11-13 창고 층 — 실험, 기본 OFF). 종전에는 辰戌·丑未 충이면
+            그 창고에 재성 오행이 없어도 재물 발동으로 가산했다(대략 재현 시 58%가 재성 없는
+            창고). 재고는 일간의 재성 오행을 저장하는 창고다(통설 "財庫逢沖").
 
     Returns:
         성립한 발동 한글 라벨 목록(재성국 완성 / 묘고 충개고 / 식상생재).
@@ -152,6 +161,10 @@ def detect_wealth_activations(
         acts.append("재성국 완성")  # 원국+운 또는 운 단독으로 삼합 재성국 완성
     for pair in _STORAGE_CLASH_PAIRS:
         if pair <= all_branches and (pair & luck_branches):
+            if storage_requires_wealth and not any(
+                wealth_element in _STORED_ELEMENTS.get(b, ()) for b in pair
+            ):
+                continue  # 충 맞은 두 창고 어디에도 재성 오행이 없다 — 재고 개고가 아니다
             acts.append("묘고 충개고")  # 운이 개입한 辰戌/丑未 충 → 지장간 개고
             break
     output_el = _GENERATES.get(day_element, "")

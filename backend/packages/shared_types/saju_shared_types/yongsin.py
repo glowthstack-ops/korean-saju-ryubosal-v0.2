@@ -78,7 +78,8 @@ class YongsinDecisionTrace(BaseModel):
     chosen_path: str  # 채택 모델 라벨 + 핵심 사유
     heesin_function: str | None = None  # stable key
     heesin_function_ko: str | None = None
-    rejected: list[dict] = Field(default_factory=list)  # {element, model, score, reason}
+    # {element, model, score, reason(기계용 코드), reason_ko(화면용 한글)}
+    rejected: list[dict] = Field(default_factory=list)
     axis_conflict: dict | None = None  # {eokbu, johu, resolution}
     collateral: list[str] = Field(default_factory=list)  # 후보 부작용 주석(A1, 설명 전용)
 

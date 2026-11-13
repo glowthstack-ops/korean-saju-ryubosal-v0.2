@@ -1028,16 +1028,24 @@ def luck_years(birth: BirthInput, years: list[int]) -> list[LuckPillar]:
     )
 
 
-def pattern_timeline(birth: BirthInput, year: int) -> PatternTimeline:
+def pattern_timeline(
+    birth: BirthInput, year: int, *, include_months: bool = True
+) -> PatternTimeline:
     """선택 연도의 구조 배합 흐름(원국 → 대운 → 세운 → 월) 종합 — 만세력 페이지 단일 영역용.
 
     월운은 `luck_months`(절기월 12개)를 그대로 쓰고, 대운·세운 간지는 결과의 대운표에서 찾는다.
     시주 미상이면 빈 행(정책). 점수·용신 불변.
+
+    Args:
+        include_months: False 면 대운·세운 층만 산출한다(여러 해 기간 질문의 세운 단위 줄용 —
+            해마다 월 12층을 돌 필요가 없다).
     """
     result = calculate(birth)
     if result.pillars is None:
         raise ValueError("pattern timeline unavailable: chart could not be computed")
-    months = luck_months(birth, year) if result.pillars.hour is not None else []
+    months = (
+        luck_months(birth, year) if include_months and result.pillars.hour is not None else []
+    )
     natal = detect_structure_patterns(result)
     return build_pattern_timeline(
         result, natal, year=year,

@@ -117,3 +117,25 @@ def test_activation_modifier_boosts_only_wealth_keys() -> None:
     assert cc.score == 50 and not any(r.startswith("WEALTHACT_") for r in cc.reason_codes)
     # 발동 없으면 무변.
     assert WealthActivationModifier.apply(cands, cap, []) == cands
+
+
+def test_storage_clash_requires_wealth_store_when_strict() -> None:
+    """'묘고 충개고' 재성 창고 한정(2026-11-13, 기본 OFF) — 충 맞은 창고에 재성 오행이 있어야 한다.
+
+    창고 = 오행 기준(辰=水, 戌=火·土, 丑=金, 未=木 — STORAGE_GATES §3).
+    """
+    from saju_engines.wealth_capacity import detect_wealth_activations
+
+    def acts(wealth_element: str, *, strict: bool) -> list[str]:
+        return detect_wealth_activations(
+            day_element="木", wealth_element=wealth_element, natal_branches={"辰"},
+            luck_branches={"戌"}, luck_stem_elements=set(), storage_requires_wealth=strict,
+        )
+
+    # 기본(OFF): 재성이 무엇이든 辰戌 충이면 가산(종전 동작 보존).
+    assert "묘고 충개고" in acts("金", strict=False)
+    # ON: 辰(水)·戌(火·土) 어디에도 金이 없다 → 재고 개고가 아니다.
+    assert "묘고 충개고" not in acts("金", strict=True)
+    # 반례: 재성이 土(戌에 저장)·水(辰에 저장)이면 ON 에서도 가산된다.
+    assert "묘고 충개고" in acts("土", strict=True)
+    assert "묘고 충개고" in acts("水", strict=True)

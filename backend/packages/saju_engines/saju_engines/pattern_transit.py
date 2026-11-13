@@ -1425,3 +1425,83 @@ def build_pattern_timeline(
         "구조 작동의 변화이지 길흉이 아니다."
     )
     return tl
+
+
+# ── 기간 창 구조 줄(채팅·리포트 입력용, 2026-11-13) ─────────────────────────────
+
+
+def window_structure_lines(
+    timelines: Sequence[PatternTimeline], labels: Sequence[str]
+) -> list[str]:
+    """질문 기간(월·연 라벨 목록)에 운에서 서거나 달라지는 구조를 층별 한 줄씩으로 옮긴다.
+
+    만세력 '구조 배합 흐름'과 같은 타임라인을 읽기만 한다(재판정 없음). 여러 달·여러 해 기간
+    질문에는 기간 운세 블록이 없어 운 적용 구조 상태가 LLM 입력에 실리지 않던 공백을 메운다 —
+    데굴님 "운에서 들어와 성립되는 구조 정도는 풀이에 반영되어야", "여러 해를 묻는 질문에는 세운
+    단위로". 길흉이 아니라 구조 작동의 변화다(도움이 되는 것만 고르지 않는다 — 변동은 전부 싣는다).
+
+    Args:
+        timelines: 기간이 걸친 절기 연도의 타임라인(연도 오름차순 권장).
+        labels: 질문 기간 라벨 — 월(YYYY-MM, 절기월)은 월운 줄, 연(YYYY)은 세운 줄로 낸다.
+
+    Returns:
+        대운 줄(대운 간지마다 한 번)·세운 줄(해마다 한 번)·월운 줄. 해당 달·해가 어느 타임라인에도
+        없으면 건너뛴다. 변동이 없으면 '변동 없음'으로 적는다(없다는 사실도 답의 재료).
+        대운 줄에는 그 대운이 이 기간에서 덮는 해를 '큰 배경'으로 밝힌다 — 여러 해 흐름에서는
+        대운이 가장 큰 배경이고 세운·월운은 그 위의 변화다(데굴님 2026-11-13).
+    """
+    wanted = list(dict.fromkeys(labels))
+    year_labels = {lb for lb in wanted if len(lb) == 4}
+    out: list[str] = []
+    seen_daewoon: set[str] = set()
+    seen_year: set[int] = set()
+    # 대운 간지 → 이 기간에서 그 대운이 덮는 해(타임라인 연도).
+    covered: dict[str, list[int]] = {}
+    for tl in timelines:
+        if tl.hour_unknown or not tl.daewoon_ganji:
+            continue
+        if any(lb in tl.month_labels for lb in wanted) or str(tl.year) in year_labels:
+            covered.setdefault(tl.daewoon_ganji, []).append(tl.year)
+
+    def _backdrop(ganji: str) -> str:
+        years = sorted(set(covered.get(ganji, [])))
+        if len(years) >= 2:
+            return f"{years[0]}~{years[-1]}년의 큰 배경"
+        return "이 기간의 큰 배경"
+
+    def _changes(cells: Sequence[tuple[str, PatternTimelineCell | None]]) -> str:
+        parts = [
+            f"{name} {c.label}" for name, c in cells
+            if c is not None and c.status != "unchanged"
+        ]
+        return " · ".join(parts) if parts else "변동 없음"
+
+    for tl in timelines:
+        if tl.hour_unknown:
+            continue
+        idx = {label: i for i, label in enumerate(tl.month_labels)}
+        hit = [label for label in wanted if label in idx]
+        if not hit and str(tl.year) not in year_labels:
+            continue
+        if tl.daewoon_ganji and tl.daewoon_ganji not in seen_daewoon:
+            seen_daewoon.add(tl.daewoon_ganji)
+            out.append(
+                f"대운 {tl.daewoon_ganji}(원국 대비 — {_backdrop(tl.daewoon_ganji)}): "
+                + _changes([(r.name_ko, r.daewoon) for r in tl.rows])
+            )
+        if tl.year_ganji and tl.year not in seen_year:
+            seen_year.add(tl.year)
+            out.append(
+                f"세운 {tl.year_ganji} {tl.year}년(대운 대비): "
+                + _changes([(r.name_ko, r.year) for r in tl.rows])
+            )
+        for label in hit:
+            i = idx[label]
+            ganji = tl.month_ganji[i] if i < len(tl.month_ganji) else ""
+            # 줄 머리는 '월운' — 월 라벨로 시작하면 월별 요약 표의 행과 모양이 같아진다.
+            out.append(
+                f"월운 {label} {ganji}(세운 대비): "
+                + _changes([(r.name_ko, r.months[i] if i < len(r.months) else None)
+                            for r in tl.rows])
+            )
+    return out
