@@ -147,6 +147,26 @@ def baekho_needs_day_pillar(target_date: date) -> bool:
     return target_date >= BAEKHO_DAY_BASIS_EFFECTIVE_FROM
 
 
+#: 로또 문구에 횡재 유입 표지(편재)를 요구하는 기준일(model.v2.5, docs/17 §33) — 11/17 보드는
+#: 11/16 20시 선생성분이라 종전 게이트를 유지하고, 11/18 보드(11/17 20시 선생성)부터 쓴다.
+#: 게이트만 바뀌고 사전 문구는 그대로라 dict 버전은 올리지 않는다.
+LOTTO_INFLOW_GATE_EFFECTIVE_FROM = date(2026, 11, 18)
+
+
+def lotto_requires_windfall_star(target_date: date) -> bool:
+    """그 날짜의 로또 문구 게이트 — True 면 오늘 일진의 표면 십성에 편재가 있어야 한다.
+
+    표면 십성 = 일간 기준 오늘 천간과 오늘 지지 본기. 편재가 없거나 비견·겁재가 표면에 함께 있으면
+    로또 문구를 내지 않는다(편재 = 횡재 유입 표지, 비겁 = 편재를 나누는 쪽 — docs/17 §33,
+    doc/v2_2/WINDFALL_SIGNAL_REVIEW.md). False 면 종전 게이트(금전 순위·공돈 확률·손실 신호·슬롯)만
+    본다. 과거 날짜는 그날 계약으로 재생돼야 하므로 날짜가 기준을 고른다.
+
+    Args:
+        target_date: 운세 대상 날짜(KST 기준).
+    """
+    return target_date >= LOTTO_INFLOW_GATE_EFFECTIVE_FROM
+
+
 def stage_direction_forward(target_date: date) -> bool:
     """그 날짜의 12운성 방향 — True 면 일간→운 지지(통설·만세력 엔진과 동일), False 면 종전
     '오늘(월운) 천간→일지'.

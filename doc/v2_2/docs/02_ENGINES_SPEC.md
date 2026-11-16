@@ -312,6 +312,8 @@ interface DateCandidate {
 | 개업 | 대운/세운 비중 큼 |
 | 주식/로또 | 일운 비중 축소, 변동성·과몰입 경고 중심 |
 
+> **2026-11-16 개정(등급 옵션)**: `recommendation='recommended'` 는 점수 문턱(최종 70 이상·위험도 40 미만)에 더해 ①**일진 천간이 기신·구신이 아닐 때만** 붙는다(전 목적 — 옵션 `recommendBlocksUnfavorableStem`) ②횡재·재물·개업·결혼은 **그날 목적 신호가 유리 방향으로 있을 때만** 붙는다(옵션 `recommendRequiresDayBasis` — 신호 0건인 날의 중립 점수는 추천 근거가 아니다. 이사·계약은 십성 적합표, 수술은 걸리는 관계가 없는 것이 그날 근거라 요구하지 않는다). 표 사유(`reasons`)에는 천간·지지 십성, 신호 출처 관계, 걸리는 관계를 엔진 값으로 싣는다(`dayBasisNotes`). 위험도 회피 등급 날은 회피일 목록에 사유와 함께 싣는다. 근거·측정 = `doc/v2_2/WINDFALL_SIGNAL_REVIEW.md` §4-1.
+
 ### E10-a. Calendar Rule Engine
 손없는 날, 절기, 명절, 공휴일, 요일, 음력일, 민속 불리일. **명리 계산이 아닌 별도 규칙 데이터** (`calendar/son_eomneun_nal.json` 등). 손없는 날은 음력 끝자리 9·0일 규칙으로 계산 가능하므로 데이터+계산 혼합.
 

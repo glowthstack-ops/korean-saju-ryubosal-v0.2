@@ -444,6 +444,11 @@ class DateChoiceRow(BaseModel):
     score: int
     recommendation: str  # recommended | acceptable
     notes: list[str] = Field(default_factory=list)  # 손없는 날·공휴일·사유
+    # 일진 천간·지지 십성과 천간 역할(2026-11-16) — 생성 후 감사(date_table_audit)가 '천간 누락'을
+    # 대조하는 엔진 값. 빈 값 = 미제공(감사 건너뜀).
+    stem_ten_god: str = ""
+    branch_ten_god: str = ""
+    stem_role: str = ""
 
 
 class DateSelectionBlock(BaseModel):
@@ -454,6 +459,13 @@ class DateSelectionBlock(BaseModel):
     # 기간 기준 안내(2026-10-04) — 사용자가 쓴 주 호칭과 실제 구간, 로또 판매 회차(일~토) 사실.
     # 엔진이 확정한 문장이며 LLM은 주 호칭·회차 경계를 바꿔 말하지 않는다. 빈 = 미사용.
     frame_notes: list[str] = Field(default_factory=list)
+    # 등급 기준 안내(2026-11-16) — [추천]이 붙는 조건과, 추천 등급 날이 없을 때의 답 형태.
+    # 엔진이 확정한 문장이며 LLM은 등급을 올리거나 내려 말하지 않는다. 빈 = 미사용.
+    grade_notes: list[str] = Field(default_factory=list)
+    # 이 표에 [추천] 등급 날이 있는가 — False 면 '추천할 것' 지시 대신 '무난한 날 안내' 지시를
+    # 싣는다.
+    # None = 등급 기준을 쓰지 않는 목적(종전 지시 유지).
+    has_recommended: bool | None = None
     rows: list[DateChoiceRow] = Field(default_factory=list)
     avoid: list[dict] = Field(default_factory=list)  # {'date','reason'}
     cautions: list[str] = Field(default_factory=list)

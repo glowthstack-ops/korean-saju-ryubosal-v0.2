@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0",
-  "note": "택일 목적별 가중치 프로파일(docs/02 E10 표). 5단계 점수(macro/month/day/calendar/reality) 가중 + 목적 옵션. 초안 — 검수 대상.",
+  "version": "1.2.0",
+  "note": "택일 목적별 가중치 프로파일(docs/02 E10 표). 5단계 점수(macro/month/day/calendar/reality) 가중 + 목적 옵션. 초안 — 검수 대상. 등급 옵션(2026-11-16, 점수 가중은 그대로): recommendBlocksUnfavorableStem — 일진 천간이 기신·구신인 날은 [추천] 불가(전 목적). recommendRequiresDayBasis — [추천]에 그날 목적 신호의 유리 방향을 요구(횡재·재물·개업·결혼. 이사·계약은 십성 적합표가 그날 근거이고 수술은 걸리는 관계가 없는 것이 근거라 요구하지 않는다). dayBasisNotes — 표 사유에 천간·지지 십성, 신호 출처, 걸리는 관계 표기(전 목적). 근거 = doc/v2_2/WINDFALL_SIGNAL_REVIEW.md.",
   "items": [
     {
       "purpose": "relocation",
@@ -16,7 +16,10 @@
         "sonEomneunNalBonus": true,
         "avoidClash": true,
         "volatilityWarning": false,
-        "dayWeightReduced": false
+        "dayWeightReduced": false,
+        "recommendBlocksUnfavorableStem": true,
+        "recommendRequiresDayBasis": false,
+        "dayBasisNotes": true
       },
       "reviewed": false
     },
@@ -34,7 +37,10 @@
         "sonEomneunNalBonus": false,
         "avoidClash": true,
         "volatilityWarning": false,
-        "dayWeightReduced": false
+        "dayWeightReduced": false,
+        "recommendBlocksUnfavorableStem": true,
+        "recommendRequiresDayBasis": false,
+        "dayBasisNotes": true
       },
       "domainOverride": "wealth",
       "reviewed": false
@@ -53,7 +59,10 @@
         "sonEomneunNalBonus": false,
         "avoidClash": true,
         "volatilityWarning": false,
-        "dayWeightReduced": false
+        "dayWeightReduced": false,
+        "recommendBlocksUnfavorableStem": true,
+        "recommendRequiresDayBasis": true,
+        "dayBasisNotes": true
       },
       "domainOverride": "relationship",
       "reviewed": false
@@ -73,7 +82,10 @@
         "avoidClash": true,
         "volatilityWarning": false,
         "dayWeightReduced": false,
-        "strictAvoid": true
+        "strictAvoid": true,
+        "recommendBlocksUnfavorableStem": true,
+        "recommendRequiresDayBasis": false,
+        "dayBasisNotes": true
       },
       "domainOverride": "health",
       "reviewed": false
@@ -92,7 +104,10 @@
         "sonEomneunNalBonus": false,
         "avoidClash": true,
         "volatilityWarning": false,
-        "dayWeightReduced": false
+        "dayWeightReduced": false,
+        "recommendBlocksUnfavorableStem": true,
+        "recommendRequiresDayBasis": true,
+        "dayBasisNotes": true
       },
       "domainOverride": "career",
       "reviewed": false
@@ -111,7 +126,10 @@
         "sonEomneunNalBonus": false,
         "avoidClash": false,
         "volatilityWarning": true,
-        "dayWeightReduced": true
+        "dayWeightReduced": true,
+        "recommendBlocksUnfavorableStem": true,
+        "recommendRequiresDayBasis": true,
+        "dayBasisNotes": true
       },
       "domainOverride": "wealth",
       "reviewed": false
@@ -130,7 +148,10 @@
         "sonEomneunNalBonus": false,
         "avoidClash": false,
         "volatilityWarning": true,
-        "dayWeightReduced": true
+        "dayWeightReduced": true,
+        "recommendBlocksUnfavorableStem": true,
+        "recommendRequiresDayBasis": true,
+        "dayBasisNotes": true
       },
       "domainOverride": "wealth",
       "reviewed": false

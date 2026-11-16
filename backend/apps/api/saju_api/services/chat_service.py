@@ -24,6 +24,7 @@ from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict, Field
 from saju_manse_analysis.luck.luck_calendar import luck_month_label, shift_month_label
+from saju_manse_analysis.yongsin.operational_role_config import is_unfavorable_role
 
 from saju_engines import (
     EventEngineV2,
@@ -92,7 +93,8 @@ from saju_engines.counterfactual_context import (
 from saju_engines.daewoon_progression import resolve_all_daewoon_progressions
 from saju_engines.daewoon_turn import daewoon_turn_lines
 from saju_engines.date_answer_audit import rewrite_avoid_ranges, strip_after_closing_question
-from saju_engines.date_selection import DateSelectionEngine
+from saju_engines.date_selection import GRADE_NONE_NOTE, DateSelectionEngine
+from saju_engines.date_table_audit import audit_date_table_answer
 from saju_engines.effective_subjects import AttachedCompanion, build_effective_subjects
 from saju_engines.entry_channel import ENTRY_CHANNEL_DIRECTIVE, entry_channel_lines
 from saju_engines.entry_slots import (
@@ -264,6 +266,7 @@ from saju_engines.wealth_lecture import (
     wealth_vessel_lines,
 )
 from saju_engines.week_label_audit import audit_week_labels, week_label_closing_directive
+from saju_engines.windfall_lens import body_side
 from saju_engines.yearly_environment import (
     build_yearly_environment,
     render_yearly_environment,
@@ -1893,6 +1896,11 @@ def _date_selection_block(
     # 이사·이동도 favorability를 전달해 8방위 적합도 + 지정 방위(예: 남동) 길흉을 안내한다.
     is_windfall = purpose in (EventKey.WINDFALL, EventKey.WEALTH_CHANGE)
     wealth_element = analyze_wealth_capacity(chart).wealth_element if is_windfall else None
+    # 횡재 관점 라벨용 일간 쪽(신강/신약/중화) — 엔진 판정값만 넘긴다(2026-11-16).
+    body = None
+    if is_windfall and chart.force_analysis is not None:
+        _strength = chart.force_analysis.strength
+        body = body_side(_strength.band, bool(_strength.strong_chart_gate.get("passed")))
     is_relocation = purpose == EventKey.RELOCATION
     if is_windfall or is_relocation:
         from saju_engines.event_scoring import favorability_map
@@ -1917,6 +1925,7 @@ def _date_selection_block(
         stated_direction=constraints.direction,
         relocation_kind=getattr(intent, "relocation_kind", "home"),  # R4 집/사무실 분기
         domain_override=purpose_domain,
+        body=body,
     )
     if not result.candidates:
         return None
@@ -1933,10 +1942,50 @@ def _date_selection_block(
                 + (["주말"] if c.is_weekend else [])
                 + ([c.folk_direction_note] if c.folk_direction_note else [])
             ),
+            stem_ten_god=c.stem_ten_god,
+            branch_ten_god=c.branch_ten_god,
+            stem_role=c.stem_role,
         )
         for c in result.candidates
         if c.recommendation != "avoid"  # 추천 표에는 회피 등급 제외(회피일은 별도 목록)
     ]
+    # 위험도 회피 등급(충·형·원진 3건 이상)은 표에서 빠지므로 회피일 목록에 사유와 함께 싣는다.
+    # 종전에는 어디에도 실리지 않아, 같은 날이 일별 흐름 블록에만 '용신' 날로 남았다(2026-11-16
+    # 실답: 표에서 빠진 토요일을 "안정적인 결실을 지향하는 날"로 권했다).
+    risk_avoid = [
+        {
+            "date": c.date,
+            "reason": (
+                f"{c.ganji}(천간 {c.stem_ten_god}·{c.stem_role}, 지지 {c.branch_ten_god}) "
+                f"걸리는 관계(충·형·원진) {'·'.join(c.risk_relations) or '다수'} — 표에서 뺐다"
+            ),
+        }
+        for c in result.candidates
+        if c.recommendation == "avoid"
+    ]
+    # 등급 기준 안내 — 등급 옵션이 있는 목적(목적별 조건 문장은 엔진이 고른다). [추천] 날이
+    # 없으면 그 사실과 무난한 날을 엔진이 정해 준다(걸리는 관계 없는 날, 천간이 기신·구신이 아닌
+    # 날 먼저).
+    grade_notes: list[str] = []
+    has_recommended: bool | None = None
+    basis_note = _get_date_engine().grade_basis_note(purpose, purpose_domain)
+    if basis_note is not None:
+        grade_notes.append(basis_note)
+        has_recommended = any(r.recommendation == "recommended" for r in rows)
+        if not has_recommended:
+            calm = sorted(
+                (c for c in result.candidates
+                 if c.recommendation == "acceptable" and not c.risk_relations),
+                key=lambda c: (is_unfavorable_role(c.stem_role), c.date),
+            )
+            note = GRADE_NONE_NOTE
+            if calm:
+                note += " 걸리는 관계가 없는 날: " + ", ".join(
+                    f"{c.date}({_WEEKDAY_KO[date.fromisoformat(c.date).weekday()]})"
+                    + ("(천간이 부담 쪽)" if is_unfavorable_role(c.stem_role) else "")
+                    for c in calm
+                ) + "."
+            grade_notes.append(note)
     # 시진은 원소 기반(날짜 무관 동일)이라 상위 후보 1건의 hour_fits를 블록 레벨로 노출.
     hour_fits = (
         [h.model_dump() for h in result.candidates[0].hour_fits]
@@ -1960,8 +2009,10 @@ def _date_selection_block(
         purpose_ko=purpose_label or event_ko(purpose),
         period=f"{start_iso} – {end_iso}",
         frame_notes=_week_frame_notes(tr, purpose, today),
+        grade_notes=grade_notes,
+        has_recommended=has_recommended,
         rows=rows,
-        avoid=result.avoid_dates,
+        avoid=[*result.avoid_dates, *risk_avoid],
         cautions=cautions,
         directions=[d.model_dump() for d in result.directions],
         hour_fits=hour_fits,
@@ -2286,6 +2337,8 @@ def finalize_answer_full(
         answer = _audit_ilju_mention_answer(answer, ctx, thread_id)
         # 주 호칭 감사(2026-11-06) — '다음 주' 질문의 '이번 주·금주' 호칭을 질문 호칭으로 교정.
         answer = _audit_week_label_answer(answer, ctx, thread_id)
+        # 택일 표 인용 감사(2026-11-16) — 천간 누락·등급 올림 관측(로그 전용).
+        _audit_date_table_answer(answer, ctx.payload, thread_id)
         # 단식 참고 줄 보장(2026-11-08) — LLM 이 '간단히 봤을 때' 문장을 빠뜨리면 첫 문단 뒤에
         # 엔진 줄을 그대로 삽입한다(재호출 없는 결정론 교정).
         answer = _ensure_simple_reading_line(answer, ctx.payload, thread_id, ctx.speech_style)
@@ -2392,6 +2445,21 @@ def _audit_gongmang_claims_answer(
             len(audit.removed), audit.removed, thread_id,
         )
     return audit.text
+
+
+def _audit_date_table_answer(answer: str, payload: LlmInput, thread_id: str | None) -> None:
+    """택일 표 인용 감사 로그(2026-11-16) — 기신·구신 천간을 빼고 지지 십성만 쓴 문장, [추천]이
+    아닌 날을 추천으로 올린 문장을 센다.
+
+    교정·재호출 없음(문장 교정은 문맥을 깨기 쉽다). 관측이 있을 때만 warning 으로 남긴다.
+    """
+    audit = audit_date_table_answer(answer, payload.date_selection)
+    if not audit.clean:
+        _logger.warning(
+            "date_table_audit stem_omitted=%d grade_raised=%d samples=%r thread=%s",
+            len(audit.stem_omitted), len(audit.grade_raised),
+            (audit.stem_omitted + audit.grade_raised)[:3], thread_id,
+        )
 
 
 def _audit_date_avoid_answer(answer: str, payload: LlmInput, thread_id: str | None) -> str:
@@ -5476,6 +5544,9 @@ def _weekly_overview_lines(
 
     주간 질문이 일별 데이터 없이 월운으로 뭉뚱그려지던 결함 보완 — 날짜별 간지·길흉(용/희/한/기/
     구)·십성을 제공해 LLM이 하루씩 짚게 한다. 점수·간지는 엔진 계산값(절대원칙 1). 14일 이내만.
+
+    줄마다 십성의 자리(천간/지지)와 길흉의 기준(천간)을 밝힌다(2026-11-16) — 실답에서 '기신 ·
+    십성 편관/비견'을 받고 지지 비견만 골라 "비견의 기운이 힘을 실어주는 날"로 썼다.
     """
     tr = intent.time_range
     if tr is None or not tr.start or not tr.end:
@@ -5537,8 +5608,12 @@ def _weekly_overview_lines(
         d = date.fromisoformat(c.period_key)
         lines.append(
             f"- {c.period_key}({_WEEKDAY_KO[d.weekday()]}) {c.ganji.stem}{c.ganji.branch} · "
-            f"{c.favorability} · 십성 {c.ten_god.stem}/{c.ten_god.branch_main}"
+            f"천간 {c.ten_god.stem}({c.favorability}) · 지지 {c.ten_god.branch_main}"
         )
+    lines.append(
+        "읽는 법: 괄호의 길흉은 그날 천간 기준이다. 날을 풀이할 때 천간 십성과 지지 십성을 함께 "
+        "말하고, 천간이 기신·구신인 날을 지지 십성만 들어 유리한 날로 말하지 않는다."
+    )
     return lines
 
 

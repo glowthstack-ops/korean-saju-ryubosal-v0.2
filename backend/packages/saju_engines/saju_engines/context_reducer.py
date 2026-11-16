@@ -504,6 +504,22 @@ _DATE_TABLE_INSTRUCTION = (
     "것. 표의 날짜·간지·사유를 그대로 인용해 1–3개 날짜를 명확히 추천할 것. 표 밖의 "
     "날짜를 임의로 만들지 말 것."
 )
+# [추천] 등급 날이 없는 표(2026-11-16) — '추천할 것' 지시가 근거 없는 날을 추천으로 끌어올린다.
+# 표의 등급을 그대로 전하게 한다(회피성 답변 금지는 유지).
+_DATE_TABLE_NO_RECOMMEND_INSTRUCTION = (
+    "[택일 결과] 표가 제공되었으므로 '날짜 정보가 없다' 류의 회피성 답변을 절대 하지 말 "
+    "것. 이 표에는 [추천] 등급 날이 없다 — 첫 문단에서 이 기간에 두드러지게 유리한 날은 "
+    "없다고 분명히 밝히고, 이어서 '등급 기준' 줄이 짚은 걸리는 관계가 없는 날을 무난한 날로 "
+    "1–2개 안내할 것. [무난]인 날을 추천일·가장 좋은 날로 올려 말하지 말 것. 표 밖의 날짜를 "
+    "임의로 만들지 말 것."
+)
+# 표 등급·십성 인용 규칙(2026-11-16) — 등급을 바꿔 말하거나 한쪽 십성만 골라 쓰지 않게 한다.
+_DATE_TABLE_GRADE_INSTRUCTION = (
+    "[택일 표 인용 규칙] 표의 [추천]·[무난]·회피일 등급을 바꿔 말하지 말 것. 날을 풀이할 때는 "
+    "표 사유에 적힌 그날의 천간 십성과 지지 십성을 함께 말하고, 천간이 기신·구신인 날을 지지 "
+    "십성만 들어 유리한 날로 말하지 말 것. 사유에 '신호 없음'이라 적힌 날에 그 신호가 있다고 "
+    "쓰지 말 것."
+)
 
 # 이벤트 한글 라벨(21키 taxonomy_v2) — 내부 키 노출 방지(Phase 7).
 _EVENT_KO: dict[str, str] = {str(k): v for k, v in _EVENT_KO_V2.items()}
@@ -3924,6 +3940,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(f"[택일 결과 — {ds.purpose_ko} · {ds.period} · 엔진 확정값]")
         for frame_note in ds.frame_notes:  # 주 호칭·회차 경계(엔진 확정 — 바꿔 말하기 금지)
             lines.append(f"기간 기준: {frame_note}")
+        for grade_note in ds.grade_notes:  # [추천] 조건·추천일 없음(엔진 확정 — 등급 변경 금지)
+            lines.append(f"등급 기준: {grade_note}")
         for drow in ds.rows:
             notes = " · ".join(drow.notes) if drow.notes else ""
             # 택일 점수·내부 enum은 노출 금지 — 추천 등급을 한글 라벨로만 노출(항목 5).
@@ -4053,7 +4071,12 @@ def serialize_llm_input(payload: LlmInput) -> str:
     if payload.out_of_range_candidates:
         lines.append(_OUT_OF_RANGE_INSTRUCTION)
     if payload.date_selection is not None:
-        lines.append(_DATE_TABLE_INSTRUCTION)
+        if payload.date_selection.has_recommended is False:
+            lines.append(_DATE_TABLE_NO_RECOMMEND_INSTRUCTION)
+        else:
+            lines.append(_DATE_TABLE_INSTRUCTION)
+        if payload.date_selection.grade_notes:
+            lines.append(_DATE_TABLE_GRADE_INSTRUCTION)
     lines.append(_SELF_CHECK_INSTRUCTION)
     if payload.is_followup_turn:
         lines.append(_FOLLOWUP_INSTRUCTION)

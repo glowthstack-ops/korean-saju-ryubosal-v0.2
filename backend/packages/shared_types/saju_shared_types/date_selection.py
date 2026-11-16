@@ -62,6 +62,16 @@ class DateCandidate(BaseModel):
     # (추가 정보, 점수·등급 불변). 그 외 목적은 None.
     folk_direction_note: str | None = None
     hour_fits: list[HourFit] = Field(default_factory=list)  # 시진 요청 시에만
+    # 그날 판정 근거(2026-11-16) — 표 사유를 엔진 값으로 싣기 위한 사실 필드(점수 불변).
+    # 실답: 재물 신호가 0건인 날에도 '재물 신호 기반'이라고만 실려 LLM이 십성으로 이유를 지었다.
+    stem_ten_god: str = ""  # 일진 천간 십성
+    branch_ten_god: str = ""  # 일진 지지(본기) 십성
+    stem_role: str = ""  # 일진 천간 오행의 역할(용신/희신/한신/기신/구신)
+    # 목적 도메인 신호의 방향 — positive(유리) | negative(불리) | none(신호 0건).
+    day_signal: str = "none"
+    signal_relations: list[str] = Field(default_factory=list)  # 신호를 만든 관계('巳申 파')
+    risk_relations: list[str] = Field(default_factory=list)  # 위험도에 든 관계('丙庚 충')
+    lens_notes: list[str] = Field(default_factory=list)  # 횡재 관점 라벨(횡재 목적 전용)
 
 
 class DateSelectionResult(BaseModel):

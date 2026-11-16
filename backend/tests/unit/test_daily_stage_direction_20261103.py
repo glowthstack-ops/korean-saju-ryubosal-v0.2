@@ -48,7 +48,7 @@ def test_boundary_selects_direction_dict_and_model() -> None:
     assert MODEL_V2_VERSION_BEFORE_STAGE_DIRECTION == "model.v2.2"
     # 11/5~11/13 은 model.v2.3, 11/14 부터 v2.4(백호 일주 기준 — docs/17 §32).
     assert active_model_v2_version(_FROM) == "model.v2.3"
-    assert MODEL_V2_VERSION == "model.v2.4"
+    assert MODEL_V2_VERSION == "model.v2.5"  # 11/18 부터(로또 문구 유입 표지 게이트 §33)
     assert content_version_v2_for(_BEFORE) != content_version_v2_for(_FROM)  # 캐시 namespace 분리
 
 

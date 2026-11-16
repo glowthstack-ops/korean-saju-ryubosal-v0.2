@@ -17,6 +17,7 @@ from saju_shared_types.daily_fortune import (
     BAEKHO_DAY_BASIS_EFFECTIVE_FROM,
     CATALOG_EXPANSION_3_EFFECTIVE_FROM,
     CATALOG_EXPANSION_EFFECTIVE_FROM,
+    LOTTO_INFLOW_GATE_EFFECTIVE_FROM,
     STAGE_DIRECTION_EFFECTIVE_FROM,
     DailyDomain,
     DailySlot,
@@ -35,7 +36,12 @@ from saju_shared_types.daily_fortune import (
 #: v2.4(2026-11-13): 상해 채널의 백호를 일주 기준으로(docs/17 §32) — 오늘 일진이 백호 간지여도
 #: 일주가 백호 간지가 아니면 성립하지 않는다(원국·운 신살의 백호와 같은 기준). 카탈로그 내용은
 #: v2.3 과 같고 채널 계산만 바뀌므로 경계(BAEKHO_DAY_BASIS_EFFECTIVE_FROM, 11/14)로 버전을 고른다.
-MODEL_V2_VERSION = "model.v2.4"
+#: v2.5(2026-11-16): 로또 문구 게이트에 횡재 유입 표지 요구(docs/17 §33) — 오늘 일진의 표면 십성
+#: (천간·지지 본기)에 편재가 있고 비견·겁재가 없을 때만 로또 문구를 낸다. 카탈로그·채널은 v2.4 와
+#: 같고 로또 게이트만 바뀌므로 경계(LOTTO_INFLOW_GATE_EFFECTIVE_FROM, 11/18)로 버전을 고른다.
+MODEL_V2_VERSION = "model.v2.5"
+#: 로또 유입 표지 게이트 경계 이전(11/14~11/17)에 적용되는 v2 모델 버전(종전 로또 게이트).
+MODEL_V2_VERSION_BEFORE_LOTTO_INFLOW_GATE = "model.v2.4"
 #: 백호 일주 기준 경계 이전(11/5~11/13)에 적용되는 v2 모델 버전(82종, 일진만 보는 백호).
 MODEL_V2_VERSION_BEFORE_BAEKHO_DAY_BASIS = "model.v2.3"
 #: 12운성 방향 교정 경계 이전(9/20~11/4)에 적용되는 v2 모델 버전(82종, 역방향 12운성).
@@ -55,8 +61,8 @@ def active_model_v2_version(target_date: date) -> str:
 
     Returns:
         9/12 이전 `PREVIOUS_MODEL_V2_VERSION`(48종) → 9/20 이전 model.v2.1(64종) → 11/5 이전
-        model.v2.2(82종, 역방향 12운성) → 11/14 이전 model.v2.3(일간→오늘 지지 12운성) → 이후
-        `MODEL_V2_VERSION`(백호 일주 기준).
+        model.v2.2(82종, 역방향 12운성) → 11/14 이전 model.v2.3(일간→오늘 지지 12운성) → 11/18
+        이전 model.v2.4(백호 일주 기준) → 이후 `MODEL_V2_VERSION`(로또 문구 유입 표지 게이트).
     """
     if target_date < CATALOG_EXPANSION_EFFECTIVE_FROM:
         return PREVIOUS_MODEL_V2_VERSION
@@ -66,6 +72,8 @@ def active_model_v2_version(target_date: date) -> str:
         return MODEL_V2_VERSION_BEFORE_STAGE_DIRECTION
     if target_date < BAEKHO_DAY_BASIS_EFFECTIVE_FROM:
         return MODEL_V2_VERSION_BEFORE_BAEKHO_DAY_BASIS
+    if target_date < LOTTO_INFLOW_GATE_EFFECTIVE_FROM:
+        return MODEL_V2_VERSION_BEFORE_LOTTO_INFLOW_GATE
     return MODEL_V2_VERSION
 
 #: prior 3등급 → 사전확률 가산치 (§22-1: signature=출전권, prior=순위만).
