@@ -513,12 +513,26 @@ _DATE_TABLE_NO_RECOMMEND_INSTRUCTION = (
     "1–2개 안내할 것. [무난]인 날을 추천일·가장 좋은 날로 올려 말하지 말 것. 표 밖의 날짜를 "
     "임의로 만들지 말 것."
 )
+# 그룹(다인) 택일 표(2026-11-17 데굴님: "모든 구성원을 대상으로 풀이 해주는게 나을 것 같아.
+# 사용자 판단에 맡기는거지") — 한 사람 기준으로 한 날을 골라 주지 않고 구성원별 등급을 나란히
+# 전한다. '1–3개 날짜를 명확히 추천' 지시는 구성원 등급이 엇갈릴 때 한쪽 등급을 덮는다.
+_DATE_TABLE_GROUP_INSTRUCTION = (
+    "[택일 결과] 표가 제공되었으므로 '날짜 정보가 없다' 류의 회피성 답변을 절대 하지 말 "
+    "것. 이 표는 구성원별 풀이다 — 날짜마다 구성원 각자의 등급([추천]·[무난]·[회피])과 사유가 "
+    "따로 적혀 있다. '등급 기준' 줄에 구성원 모두 [추천]인 날이 있으면 그 날을 먼저 안내하고, "
+    "없으면 첫 문단에서 없다고 밝힐 것. 등급이 엇갈리는 날은 누구에게 어떤 등급이고 사유가 "
+    "무엇인지 구성원별로 나란히 말할 것 — 한 구성원의 등급만 들어 그 날을 좋은 날·나쁜 날로 "
+    "단정하지 말고, 어느 구성원을 기준으로 고를지는 사용자가 정하도록 맡길 것. 표에 없는 "
+    "구성원 등급이나 표 밖의 날짜를 임의로 만들지 말 것."
+)
 # 표 등급·십성 인용 규칙(2026-11-16) — 등급을 바꿔 말하거나 한쪽 십성만 골라 쓰지 않게 한다.
 _DATE_TABLE_GRADE_INSTRUCTION = (
     "[택일 표 인용 규칙] 표의 [추천]·[무난]·회피일 등급을 바꿔 말하지 말 것. 날을 풀이할 때는 "
     "표 사유에 적힌 그날의 천간 십성과 지지 십성을 함께 말하고, 천간이 기신·구신인 날을 지지 "
     "십성만 들어 유리한 날로 말하지 말 것. 사유에 '신호 없음'이라 적힌 날에 그 신호가 있다고 "
-    "쓰지 말 것."
+    "쓰지 말 것. 사유에 '걸리는 관계 N건'이 적힌 날은 그 관계를 주의 사유로 말하고, 걸리는 "
+    "관계가 없는 날처럼('부딪힘·갈등이 없다' 등) 말하지 말 것 — 여러 날을 한 문장으로 묶을 "
+    "때도 같다. 표 사유에 없는 사유(지출·경쟁·손실 등)를 십성 이름만으로 지어 붙이지 말 것."
 )
 
 # 이벤트 한글 라벨(21키 taxonomy_v2) — 내부 키 노출 방지(Phase 7).
@@ -3944,6 +3958,19 @@ def serialize_llm_input(payload: LlmInput) -> str:
             lines.append(f"등급 기준: {grade_note}")
         for drow in ds.rows:
             notes = " · ".join(drow.notes) if drow.notes else ""
+            if drow.members:
+                # 그룹(다인) 택일 — 날짜 줄에는 등급을 붙이지 않고 구성원별 등급·사유를 나란히
+                # 싣는다(2026-11-17: 누구 기준으로 고를지는 사용자가 정한다).
+                lines.append(
+                    f"{drow.date}({drow.weekday}) {drow.ganji}" + (f" — {notes}" if notes else "")
+                )
+                for member in drow.members:
+                    member_notes = " · ".join(member.notes)
+                    lines.append(
+                        f"  · {member.label} [{recommendation_ko(member.recommendation)}]"
+                        + (f" — {member_notes}" if member_notes else "")
+                    )
+                continue
             # 택일 점수·내부 enum은 노출 금지 — 추천 등급을 한글 라벨로만 노출(항목 5).
             lines.append(
                 f"{drow.date}({drow.weekday}) {drow.ganji} "
@@ -3962,6 +3989,7 @@ def serialize_llm_input(payload: LlmInput) -> str:
             if best:
                 slots = ", ".join(f"{h.get('branch')}시({h.get('time_range')})" for h in best)
                 lines.append(f"시간대: {slots}")
+        lines += ds.group_lines  # 그룹(다인) 택일 — 구성원별 방위·표 밖 회피일(엔진 확정 줄)
         for warning in ds.group_warnings:  # 그룹(다인) 이사 — 구성원 충돌·경고
             lines.append(f"구성원 주의: {warning}")
         if ds.relocation_reasons:  # 이사 십성 이유분류(유형 라벨 — 실제 발생 단정 금지)
@@ -4071,7 +4099,9 @@ def serialize_llm_input(payload: LlmInput) -> str:
     if payload.out_of_range_candidates:
         lines.append(_OUT_OF_RANGE_INSTRUCTION)
     if payload.date_selection is not None:
-        if payload.date_selection.has_recommended is False:
+        if payload.date_selection.group_members:
+            lines.append(_DATE_TABLE_GROUP_INSTRUCTION)
+        elif payload.date_selection.has_recommended is False:
             lines.append(_DATE_TABLE_NO_RECOMMEND_INSTRUCTION)
         else:
             lines.append(_DATE_TABLE_INSTRUCTION)

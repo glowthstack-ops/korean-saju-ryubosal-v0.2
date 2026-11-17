@@ -100,6 +100,19 @@ GRADE_NONE_NOTE = (
 )
 
 
+def reality_allows_day(day: date, constraints: list[str] | None) -> bool:
+    """현실 제약('주말만'·'평일만')이 그 날을 후보로 허용하는가.
+
+    `DateSelectionEngine.select` 의 후보 필터와 같은 기준이다. 그룹(다인) 택일이 금기일로 빠진
+    날을 구성원별로 다시 모을 때, 제약으로 애초에 후보가 아닌 날을 가려내려고 공개한다
+    ('평일 선호'는 필터가 아니라 가점이라 여기서 보지 않는다).
+    """
+    is_weekend = day.weekday() >= 5
+    if any("주말만" in c for c in constraints or []) and not is_weekend:
+        return False
+    return not (any("평일만" in c for c in constraints or []) and is_weekend)
+
+
 def relation_label_ko(relation_id: str) -> str:
     """관계 ID('rel_巳申破') → 표 사유용 표기('巳申 파'). 모르는 꼴은 꼬리를 그대로 돌려준다."""
     tail = relation_id.removeprefix("rel_")
@@ -264,9 +277,7 @@ class DateSelectionEngine:
 
             # ⑥ Reality Constraint(T7.4) — 가능한 날 중 가장 좋은 날.
             is_weekend = day.weekday() >= 5
-            if weekend_only and not is_weekend:
-                continue
-            if weekday_only and is_weekend:
+            if not reality_allows_day(day, constraints):
                 continue
 
             # ⑤ Calendar Rule(E10-a): 손없는 날·공휴일·요일.

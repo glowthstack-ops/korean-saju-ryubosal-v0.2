@@ -17,6 +17,7 @@ import re
 import time
 from collections import Counter
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -93,7 +94,11 @@ from saju_engines.counterfactual_context import (
 from saju_engines.daewoon_progression import resolve_all_daewoon_progressions
 from saju_engines.daewoon_turn import daewoon_turn_lines
 from saju_engines.date_answer_audit import rewrite_avoid_ranges, strip_after_closing_question
-from saju_engines.date_selection import GRADE_NONE_NOTE, DateSelectionEngine
+from saju_engines.date_selection import (
+    GRADE_NONE_NOTE,
+    DateSelectionEngine,
+    reality_allows_day,
+)
 from saju_engines.date_table_audit import audit_date_table_answer
 from saju_engines.effective_subjects import AttachedCompanion, build_effective_subjects
 from saju_engines.entry_channel import ENTRY_CHANNEL_DIRECTIVE, entry_channel_lines
@@ -282,6 +287,7 @@ from saju_shared_types.conversation import (
     ResultSummaryRef,
     TimeExclusion,
 )
+from saju_shared_types.date_selection import DateCandidate, DateSelectionResult
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.event_taxonomy_v2 import DATE_PURPOSES, EVENT_TYPE
 from saju_shared_types.events import EventKey
@@ -300,6 +306,7 @@ from saju_shared_types.intent import (
 )
 from saju_shared_types.llm_input import (
     DateChoiceRow,
+    DateMemberLine,
     DateSelectionBlock,
     LlmEventCandidate,
     LlmInput,
@@ -1817,15 +1824,12 @@ def _next_month_label(d: date) -> str:
     return f"{y}년 {m}월"
 
 
-def _date_selection_block(
-    birth: BirthInput, intent, today: date, yongsin: str | None
-) -> DateSelectionBlock | None:
-    """택일 라우트(P3): 질문 기간의 일운 합성을 만들어 E10 랭킹을 표로 제공.
+def _date_scan_window(intent: IntentJson, today: date) -> tuple[date, date, bool]:
+    """택일 탐색 창 — (시작일, 종료일, 요청이 창보다 넓은가). 단일·그룹 택일 공용.
 
-    표가 있으면 LLM의 '날짜 정보 없음' 회피 답변을 지시로 차단한다(v1 원칙).
+    택일은 한 번에 약 한 달만 탐색하고, 요청이 그보다 넓거나 개방형('이후')이면 끝을 한 달로
+    캡한다(2026-06-16) — 세 번째 값이 True 면 호출부가 안내문을 덧붙인다.
     """
-    # 기간: 질문 해석 결과로 탐색 시작·종료를 정한다. 택일은 한 번에 약 한 달만 탐색하고,
-    # 요청이 그보다 넓거나 개방형('이후')이면 끝을 한 달로 캡한 뒤 안내문을 덧붙인다(2026-06-16).
     tr = intent.time_range
     start_label = tr.start if tr else None
     end_label = tr.end if tr else None
@@ -1861,6 +1865,18 @@ def _date_selection_block(
         truncated = start_label is not None  # 종료 미지정 + 시작 명시 = 개방형('이후')
     else:
         truncated = req_end > scan_end
+    return req_start, scan_end, truncated
+
+
+def _date_selection_block(
+    birth: BirthInput, intent, today: date, yongsin: str | None
+) -> DateSelectionBlock | None:
+    """택일 라우트(P3): 질문 기간의 일운 합성을 만들어 E10 랭킹을 표로 제공.
+
+    표가 있으면 LLM의 '날짜 정보 없음' 회피 답변을 지시로 차단한다(v1 원칙).
+    """
+    tr = intent.time_range
+    req_start, scan_end, truncated = _date_scan_window(intent, today)
 
     start_iso = req_start.isoformat()
     end_iso = scan_end.isoformat()
@@ -2061,7 +2077,10 @@ def _week_frame_notes(tr: TimeRange | None, purpose: EventKey, today: date) -> l
         notes.append(
             "로또는 일요일부터 토요일 저녁 판매 마감 전까지 산 분량을 그 주 토요일 저녁에 "
             f"추첨한다 — {span}이 한 회차다. 이 회차 밖의 날은 같은 주 후보로 섞지 않는다. "
-            "토요일을 추천할 때는 '저녁 판매 마감 전'에 사야 이 회차에 들어간다고 알려 준다."
+            "토요일을 추천할 때는 '저녁 판매 마감 전'에 사야 이 회차에 들어간다고 알려 준다. "
+            "판매 마감은 토요일 저녁 한 번뿐이다 — 다른 요일에 '판매 마감'을 붙이지 않는다. "
+            "토요일이 회피일이면 표의 등급대로 다른 날을 안내하고, 표에 없는 근거로 특정 "
+            "요일을 '대신 사 둘 날'로 지목하지 않는다."
         )
     return notes
 
@@ -2449,16 +2468,18 @@ def _audit_gongmang_claims_answer(
 
 def _audit_date_table_answer(answer: str, payload: LlmInput, thread_id: str | None) -> None:
     """택일 표 인용 감사 로그(2026-11-16) — 기신·구신 천간을 빼고 지지 십성만 쓴 문장, [추천]이
-    아닌 날을 추천으로 올린 문장을 센다.
+    아닌 날을 추천으로 올린 문장, 토요일이 아닌 요일에 로또 판매 마감을 붙인 문장(2026-11-17)을
+    센다.
 
     교정·재호출 없음(문장 교정은 문맥을 깨기 쉽다). 관측이 있을 때만 warning 으로 남긴다.
     """
     audit = audit_date_table_answer(answer, payload.date_selection)
     if not audit.clean:
         _logger.warning(
-            "date_table_audit stem_omitted=%d grade_raised=%d samples=%r thread=%s",
-            len(audit.stem_omitted), len(audit.grade_raised),
-            (audit.stem_omitted + audit.grade_raised)[:3], thread_id,
+            "date_table_audit stem_omitted=%d grade_raised=%d deadline_misplaced=%d "
+            "samples=%r thread=%s",
+            len(audit.stem_omitted), len(audit.grade_raised), len(audit.deadline_misplaced),
+            (audit.stem_omitted + audit.grade_raised + audit.deadline_misplaced)[:3], thread_id,
         )
 
 
@@ -3020,10 +3041,30 @@ def _topic_module_context(
     return out
 
 
-def _subject_composites_yongsin(
-    b: BirthInput, req_start: date, scan_end: date, today: date, label: str
-) -> tuple[list, str]:
-    """한 대상의 [req_start, scan_end] 윈도우 LuckComposite + 용신 오행을 산출한다."""
+#: 그룹(다인) 택일 표에 싣는 날짜 수 — 단일 택일(top_n=8)과 같다.
+_GROUP_DATE_ROWS = 8
+#: 방위를 '유리'로 싣는 적합도 문턱(용신 1.0·희신 0.8 — 단일 택일 표의 방위 줄과 같은 기준).
+_GROUP_DIRECTION_FIT = 0.7
+
+
+@dataclass(frozen=True)
+class _MemberDays:
+    """그룹(다인) 택일의 구성원 1명 산출 — 단일 택일 엔진을 그 사람 명식으로 돌린 결과."""
+
+    label: str
+    composites: list
+    yongsin: str
+    result: DateSelectionResult
+
+
+def _member_relocation_days(
+    b: BirthInput, label: str, intent: IntentJson, req_start: date, scan_end: date, today: date,
+) -> _MemberDays:
+    """한 구성원 명식으로 창 전체 날짜의 이사 택일 등급·사유를 낸다(단일 택일과 같은 엔진·규칙).
+
+    랭킹 상위만 자르지 않고 창의 모든 날을 돌려받는다(top_n = 창 일수) — 구성원끼리 같은 날을
+    나란히 놓으려면 한 사람의 상위 날만으로는 부족하다.
+    """
     from saju_engines.event_scoring import favorability_map
 
     chart = calculate(b.model_copy(update={"reference_date": req_start}))
@@ -3042,47 +3083,248 @@ def _subject_composites_yongsin(
     )
     fav = favorability_map(chart)
     yongsin = next((el for el, role in fav.items() if role == "용신"), None)
-    return comps, yongsin or "土"
+    constraints = intent.constraints
+    result = _get_date_engine().select(
+        EventKey.RELOCATION,
+        comps,
+        req_start.isoformat(),
+        scan_end.isoformat(),
+        yongsin_element=yongsin,
+        reality_constraints=constraints.reality_constraints or None,
+        top_n=(scan_end - req_start).days + 1,
+        favorability=fav,
+        stated_direction=constraints.direction,
+        relocation_kind=getattr(intent, "relocation_kind", "home"),
+    )
+    return _MemberDays(label=label, composites=comps, yongsin=yongsin or "土", result=result)
+
+
+def _is_date_level_note(note: str) -> bool:
+    """날짜 자체의 사실(손없는 날·공휴일)인 택일 사유인가 — 구성원 줄이 아니라 날짜 줄에 싣는다."""
+    return note == "손없는 날" or note.startswith("공휴일(")
+
+
+def _same_birth(a: BirthInput, b: BirthInput) -> bool:
+    """같은 출생 정보인가 — 기준일(reference_date)은 요청마다 달라 비교에서 뺀다."""
+    return a.model_copy(update={"reference_date": None}) == b.model_copy(
+        update={"reference_date": None}
+    )
+
+
+def _unique_member_labels(members: list[tuple[str, BirthInput]]) -> list[tuple[str, BirthInput]]:
+    """구성원 라벨 중복을 풀고(같은 별명 2명 → '○○(2)') 같은 출생 정보의 중복 구성원을 뺀다."""
+    out: list[tuple[str, BirthInput]] = []
+    seen: dict[str, int] = {}
+    for label, b in members:
+        if any(_same_birth(b, kept) for _, kept in out):
+            continue
+        seen[label] = seen.get(label, 0) + 1
+        out.append((label if seen[label] == 1 else f"{label}({seen[label]})", b))
+    return out
+
+
+def _relocation_group_members(
+    base: tuple[str, BirthInput],
+    partner: tuple[str, BirthInput] | None,
+    companions: list[tuple[str, BirthInput | None]],
+    cap: int,
+) -> tuple[list[tuple[str, BirthInput]], bool]:
+    """그룹(다인) 이사 택일의 구성원 목록 — (구성원, 상한 초과로 뒤를 뺐는가).
+
+    Args:
+        base: 기준 대상(라벨, 출생 정보) — 표의 첫 구성원.
+        partner: 첨부 칩 상대(없으면 None). 지칭 목록에 같은 사람이 있으면 한 번만 싣는다.
+        companions: 질문·칩에서 해소된 동반자(라벨, 출생 정보) — 출생 정보가 없으면 건너뛴다
+            (본인 명식으로 대체하지 않는다).
+        cap: 기준 대상 외 동반자 상한.
+    """
+    extra: list[tuple[str, BirthInput]] = [
+        (label, b) for label, b in companions
+        if b is not None and not _same_birth(b, base[1])
+    ]
+    if partner is not None and not _same_birth(partner[1], base[1]) and not any(
+        _same_birth(partner[1], b) for _, b in extra
+    ):
+        extra.append(partner)
+    return [base, *extra[:cap]], len(extra) > cap
 
 
 def _relocation_group_block(
-    birth: BirthInput,
-    partner_birth: BirthInput,
+    members: list[tuple[str, BirthInput]],
     intent: IntentJson,
     today: date,
-    self_label: str,
-    partner_label: str,
+    *,
+    members_truncated: bool = False,
 ) -> DateSelectionBlock | None:
-    """다인(본인+첨부 상대) 이사 택일 — M10 RelocationResolver 그룹 집계.
+    """다인(본인 + 동반자들) 이사 택일 — 구성원별 풀이(2026-11-17 데굴님 결정).
 
-    구성원별 이동운을 집계(호주 우선)해 공통으로 무난한 이사일을 랭킹하고, 구성원 충돌
-    경고·방위 적합을 동반한다(docs/09 7장). 단일 대상 택일과 달리 '함께 움직이는' 날을 본다.
+    날짜 하나에 그룹 등급을 엔진이 하나로 정하지 않는다. 구성원마다 단일 이사 택일 엔진(등급
+    규칙 포함)을 같은 기간에 돌려 등급·사유를 나란히 싣고, 어느 구성원을 기준으로 고를지는
+    사용자에게 맡긴다. 종전에는 본인 + 상대 1명만 받았고, 일 단위 점수·회피일이 첫 구성원의
+    일진만으로 계산돼 상대의 기신 천간·충이 표에 반영되지 않았다(M10 `_day_candidates`).
+
+    M10 RelocationResolver 는 월 단위 구성원 이동운 엇갈림 경고에만 쓴다(docs/09 7장). 점수
+    가중·등급 규칙은 바꾸지 않는다.
+
+    Args:
+        members: (라벨, 출생 정보) 목록 — 첫 항목이 기준 대상(호주). 2명 미만이면 None.
+        intent: 택일 질문 intent(기간·현실 제약·지정 방위).
+        today: 기준일.
+        members_truncated: 동반자 상한(다자 비교 상한과 같다)을 넘어 뒤 구성원을 뺐는가.
+
+    Returns:
+        구성원별 줄이 달린 택일 블록. 후보 날이 하나도 없으면 None(호출부가 단일 택일로 폴백).
     """
     from saju_engines.relocation import RelocationResolver
     from saju_shared_types.relocation import RelocationPeriod, RelocationQuery
 
-    tr = intent.time_range
-    start_label = tr.start if tr else None
-    if start_label and len(start_label) == 10:
-        req_start = date.fromisoformat(start_label)
-    elif start_label and len(start_label) == 7:
-        req_start = date.fromisoformat(start_label + "-01")
-    else:
-        req_start = today
-    if req_start < today:
-        req_start = today
-    scan_end = min(req_start + timedelta(days=30), date(req_start.year, 12, 31))
+    members = _unique_member_labels(members)
+    if len(members) < 2:
+        return None
+    req_start, scan_end, window_truncated = _date_scan_window(intent, today)
+    days = [
+        _member_relocation_days(b, label, intent, req_start, scan_end, today)
+        for label, b in members
+    ]
+    labels = [m.label for m in days]
+    constraints = intent.constraints
 
-    self_comps, self_y = _subject_composites_yongsin(birth, req_start, scan_end, today, self_label)
-    partner_comps, partner_y = _subject_composites_yongsin(
-        partner_birth, req_start, scan_end, today, partner_label
+    # 구성원별 날짜 → 줄. 금기일 규칙으로 후보에서 빠진 날은 [회피] 줄로 되살린다(현실 제약으로
+    # 애초에 후보가 아닌 날은 제외).
+    lines_by_date: dict[str, dict[str, DateMemberLine]] = {}
+    cand_by_date: dict[str, list[DateCandidate]] = {}
+    for m in days:
+        for c in m.result.candidates:
+            lines_by_date.setdefault(c.date, {})[m.label] = DateMemberLine(
+                label=m.label,
+                recommendation=c.recommendation,
+                notes=[
+                    *(n for n in c.reasons if not _is_date_level_note(n)),
+                    *c.cautions,
+                ],
+                stem_ten_god=c.stem_ten_god,
+                branch_ten_god=c.branch_ten_god,
+                stem_role=c.stem_role,
+            )
+            cand_by_date.setdefault(c.date, []).append(c)
+        for a in m.result.avoid_dates:
+            day_iso = str(a.get("date"))
+            if not reality_allows_day(
+                date.fromisoformat(day_iso), constraints.reality_constraints
+            ):
+                continue
+            lines_by_date.setdefault(day_iso, {})[m.label] = DateMemberLine(
+                label=m.label, recommendation="avoid", notes=[str(a.get("reason"))],
+            )
+    # 구성원 전원의 줄이 있는 날만 표 대상(한 사람이라도 값이 없으면 나란히 놓을 수 없다).
+    full_dates = [d for d, by in lines_by_date.items() if all(lb in by for lb in labels)]
+    if not full_dates:
+        return None
+
+    def _count(day_iso: str, grade: str) -> int:
+        return sum(1 for ln in lines_by_date[day_iso].values() if ln.recommendation == grade)
+
+    # [추천] 인원이 많은 날 먼저, 같으면 [회피]가 적은 날, 그다음 날짜순. 그룹 합산 점수로
+    # 줄 세우지 않는다(누구의 등급을 앞세울지는 사용자의 몫).
+    full_dates.sort(key=lambda d: (-_count(d, "recommended"), _count(d, "avoid"), d))
+    table_dates = full_dates[:_GROUP_DATE_ROWS]
+    ganji_by_date = {
+        c.period_key: f"{c.ganji.stem}{c.ganji.branch}"
+        for c in days[0].composites
+        if c.level is CompositeLevel.DAY
+    }
+
+    def _weekday(day_iso: str) -> str:
+        return _WEEKDAY_KO[date.fromisoformat(day_iso).weekday()]
+
+    rows: list[DateChoiceRow] = []
+    for day_iso in table_dates:
+        cands = cand_by_date.get(day_iso, [])
+        date_notes: list[str] = []
+        for c in cands:
+            date_notes += [n for n in c.reasons if _is_date_level_note(n)]
+            if c.son_eomneun_nal:
+                date_notes.append("손없는 날")
+            if c.is_weekend:
+                date_notes.append("주말")
+            if c.folk_direction_note:
+                date_notes.append(c.folk_direction_note)
+        finals = [c.scores.final for c in cands]
+        rows.append(DateChoiceRow(
+            date=day_iso,
+            weekday=_weekday(day_iso),
+            ganji=ganji_by_date.get(day_iso, ""),
+            # 표시·정렬에 쓰지 않는 값(구성원 최종 점수의 평균) — 행 스키마 필수 필드라 채운다.
+            score=round(sum(finals) / len(finals)) if finals else 0,
+            recommendation=(
+                "recommended" if _count(day_iso, "recommended") == len(labels) else "acceptable"
+            ),
+            notes=list(dict.fromkeys(date_notes)),
+            members=[lines_by_date[day_iso][lb] for lb in labels],
+        ))
+
+    # 등급 기준·요약 — 사실만 싣는다(모두 [추천]인 날 / 없음, 엇갈리는 날은 사용자 선택).
+    basis = _get_date_engine().grade_basis_note(EventKey.RELOCATION, None) or ""
+    grade_notes = [
+        (basis + " " if basis else "")
+        + "등급은 구성원마다 그 사람 명식으로 따로 매겼다 — 날짜 하나에 그룹 전체 등급을 따로 "
+        "정하지 않는다."
+    ]
+    all_rec = [d for d in full_dates if _count(d, "recommended") == len(labels)]
+    if all_rec:
+        shown = [d for d in all_rec if d in table_dates]
+        extra = len(all_rec) - len(shown)
+        grade_notes.append(
+            "구성원 모두 [추천]인 날: "
+            + ", ".join(f"{d}({_weekday(d)})" for d in shown)
+            + (f" 외 {extra}일" if extra > 0 else "") + "."
+        )
+    else:
+        grade_notes.append(
+            "이 기간에는 구성원 모두 [추천]인 날이 없다 — 첫 문단에서 그 사실을 먼저 밝힌다."
+        )
+    grade_notes.append(
+        "구성원 사이에 등급이 엇갈리는 날은 누구에게 어떤 등급인지 그대로 전한다 — 어느 구성원을 "
+        "기준으로 고를지는 사용자가 정한다."
     )
 
-    constraints = intent.constraints
+    group_lines: list[str] = []
+    # 구성원별 유리 방위(용신·희신 방위)와 공통 방위.
+    fav_dirs: dict[str, list[str]] = {}
+    for m in days:
+        good = [d for d in m.result.directions if d.fit >= _GROUP_DIRECTION_FIT]
+        fav_dirs[m.label] = [d.direction for d in good]
+        if good:
+            group_lines.append(
+                f"방위({m.label}): " + ", ".join(f"{d.direction}({d.note})" for d in good)
+            )
+    common = [d for d in fav_dirs[labels[0]] if all(d in fav_dirs[lb] for lb in labels)]
+    group_lines.append(
+        "방위(구성원 공통): " + (", ".join(common) if common else "모두에게 유리한 방위는 없다")
+    )
+    # 표에 싣지 않은 날 가운데 누군가에게 [회피]인 날 — 날짜와 해당 구성원만 짧게.
+    off_table = sorted(
+        d for d in full_dates[_GROUP_DATE_ROWS:] if _count(d, "avoid") > 0
+    )
+    if off_table:
+
+        def _avoiders(day_iso: str) -> str:
+            return "·".join(
+                lb for lb in labels if lines_by_date[day_iso][lb].recommendation == "avoid"
+            )
+
+        group_lines.append(
+            "표에 싣지 않은 날 가운데 [회피]가 있는 날: "
+            + ", ".join(f"{d[5:]}({_avoiders(d)})" for d in off_table)
+        )
+
+    # 월 단위 구성원 이동운 엇갈림(M10 그룹 집계) — 경고 줄로만 쓴다.
     query = RelocationQuery(
         group_subjects=[
-            SubjectRef(kind=SubjectKind.SELF, label=self_label),
-            SubjectRef(kind=SubjectKind.COMPANION, label=partner_label),
+            SubjectRef(
+                kind=SubjectKind.SELF if i == 0 else SubjectKind.COMPANION, label=lb,
+            )
+            for i, lb in enumerate(labels)
         ],
         period=RelocationPeriod(start=req_start.strftime("%Y-%m"), end=scan_end.strftime("%Y-%m")),
         current_location=constraints.location_base or "미지정",
@@ -3090,54 +3332,52 @@ def _relocation_group_block(
         relocation_kind=getattr(intent, "relocation_kind", "home"),
         reality_constraints=constraints.reality_constraints,
     )
-    result = RelocationResolver(_DICTS).resolve(
+    resolved = RelocationResolver(_DICTS).resolve(
         query,
-        {self_label: self_comps, partner_label: partner_comps},
-        {self_label: self_y, partner_label: partner_y},
+        {m.label: m.composites for m in days},
+        {m.label: m.yongsin for m in days},
     )
-    if not result.move_dates:
-        return None
-
-    rows = [
-        DateChoiceRow(
-            date=c.date,
-            weekday=_WEEKDAY_KO[date.fromisoformat(c.date).weekday()],
-            ganji=c.ganji,
-            score=c.final_score,
-            recommendation="recommended" if c.final_score >= 70 else "acceptable",
-            notes=([*c.reasons, "손없는 날"] if c.son_eomneun_nal else list(c.reasons)),
-        )
-        for c in result.move_dates
-    ]
-    # 구성원 경고(중복 제거) + 그룹 충돌 월.
     seen: set[tuple[str, str]] = set()
     group_warnings: list[str] = []
-    for c in result.move_dates:
-        for w in c.member_warnings:
+    for mc in resolved.move_dates:
+        for w in mc.member_warnings:
             key = (w.subject_label, w.signal)
             if key not in seen:
                 seen.add(key)
                 group_warnings.append(f"{w.subject_label} — {w.signal}")
-    if result.group_summary.conflicts:
+    if resolved.group_summary.conflicts:
         group_warnings.append(
-            "구성원 이동운이 엇갈리는 달: " + ", ".join(result.group_summary.conflicts)
+            "구성원 이동운이 엇갈리는 달: " + ", ".join(resolved.group_summary.conflicts)
         )
-    # 방위 적합(상위) — move_dates[0]의 분리 산출값.
-    directions = [
-        {"direction": d, "fit": f}
-        for d, f in sorted(result.move_dates[0].direction_fit.items(), key=lambda x: -x[1])
-    ]
+
+    cautions: list[str] = []
+    for m in days:  # 지정 방위 길흉 등 구성원별 안내(엔진 문장 그대로, 라벨만 붙인다)
+        cautions += [f"{m.label} — {c}" for c in m.result.cautions]
+    if members_truncated:
+        cautions.append(
+            f"구성원이 많아 앞 {len(labels)}명까지만 실었다 — 나머지 구성원은 따로 물어 달라고 "
+            "안내한다."
+        )
+    if window_truncated:
+        cautions.append(
+            f"택일은 한 번에 약 한 달 범위만 탐색합니다 — 이번에는 {req_start.isoformat()} – "
+            f"{scan_end.isoformat()}를 살폈어요. 그 이후 시기는 원하시는 달(예: "
+            f"'{_next_month_label(scan_end)} 이사일')을 지정해 다시 물어봐 주세요."
+        )
     # 이사 십성 이유분류 — 의사결정 주체(첫 대상=호주, 대상 우선 원칙 7)의 운으로 분류한다.
     relocation_reasons = _relocation_reason_lines(
-        self_comps, req_start.strftime("%Y"), req_start.strftime("%Y-%m")
+        days[0].composites, req_start.strftime("%Y"), req_start.strftime("%Y-%m")
     )
     return DateSelectionBlock(
-        purpose_ko=f"이사(그룹: {self_label}·{partner_label})",
+        purpose_ko=f"이사(구성원별: {'·'.join(labels)})",
         period=f"{req_start.isoformat()} – {scan_end.isoformat()}",
+        frame_notes=_week_frame_notes(intent.time_range, EventKey.RELOCATION, today),
+        grade_notes=grade_notes,
         rows=rows,
-        avoid=[{"date": a.date, "reason": a.reason} for a in result.avoid_dates],
-        directions=directions,
+        cautions=cautions,
         group_warnings=group_warnings,
+        group_members=labels,
+        group_lines=group_lines,
         relocation_reasons=relocation_reasons,
     )
 
@@ -6235,7 +6475,12 @@ def chat(
     companion_only = _mode == "companion_only"
     compare_mode = _mode == "compare_exclude_self"
     ranking_mode = _mode == "ranking"
-    _RANKING_CAP = 4  # 다자 비교는 앞 4명까지만(초과는 디렉티브에 명시)
+    # 다자 비교는 앞 4명까지만(초과는 디렉티브에 명시). 그룹(다인) 이사 택일의 동반자 상한도
+    # 이 값을 쓴다(2026-11-17 데굴님: "동반자 제한은 다자 비교 상한에 맞추는게 맞겠어").
+    _RANKING_CAP = 4
+    # 기준 명식이 동반자로 교체됐으면 그 동반자 id(companion_only·compare·ranking) — 그룹 택일이
+    # 같은 사람을 구성원으로 한 번 더 세지 않게 한다.
+    _swapped_primary: str | None = None
 
     def _companion_birth(cid: str) -> BirthInput | None:
         b = (companion_births or {}).get(cid)
@@ -6275,6 +6520,7 @@ def chat(
         _pb_birth = _companion_birth(_primary)
         assert _pb_birth is not None  # 위 _needed 검증에서 보장
         birth = _pb_birth
+        _swapped_primary = _primary
         subject_label = (_eff.label if _eff else partner_label) or "동반자"
         # personalization은 등록 동반자일 때만 그 subject_id로(즉석/미등록은 무개인화).
         subject_id = _primary if (companion_births and _primary in companion_births) else None
@@ -6982,15 +7228,34 @@ def chat(
         fav = favorability_map(result)
         yongsin = next((el for el, role in fav.items() if role == "용신"), None)
         try:
-            # 이사 택일 + 동반자 첨부 → M10 그룹 집계(함께 무난한 날). 그 외엔 단일 택일.
-            if partner_birth is not None and _is_relocation_intent(intent):
+            # 이사 택일 + 동반자(첨부 칩·질문에서 지칭한 등록 동반자) → 구성원별 풀이 표
+            # (2026-11-17). 그 외엔 단일 택일. 동반자 상한은 다자 비교 상한(_RANKING_CAP)과 같다.
+            _group: list[tuple[str, BirthInput]] = []
+            _group_truncated = False
+            if _is_relocation_intent(intent):
+                _group, _group_truncated = _relocation_group_members(
+                    base=(subject_label or "본인", birth),
+                    partner=(
+                        (partner_label or "상대", partner_birth)
+                        if partner_birth is not None else None
+                    ),
+                    companions=[
+                        (
+                            next(
+                                (e.label for e in plan.effective_subjects
+                                 if e.subject_id == _cid),
+                                None,
+                            ) or "동반자",
+                            _companion_birth(_cid),
+                        )
+                        for _cid in (_inj.companion_subject_ids if _inj is not None else [])
+                        if _cid != _swapped_primary
+                    ],
+                    cap=_RANKING_CAP - (1 if _swapped_primary else 0),
+                )
+            if len(_group) >= 2:
                 date_block = _relocation_group_block(
-                    birth,
-                    partner_birth,
-                    intent,
-                    today,
-                    subject_label or "본인",
-                    partner_label or "상대",
+                    _group, intent, today, members_truncated=_group_truncated,
                 ) or _date_selection_block(birth, intent, today, yongsin)
             else:
                 date_block = _date_selection_block(birth, intent, today, yongsin)

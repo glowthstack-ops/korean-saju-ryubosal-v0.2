@@ -435,6 +435,21 @@ class PeriodFortune(BaseModel):
     dohwa_text_keys: list[str] = Field(default_factory=list)
 
 
+class DateMemberLine(BaseModel):
+    """그룹(다인) 택일 표의 구성원 1줄(2026-11-17 데굴님 결정) — 그 구성원 명식 기준 등급·사유.
+
+    날짜 하나에 그룹 등급을 엔진이 하나로 정하지 않고, 구성원마다 단일 택일 엔진의 등급을
+    나란히 싣는다. 어느 구성원을 기준으로 고를지는 사용자가 정한다.
+    """
+
+    label: str
+    recommendation: str  # recommended | acceptable | avoid
+    notes: list[str] = Field(default_factory=list)
+    stem_ten_god: str = ""
+    branch_ten_god: str = ""
+    stem_role: str = ""
+
+
 class DateChoiceRow(BaseModel):
     """택일 추천 1행(E10 산출 — LLM은 그대로 인용만)."""
 
@@ -449,6 +464,9 @@ class DateChoiceRow(BaseModel):
     stem_ten_god: str = ""
     branch_ten_god: str = ""
     stem_role: str = ""
+    # 그룹(다인) 택일 — 구성원별 등급·사유 줄. 비어 있지 않으면 행 등급 대신 이 줄들을 싣는다
+    # (행의 recommendation 은 '구성원 모두 추천'일 때만 recommended).
+    members: list[DateMemberLine] = Field(default_factory=list)
 
 
 class DateSelectionBlock(BaseModel):
@@ -474,6 +492,10 @@ class DateSelectionBlock(BaseModel):
     hour_fits: list[dict] = Field(default_factory=list)  # {'branch','time_range','fit','note'}
     # 그룹(다인) 이사 — 구성원 이동운 충돌·경고(M10 group_summary·member_warnings). 빈 = 단일.
     group_warnings: list[str] = Field(default_factory=list)
+    # 그룹(다인) 택일의 구성원 라벨(표 순서) — 비어 있지 않으면 구성원별 풀이 표다(말미 지시 분기).
+    group_members: list[str] = Field(default_factory=list)
+    # 그룹(다인) 택일의 엔진 확정 보조 줄(구성원별 방위·표 밖 회피일) — 그대로 싣는다.
+    group_lines: list[str] = Field(default_factory=list)
     # 이사 — 십성 이유분류 라벨 줄(천간=명분/지지=현장, 대운=장기 배경·세운=대표·월운=발동). R2.
     relocation_reasons: list[str] = Field(default_factory=list)
 

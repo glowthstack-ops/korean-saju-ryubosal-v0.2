@@ -4,12 +4,16 @@
 "가장 추천하는 날 … 비견의 기운이 들어와 힘을 실어주는 날"이라고 썼다. 프롬프트에는
 '기신 · 십성 편관/비견'이 실려 있었다 — 불리한 천간을 빼고 지지 십성만 골라 쓴 것이다.
 
-같은 유형을 실답에서 세기 위한 관측 감사다. 두 가지를 본다.
+같은 유형을 실답에서 세기 위한 관측 감사다. 세 가지를 본다.
 
   ① 천간 누락(stem_omitted): 표의 날을 말하는 문장이 그날 **지지 십성은 말하고 천간 십성은
      말하지 않았는데**, 그 천간이 기신·구신이다.
   ② 등급 올림(grade_raised): 표에서 [추천]이 아닌 날을 말하는 문장에 추천 표현이 있다
      ('추천하기 어렵다'·'추천 등급' 같은 부정·메타 표현은 제외).
+
+  ③ 마감 요일 오기(deadline_misplaced, 2026-11-17): 로또 회차 기준 줄('판매 마감')이 실린
+     표인데 토요일이 아닌 요일에 판매 마감을 붙였다(실답 web-mwkfla3y: "금요일 저녁 판매
+     마감 전까지"). 표의 날짜와 무관하게 문장만 본다.
 
 문장을 고치지 않는다 — 어느 십성을 어떻게 덧붙일지는 문맥에 달려 결정론 교정이 문장을 깨기
 쉽다. 발생을 줄이는 쪽은 표 사유(천간·지지 십성 병기)·등급 기준 줄·말미 지시가 맡고, 이 감사는
@@ -37,16 +41,36 @@ _RECOMMEND_NEG_RE = re.compile(
 )
 
 
+#: 토요일이 아닌 요일 바로 뒤에 붙은 판매 마감 — '금요일 저녁 판매 마감'. 로또 판매 마감은
+#: 토요일 저녁 한 번뿐이다(기간 기준 줄의 사실).
+_DEADLINE_WRONG_DAY_RE = re.compile(
+    r"[월화수목금일]요일\s*(?:저녁|밤|오후|오전|낮)?\s*(?:에\s*)?(?:판매\s*)?마감"
+)
+_DEADLINE_FRAME_MARK = "판매 마감"
+
+
 class DateTableAudit(BaseModel):
-    """감사 결과 — 두 목록 모두 'YYYY-MM-DD: 문장 앞부분' 꼴(로그용)."""
+    """감사 결과 — 목록은 'YYYY-MM-DD: 문장 앞부분' 꼴(로그용). 마감 요일 오기는 문장 앞부분만."""
 
     stem_omitted: list[str]
     grade_raised: list[str]
+    deadline_misplaced: list[str] = []
 
     @property
     def clean(self) -> bool:
         """관측된 위반이 없는가."""
-        return not (self.stem_omitted or self.grade_raised)
+        return not (self.stem_omitted or self.grade_raised or self.deadline_misplaced)
+
+
+def _deadline_misplaced(answer: str, block: DateSelectionBlock) -> list[str]:
+    """로또 회차 기준 줄이 실린 표에서 토요일이 아닌 요일에 판매 마감을 붙인 문장."""
+    if not any(_DEADLINE_FRAME_MARK in note for note in block.frame_notes):
+        return []
+    return [
+        sentence.strip()[:60]
+        for sentence in _SENTENCE_SPLIT_RE.split(answer)
+        if _DEADLINE_WRONG_DAY_RE.search(sentence)
+    ]
 
 
 def _sentence_dates(sentence: str, by_md: dict[tuple[int, int], str],
@@ -76,14 +100,18 @@ def audit_date_table_answer(answer: str, block: DateSelectionBlock | None) -> Da
 
     Args:
         answer: 후처리를 마친 답변 본문.
-        block: 그 턴에 실린 택일 블록. None 이거나 십성 필드가 빈 표(등급 기준을 쓰지 않는
-            목적)는 감사하지 않는다.
+        block: 그 턴에 실린 택일 블록. None 이면 감사하지 않는다. 십성 필드가 빈 표(등급 기준을
+            쓰지 않는 목적·구성원별 표)는 ①②를 건너뛰고 ③(마감 요일)만 본다.
 
     Returns:
-        DateTableAudit — 관측된 문장 목록(없으면 둘 다 빈 목록).
+        DateTableAudit — 관측된 문장 목록(없으면 모두 빈 목록).
     """
     empty = DateTableAudit(stem_omitted=[], grade_raised=[])
-    if block is None or not answer or not block.grade_notes:
+    if block is None or not answer:
+        return empty
+    deadline = _deadline_misplaced(answer, block)
+    empty = DateTableAudit(stem_omitted=[], grade_raised=[], deadline_misplaced=deadline)
+    if not block.grade_notes:
         return empty
     rows = [r for r in block.rows if r.stem_ten_god and r.branch_ten_god]
     if not rows:
@@ -129,4 +157,6 @@ def audit_date_table_answer(answer: str, block: DateSelectionBlock | None) -> Da
             and not _RECOMMEND_NEG_RE.search(sentence)
         ):
             grade_raised.append(head)
-    return DateTableAudit(stem_omitted=stem_omitted, grade_raised=grade_raised)
+    return DateTableAudit(
+        stem_omitted=stem_omitted, grade_raised=grade_raised, deadline_misplaced=deadline,
+    )
