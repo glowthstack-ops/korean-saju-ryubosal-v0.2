@@ -27,6 +27,11 @@ ON/OFF). 우연 기준선 = 3/12 = 25%.
   확인됐으므로 ②와 ③을 같은 저울에 올린다. ②는 그 창이 가리키는 입사 행을 **빼고** 다시 센다
   (전체 시그니처로 세면 그 입사 행의 글자가 직전 달에 그대로 겹쳐 적중이 부풀려진다). ③에는
   입사 행이 없으므로 전체 시그니처 그대로가 운영과 같은 조건이다.
+- 신호 달과 입사 달의 시차(2026-11-18 데굴님 "운이 왔다는게 이벤트 완성(실현)을 말하는 것인가
+  아니면 실현을 위한 분위기 조성 후 1~2달 이내에 실제 일어나는가"): 입사마다 입사 달·1~4달 전·
+  1달 뒤의 달에 취업 신호가 섰는지 센다(`measure_lag_profile`). 공백 달로 좁히지 않는다 — 재직
+  중에 옮긴 입사도 입사가 일어났으니 그 앞 달은 움직이던 달이다. 입사 행(과 그 달 ±2달 안의
+  다른 입사 행)은 빼고 센다. 기준선은 같은 기간 모든 달의 신호 비율.
 
 사용법:
     python scripts/measure_employment_history_loo.py --subject <subject_id> \\
@@ -481,6 +486,193 @@ def render_seeking_md(rows: list[StatusSignal], pre_loo: dict[str, list[str]]) -
     return "\n".join(lines)
 
 
+#: 시차 = 입사 달 − 신호 달(양수 = 신호가 입사보다 먼저). -1 은 입사 다음 달(대조).
+_LAG_OFFSETS = (-1, 0, 1, 2, 3, 4)
+_LAG_KO = {-1: "1달 뒤", 0: "입사 달", 1: "1달 전", 2: "2달 전", 3: "3달 전", 4: "4달 전"}
+#: 묶음 창 — 실현(입사 달) / 조성 뒤 1~2달 / 둘 다.
+_LAG_WINDOWS: dict[str, tuple[int, ...]] = {
+    "입사 달(0)": (0,), "1~2달 전": (1, 2), "입사 달~2달 전": (0, 1, 2), "3~4달 전": (3, 4),
+}
+
+
+@dataclass
+class LagProfile:
+    """신호 달과 입사 달의 시차 — 신호 정의 두 가지(그 달 1순위 사건 / 그 절기년 취업 Top-3 달)."""
+
+    entries: int
+    #: 신호 정의 → 모드 → 시차 → 그 시차의 달에 신호가 선 입사 달 목록
+    by_offset: dict[str, dict[str, dict[int, list[str]]]]
+    #: 신호 정의 → 모드 → 묶음 창 → 창 안에 신호가 하나라도 선 입사 수
+    by_window: dict[str, dict[str, dict[str, int]]]
+    #: 신호 정의 → 모드 → 모든 달 가운데 신호 달 비율(기준선)
+    base_rate: dict[str, dict[str, float]]
+    #: 신호 정의 → 모드 → 묶음 창 → 임의의 달이 그 창에 신호를 가질 비율(기준선)
+    base_window: dict[str, dict[str, dict[str, float]]]
+    months: int
+
+
+def _mode_rank(
+    mode: str, cands: list, signature: list[LifeEventRow], ext_signature: list[LifeEventRow],
+    ctx: GlyphContext, ext_ctx: GlyphContext, glyph_w: float, repeat_cap: float,
+) -> list:
+    """모드별 정렬 — `measure` 와 같은 분기."""
+    if mode == "engine":
+        return LifeFitRanker().rank(cands)
+    if mode in _EXT_MODES:
+        return LifeFitRanker().rank(
+            cands, signature=ext_signature, glyph_context=ext_ctx,
+            glyph_weight=glyph_w, repeat_cap=repeat_cap, glyph_cfg=_variant_cfg(mode),
+        )
+    return LifeFitRanker().rank(
+        cands, signature=signature, glyph_context=ctx,
+        glyph_weight=0.0 if mode == "base" else glyph_w,
+        repeat_cap=repeat_cap if mode == "glyph_cap" else None,
+    )
+
+
+def _signals_of(ranked: list, month: str) -> tuple[bool, bool]:
+    """(그 달 1순위 사건이 취업인가, 그 달이 그 절기년 취업 후보 Top-3 인가)."""
+    top = next((str(c.event_key) for c in ranked if c.period == month), None)
+    return top == "job_gain", month in _rank_of(ranked, month)[1]
+
+
+def measure_lag_profile(
+    birth, signature: list[LifeEventRow], engine: EventEngineV2, *, until: str,
+    repeat_cap: float = 0.6,
+) -> LagProfile | None:
+    """입사마다 입사 달 기준 시차별로 취업 신호가 섰는지 센다.
+
+    '운이 왔다'가 실현(입사 달)을 가리키는지, 분위기 조성 뒤 1~2달 안의 실현을 가리키는지를
+    본다. 신호가 입사 달에 몰리면 전자, 1~2달 전에 몰리면 후자다. 입사 행은 빼고 센다(시그니처
+    모드). 기준선은 첫 입사 달~`until` 의 모든 달에서 전체 시그니처로 센 신호 비율.
+    """
+    entries = [
+        r for r in signature
+        if r.event_key == "job_gain" and r.source is LifeEventSource.EMPLOYMENT_HISTORY
+        and r.outcome is LifeEventOutcome.CONFIRMED
+        and r.attrs.nature in EMPLOYMENT_STAT_NATURES and len(r.period) >= 7
+    ]
+    if not entries:
+        return None
+    glyph_w = float(_GLYPH_CFG["glyph_weight"])
+    stamper = _ExtendedStamper(birth)
+    ext_signature = stamper.restamp(signature)
+    scored: dict[date, tuple[list, GlyphContext]] = {}
+
+    def scored_for(ref: date) -> tuple[list, GlyphContext]:
+        if ref not in scored:
+            chart = calculate(birth.model_copy(update={"reference_date": ref}))
+            scored[ref] = (
+                engine.score(chart, levels={GanjiLevel.MONTH}), GlyphContext.from_result(chart),
+            )
+        return scored[ref]
+
+    kinds = ("top1", "top3")
+    by_offset: dict[str, dict[str, dict[int, list[str]]]] = {
+        k: {m: {o: [] for o in _LAG_OFFSETS} for m in _MODES} for k in kinds
+    }
+    by_window: dict[str, dict[str, dict[str, int]]] = {
+        k: {m: {w: 0 for w in _LAG_WINDOWS} for m in _MODES} for k in kinds
+    }
+    for held in sorted(entries, key=lambda r: r.period):
+        e_idx = _label_index(held.period)
+        seen: dict[str, dict[str, set[int]]] = {k: {m: set() for m in _MODES} for k in kinds}
+        for off in _LAG_OFFSETS:
+            month = _index_label(e_idx - off)
+            m_idx = e_idx - off
+            drop = {held.event_row_id} | {
+                r.event_row_id for r in entries
+                if abs(_label_index(r.period) - m_idx) <= _LEAD_MONTHS
+            }
+            rest = [r for r in signature if r.event_row_id not in drop]
+            ext_rest = [r for r in ext_signature if r.event_row_id not in drop]
+            ref = reference_date_for_label(month)
+            cands, ctx = scored_for(ref)
+            for mode in _MODES:
+                ranked = _mode_rank(
+                    mode, cands, rest, ext_rest, ctx, stamper.ctx_for(ref), glyph_w, repeat_cap,
+                )
+                for kind, hit in zip(kinds, _signals_of(ranked, month), strict=True):
+                    if hit:
+                        by_offset[kind][mode][off].append(held.period)
+                        seen[kind][mode].add(off)
+        for kind in kinds:
+            for mode in _MODES:
+                for name, offs in _LAG_WINDOWS.items():
+                    if seen[kind][mode] & set(offs):
+                        by_window[kind][mode][name] += 1
+
+    # 기준선 — 첫 입사 달 ~ until 의 모든 달(전체 시그니처).
+    first, last = min(_label_index(r.period) for r in entries), _label_index(until)
+    span = [_index_label(i) for i in range(first - max(_LAG_OFFSETS), last + 2)]
+    sig: dict[str, dict[str, set[str]]] = {k: {m: set() for m in _MODES} for k in kinds}
+    for ref in sorted({reference_date_for_label(m) for m in span}):
+        cands, ctx = scored_for(ref)
+        for mode in _MODES:
+            ranked = _mode_rank(
+                mode, cands, signature, ext_signature, ctx, stamper.ctx_for(ref), glyph_w,
+                repeat_cap,
+            )
+            for month in {c.period for c in ranked}:
+                for kind, hit in zip(kinds, _signals_of(ranked, month), strict=True):
+                    if hit:
+                        sig[kind][mode].add(month)
+    months = [_index_label(i) for i in range(first, last + 1)]
+    base_rate = {
+        k: {m: round(sum(1 for x in months if x in sig[k][m]) / len(months), 3) for m in _MODES}
+        for k in kinds
+    }
+    base_window = {
+        k: {
+            m: {
+                name: round(sum(
+                    1 for x in months
+                    if any(_index_label(_label_index(x) - o) in sig[k][m] for o in offs)
+                ) / len(months), 3)
+                for name, offs in _LAG_WINDOWS.items()
+            } for m in _MODES
+        } for k in kinds
+    }
+    return LagProfile(
+        entries=len(entries), by_offset=by_offset, by_window=by_window,
+        base_rate=base_rate, base_window=base_window, months=len(months),
+    )
+
+
+def render_lag_md(lag: LagProfile | None) -> str:
+    """시차 표 — 신호 정의별로 시차별 입사 수와 묶음 창별 입사 수(괄호 = 기준선 기대 건수)."""
+    if lag is None:
+        return "시차 측정: 입사 행 없음."
+    titles = {
+        "top1": "그 달의 1순위 사건이 취업", "top3": "그 달이 그 절기년 취업 후보 Top-3",
+    }
+    lines = [
+        f"신호 달과 입사 달의 시차 — 입사 {lag.entries}건, 기준선은 {lag.months}달 전체의 신호 비율"
+        "(괄호 = 기준선 기대 건수)",
+    ]
+    for kind, title in titles.items():
+        lines += [
+            "", f"[{title}] 시차별 신호가 선 입사 수",
+            "| 모드 | 기준선 | " + " | ".join(_LAG_KO[o] for o in _LAG_OFFSETS) + " |",
+            "|---|---|" + "---|" * len(_LAG_OFFSETS),
+        ]
+        for m in _MODES:
+            exp = lag.base_rate[kind][m] * lag.entries
+            cells = " | ".join(str(len(lag.by_offset[kind][m][o])) for o in _LAG_OFFSETS)
+            lines.append(f"| {m} | {lag.base_rate[kind][m]} ({exp:.1f}) | {cells} |")
+        lines += [
+            "", f"[{title}] 묶음 창 안에 신호가 하나라도 선 입사 수",
+            "| 모드 | " + " | ".join(_LAG_WINDOWS) + " |", "|---|" + "---|" * len(_LAG_WINDOWS),
+        ]
+        for m in _MODES:
+            cells = " | ".join(
+                f"{lag.by_window[kind][m][w]} ({lag.base_window[kind][m][w] * lag.entries:.1f})"
+                for w in _LAG_WINDOWS
+            )
+            lines.append(f"| {m} | {cells} |")
+    return "\n".join(lines)
+
+
 def render_status_md(rows: list[StatusSignal]) -> str:
     """재직 상태별 표 — 오탐률은 '그 밖의 공백 달' 줄만 읽는다."""
     if not rows:
@@ -581,13 +773,21 @@ def main(argv: list[str] | None = None) -> int:
     md = (render_md(rows, summary) + "\n\n" + render_fp_md(fp_rows)
           + "\n\n" + render_status_md(status_rows)
           + "\n\n" + render_seeking_md(status_rows, pre_loo))
+    lag = (
+        measure_lag_profile(
+            record.birth, signature, engine, until=until, repeat_cap=args.repeat_cap,
+        ) if until else None
+    )
+    md += "\n\n" + render_lag_md(lag)
     print(md)
     if args.json:
         args.json.write_text(json.dumps(
             {"summary": summary, "rows": [asdict(r) for r in rows],
              "false_positive": [asdict(r) for r in fp_rows],
              "signal_by_status": [asdict(r) for r in status_rows],
-             "pre_entry_loo": pre_loo}, ensure_ascii=False, indent=2,
+             "pre_entry_loo": pre_loo,
+             "lag_profile": asdict(lag) if lag is not None else None},
+            ensure_ascii=False, indent=2,
         ), encoding="utf-8")
     if args.md:
         args.md.write_text(md + "\n", encoding="utf-8")

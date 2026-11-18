@@ -70,7 +70,13 @@ ENGINE_VERSION = "engine.v1"
 #   이번 달이 이어받는지·밀어 주는지·눌리는지·조정하는지 한 문장. 같은 군이면 기존 '세운 겹침'
 #   문장이 그대로 나온다. 판정·사건·점수 불변(문체 전용), LLM 교정 대상 아님.
 #   경계 YEAR_LINK_EFFECTIVE_FROM(11/19 — 11/18 보드는 이미 생성·교정돼 v1.21 유지).
-DICT_VERSION = "dict.v1.22"
+# v1.23(2026-11-18): 이번 달 흐름 공통 줄 끝에 두 문장(docs/17 §35, 데굴님 "AI채팅상담과 테마사주,
+#   오늘의 운세 모두 필요한 영역에 배선"). `month_layer.invest_month` — 월운 천간이 癸·甲인 달에만
+#   '시세가 오르는 경우가 많다고 보는 달' 조언. `month_layer.birth_season` — 태어난 계절 기준 이번
+#   달 길흉 구간(봄·여름·가을 추석 전/추석 낀 달/추석 뒤·겨울 6문장). 판정·사건·점수 불변(문체
+#   전용), LLM 교정 대상 아님. 경계 MONTH_NOTES_EFFECTIVE_FROM(11/20 — 11/19 보드는 이미 생성·
+#   교정돼 v1.22 유지).
+DICT_VERSION = "dict.v1.23"
 PROMPT_VERSION = "polish.v1"
 #: 서사 family 회전 계약(OA-8b). 값이 바뀌면 새 epoch 이 시작되며 **캐시만** 무효화된다
 #: — 선택 seed 에는 들어가지 않으므로 사건 배정은 흔들리지 않는다(OA-6d1).
@@ -137,6 +143,10 @@ DICT_VERSION_BEFORE_YEAR_PHASE = "dict.v1.20"
 YEAR_LINK_EFFECTIVE_FROM = date(2026, 11, 19)
 #: 그 기준일 이전(11/12~11/18)에 적용되는 사전 버전.
 DICT_VERSION_BEFORE_YEAR_LINK = "dict.v1.21"
+#: 이번 달 흐름의 투자 참고·태어난 계절 문장(v1.23, docs/17 §35) 적용 시작일. 11/19 보드는 이미
+#: 생성·교정돼 v1.22 를 유지한다.
+MONTH_NOTES_EFFECTIVE_FROM = date(2026, 11, 20)
+DICT_VERSION_BEFORE_MONTH_NOTES = "dict.v1.22"
 
 
 #: 상해 채널의 백호를 일주 기준으로 좁히는 기준일(model.v2.4, docs/17 §32) — 11/13 보드는 11/12
@@ -199,7 +209,8 @@ def active_dict_version(target_date: date) -> str:
     Returns:
         7/30 이전 v1.10 → 9/3 이전 v1.11 → 9/12 이전 v1.12 → 9/20 이전 v1.13 → 11/2 이전
         v1.14 → 11/3 이전 v1.16 → 11/5 이전 v1.17 → 11/8 이전 v1.18 → 11/12 이전 v1.20
-        (v1.19 는 11/8 경계에서 당일 대체) → 11/19 이전 v1.21 → 이후 현재 `DICT_VERSION`(v1.22).
+        (v1.19 는 11/8 경계에서 당일 대체) → 11/19 이전 v1.21 → 11/20 이전 v1.22 → 이후 현재
+        `DICT_VERSION`(v1.23).
     """
     if target_date < SMALL_FIND_HEADLINE_REVERT_EFFECTIVE_FROM:
         return PREVIOUS_DICT_VERSION
@@ -221,6 +232,8 @@ def active_dict_version(target_date: date) -> str:
         return DICT_VERSION_BEFORE_YEAR_PHASE
     if target_date < YEAR_LINK_EFFECTIVE_FROM:
         return DICT_VERSION_BEFORE_YEAR_LINK
+    if target_date < MONTH_NOTES_EFFECTIVE_FROM:
+        return DICT_VERSION_BEFORE_MONTH_NOTES
     return DICT_VERSION
 
 

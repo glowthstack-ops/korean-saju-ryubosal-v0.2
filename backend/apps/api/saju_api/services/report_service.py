@@ -503,9 +503,26 @@ def _append_natal_luck_role(lines: list[str], data: _ReportData, labels: list[st
     달·연도별 상세·도메인 섹션) 전부에 싣는다 — 직업·재물·관계뿐 아니라 건강·학업·이사 테마도.
     라벨이 없거나 이미 붙었거나 엔진이 빈 목록을 주면(플래그 OFF·시주 미상) 아무것도 하지 않는다.
     """
-    if not labels or any(ln.startswith(_NATAL_LUCK_ROLE_HEADER) for ln in lines):
+    if not labels:
         return
-    block = data.natal_luck_role_lines(labels)
+    if not any(ln.startswith(_NATAL_LUCK_ROLE_HEADER) for ln in lines):
+        block = data.natal_luck_role_lines(labels)
+        if block:
+            lines += ["", *block]
+    _append_season_fortune(lines, data, labels)
+
+
+def _append_season_fortune(lines: list[str], data: _ReportData, labels: list[str]) -> None:
+    """기간 섹션 본문에 계절 길흉 구간 참고 줄을 한 번만 붙인다(2026-11-18 데굴님 제공 규칙).
+
+    '원국 구조 × 운' 블록과 같은 자리(테마·한해 리포트의 기간 섹션)에 싣는다. 해 3개·달 6개
+    상한을 넘는 섹션(총운 대운별 페이지 등)·월주 없음·플래그 OFF 면 아무것도 하지 않는다.
+    """
+    from saju_engines.season_fortune import SEASON_FORTUNE_HEADER
+
+    if any(ln.startswith(SEASON_FORTUNE_HEADER) for ln in lines):
+        return
+    block = data.season_fortune_lines(labels)
     if block:
         lines += ["", *block]
 
@@ -1799,6 +1816,49 @@ class _ReportData:
             month_ganji=month_ganji, labels=sorted(set(labels)), max_years=max_years,
         )
 
+    def season_fortune_lines(self, labels: list[str]) -> list[str]:
+        """계절 길흉 구간 참고 줄 — 채팅 창 블록과 같은 엔진 함수(2026-11-18).
+
+        섹션 후보 기간의 해(연 라벨, 없으면 달 라벨의 절기년)와 달(절기월 라벨·월운 간지)을
+        넘긴다. 상한(해 3·달 6)은 엔진이 정한다. 플래그 OFF·월주 없음·라벨 없음이면 빈 목록.
+        """
+        from saju_engines.season_fortune import season_fortune_lines
+
+        pillars = self.result.pillars
+        if (
+            not period_v2_config.SEASON_FORTUNE_LINE_ENABLED or not labels
+            or pillars is None or pillars.month is None
+        ):
+            return []
+        months = sorted(
+            (lb, self._ganji_by_label[lb]) for lb in set(labels)
+            if len(lb) == 7 and len(self._ganji_by_label.get(lb, "")) == 2
+        )
+        years = sorted({int(lb) for lb in labels if len(lb) == 4 and lb.isdigit()})
+        if not years:
+            years = sorted({
+                int(lb[:4]) - (1 if lb[5:7] == "01" else 0) for lb, _ in months
+            })
+        return season_fortune_lines(str(pillars.month.branch), years, months)
+
+    def entry_season_tenure_line(self, periods: list[str]) -> str | None:
+        """계절로 본 재직 기간 가능성 줄(J-06·J-07) — 채팅과 같은 엔진 함수(2026-11-18).
+
+        입사·이직 후보 달이 태어난 달(특히 나쁜 구간)이면 '오래 다니지 못할 수도', 많이 좋은
+        구간이면 '오래 다니게 될 수도' 가능성 지시를 돌려준다. 플래그 OFF·월주 없음·해당 달
+        없음이면 None.
+        """
+        from saju_engines.season_fortune import entry_season_tenure_line
+
+        pillars = self.result.pillars
+        if (
+            not period_v2_config.ENTRY_TENURE_NOTE_ENABLED
+            or not period_v2_config.SEASON_FORTUNE_LINE_ENABLED
+            or pillars is None or pillars.month is None
+        ):
+            return None
+        return entry_season_tenure_line(str(pillars.month.branch), periods)
+
     def entry_tenure_line(self, periods: list[str]) -> str | None:
         """입사 뒤 재직 기간 가능성 줄(J-06·J-07) — 채팅과 같은 엔진 함수(2026-11-18).
 
@@ -1864,8 +1924,15 @@ class _ReportData:
             for c in cands:
                 if str(c.event_key) in ("wealth_change", "windfall"):
                     best[c.period] = max(best.get(c.period, 0), c.score)
+            from saju_engines.wealth_lecture import investment_month_advice_lines
+
             return [
                 *wealth_period_block(self.result, [(p, g, best.get(p)) for p, g in periods]),
+                # 투자 매수 시점 참고(2026-11-18 데굴님 — 전문가 의견, 조언 전용).
+                *(
+                    investment_month_advice_lines(list(periods))
+                    if period_v2_config.INVEST_MONTH_ADVICE_ENABLED else []
+                ),
                 *relief,
             ]
         return [
@@ -2714,6 +2781,14 @@ class _ReportData:
         # 같은 기준(기간 끝 12/31 < 오늘, 2026-11-10 점검: 채팅만 고치고 이 입구를 놓쳤다).
         # 연 지평 확장(docs/17 §31, 2026-11-11) — 연내 구간·여러 해 흐름이 같은 문단에 붙고,
         # 조건 줄은 엔진이 확인한 항목만(채팅 연 총운과 같은 함수·같은 규칙).
+        # 계절로 보는 길흉 구간(2026-11-18 데굴님 제공 규칙) — 그 해의 계절 구간 참고 줄.
+        if (
+            period_v2_config.SEASON_FORTUNE_LINE_ENABLED
+            and self.result.pillars is not None and self.result.pillars.month is not None
+        ):
+            from saju_engines.season_fortune import season_fortune_lines
+
+            lines += season_fortune_lines(str(self.result.pillars.month.branch), [year])
         _simple_line = _simple_ref(
             self.result.pillars.day_master if self.result.pillars else "",
             str(pillar.ganji), "year", past=date(year, 12, 31) < self.today,
@@ -4659,6 +4734,13 @@ def build_section_context(
             _tenure = data.entry_tenure_line(_tenure_periods)
             if _tenure:
                 lines.append(_tenure)
+            # 계절로 본 재직 기간 가능성(2026-11-18) — 입사·이직 후보 달이 양 끝 등급일 때만.
+            _season_tenure = data.entry_season_tenure_line([
+                c.period for c in data.domain_candidates("career")
+                if str(c.event_key) in _ENTRY_EVENT_KEYS and len(c.period) == 7
+            ])
+            if _season_tenure:
+                lines.append(_season_tenure)
             if has_personal_repeat_signal(data.domain_candidates("career")):
                 lines.append(PERSONAL_REPEAT_DIRECTIVE)
             lines.append("")

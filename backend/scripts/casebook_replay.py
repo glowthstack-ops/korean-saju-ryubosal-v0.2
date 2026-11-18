@@ -428,6 +428,8 @@ def main() -> int:
     ap.add_argument("--wealth-natal-complement", action="store_true")
     # 2026-11-13 창고 층 — 재물 '묘고 충개고'를 재성이 든 창고일 때만 인정(비교 재생용).
     ap.add_argument("--wealth-storage-strict", action="store_true")
+    ap.add_argument("--relocation-mobility-seed", action="store_true",
+                    help="식상+관성 운 × 이동 동반 신호 → 이사 시드(2026-11-18, 측정용)")
     ap.add_argument("--career-exit-only", action="append", default=[],
                     help="강의 시드 규칙 id 만 적용(--career-exit-seed 와 함께, 반복 가능)")
     # 2026-10-25 — 탐합망충 shadow/apply 비교 재생용(기본 shadow: 기록만, 점수 불변).
@@ -464,6 +466,7 @@ def main() -> int:
         career_exit_rule_ids=args.career_exit_only or None,
         enable_wealth_natal_complement=args.wealth_natal_complement,
         enable_wealth_storage_strict=args.wealth_storage_strict,
+        enable_relocation_mobility_seed=args.relocation_mobility_seed,
         tamhap_mangchung_mode=args.tamhap_mode,
         love_experiments=args.love_experiment,
         love_experiments_off=args.love_experiment_off,

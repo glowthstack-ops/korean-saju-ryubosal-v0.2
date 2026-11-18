@@ -140,6 +140,11 @@ from .peer_mobility_seed import (
 )
 from .reality_context import RealityContext
 from .relation_palace_engine import RelationActivation, RelationPalaceEngine
+from .relocation_mobility_seed import (
+    load_relocation_mobility_rule,
+    merge_relocation_mobility_seeds,
+    produce_relocation_mobility_seeds,
+)
 from .risk_auxiliary import apply_auxiliary_amplifiers, build_auxiliary_facts
 from .risk_engine import (
     HealthContext,
@@ -280,6 +285,7 @@ class EventEngineV2:
         enable_career_exit_seed: bool = False,
         enable_wealth_natal_complement: bool = False,
         enable_wealth_storage_strict: bool = False,
+        enable_relocation_mobility_seed: bool = False,
         career_exit_rule_ids: Collection[str] | None = None,
         tamhap_mangchung_mode: str = "shadow",
         love_experiments: Collection[str] | None = None,
@@ -331,6 +337,9 @@ class EventEngineV2:
             enable_transit_clash_support: 운↔운 충(대운↔월운 辰戌충 등) → 이동형 후보
                 (career_change·relocation) 보조 가산(2026-10-15 승인, 선택 항목, 기본 OFF). 후보당
                 1회·사전 상수. OFF면 불변.
+            enable_relocation_mobility_seed: 식상+관성 운 기둥에 이동 동반 신호(역마·충·합)가
+                붙으면 relocation 후보를 만든다(2026-11-18 데굴님 승인 — 기준 회귀 사례 2025-08
+                甲申월 이사). 점수 규칙이라 기본 OFF.
             enable_role_event_seed: 역할별 사건 전환 시드(2026-10-16 데굴님 확정 6규칙 — 상관·편관·
                 편인 용신 운 / 정관·정인·식신 기신 운). 브랜처 직후 합류, 사전
                 `role_event_seed_rules`. 점수 규칙이라 기본 OFF — 85사례 적중률·실사례로 ON 결정.
@@ -338,6 +347,12 @@ class EventEngineV2:
             role_event_seed_rule_ids: 측정용 — 지정하면 그 규칙 id 만 적용(None=사전 enabled 전부).
         """
         self._enable_mt1_awareness = enable_mt1_awareness
+        # 식상+관성 운 × 이동 동반 신호 → 이사 시드(2026-11-18 데굴님 승인). 점수 규칙이라 기본
+        # OFF — 측정 뒤 ON 을 정한다. 규칙은 브랜처 사전 `output_authority_relocation_rules`.
+        self._relocation_mobility_rule = (
+            load_relocation_mobility_rule(dictionaries_dir)
+            if enable_relocation_mobility_seed else None
+        )
         # 비겁 용신 × 비겁 운 → 직장 이동 시드(2026-10-14 데굴님 확정, 기본 ON). 규칙은 브랜처 사전
         # `peer_yongsin_mobility_rules` 절 — OFF 또는 절 부재면 기존 결과 불변.
         self._enable_peer_mobility = enable_peer_mobility
@@ -962,6 +977,16 @@ class EventEngineV2:
                         signals, target_layer, result, fav_map, label, _peer_rule,
                     ),
                 )
+        # 식상+관성 운 × 이동 동반 신호(역마·충·합) → relocation 시드(2026-11-18). 비겁 이동 시드와
+        # 같은 자리에서 합류 — 뒤 계층 보정·충돌 해결을 그대로 거친다.
+        if self._relocation_mobility_rule is not None:
+            cands = merge_relocation_mobility_seeds(
+                cands,
+                produce_relocation_mobility_seeds(
+                    signals, target_layer, target, result, label,
+                    self._relocation_mobility_rule,
+                ),
+            )
         # 역할별 사건 전환 시드(2026-10-16 데굴님 확정) — 사흉신 용신 운·사길신 기신 운의 사건
         # 후보를 더해 순위로 전환한다. 브랜처 기본 가지는 불변, OFF 면 불변.
         if self._role_seed_cfg is not None:

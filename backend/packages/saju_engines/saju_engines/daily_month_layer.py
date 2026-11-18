@@ -41,6 +41,8 @@ from saju_shared_types.daily_fortune import (
 from saju_shared_types.enums import Branch, Stem
 
 from . import simple_reading as _simple
+from .season_fortune import board_season_key
+from .wealth_lecture import INVEST_RISE_STEMS
 
 #: 십성 → 십성군(`daily_ilju_fortune._SIPSEONG_GROUP` 와 같은 분류).
 _GROUP = v1._SIPSEONG_GROUP
@@ -90,6 +92,28 @@ def _weak_half_harmony(a: Branch, b: Branch) -> bool:
     return len(pair) == 2 and any(pair <= members for members, _e, _r in THREE_HARMONY)
 
 
+#: 시세가 오르는 경우가 많다고 보는 월운 천간(v1.23, §35 — 채팅·리포트 조언 줄과 같은 값).
+_INVEST_MONTH_STEMS = frozenset(INVEST_RISE_STEMS)
+
+
+def _month_notes(ctx: DayGanjiContext, layer: dict[str, Any]) -> list[str]:
+    """v1.23(§35): 공통 줄 끝에 붙는 달 단위 참고 문장 — 태어난 계절 구간, 투자 참고.
+
+    두 문장 모두 일간과 무관한 달력 값이라 열 천간에 같은 문장이 붙는다. 사전에 키가 없으면
+    (v1.22 이전 스냅샷) 빈 목록 — 종전 보드는 그대로다.
+    """
+    out: list[str] = []
+    seasons = layer.get("birth_season")
+    if seasons:
+        key = board_season_key(ctx.month_branch, ctx.the_date)
+        if key is not None:
+            out.append(seasons[key])
+    invest = layer.get("invest_month")
+    if invest and ctx.month_stem in _INVEST_MONTH_STEMS:
+        out.append(invest)
+    return out
+
+
 def _stem_common_line(
     day_master: Stem, ctx: DayGanjiContext, layer: dict[str, Any],
     simple: dict[str, Any] | None = None,
@@ -116,6 +140,7 @@ def _stem_common_line(
             # v1.22(§34): 올해 흐름(세운 천간 군) 위에서 이번 달(월운 천간 군)이 하는 일 — 한 문장.
             parts.append(layer["year_link"][f"{year_group}>{stem_group}"])
         parts.append(layer["month_action"][stem_god])
+        parts += _month_notes(ctx, layer)
         return " ".join(parts)
     parts = [layer["month_tone"][f"{stem_group}+{branch_group}"], layer["month_action"][stem_god]]
     # 12운성 — 일간이 월운 지지에서 갖는 힘(통설·만세력 엔진 luck_cycles 와 같은 방향, §25).

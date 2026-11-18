@@ -1614,6 +1614,48 @@ def _luck_sinsal_groups(pillar) -> str:
     return " / ".join(groups) or "해당 없음"
 
 
+_INVEST_ADVICE_HEADER = "[투자 매수 시점 참고"
+
+
+def _is_real_estate_purchase_question(question: str) -> bool:
+    """부동산 매수·장만 질문인가 — 파서와 같은 판별(매물 명사 + 매수 동사, 거주 '살다' 제외)."""
+    from saju_engines.query_parser import is_real_estate_purchase
+
+    return is_real_estate_purchase(question)
+
+
+def _investment_month_advice(birth: BirthInput, today: date) -> list[str]:
+    """투자 질문용 조언 줄 — 지금 절기월부터 12개 절기월의 월운 간지로 만든다(없으면 빈 목록)."""
+    from saju_engines.employment_history import luck_month_label
+    from saju_engines.wealth_lecture import investment_month_advice_lines
+
+    now = luck_month_label(today)
+    labels = _rolling_months(int(now[:4]), int(now[5:7]), 12)
+    wanted = set(labels)
+    return investment_month_advice_lines([
+        (m.label, str(m.ganji)) for m in _luck_months_covering(birth, labels)
+        if m.label in wanted
+    ])
+
+
+def _season_fortune_block(birth: BirthInput, chart, labels: list[str]) -> list[str]:
+    """계절 길흉 구간 참고 블록 — 질문 기간의 해·달(상한은 season_fortune 이 정한다)."""
+    from saju_engines.season_fortune import season_fortune_lines
+
+    if chart.pillars is None or chart.pillars.month is None:
+        return []
+    month_labels = sorted({lb for lb in labels if len(lb) == 7})
+    wanted = set(month_labels)
+    months = [
+        (m.label, str(m.ganji)) for m in _luck_months_covering(birth, month_labels)
+        if m.label in wanted
+    ] if month_labels else []
+    years = sorted({int(lb[:4]) for lb in labels if len(lb) == 4 and lb.isdigit()})
+    if not years and month_labels:
+        years = sorted({_luck_year_for_label(lb) for lb in month_labels})
+    return season_fortune_lines(str(chart.pillars.month.branch), years, months)
+
+
 def _natal_luck_role_lines(birth: BirthInput, chart, labels: list[str]) -> list[str]:
     """'원국 구조 × 운에서 온 글자' 줄(헤더 포함) — 엔진 블록 함수에 운 글자를 넘긴다.
 
@@ -1643,6 +1685,28 @@ def _natal_luck_role_lines(birth: BirthInput, chart, labels: list[str]) -> list[
         daewoon_by_year=daewoon_ganji_by_year(chart), sewoon_by_year=sewoon,
         month_ganji=month_ganji, labels=labels,
     )
+
+
+def _entry_season_tenure_line(chart, candidates: list[LlmEventCandidate]) -> str | None:
+    """계절로 본 재직 기간 가능성 줄 — 입사·이직 후보 달의 계절 등급이 양 끝일 때만(2026-11-18).
+
+    입사 성사가 아니라 그 자리의 재직 기간 쪽 가능성이다. 재직 기간 줄·계절 줄 플래그가 모두
+    켜져 있고 월주가 있을 때만. 달 단위 후보가 없으면 None(질문 기간으로 넓히지 않는다).
+    """
+    from saju_engines.season_fortune import entry_season_tenure_line
+
+    if not (
+        period_v2_config.ENTRY_TENURE_NOTE_ENABLED
+        and period_v2_config.SEASON_FORTUNE_LINE_ENABLED
+    ):
+        return None
+    if chart.pillars is None or chart.pillars.month is None:
+        return None
+    periods = [
+        c.period for c in candidates
+        if c.event_key in _ENTRY_CHANNEL_KEYS and len(c.period) == 7
+    ]
+    return entry_season_tenure_line(str(chart.pillars.month.branch), periods)
 
 
 def _entry_tenure_line(
@@ -1778,6 +1842,9 @@ def _window_structure_block(
     # 질문에 올해를 끌어와 원국 풀이에 운 얘기를 섞지 않는다.
     if period_v2_config.NATAL_LUCK_ROLE_BLOCK_ENABLED and (windowed or start):
         out += _natal_luck_role_lines(birth, chart, labels)
+    # 계절로 보는 길흉 구간(2026-11-18 데굴님 제공 규칙) — 시점이 있는 질문에만, 참고 줄.
+    if period_v2_config.SEASON_FORTUNE_LINE_ENABLED and (windowed or start):
+        out += _season_fortune_block(birth, chart, labels)
     if windowed and _SINSAL_ASK_RE.search(question):
         sinsal_lines: list[str] = []
         for y in sorted(month_years):
@@ -8022,6 +8089,11 @@ def chat(
         )
         if _tenure:
             trailing.append(_tenure)
+        # 계절로 본 재직 기간 가능성(2026-11-18 데굴님 "그래 그렇게 하자") — 입사·이직 후보 달이
+        # 태어난 달(특히 나쁜 구간)·많이 좋은 구간일 때만. 점수·두 칸 배정 불변.
+        _season_tenure = _entry_season_tenure_line(result, list(payload.event_candidates))
+        if _season_tenure:
+            trailing.append(_season_tenure)
         # 승계(2026-10-23): 직전 진입 답의 두 칸을 같은 사건의 시점 후속에 유지시킨다.
         _prior_slots = _prior_entry_slots_directive(
             state, intent, luck_month, is_followup=is_followup_turn,
@@ -8413,6 +8485,18 @@ def chat(
     # (2026-09-01 실로그: 장기 투자 질문이 '오늘 복권' 답으로 흘렀다). 횡재와 상호 배타.
     elif _is_investment_flow(intent, question):
         trailing.append(_INVESTMENT_FLOW_DIRECTIVE)
+        # 투자 매수 시점 참고(2026-11-18 데굴님 — 전문가 의견, 조언 전용): 앞으로 12개 절기월 중
+        # 월운 천간 癸·甲인 달. 점수·후보 불변, 하드 가드는 위 지시문이 그대로 건다.
+        if period_v2_config.INVEST_MONTH_ADVICE_ENABLED:
+            trailing += _investment_month_advice(birth, today)
+    # 부동산 매수·장만 질문(계약·이사 경로)에도 같은 조언 줄을 붙인다(2026-11-18 데굴님 "그래").
+    # 투자 턴에서 이미 붙었으면 다시 붙이지 않는다.
+    if (
+        period_v2_config.INVEST_MONTH_ADVICE_ENABLED
+        and _is_real_estate_purchase_question(question)
+        and not any(ln.startswith(_INVEST_ADVICE_HEADER) for ln in trailing)
+    ):
+        trailing += _investment_month_advice(birth, today)
     # 직업 분야·직종·적성 질문 — 답의 축을 시점이 아니라 원국 십성 기능에 고정(2026-09-10).
     if intent.career_field:
         trailing.append(_CAREER_FIELD_DIRECTIVE)

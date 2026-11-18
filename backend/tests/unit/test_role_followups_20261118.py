@@ -269,3 +269,23 @@ def test_chat_statement_source_is_left_out_of_signature_and_cohort(monkeypatch) 
     assert "NOT (source = ANY(%s))" in sql and params[0] == ["chat_statement"]
     store.cohort_event_counts(pillar_day="己巳", gender=None)
     assert all(p[0] == ["chat_statement"] for _s, p in conn.calls[-2:])
+
+
+def test_lag_signal_reads_month_top_event_and_year_top3() -> None:
+    """시차 측정의 신호 판정 — 그 달 1순위 사건 / 그 절기년 취업 후보 Top-3 (§9-1b)."""
+    from types import SimpleNamespace
+
+    def cand(period: str, key: str) -> SimpleNamespace:
+        return SimpleNamespace(period=period, event_key=key)
+
+    ranked = [
+        cand("2025-05", "job_gain"), cand("2025-02", "career_change"), cand("2025-02", "job_gain"),
+        cand("2025-08", "job_gain"), cand("2025-11", "job_gain"), cand("2025-11", "career_change"),
+    ]
+    assert M._signals_of(ranked, "2025-05") == (True, True)
+    # 반례: 취업 후보가 Top-3 달이어도 그 달 1순위가 다른 사건이면 1순위 신호는 아니다.
+    assert M._signals_of(ranked, "2025-02") == (False, True)
+    # 반례: 그 달 1순위가 취업이어도 연 안 4번째면 Top-3 신호는 아니다.
+    assert M._signals_of(ranked, "2025-11") == (True, False)
+    assert M._signals_of(ranked, "2025-03") == (False, False)
+    assert set(M._LAG_WINDOWS["1~2달 전"]) == {1, 2} and 0 in M._LAG_OFFSETS

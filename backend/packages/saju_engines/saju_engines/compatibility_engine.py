@@ -23,6 +23,8 @@ from saju_shared_types.constants import (
     BRANCH_BREAKS,
     BRANCH_CLASHES,
     BRANCH_HARMS,
+    CONTROLS,
+    GENERATES,
     PUNISHMENT_MUTUAL,
     PUNISHMENT_TRIPLES,
     SELF_PUNISHMENT,
@@ -59,20 +61,25 @@ def _relation_note(kind: CompatSignalKind) -> str:
     return relation_summary_ko(key) if key else ""
 
 
-# 십성별 관계 작용 방향(reviewed:false). 정관·정재·정인·식신=안정/생조 → 보완,
-# 편관·상관·겁재=긴장/소모 → 마찰, 비견·편재·편인=중립.
+# 십성별 관계 작용 방향(reviewed:false). 2026-11-18 데굴님 "새 규칙대로 가자": 식상·관성은 정·편을
+# 가르지 않고 오행 단위로 본다 — 내가 생해 주는 쪽(식신·상관)=보완, 나를 극하는 쪽(정관·편관)=
+# 마찰(종전: 상관=마찰·정관=보완). 정재·정인=보완, 겁재=마찰, 비견·편재·편인=중립은 그대로.
 _TEN_GOD_DIRECTION: dict[str, CompatDirection] = {
-    "정관": CompatDirection.HARMONY,
+    "정관": CompatDirection.FRICTION,
     "정재": CompatDirection.HARMONY,
     "정인": CompatDirection.HARMONY,
     "식신": CompatDirection.HARMONY,
     "편관": CompatDirection.FRICTION,
-    "상관": CompatDirection.FRICTION,
+    "상관": CompatDirection.HARMONY,
     "겁재": CompatDirection.FRICTION,
     "비견": CompatDirection.NEUTRAL,
     "편재": CompatDirection.NEUTRAL,
     "편인": CompatDirection.NEUTRAL,
 }
+
+#: 일간 오행 관계 신호가 방향을 싣는 십성 — 그 신호가 켜져 있으면 십성 신호는 사실만 싣고
+#: (중립) 같은 생·극 관계를 보완/마찰로 두 번 세지 않는다.
+_ELEMENT_AFFINITY_TEN_GODS = frozenset({"식신", "상관", "정관", "편관"})
 
 # 십성군(force_analysis.ten_gods.groups 키) → 한글 의미. 보완 끌림 서술용.
 _GROUP_KO: dict[str, str] = {
@@ -549,18 +556,35 @@ def analyze_compatibility(
         ))
 
     # 3) 십성 관계(양방향).
+    from . import period_v2_config  # 지역 import — 모듈 로드 순서(테스트 monkeypatch) 유지
+
+    affinity_on = period_v2_config.COMPAT_ELEMENT_AFFINITY_ENABLED
+
+    def tg_direction(name: str) -> CompatDirection:
+        # 식상·관성의 방향은 일간 오행 관계 신호(3b)가 싣는다 — 같은 관계를 두 번 세지 않는다.
+        if affinity_on and name in _ELEMENT_AFFINITY_TEN_GODS:
+            return CompatDirection.NEUTRAL
+        return _TEN_GOD_DIRECTION.get(name, CompatDirection.NEUTRAL)
+
     tg_to_partner = ten_god(self_dm, partner_dm).value
     tg_to_self = ten_god(partner_dm, self_dm).value
     signals.append(CompatSignal(
         kind=CompatSignalKind.TEN_GOD_TO_PARTNER, label="상대의 십성",
         detail=f"{self_label} 일간 기준 {partner_label}은(는) {tg_to_partner}",
-        direction=_TEN_GOD_DIRECTION.get(tg_to_partner, CompatDirection.NEUTRAL),
+        direction=tg_direction(tg_to_partner),
     ))
     signals.append(CompatSignal(
         kind=CompatSignalKind.TEN_GOD_TO_SELF, label="나의 십성",
         detail=f"{partner_label} 일간 기준 {self_label}은(는) {tg_to_self}",
-        direction=_TEN_GOD_DIRECTION.get(tg_to_self, CompatDirection.NEUTRAL),
+        direction=tg_direction(tg_to_self),
     ))
+
+    # 3b) 일간 오행 관계(2026-11-18 데굴님 제공 규칙) — 내가 생해 주는 오행의 사람은 함께하면
+    # 좋은 사람, 나를 극하는 오행의 사람은 함께할 때 운이 깎일 수 있는 사람. 양쪽 시점 모두 본다.
+    if affinity_on:
+        signals += _element_affinity_signals(
+            self_dm, partner_dm, self_label=self_label, partner_label=partner_label,
+        )
 
     # 4) 용신 상호보완.
     signals += _yongsin_signals(self_dm, partner_dm, self_useful, partner_useful)
@@ -616,6 +640,45 @@ def analyze_compatibility(
         attraction_score=attraction,
         attraction_band=_attraction_band(attraction),
     )
+
+
+def _element_affinity_signals(
+    self_dm: Stem, partner_dm: Stem, *, self_label: str, partner_label: str,
+) -> list[CompatSignal]:
+    """일간 오행 관계 신호 — 한 쌍에 많아야 1건(생·극은 한 방향만 성립).
+
+    보는 사람(나)의 일간이 생해 주는 오행이 상대 일간이면 상대는 '함께하면 좋은 사람'(보완),
+    상대 일간이 나의 일간을 극하면 상대는 '함께할 때 운이 깎일 수 있는 사람'(마찰)이다. 본인
+    시점과 상대 시점을 각각 본다. 십성 신호(정·편 구분)와 따로 세는 본 신호다 — 식상·관성을
+    정·편으로 가르지 않고 오행 단위로 본다(2026-11-18 데굴님 제공 규칙).
+    """
+    out: list[CompatSignal] = []
+    pairs = ((self_dm, partner_dm, self_label, partner_label),
+             (partner_dm, self_dm, partner_label, self_label))
+    for me, other, me_label, other_label in pairs:
+        me_el, other_el = STEM_ELEMENT[me], STEM_ELEMENT[other]
+        if GENERATES[me_el] == other_el:
+            out.append(CompatSignal(
+                kind=CompatSignalKind.ELEMENT_AFFINITY_GOOD, label="일간 오행 관계",
+                detail=(
+                    f"{me_label} 일간 {me_el.value}이(가) 생해 주는 오행 {other_el.value}이(가) "
+                    f"{other_label}의 일간 — {me_label}에게 {other_label}은(는) 함께하면 좋은 "
+                    "사람 쪽"
+                ),
+                direction=CompatDirection.HARMONY,
+            ))
+        elif CONTROLS[other_el] == me_el:
+            out.append(CompatSignal(
+                kind=CompatSignalKind.ELEMENT_AFFINITY_DRAIN, label="일간 오행 관계",
+                detail=(
+                    f"{other_label} 일간 {other_el.value}이(가) {me_label} 일간 "
+                    f"{me_el.value}을(를) 극함 — {me_label}에게 {other_label}은(는) "
+                    "함께할 때 운이 깎일 수 있는 사람 "
+                    "쪽(관계를 끊으라는 뜻이 아니라 어디서 소모되는지 살필 지점)"
+                ),
+                direction=CompatDirection.FRICTION,
+            ))
+    return out
 
 
 def compatibility_lines(report: CompatibilityReport) -> list[str]:

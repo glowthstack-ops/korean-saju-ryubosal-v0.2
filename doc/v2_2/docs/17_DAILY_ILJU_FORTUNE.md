@@ -1368,3 +1368,42 @@ peak_months(day_master, year_stem, year_branch, months) → [월…]   # 연 지
 
 2026-11-19(丙午년 己亥월) 실제 값: 세운 丙 → 월운 己 가 생 관계라 열 일간 모두 '올해가 이번 달로 이어짐' 틀이 나온다(甲·乙 식상>재성, 丙·丁 비겁>식상, 戊·己 인성>비겁, 庚·辛 관성>인성, 壬·癸 재성>관성).
 
+## 35. 이번 달 흐름 — 투자 참고·태어난 계절 문장 (dict.v1.23, 2026-11-18)
+
+### 35-1. 배경·문제
+
+- 데굴님(2026-11-18)이 준 규칙 3종(월운 천간 癸·甲 달의 시세, 일간 오행 궁합, 태어난 계절 기준 길흉
+  구간 — SSOT `doc/v2_2/EXPERT_RULES_20261118.md`)을 채팅·리포트에 배선한 뒤, "이번에 진행하는 건
+  AI채팅상담과 테마사주, 오늘의 운세 모두 필요한 영역에 배선되어야 해"라고 범위를 넓혔다.
+- 오늘의 운세는 일주별 콘텐츠라 원국(태어난 달)과 상대 명식이 없다 — 달력 값으로 서는 두 가지만
+  옮긴다. 궁합 오행 관계와 이사 후보 규칙은 옮기지 않는다(자리가 없다).
+
+### 35-2. 규칙
+
+- `month_layer.birth_season`(6문장) — 그 달이 속한 계절의 구간을 태어난 계절별로 한 번에 말한다.
+  키는 `season_fortune.board_season_key(월운 지지, 보드 날짜)`: spring · summer · winter, 가을은 그 해
+  추석(음력 8월 15일)이 든 절기월 기준 autumn_before · autumn_split · autumn_after. 달 단위로 고정이다
+  (추석이 든 달은 달 내내 '추석 전까지는 좋고 추석이 지나면 조심'으로 말한다).
+- `month_layer.invest_month`(1문장) — 월운 천간이 癸·甲인 달에만(`wealth_lecture.INVEST_RISE_STEMS`,
+  채팅·리포트 조언 줄과 같은 값). 첫 적용 달은 2027년 癸卯월(3월)·甲辰월(4월).
+- 자리: 공통 줄(`_stem_common_line`) 끝 — 행동 문장 뒤에 계절 문장, 투자 문장 순(`_month_notes`).
+  열 천간에 같은 문장이 붙는다(일간과 무관한 달력 값). 출력 필드·프론트 변경 없음.
+- 문장 정책: 한자·숫자 없음, 해요체, 금지어 없음, 계절 문장은 '계절로만 보면'으로 시작, 투자 문장은
+  '오르는 경우가 많다고 보는' + '감당할 수 있는 만큼만'(확정·권유 금지 — 절대원칙 8).
+
+### 35-3. 버전·경계
+
+- `DICT_VERSION = dict.v1.23`, `MONTH_NOTES_EFFECTIVE_FROM = 2026-11-20`,
+  `DICT_VERSION_BEFORE_MONTH_NOTES = dict.v1.22`. 11/19 보드는 이미 생성·교정돼 v1.22 를 유지한다.
+- 스냅샷 `backend/compiled/daily_fortune_dict.v1.23.json`(`scripts/build_daily_fortune_snapshot.py`).
+- 판정·사건·점수·행운 요소 불변(문체 전용), LLM 교정 대상 아님.
+
+### 35-4. 검증
+
+- `tests/unit/test_daily_month_notes_20261118.py` 5건 — 버전 경계·이전 스냅샷에 키 없음 / 문장 정책 /
+  추석 기준 키 / 11/20 보드 공통 줄 끝에 겨울 문장·11/19 보드는 없음·같은 날짜를 이전 사전으로 계산한
+  보드와 판정 동일 / 투자 문장은 癸·甲 달에만.
+- 버전 고정 테스트 5곳을 v1.23 으로 갱신(`test_daily_headline_slots`·`test_daily_legacy_display`·
+  `test_daily_stage_direction_20261103`·`test_simple_reading_layer_20261108`·`test_simple_year_phase_20261111`,
+  `test_daily_year_link_20261118` 의 현재 버전 단언).
+
