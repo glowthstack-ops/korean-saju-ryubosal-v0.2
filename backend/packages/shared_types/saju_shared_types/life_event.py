@@ -33,6 +33,13 @@ class LifeEventSource(StrEnum):
     CHAT_RATING = "chat_rating"                                # 채팅 평가(👍/👎)
     DELAYED_OUTCOME = "delayed_outcome"                        # 시점 경과 결과 — 최상
     EMPLOYMENT_HISTORY = "employment_history"                  # 직장 이력(자격득실 수준) — 정본
+    CHAT_STATEMENT = "chat_statement"                          # 채팅 발화에서 뽑은 본인 완료형 보고
+
+
+#: 적재만 하는 소스 — 개인 시그니처(점수 보정)·코호트 집계에 넣지 않는다(2026-11-18 데굴님 "원장에
+#: 적재만 하고 채팅에서의 추가 액션은 없이 가자"). 채팅 발화는 정규식으로 뽑은 것이라 사용자가
+#: 확인한 사실이 아니고 때 표현도 근사다 — 측정 스크립트만 명시적으로 읽는다.
+SCORING_EXCLUDED_SOURCES: frozenset[str] = frozenset({"chat_statement"})
 
 
 #: 원장 전용 사건 키 — 채점 taxonomy(EventKeyV2 21종)에는 없고 **저장·대조에만** 쓴다.
@@ -58,6 +65,10 @@ class SignalFingerprint(BaseModel):
     glyphs: dict[str, str] = Field(default_factory=dict)
     # 운 글자가 겹치는 원국 자리 — 'wolwoon_branch=month_branch' 꼴(복음·동일 글자 재현).
     natal_echo: list[str] = Field(default_factory=list)
+    # 운 구조 태그(2026-11-18, 측정 단계 — 기본 비어 있음). 'dw:'·'sw:'·'wm:' 접두 + 태그
+    # (luck_structure_tags 어휘: yong_group·burden_down·excess_add …). 십성 이름 대신 그 명식에서의
+    # 역할·원국 대비 위치·운에서 서는 구조 계열을 담는다(EMPLOYMENT_HISTORY_CALIBRATION.md §7).
+    structure: list[str] = Field(default_factory=list)
 
 
 class LifeEventAttrs(BaseModel):
@@ -76,6 +87,7 @@ class LifeEventAttrs(BaseModel):
     employment_group: str | None = None         # 같은 직장 묶기 키
     label: str | None = None                    # 사용자가 준 회사명 — 연결 사례 서술 전용
     luck_month_label: str | None = None         # 엔진이 정한 절기월 라벨('YYYY-MM', 절입 날짜 기준)
+    source_ref: str | None = None               # 출처 추적 키('chat_message:<id>', 본문 없음)
 
 
 class LifeEventRow(BaseModel):

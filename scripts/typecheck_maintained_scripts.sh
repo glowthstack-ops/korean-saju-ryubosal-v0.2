@@ -57,6 +57,8 @@ MAINTAINED=(
     scripts/load_employment_history.py
     # 직장 이력 leave-one-out 적중 측정 — 글자 가중 ON/OFF 판정 기준선(§3-3), 이력·가중 변경마다 재실행
     scripts/measure_employment_history_loo.py
+    # 채팅 입력의 입퇴사 사실 우회 수집 — 채팅이 쌓이는 대로 재실행(EMPLOYMENT_HISTORY_CALIBRATION.md §8)
+    scripts/collect_chat_employment_facts.py
 )
 
 missing=()

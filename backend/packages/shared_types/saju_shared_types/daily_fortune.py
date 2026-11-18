@@ -64,7 +64,13 @@ ENGINE_VERSION = "engine.v1"
 #   묶음) ③ 일주별 올해 한 줄 ④ 조건 줄(신강약·필요한 기운·지지 충형 글자·과다 기운). 채팅·테마 연
 #   문단에도 ①②가 붙고, ④는 엔진이 확인한 항목만 따로 싣는다. 판정·사건·점수 불변(문체 전용).
 #   경계 YEAR_PHASE_EFFECTIVE_FROM(11/12 — 11/11 보드는 이미 생성·교정돼 v1.20 유지).
-DICT_VERSION = "dict.v1.21"
+# v1.22(2026-11-18): 이번 달 흐름 공통 줄에 '올해 흐름 위의 이번 달' 연결 문장(docs/17 §34, 데굴님
+#   "대운·세운·월운은 떼서 생각해서는 안 돼 — 역할별 영향" → "오늘의 운세쪽의 세운, 월운에도 적용").
+#   `month_layer.year_link`(올해 천간 십성군 > 이번 달 천간 십성군, 20쌍): 올해가 깔아 둔 흐름을
+#   이번 달이 이어받는지·밀어 주는지·눌리는지·조정하는지 한 문장. 같은 군이면 기존 '세운 겹침'
+#   문장이 그대로 나온다. 판정·사건·점수 불변(문체 전용), LLM 교정 대상 아님.
+#   경계 YEAR_LINK_EFFECTIVE_FROM(11/19 — 11/18 보드는 이미 생성·교정돼 v1.21 유지).
+DICT_VERSION = "dict.v1.22"
 PROMPT_VERSION = "polish.v1"
 #: 서사 family 회전 계약(OA-8b). 값이 바뀌면 새 epoch 이 시작되며 **캐시만** 무효화된다
 #: — 선택 seed 에는 들어가지 않으므로 사건 배정은 흔들리지 않는다(OA-6d1).
@@ -126,6 +132,11 @@ DICT_VERSION_BEFORE_SIMPLE_LAYER = "dict.v1.18"
 YEAR_PHASE_EFFECTIVE_FROM = date(2026, 11, 12)
 #: 그 기준일 이전(11/8~11/11)에 적용되는 사전 버전.
 DICT_VERSION_BEFORE_YEAR_PHASE = "dict.v1.20"
+#: 올해 흐름 × 이번 달 연결 문장(v1.22, docs/17 §34) 활성화 기준일 — 11/19 보드(11/18 20시 선생성)
+#: 부터 쓴다. 11/12~11/18 보드는 v1.21 스냅샷으로 그대로 재현된다.
+YEAR_LINK_EFFECTIVE_FROM = date(2026, 11, 19)
+#: 그 기준일 이전(11/12~11/18)에 적용되는 사전 버전.
+DICT_VERSION_BEFORE_YEAR_LINK = "dict.v1.21"
 
 
 #: 상해 채널의 백호를 일주 기준으로 좁히는 기준일(model.v2.4, docs/17 §32) — 11/13 보드는 11/12
@@ -188,7 +199,7 @@ def active_dict_version(target_date: date) -> str:
     Returns:
         7/30 이전 v1.10 → 9/3 이전 v1.11 → 9/12 이전 v1.12 → 9/20 이전 v1.13 → 11/2 이전
         v1.14 → 11/3 이전 v1.16 → 11/5 이전 v1.17 → 11/8 이전 v1.18 → 11/12 이전 v1.20
-        (v1.19 는 11/8 경계에서 당일 대체) → 이후 현재 `DICT_VERSION`(v1.21).
+        (v1.19 는 11/8 경계에서 당일 대체) → 11/19 이전 v1.21 → 이후 현재 `DICT_VERSION`(v1.22).
     """
     if target_date < SMALL_FIND_HEADLINE_REVERT_EFFECTIVE_FROM:
         return PREVIOUS_DICT_VERSION
@@ -208,6 +219,8 @@ def active_dict_version(target_date: date) -> str:
         return DICT_VERSION_BEFORE_SIMPLE_LAYER
     if target_date < YEAR_PHASE_EFFECTIVE_FROM:
         return DICT_VERSION_BEFORE_YEAR_PHASE
+    if target_date < YEAR_LINK_EFFECTIVE_FROM:
+        return DICT_VERSION_BEFORE_YEAR_LINK
     return DICT_VERSION
 
 

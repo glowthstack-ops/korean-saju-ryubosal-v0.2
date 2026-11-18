@@ -12,7 +12,7 @@ from pathlib import Path
 
 import psycopg
 
-from saju_shared_types.life_event import LifeEventRow
+from saju_shared_types.life_event import SCORING_EXCLUDED_SOURCES, LifeEventRow
 
 from .precompute_store import default_dsn
 
@@ -22,6 +22,10 @@ _MIGRATION = _MIGRATIONS_DIR / "008_life_events.sql"
 _MIGRATION_CALIB = _MIGRATIONS_DIR / "014_subject_reality_calibration.sql"
 # 직장 이력 P0 — attrs JSONB + source 'employment_history'(EMPLOYMENT_HISTORY_CALIBRATION.md §2-1).
 _MIGRATION_ATTRS = _MIGRATIONS_DIR / "020_life_event_attrs.sql"
+# 채팅 발화 사실 소스 'chat_statement'(EMPLOYMENT_HISTORY_CALIBRATION.md §8).
+_MIGRATION_CHAT_STATEMENT = _MIGRATIONS_DIR / "022_life_event_source_chat_statement.sql"
+#: 적재만 하는 소스 — 시그니처·코호트 조회에서 빼는 SQL 조건(상수 목록, 사용자 입력 아님).
+_EXCLUDED_SOURCES = sorted(SCORING_EXCLUDED_SOURCES)
 
 
 class LifeEventStore:
@@ -42,6 +46,7 @@ class LifeEventStore:
             conn.execute(_MIGRATION.read_text(encoding="utf-8"))
             conn.execute(_MIGRATION_CALIB.read_text(encoding="utf-8"))
             conn.execute(_MIGRATION_ATTRS.read_text(encoding="utf-8"))
+            conn.execute(_MIGRATION_CHAT_STATEMENT.read_text(encoding="utf-8"))
 
     def save_reality_payload(self, owner_id: str, subject_id: str, payload: dict) -> None:
         """현실 캘리브레이션 해상도 payload(연 단위 체감·영역·사건 경험) 저장(UPSERT).
@@ -166,8 +171,8 @@ class LifeEventStore:
 
         fine_pillars(年月日時) 지정 시 fine 코호트(전체 사주+성별), 아니면 coarse(일주+성별).
         """
-        where = ["outcome='confirmed'", "pillar_day=%s"]
-        params: list[object] = [pillar_day]
+        where = ["outcome='confirmed'", "NOT (source = ANY(%s))", "pillar_day=%s"]
+        params: list[object] = [_EXCLUDED_SOURCES, pillar_day]
         if gender is not None:
             where.append("gender=%s")
             params.append(gender)
@@ -195,8 +200,8 @@ class LifeEventStore:
         fine_pillars(年月日時) 지정 시 fine 코호트(전체 사주+성별), 아니면 coarse(일주+성별).
         분모·분자 모두 distinct subject 수 → '이 코호트에서 그 사건을 겪은 사람 비율'의 근거.
         """
-        where = ["outcome='confirmed'", "pillar_day=%s"]
-        params: list[object] = [pillar_day]
+        where = ["outcome='confirmed'", "NOT (source = ANY(%s))", "pillar_day=%s"]
+        params: list[object] = [_EXCLUDED_SOURCES, pillar_day]
         if gender is not None:
             where.append("gender=%s")
             params.append(gender)
@@ -221,8 +226,15 @@ class LifeEventStore:
         total = int(total_row[0]) if total_row else 0
         return total, {str(r[0]): int(r[1]) for r in rows}
 
-    def subject_signature(self, owner_id: str, subject_id: str) -> list[LifeEventRow]:
-        """그 subject의 확인 사건 전체(개인 시그니처) — 랭킹 배선 단계에서 사용."""
+    def subject_signature(
+        self, owner_id: str, subject_id: str, *, include_unverified: bool = False,
+    ) -> list[LifeEventRow]:
+        """그 subject의 확인 사건 전체(개인 시그니처) — 랭킹 배선 단계에서 사용.
+
+        적재만 하는 소스(`SCORING_EXCLUDED_SOURCES` — 채팅 발화 사실)는 기본으로 뺀다: 사용자가
+        확인한 사실이 아니라 점수 보정에 쓰지 않는다. 측정 스크립트는 `include_unverified=True`.
+        """
+        excluded = [] if include_unverified else _EXCLUDED_SOURCES
         with self._connect() as conn:
             rows = conn.execute(
                 """
@@ -230,9 +242,9 @@ class LifeEventStore:
                        pillar_day, pillar_hour, gender, event_key, period,
                        signal_fingerprint, outcome, source, weight, attrs
                 FROM subject_life_events
-                WHERE owner_id=%s AND subject_id=%s
+                WHERE owner_id=%s AND subject_id=%s AND NOT (source = ANY(%s))
                 """,
-                (owner_id, subject_id),
+                (owner_id, subject_id, excluded),
             ).fetchall()
         out: list[LifeEventRow] = []
         for r in rows:

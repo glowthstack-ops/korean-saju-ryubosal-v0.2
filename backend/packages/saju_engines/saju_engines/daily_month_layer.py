@@ -95,7 +95,8 @@ def _stem_common_line(
     simple: dict[str, Any] | None = None,
 ) -> str:
     """천간 공통 흐름 — v1.20(§27): 십성 장면 3 + 12운성 + (세운 겹침) + 행동. 다음 달/내년 연결
-    없음.
+    없음. v1.22(§34): 세운 겹침이 없는 달에는 '올해 흐름 위의 이번 달' 연결 문장(`year_link`)이
+    그 자리에 온다 — 사전에 키가 없으면(v1.21 이전 스냅샷) 종전과 같다.
 
     v1.19 이전 계약(simple 에 `god_scene` 없음): 군 결 + 행동 + 12운성 + (세운 겹침) + 다음 달/내년.
     """
@@ -111,6 +112,9 @@ def _stem_common_line(
         year_group = _GROUP[_sipseong(day_master, Stem(ctx.year_stem))]
         if year_group in (stem_group, branch_group):
             parts.append(layer["year_overlap"])
+        elif layer.get("year_link"):
+            # v1.22(§34): 올해 흐름(세운 천간 군) 위에서 이번 달(월운 천간 군)이 하는 일 — 한 문장.
+            parts.append(layer["year_link"][f"{year_group}>{stem_group}"])
         parts.append(layer["month_action"][stem_god])
         return " ".join(parts)
     parts = [layer["month_tone"][f"{stem_group}+{branch_group}"], layer["month_action"][stem_god]]

@@ -1614,6 +1614,81 @@ def _luck_sinsal_groups(pillar) -> str:
     return " / ".join(groups) or "해당 없음"
 
 
+def _natal_luck_role_lines(birth: BirthInput, chart, labels: list[str]) -> list[str]:
+    """'원국 구조 × 운에서 온 글자' 줄(헤더 포함) — 엔진 블록 함수에 운 글자를 넘긴다.
+
+    같은 십성이라도 명식마다 역할이 다르므로(2026-11-18 데굴님 "원국의 구조는 이러한데 운에서 이런
+    십성들이 옴으로 인해서 이런식의 결과"), 운 글자의 역할·원국 대비 위치·구조 변화를 대운 → 세운 →
+    월운 순으로 싣는다. 달 줄은 질문한 달이 상한 이하일 때만 월운 간지를 조회한다. 서술 전용.
+    """
+    from saju_engines.luck_structure_tags import ROLE_BLOCK_MAX_MONTHS, natal_luck_role_lines
+    from saju_engines.pattern_transit import daewoon_ganji_by_year
+    from saju_engines.structure_patterns import detect_structure_patterns
+
+    lc = chart.luck_cycles
+    if lc is None:
+        return []
+    sewoon = {
+        int(p.label[:4]): p.ganji
+        for d in lc.daewoon_table for p in (getattr(d, "sewoon", None) or [])
+        if p.label[:4].isdigit()
+    }
+    month_labels = sorted({lb for lb in labels if len(lb) == 7})
+    month_ganji: dict[str, str] = {}
+    if 0 < len(month_labels) <= ROLE_BLOCK_MAX_MONTHS:
+        for y in sorted({int(lb[:4]) - (1 if lb[5:7] == "01" else 0) for lb in month_labels}):
+            month_ganji.update({m.label[:7]: m.ganji for m in luck_months(birth, y)})
+    return natal_luck_role_lines(
+        chart, detect_structure_patterns(chart),
+        daewoon_by_year=daewoon_ganji_by_year(chart), sewoon_by_year=sewoon,
+        month_ganji=month_ganji, labels=labels,
+    )
+
+
+def _entry_tenure_line(
+    chart, candidates: list[LlmEventCandidate], time_range=None,
+) -> str | None:
+    """입사 뒤 재직 기간 가능성 줄 — 입사 시점 후보 해의 세운에 용신 군 글자가 오는가(2026-11-18).
+
+    데굴님 "이 시점 입사의 경우 장기 재직할 수도 있다 정도의 뉘앙스로 사용자에게 제공". 입사·이직
+    후보(연·월)의 기간을 보고, 후보가 없으면 질문이 가리킨 기간(`time_range`)의 해를 본다 — 기간이
+    없거나 상한(`ENTRY_TENURE_MAX_YEARS`)보다 길면 None. 서술 전용(점수·두 칸 배정 불변).
+    """
+    from saju_engines.luck_structure_tags import (
+        ENTRY_TENURE_MAX_YEARS,
+        entry_tenure_possibility_line,
+    )
+    from saju_engines.pattern_transit import daewoon_ganji_by_year
+    from saju_engines.structure_patterns import detect_structure_patterns
+
+    if not period_v2_config.ENTRY_TENURE_NOTE_ENABLED:
+        return None
+    periods = sorted({
+        c.period for c in candidates
+        if c.event_key in _ENTRY_CHANNEL_KEYS and len(c.period) in (4, 7)
+    })
+    if not periods:
+        start = getattr(time_range, "start", None) or ""
+        end = getattr(time_range, "end", None) or ""
+        if start[:4].isdigit() and end[:4].isdigit():
+            span = range(int(start[:4]), int(end[:4]) + 1)
+            if 0 < len(span) <= ENTRY_TENURE_MAX_YEARS:
+                periods = [str(y) for y in span]
+    lc = chart.luck_cycles
+    if not periods or lc is None:
+        return None
+    sewoon = {
+        int(p.label[:4]): p.ganji
+        for d in lc.daewoon_table for p in (getattr(d, "sewoon", None) or [])
+        if p.label[:4].isdigit()
+    }
+    return entry_tenure_possibility_line(
+        chart, detect_structure_patterns(chart),
+        daewoon_by_year=daewoon_ganji_by_year(chart), sewoon_by_year=sewoon,
+        periods=periods,
+    )
+
+
 def _window_structure_block(
     birth: BirthInput, overview, question: str, time_range=None, today: date | None = None
 ) -> str | None:
@@ -1699,6 +1774,10 @@ def _window_structure_block(
         ]
     # 창고(입고·개고) — 원국 창고 상태 + 이 기간의 개고·입고(2026-11-13 데굴님 승인).
     out += storage_gate_block(chart, timelines, labels)
+    # 원국 구조 × 운에서 온 글자(2026-11-18) — 시점이 있는 질문(기간·단일 달·해)에만. 시점 없는
+    # 질문에 올해를 끌어와 원국 풀이에 운 얘기를 섞지 않는다.
+    if period_v2_config.NATAL_LUCK_ROLE_BLOCK_ENABLED and (windowed or start):
+        out += _natal_luck_role_lines(birth, chart, labels)
     if windowed and _SINSAL_ASK_RE.search(question):
         sinsal_lines: list[str] = []
         for y in sorted(month_years):
@@ -7936,6 +8015,13 @@ def chat(
         )
         if _slot_dir:
             trailing.append(_slot_dir)
+        # 재직 기간 가능성(2026-11-18) — 입사·이직 후보 기간의 세운에 용신 군 글자가 오는 해만
+        # 한 줄.
+        _tenure = _entry_tenure_line(
+            result, list(payload.event_candidates), intent.time_range,
+        )
+        if _tenure:
+            trailing.append(_tenure)
         # 승계(2026-10-23): 직전 진입 답의 두 칸을 같은 사건의 시점 후속에 유지시킨다.
         _prior_slots = _prior_entry_slots_directive(
             state, intent, luck_month, is_followup=is_followup_turn,

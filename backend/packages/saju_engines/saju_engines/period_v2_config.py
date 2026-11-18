@@ -171,6 +171,22 @@ PERIOD_OTHER_SIGNALS_ENABLED: bool = (
     os.environ.get("SAJU_PERIOD_OTHER_SIGNALS_ENABLED", "true").strip().lower()
     in ("1", "true", "yes")
 )
+# 원국 구조 × 운에서 온 글자 블록(2026-11-18 데굴님 "원국의 구조는 이러한데 운에서 이런 십성들이
+# 옴으로 인해서 이런식의 결과가 나타난다 같은 식") — 채팅 말미·테마 리포트 강의 블록에 원국 한 줄 +
+# 대운·세운·월운 층 줄(글자 역할·원국 대비 위치·구조 변화)을 싣는다. 서술 전용(점수·판정 불변),
+# 기본 ON(문구·기능층은 노출해야 감수 가능). 'false'면 미노출.
+NATAL_LUCK_ROLE_BLOCK_ENABLED: bool = (
+    os.environ.get("SAJU_NATAL_LUCK_ROLE_BLOCK_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
+)
+# 입사 뒤 재직 기간 가능성 줄(2026-11-18 데굴님 "이 시점 입사의 경우 장기 재직할 수도 있다 정도의
+# 뉘앙스로 사용자에게 제공") — 입사·이직 진입 후보 기간의 세운에 용신 군 글자가 오면 가능성 한 문장
+# 지시를 싣는다. 한 사람 이력에서만 확인된 반복이라 규칙·등급이 아닌 서술 전용(점수·배정 불변),
+# 기본 ON(문구층은 노출해야 감수 가능). 'false'면 미노출.
+ENTRY_TENURE_NOTE_ENABLED: bool = (
+    os.environ.get("SAJU_ENTRY_TENURE_NOTE_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
+)
 # 세운 육신별 사건 신호 5계열(외부 교재 6장 대조, 2026-10-15) — 기본 ON(데굴님 원칙: 적용 후 감수).
 YEARLY_TEN_GOD_SIGNALS_ENABLED: bool = (
     os.environ.get("SAJU_YEARLY_TEN_GOD_SIGNALS_ENABLED", "true").strip().lower()
@@ -324,6 +340,8 @@ def active_versions() -> dict[str, str | bool]:
         "domain_family_scope_enabled": DOMAIN_FAMILY_SCOPE_ENABLED,
         "relation_hit_dedup_enabled": RELATION_HIT_DEDUP_ENABLED,
         "period_other_signals_enabled": PERIOD_OTHER_SIGNALS_ENABLED,
+        "natal_luck_role_block_enabled": NATAL_LUCK_ROLE_BLOCK_ENABLED,
+        "entry_tenure_note_enabled": ENTRY_TENURE_NOTE_ENABLED,
         # LLM 재호출은 설계상 존재하지 않는다(요청당 1회 고정) — 계측 계약으로 못박는다.
         "llm_retry_policy": "none",
     }
