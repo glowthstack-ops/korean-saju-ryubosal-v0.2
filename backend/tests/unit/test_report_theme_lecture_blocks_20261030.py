@@ -88,3 +88,25 @@ def test_relocation_theme_sections_carry_mobility_marker_flip_line() -> None:
     assert all(flip in b[sid] for sid in hit)
     career = _bodies("career", "1995-11-28", "female")
     assert all("[이동지 양면" not in body for body in career.values())
+
+
+def test_theme_period_sections_carry_natal_luck_role_block() -> None:
+    """테마 기간 섹션 전부에 '원국 구조 × 운에서 온 글자' 블록이 한 번씩 실린다(도메인 무관)."""
+    head = "[원국 구조 × 운에서 온 글자 — "
+    expected = {
+        "career": {"J-05", "J-05-Y2026", "J-06", "J-07"},
+        "wealth": {"W-06", "W-06-Y2026", "W-07"},
+        "relationship": {"R-05", "R-05-Y2026", "R-06"},
+        "health": {"C-03", "C-03-Y2026", "C-04"},        # 도메인 없는 일반 테마 — 예측 창의 해
+        "relocation": {"RL-04", "RL-06", "RL-06-Y2026"},
+    }
+    for topic, sections in expected.items():
+        b = _bodies(topic, "1978-01-02")
+        hit = {sid for sid, body in b.items() if head in body}
+        assert hit == sections, (topic, hit)
+        for sid in hit:
+            assert b[sid].count(head) == 1, (topic, sid)  # 강의 블록과 겹쳐 두 번 붙지 않는다
+            assert "\n원국: " in b[sid] and "\n대운 " in b[sid], (topic, sid)
+    # 반례: 원국 전용 섹션에는 싣지 않는다(운 얘기를 섞지 않는다) — 위 집합이 곧 전수다.
+    j = _bodies("career", "1978-01-02")
+    assert all(head not in j[sid] for sid in ("J-01", "J-02", "J-03", "J-04", "J-08"))

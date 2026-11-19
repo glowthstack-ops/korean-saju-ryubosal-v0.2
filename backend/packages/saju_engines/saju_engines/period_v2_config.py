@@ -171,6 +171,37 @@ PERIOD_OTHER_SIGNALS_ENABLED: bool = (
     os.environ.get("SAJU_PERIOD_OTHER_SIGNALS_ENABLED", "true").strip().lower()
     in ("1", "true", "yes")
 )
+# 원국 구조 × 운에서 온 글자 블록(2026-11-18 데굴님 "원국의 구조는 이러한데 운에서 이런 십성들이
+# 옴으로 인해서 이런식의 결과가 나타난다 같은 식") — 채팅 말미·테마 리포트 강의 블록에 원국 한 줄 +
+# 대운·세운·월운 층 줄(글자 역할·원국 대비 위치·구조 변화)을 싣는다. 서술 전용(점수·판정 불변),
+# 기본 ON(문구·기능층은 노출해야 감수 가능). 'false'면 미노출.
+NATAL_LUCK_ROLE_BLOCK_ENABLED: bool = (
+    os.environ.get("SAJU_NATAL_LUCK_ROLE_BLOCK_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
+)
+# 입사 뒤 재직 기간 가능성 줄(2026-11-18 데굴님 "이 시점 입사의 경우 장기 재직할 수도 있다 정도의
+# 뉘앙스로 사용자에게 제공") — 입사·이직 진입 후보 기간의 세운에 용신 군 글자가 오면 가능성 한 문장
+# 지시를 싣는다. 한 사람 이력에서만 확인된 반복이라 규칙·등급이 아닌 서술 전용(점수·배정 불변),
+# 기본 ON(문구층은 노출해야 감수 가능). 'false'면 미노출.
+# 2026-11-18 데굴님 제공 규칙 3종 — 서술 전용(점수·사건 후보 불변), 기본 ON(실답 검수 대상).
+# ① 투자 매수 시점 참고(월운 천간 癸·甲 달) ② 궁합 오행 관계(내가 생하는 오행 / 나를 극하는
+# 오행 — 궁합 엔진 본 신호) ③ 태어난 계절 기준 길흉 구간.
+INVEST_MONTH_ADVICE_ENABLED: bool = (
+    os.environ.get("SAJU_INVEST_MONTH_ADVICE_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
+)
+COMPAT_ELEMENT_AFFINITY_ENABLED: bool = (
+    os.environ.get("SAJU_COMPAT_ELEMENT_AFFINITY_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
+)
+SEASON_FORTUNE_LINE_ENABLED: bool = (
+    os.environ.get("SAJU_SEASON_FORTUNE_LINE_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
+)
+ENTRY_TENURE_NOTE_ENABLED: bool = (
+    os.environ.get("SAJU_ENTRY_TENURE_NOTE_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
+)
 # 세운 육신별 사건 신호 5계열(외부 교재 6장 대조, 2026-10-15) — 기본 ON(데굴님 원칙: 적용 후 감수).
 YEARLY_TEN_GOD_SIGNALS_ENABLED: bool = (
     os.environ.get("SAJU_YEARLY_TEN_GOD_SIGNALS_ENABLED", "true").strip().lower()
@@ -207,6 +238,10 @@ CLASH_DIRECTION_BONUS: float = 0.15
 # 운). 점수 규칙이라 기본 OFF — 85사례 재생 적중률·실사례로 규칙별 ON 을 정한다(문구층은 플래그와
 # 무관하게 항상 노출).
 ROLE_EVENT_SEED_ENABLED: bool = _env_flag("SAJU_ROLE_EVENT_SEED_ENABLED")
+# 식상+관성 운 × 이동 동반 신호(역마·충·합) → 이사(relocation) 시드(2026-11-18 데굴님 승인 — 기준
+# 회귀 사례 2025-08 甲申월 이사). 점수 규칙이라 기본 OFF — 85사례 재생·이동 시기 백테스트로 ON 을
+# 정한다(EMPLOYMENT_HISTORY_CALIBRATION.md §9-1c).
+RELOCATION_MOBILITY_SEED_ENABLED: bool = _env_flag("SAJU_RELOCATION_MOBILITY_SEED_ENABLED")
 # 외부 강의 번역 시드(2026-10-29 데굴님 결정 — 원국×운 상관견관 환경형/자기형·겁재 역할 무관
 # 이동·편인 휴직 career_leave). 점수 규칙이라 기본 OFF — 85사례 재생·생애 사건 원장 적중률로
 # 규칙별 ON 을 정한다(문구층은 플래그와 무관하게 항상 노출).
@@ -315,6 +350,7 @@ def active_versions() -> dict[str, str | bool]:
         "transit_clash_support_enabled": TRANSIT_CLASH_SUPPORT_ENABLED,
         "role_event_seed_enabled": ROLE_EVENT_SEED_ENABLED,
         "career_exit_seed_enabled": CAREER_EXIT_SEED_ENABLED,
+        "relocation_mobility_seed_enabled": RELOCATION_MOBILITY_SEED_ENABLED,
         "wealth_natal_complement_enabled": WEALTH_NATAL_COMPLEMENT_ENABLED,
         "wealth_storage_strict_enabled": WEALTH_STORAGE_STRICT_ENABLED,
         "sewoon_daewoon_context_enabled": SEWOON_DAEWOON_CONTEXT_ENABLED,
@@ -324,6 +360,11 @@ def active_versions() -> dict[str, str | bool]:
         "domain_family_scope_enabled": DOMAIN_FAMILY_SCOPE_ENABLED,
         "relation_hit_dedup_enabled": RELATION_HIT_DEDUP_ENABLED,
         "period_other_signals_enabled": PERIOD_OTHER_SIGNALS_ENABLED,
+        "natal_luck_role_block_enabled": NATAL_LUCK_ROLE_BLOCK_ENABLED,
+        "entry_tenure_note_enabled": ENTRY_TENURE_NOTE_ENABLED,
+        "invest_month_advice_enabled": INVEST_MONTH_ADVICE_ENABLED,
+        "compat_element_affinity_enabled": COMPAT_ELEMENT_AFFINITY_ENABLED,
+        "season_fortune_line_enabled": SEASON_FORTUNE_LINE_ENABLED,
         # LLM 재호출은 설계상 존재하지 않는다(요청당 1회 고정) — 계측 계약으로 못박는다.
         "llm_retry_policy": "none",
     }

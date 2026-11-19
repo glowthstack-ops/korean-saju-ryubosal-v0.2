@@ -37,7 +37,8 @@ def _read_mode(self_present: bool, companion_count: int) -> CompanionReadMode:
 
     PAIRWISE 암묵 self(궁합)는 build_effective_subjects의 self-삽입에서 이미 처리되므로, 여기서는
     구성만 본다. 본인 미포함: 1명=companion_only, 2명=compare_exclude_self, 3명 이상=ranking.
-    본인 포함: 1명=pairwise, 2명 이상=multi_with_self(P3c-2 범위 밖).
+    본인 포함: 1명=pairwise, 2명 이상=multi_with_self(실행은 chat_service — 본인 기준 후보
+    비교 2026-09-11, 다인 이사 택일 구성원별 풀이 2026-11-17).
     """
     if companion_count == 0:
         return "self_only"

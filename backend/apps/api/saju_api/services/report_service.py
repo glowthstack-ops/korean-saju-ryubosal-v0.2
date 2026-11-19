@@ -493,6 +493,40 @@ def _period_end_month(period: str) -> str:
 _FORECAST_FORWARD_YEARS = 5
 
 
+_NATAL_LUCK_ROLE_HEADER = "[원국 구조 × 운에서 온 글자"
+
+
+def _append_natal_luck_role(lines: list[str], data: _ReportData, labels: list[str]) -> None:
+    """기간 섹션 본문에 '원국 구조 × 운에서 온 글자' 블록을 한 번만 붙인다(2026-11-18).
+
+    같은 십성이라도 명식마다 역할이 다르므로 테마·한해 리포트의 기간 섹션(연도 스펙트럼·주목할
+    달·연도별 상세·도메인 섹션) 전부에 싣는다 — 직업·재물·관계뿐 아니라 건강·학업·이사 테마도.
+    라벨이 없거나 이미 붙었거나 엔진이 빈 목록을 주면(플래그 OFF·시주 미상) 아무것도 하지 않는다.
+    """
+    if not labels:
+        return
+    if not any(ln.startswith(_NATAL_LUCK_ROLE_HEADER) for ln in lines):
+        block = data.natal_luck_role_lines(labels)
+        if block:
+            lines += ["", *block]
+    _append_season_fortune(lines, data, labels)
+
+
+def _append_season_fortune(lines: list[str], data: _ReportData, labels: list[str]) -> None:
+    """기간 섹션 본문에 계절 길흉 구간 참고 줄을 한 번만 붙인다(2026-11-18 데굴님 제공 규칙).
+
+    '원국 구조 × 운' 블록과 같은 자리(테마·한해 리포트의 기간 섹션)에 싣는다. 해 3개·달 6개
+    상한을 넘는 섹션(총운 대운별 페이지 등)·월주 없음·플래그 OFF 면 아무것도 하지 않는다.
+    """
+    from saju_engines.season_fortune import SEASON_FORTUNE_HEADER
+
+    if any(ln.startswith(SEASON_FORTUNE_HEADER) for ln in lines):
+        return
+    block = data.season_fortune_lines(labels)
+    if block:
+        lines += ["", *block]
+
+
 def _forecast_years(spec: ReportSpec, today: date) -> list[int]:
     """월운 생성·세운 스펙트럼이 다룰 연도 목록(오늘 연도 ~ min(기간 끝, 오늘+5년)).
 
@@ -1033,6 +1067,8 @@ _DATE_CERTAINTY_SECTIONS = {"J-06"}
 #: 진입 시기 두 칸·진입 통로·개인 이력 반복 지시를 붙이는 직업 섹션(2026-10-22) — 주목할 달·
 #: 행동 전략.
 _ENTRY_WINDOW_SECTIONS = frozenset({"J-06", "J-07"})
+#: 입사 뒤 재직 기간 가능성 줄의 대상 사건 키(입사·이직 — 채팅 `_ENTRY_CHANNEL_KEYS` 와 같다).
+_ENTRY_EVENT_KEYS = frozenset({"job_gain", "career_change"})
 
 
 @lru_cache(maxsize=1)
@@ -1751,6 +1787,101 @@ class _ReportData:
             if self.scorer.readable_path(c)
         ]
 
+    def natal_luck_role_lines(
+        self, labels: list[str], *, max_years: int | None = None,
+    ) -> list[str]:
+        """'원국 구조 × 운에서 온 글자' 줄(헤더 포함) — 채팅 말미와 같은 엔진 함수.
+
+        같은 십성이라도 명식마다 역할이 다르므로(2026-11-18 데굴님), 섹션 후보 기간의 운 글자를
+        역할·원국 대비 위치·구조 변화로 옮겨 대운 → 세운 → 월운 순으로 싣는다. 플래그 OFF·시주 미상·
+        라벨 없음이면 빈 목록. `max_years` 는 세운 줄 상한 덮어쓰기(대운별 페이지 전용).
+        """
+        from saju_engines.luck_structure_tags import natal_luck_role_lines
+        from saju_engines.pattern_transit import daewoon_ganji_by_year
+
+        lc = self.result.luck_cycles
+        if not period_v2_config.NATAL_LUCK_ROLE_BLOCK_ENABLED or lc is None or not labels:
+            return []
+        sewoon = {
+            int(p.label[:4]): p.ganji
+            for d in lc.daewoon_table for p in (getattr(d, "sewoon", None) or [])
+            if p.label[:4].isdigit()
+        }
+        month_ganji = {
+            lb: g for lb, g in self._ganji_by_label.items() if len(lb) == 7 and len(g) == 2
+        }
+        return natal_luck_role_lines(
+            self.result, self.detected_patterns,
+            daewoon_by_year=daewoon_ganji_by_year(self.result), sewoon_by_year=sewoon,
+            month_ganji=month_ganji, labels=sorted(set(labels)), max_years=max_years,
+        )
+
+    def season_fortune_lines(self, labels: list[str]) -> list[str]:
+        """계절 길흉 구간 참고 줄 — 채팅 창 블록과 같은 엔진 함수(2026-11-18).
+
+        섹션 후보 기간의 해(연 라벨, 없으면 달 라벨의 절기년)와 달(절기월 라벨·월운 간지)을
+        넘긴다. 상한(해 3·달 6)은 엔진이 정한다. 플래그 OFF·월주 없음·라벨 없음이면 빈 목록.
+        """
+        from saju_engines.season_fortune import season_fortune_lines
+
+        pillars = self.result.pillars
+        if (
+            not period_v2_config.SEASON_FORTUNE_LINE_ENABLED or not labels
+            or pillars is None or pillars.month is None
+        ):
+            return []
+        months = sorted(
+            (lb, self._ganji_by_label[lb]) for lb in set(labels)
+            if len(lb) == 7 and len(self._ganji_by_label.get(lb, "")) == 2
+        )
+        years = sorted({int(lb) for lb in labels if len(lb) == 4 and lb.isdigit()})
+        if not years:
+            years = sorted({
+                int(lb[:4]) - (1 if lb[5:7] == "01" else 0) for lb, _ in months
+            })
+        return season_fortune_lines(str(pillars.month.branch), years, months)
+
+    def entry_season_tenure_line(self, periods: list[str]) -> str | None:
+        """계절로 본 재직 기간 가능성 줄(J-06·J-07) — 채팅과 같은 엔진 함수(2026-11-18).
+
+        입사·이직 후보 달이 태어난 달(특히 나쁜 구간)이면 '오래 다니지 못할 수도', 많이 좋은
+        구간이면 '오래 다니게 될 수도' 가능성 지시를 돌려준다. 플래그 OFF·월주 없음·해당 달
+        없음이면 None.
+        """
+        from saju_engines.season_fortune import entry_season_tenure_line
+
+        pillars = self.result.pillars
+        if (
+            not period_v2_config.ENTRY_TENURE_NOTE_ENABLED
+            or not period_v2_config.SEASON_FORTUNE_LINE_ENABLED
+            or pillars is None or pillars.month is None
+        ):
+            return None
+        return entry_season_tenure_line(str(pillars.month.branch), periods)
+
+    def entry_tenure_line(self, periods: list[str]) -> str | None:
+        """입사 뒤 재직 기간 가능성 줄(J-06·J-07) — 채팅과 같은 엔진 함수(2026-11-18).
+
+        입사·이직 후보 기간의 세운에 용신 군 글자가 오는 해가 있으면 '오래 재직하게 될 수도 있다'
+        가능성 한 문장 지시를 돌려준다. 플래그 OFF·해당 해 없음이면 None.
+        """
+        from saju_engines.luck_structure_tags import entry_tenure_possibility_line
+        from saju_engines.pattern_transit import daewoon_ganji_by_year
+
+        lc = self.result.luck_cycles
+        if not period_v2_config.ENTRY_TENURE_NOTE_ENABLED or lc is None or not periods:
+            return None
+        sewoon = {
+            int(p.label[:4]): p.ganji
+            for d in lc.daewoon_table for p in (getattr(d, "sewoon", None) or [])
+            if p.label[:4].isdigit()
+        }
+        return entry_tenure_possibility_line(
+            self.result, self.detected_patterns,
+            daewoon_by_year=daewoon_ganji_by_year(self.result), sewoon_by_year=sewoon,
+            periods=periods,
+        )
+
     def lecture_block(self, domain: str | None, cands: list[EventCandidate]) -> list[str]:
         """테마 기간 섹션의 운 간지별 강의 문구(2026-10-30 점검 배선) — 채팅 말미 블록과 같은 함수.
 
@@ -1768,6 +1899,8 @@ class _ReportData:
           글자를 충할 때, 2026-11-07)
         - 직업·재물·관계 공통: `hidden_latent_block`(지장간 잠복 십성 발현 — 섹션 도메인의
           십성군만, 2026-11-10. 이사 섹션은 대상 군이 없어 빈 목록)
+        '원국 구조 × 운에서 온 글자' 블록은 도메인을 가리지 않으므로 여기서 싣지 않고 호출부가
+        `_append_natal_luck_role` 로 기간 섹션 전부에 붙인다(2026-11-18).
         네 도메인 밖이거나(이사 제외) 후보가 없으면 빈 목록. 점수·판정 불변(서술 전용).
         """
         periods = [(c.period, self._ganji_by_label.get(c.period, "")) for c in cands]
@@ -1791,8 +1924,15 @@ class _ReportData:
             for c in cands:
                 if str(c.event_key) in ("wealth_change", "windfall"):
                     best[c.period] = max(best.get(c.period, 0), c.score)
+            from saju_engines.wealth_lecture import investment_month_advice_lines
+
             return [
                 *wealth_period_block(self.result, [(p, g, best.get(p)) for p, g in periods]),
+                # 투자 매수 시점 참고(2026-11-18 데굴님 — 전문가 의견, 조언 전용).
+                *(
+                    investment_month_advice_lines(list(periods))
+                    if period_v2_config.INVEST_MONTH_ADVICE_ENABLED else []
+                ),
                 *relief,
             ]
         return [
@@ -2326,6 +2466,7 @@ class _ReportData:
             lines += daewoon_readiness_lines(self.result, y0 + 1, y0 + 1)
             lines += daewoon_turn_lines(self.result, y0, y1)  # 교운 방향(2026-10-29 길흉 강의)
             lines += self.decade_structure_lines(y0, y1, dw.ganji)
+            lines += self.decade_role_lines(y0, y1, dw.ganji)
         rows = [
             # 시제 표식(2026-11-07) — 행 머리 'YYYY년' 뒤에 [지남]/[올해]/[예정].
             (ln[:5] + when_tag(int(ln[:4]), self.today.year) + ln[5:])
@@ -2640,6 +2781,14 @@ class _ReportData:
         # 같은 기준(기간 끝 12/31 < 오늘, 2026-11-10 점검: 채팅만 고치고 이 입구를 놓쳤다).
         # 연 지평 확장(docs/17 §31, 2026-11-11) — 연내 구간·여러 해 흐름이 같은 문단에 붙고,
         # 조건 줄은 엔진이 확인한 항목만(채팅 연 총운과 같은 함수·같은 규칙).
+        # 계절로 보는 길흉 구간(2026-11-18 데굴님 제공 규칙) — 그 해의 계절 구간 참고 줄.
+        if (
+            period_v2_config.SEASON_FORTUNE_LINE_ENABLED
+            and self.result.pillars is not None and self.result.pillars.month is not None
+        ):
+            from saju_engines.season_fortune import season_fortune_lines
+
+            lines += season_fortune_lines(str(self.result.pillars.month.branch), [year])
         _simple_line = _simple_ref(
             self.result.pillars.day_master if self.result.pillars else "",
             str(pillar.ganji), "year", past=date(year, 12, 31) < self.today,
@@ -2797,6 +2946,25 @@ class _ReportData:
             ):
                 lines.append(f"{layer} {ln}")
         return list(dict.fromkeys(lines))
+
+    def decade_role_lines(self, y0: int, y1: int, ganji: str) -> list[str]:
+        """대운별 페이지(F-14-D*)의 '원국 구조 × 운에서 온 글자' 블록(2026-11-18 데굴님 "넣어줘").
+
+        이 대운의 글자가 이 명식에서 맡는 역할(대운 줄) 위에, 그 대운에 속한 해의 세운 글자 역할을
+        해마다 한 줄씩 싣는다. 구조 상태 줄(`decade_structure_lines`)이 '무엇이 달라졌는지'를,
+        이 블록이 '어떤 글자가 어떤 역할로 와서 그랬는지'를 맡는다. 테마·한해 섹션과 같은 엔진
+        함수이며, 한 대운의 10년이 페이지 본문이라 세운 상한만 10해로 넓힌다.
+
+        Returns:
+            빈 줄 + 블록. 플래그 OFF·시주 미상·용신 미정·그 대운에 속한 해 없음이면 빈 목록.
+        """
+        from saju_engines.luck_structure_tags import ROLE_BLOCK_DECADE_YEARS
+        from saju_engines.pattern_transit import daewoon_ganji_by_year
+
+        by_year = daewoon_ganji_by_year(self.result)
+        labels = [str(y) for y in range(y0, y1 + 1) if by_year.get(y) == ganji]
+        block = self.natal_luck_role_lines(labels, max_years=ROLE_BLOCK_DECADE_YEARS)
+        return ["", *block] if block else []
 
     def decade_structure_lines(self, y0: int, y1: int, ganji: str) -> list[str]:
         """[이 대운의 구조 상태] — 대운별 페이지(F-14-D*)의 대운 층·세운 층 구조 줄(2026-11-13).
@@ -4472,6 +4640,10 @@ def build_section_context(
             ])
             if _mp_lec:
                 lines += ["", *_mp_lec]
+        # 원국 구조 × 운에서 온 글자 — 이 페이지의 달(3개 이하일 때만 달 줄)과 그 해의 판.
+        _append_natal_luck_role(
+            lines, data, [*_mp_months, *([str(_yp)] if _yp is not None else [])],
+        )
         if _mp_pair:
             # 상대의 같은 해 세운 행 + 같은 구간 달 표(2026-10-15 ③) — 본인 표 뒤에 나란히.
             lines.append("")
@@ -4553,6 +4725,22 @@ def build_section_context(
             _slot_assignment = assign_entry_slots(data.domain_candidates("career"))
             if _slot_assignment is not None:
                 lines.append(entry_slot_directive(_slot_assignment, event_ko="취업·이직"))
+            # 재직 기간 가능성(2026-11-18) — 입사·이직 후보 기간의 세운에 용신 군 글자가 오는 해만.
+            # 후보가 없으면 이 리포트가 다루는 해(향후 창)를 본다.
+            _tenure_periods = sorted({
+                c.period for c in data.domain_candidates("career")
+                if str(c.event_key) in _ENTRY_EVENT_KEYS and len(c.period) in (4, 7)
+            }) or [str(y) for y in _forecast_years(spec, data.today)]
+            _tenure = data.entry_tenure_line(_tenure_periods)
+            if _tenure:
+                lines.append(_tenure)
+            # 계절로 본 재직 기간 가능성(2026-11-18) — 입사·이직 후보 달이 양 끝 등급일 때만.
+            _season_tenure = data.entry_season_tenure_line([
+                c.period for c in data.domain_candidates("career")
+                if str(c.event_key) in _ENTRY_EVENT_KEYS and len(c.period) == 7
+            ])
+            if _season_tenure:
+                lines.append(_season_tenure)
             if has_personal_repeat_signal(data.domain_candidates("career")):
                 lines.append(PERSONAL_REPEAT_DIRECTIVE)
             lines.append("")
@@ -4602,6 +4790,19 @@ def build_section_context(
             _dom_lec = data.lecture_block(section_domain, data.domain_candidates(section_domain))
             if _dom_lec:
                 lines += ["", *_dom_lec]
+        # 원국 구조 × 운에서 온 글자(2026-11-18) — 기간 섹션 전부(도메인 무관). 도메인 섹션은 그
+        # 도메인 후보 기간, 진입 시기 섹션은 직업 후보 기간, 도메인 없는 연도 스펙트럼·주목할 달
+        # 섹션(건강·학업 등 일반 테마)은 예측 창의 해를 본다.
+        _role_labels: list[str] = []
+        if section_domain:
+            _role_labels = [c.period for c in data.domain_candidates(section_domain)]
+        elif sid in _ENTRY_WINDOW_SECTIONS:
+            _role_labels = [c.period for c in data.domain_candidates("career")]
+        if not _role_labels and (
+            section_domain or sid in _YEAR_SPECTRUM_SECTIONS or sid in _MONTH_OVERVIEW_SECTIONS
+        ):
+            _role_labels = [str(y) for y in _forecast_years(spec, data.today)]
+        _append_natal_luck_role(lines, data, _role_labels)
         # 재물 섹션 — 원국 횡재 그릇(운 분리 잠재구조) 표면화(Phase 1).
         if sid in _WEALTH_CAPACITY_SECTIONS:
             lines += ["", *data.wealth_capacity_block()]

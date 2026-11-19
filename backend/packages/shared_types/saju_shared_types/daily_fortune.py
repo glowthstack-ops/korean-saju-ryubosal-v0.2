@@ -64,7 +64,19 @@ ENGINE_VERSION = "engine.v1"
 #   묶음) ③ 일주별 올해 한 줄 ④ 조건 줄(신강약·필요한 기운·지지 충형 글자·과다 기운). 채팅·테마 연
 #   문단에도 ①②가 붙고, ④는 엔진이 확인한 항목만 따로 싣는다. 판정·사건·점수 불변(문체 전용).
 #   경계 YEAR_PHASE_EFFECTIVE_FROM(11/12 — 11/11 보드는 이미 생성·교정돼 v1.20 유지).
-DICT_VERSION = "dict.v1.21"
+# v1.22(2026-11-18): 이번 달 흐름 공통 줄에 '올해 흐름 위의 이번 달' 연결 문장(docs/17 §34, 데굴님
+#   "대운·세운·월운은 떼서 생각해서는 안 돼 — 역할별 영향" → "오늘의 운세쪽의 세운, 월운에도 적용").
+#   `month_layer.year_link`(올해 천간 십성군 > 이번 달 천간 십성군, 20쌍): 올해가 깔아 둔 흐름을
+#   이번 달이 이어받는지·밀어 주는지·눌리는지·조정하는지 한 문장. 같은 군이면 기존 '세운 겹침'
+#   문장이 그대로 나온다. 판정·사건·점수 불변(문체 전용), LLM 교정 대상 아님.
+#   경계 YEAR_LINK_EFFECTIVE_FROM(11/19 — 11/18 보드는 이미 생성·교정돼 v1.21 유지).
+# v1.23(2026-11-18): 이번 달 흐름 공통 줄 끝에 두 문장(docs/17 §35, 데굴님 "AI채팅상담과 테마사주,
+#   오늘의 운세 모두 필요한 영역에 배선"). `month_layer.invest_month` — 월운 천간이 癸·甲인 달에만
+#   '시세가 오르는 경우가 많다고 보는 달' 조언. `month_layer.birth_season` — 태어난 계절 기준 이번
+#   달 길흉 구간(봄·여름·가을 추석 전/추석 낀 달/추석 뒤·겨울 6문장). 판정·사건·점수 불변(문체
+#   전용), LLM 교정 대상 아님. 경계 MONTH_NOTES_EFFECTIVE_FROM(11/20 — 11/19 보드는 이미 생성·
+#   교정돼 v1.22 유지).
+DICT_VERSION = "dict.v1.23"
 PROMPT_VERSION = "polish.v1"
 #: 서사 family 회전 계약(OA-8b). 값이 바뀌면 새 epoch 이 시작되며 **캐시만** 무효화된다
 #: — 선택 seed 에는 들어가지 않으므로 사건 배정은 흔들리지 않는다(OA-6d1).
@@ -126,6 +138,15 @@ DICT_VERSION_BEFORE_SIMPLE_LAYER = "dict.v1.18"
 YEAR_PHASE_EFFECTIVE_FROM = date(2026, 11, 12)
 #: 그 기준일 이전(11/8~11/11)에 적용되는 사전 버전.
 DICT_VERSION_BEFORE_YEAR_PHASE = "dict.v1.20"
+#: 올해 흐름 × 이번 달 연결 문장(v1.22, docs/17 §34) 활성화 기준일 — 11/19 보드(11/18 20시 선생성)
+#: 부터 쓴다. 11/12~11/18 보드는 v1.21 스냅샷으로 그대로 재현된다.
+YEAR_LINK_EFFECTIVE_FROM = date(2026, 11, 19)
+#: 그 기준일 이전(11/12~11/18)에 적용되는 사전 버전.
+DICT_VERSION_BEFORE_YEAR_LINK = "dict.v1.21"
+#: 이번 달 흐름의 투자 참고·태어난 계절 문장(v1.23, docs/17 §35) 적용 시작일. 11/19 보드는 이미
+#: 생성·교정돼 v1.22 를 유지한다.
+MONTH_NOTES_EFFECTIVE_FROM = date(2026, 11, 20)
+DICT_VERSION_BEFORE_MONTH_NOTES = "dict.v1.22"
 
 
 #: 상해 채널의 백호를 일주 기준으로 좁히는 기준일(model.v2.4, docs/17 §32) — 11/13 보드는 11/12
@@ -145,6 +166,26 @@ def baekho_needs_day_pillar(target_date: date) -> bool:
         target_date: 운세 대상 날짜(KST 기준).
     """
     return target_date >= BAEKHO_DAY_BASIS_EFFECTIVE_FROM
+
+
+#: 로또 문구에 횡재 유입 표지(편재)를 요구하는 기준일(model.v2.5, docs/17 §33) — 11/17 보드는
+#: 11/16 20시 선생성분이라 종전 게이트를 유지하고, 11/18 보드(11/17 20시 선생성)부터 쓴다.
+#: 게이트만 바뀌고 사전 문구는 그대로라 dict 버전은 올리지 않는다.
+LOTTO_INFLOW_GATE_EFFECTIVE_FROM = date(2026, 11, 18)
+
+
+def lotto_requires_windfall_star(target_date: date) -> bool:
+    """그 날짜의 로또 문구 게이트 — True 면 오늘 일진의 표면 십성에 편재가 있어야 한다.
+
+    표면 십성 = 일간 기준 오늘 천간과 오늘 지지 본기. 편재가 없거나 비견·겁재가 표면에 함께 있으면
+    로또 문구를 내지 않는다(편재 = 횡재 유입 표지, 비겁 = 편재를 나누는 쪽 — docs/17 §33,
+    doc/v2_2/WINDFALL_SIGNAL_REVIEW.md). False 면 종전 게이트(금전 순위·공돈 확률·손실 신호·슬롯)만
+    본다. 과거 날짜는 그날 계약으로 재생돼야 하므로 날짜가 기준을 고른다.
+
+    Args:
+        target_date: 운세 대상 날짜(KST 기준).
+    """
+    return target_date >= LOTTO_INFLOW_GATE_EFFECTIVE_FROM
 
 
 def stage_direction_forward(target_date: date) -> bool:
@@ -168,7 +209,8 @@ def active_dict_version(target_date: date) -> str:
     Returns:
         7/30 이전 v1.10 → 9/3 이전 v1.11 → 9/12 이전 v1.12 → 9/20 이전 v1.13 → 11/2 이전
         v1.14 → 11/3 이전 v1.16 → 11/5 이전 v1.17 → 11/8 이전 v1.18 → 11/12 이전 v1.20
-        (v1.19 는 11/8 경계에서 당일 대체) → 이후 현재 `DICT_VERSION`(v1.21).
+        (v1.19 는 11/8 경계에서 당일 대체) → 11/19 이전 v1.21 → 11/20 이전 v1.22 → 이후 현재
+        `DICT_VERSION`(v1.23).
     """
     if target_date < SMALL_FIND_HEADLINE_REVERT_EFFECTIVE_FROM:
         return PREVIOUS_DICT_VERSION
@@ -188,6 +230,10 @@ def active_dict_version(target_date: date) -> str:
         return DICT_VERSION_BEFORE_SIMPLE_LAYER
     if target_date < YEAR_PHASE_EFFECTIVE_FROM:
         return DICT_VERSION_BEFORE_YEAR_PHASE
+    if target_date < YEAR_LINK_EFFECTIVE_FROM:
+        return DICT_VERSION_BEFORE_YEAR_LINK
+    if target_date < MONTH_NOTES_EFFECTIVE_FROM:
+        return DICT_VERSION_BEFORE_MONTH_NOTES
     return DICT_VERSION
 
 

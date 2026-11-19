@@ -211,6 +211,45 @@ def wealth_period_texts(
     return out
 
 
+#: 시세가 오르는 경우가 많다고 보는 월운 천간(2026-11-18 데굴님 제공 — 전문가 의견, 조언 전용).
+INVEST_RISE_STEMS: tuple[str, ...] = ("癸", "甲")
+INVEST_MONTH_ADVICE_HEADER = "[투자 매수 시점 참고 — 시장 일반 경향, 조언 전용]"
+
+
+def investment_month_advice_lines(periods: list[tuple[str, str]]) -> list[str]:
+    """투자 질문용 조언 줄 — 기간 안에서 월운 천간이 癸·甲인 달을 엔진이 골라 싣는다.
+
+    월운 간지는 모든 사람에게 같은 달력 값이라 명식 판정이 아니라 시장 일반 경향에 대한
+    전문가 의견이다. 점수·사건 후보에 쓰지 않고, 재물 운용 답에 조언 한두 문장으로만 붙는다.
+    하드 가드(종목·단지 추천 금지, 수익 확정 금지, 과몰입 권유 금지 — 절대원칙 8)는 그대로다.
+
+    Args:
+        periods: (절기월 라벨 'YYYY-MM', 월운 간지). 연 단위 라벨은 건너뛴다.
+
+    Returns:
+        해당 달이 있으면 [머리 줄 + 달 목록 + 쓰는 법] 한 줄짜리 목록, 없으면 빈 목록.
+    """
+    seen: set[str] = set()
+    hits: list[str] = []
+    for label, ganji in periods:
+        if len(label) != 7 or not ganji or label in seen:
+            continue
+        seen.add(label)
+        if ganji[0] in INVEST_RISE_STEMS:
+            hits.append(f"{label}({ganji}월)")
+    if not hits:
+        return []
+    return [
+        f"{INVEST_MONTH_ADVICE_HEADER} 월운 천간이 癸·甲인 달에는 주식·부동산 시세가 오르는 "
+        f"경우가 많다고 본다. 이 기간에서 그 달은 {', '.join(hits)}이다(절기월 기준). 매수·보유 "
+        "시점을 묻는 답에 '시장 흐름으로는 이 달들에 오르는 경우가 많다고 보는 견해가 있다'는 "
+        "조언을 한두 문장으로 덧붙일 것. 모든 사람에게 같은 달력 값이라 이 명식의 재물 흐름 "
+        "판정과는 별개다 — 명식 쪽 흐름이 부담인 달이면 그 점을 함께 말할 것. 오른다고 확정하지 "
+        "말고, 특정 종목·단지 추천이나 큰 금액 투입 권유로 넓히지 말 것. 여기 없는 달을 같은 "
+        "근거로 지어내지 말 것."
+    ]
+
+
 def wealth_period_block(
     result: ManseV2Result, periods: list[tuple[str, str, int | None]],
 ) -> list[str]:

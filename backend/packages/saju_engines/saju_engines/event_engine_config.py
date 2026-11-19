@@ -152,6 +152,9 @@ def build_event_engine_v2(dictionaries_dir: Path, **overrides: Any) -> Any:
     kwargs["enable_transit_clash_support"] = period_v2_config.TRANSIT_CLASH_SUPPORT_ENABLED
     kwargs["enable_role_event_seed"] = period_v2_config.ROLE_EVENT_SEED_ENABLED
     kwargs["enable_career_exit_seed"] = period_v2_config.CAREER_EXIT_SEED_ENABLED
+    kwargs["enable_relocation_mobility_seed"] = (
+        period_v2_config.RELOCATION_MOBILITY_SEED_ENABLED
+    )
     kwargs["enable_wealth_natal_complement"] = period_v2_config.WEALTH_NATAL_COMPLEMENT_ENABLED
     kwargs["enable_wealth_storage_strict"] = period_v2_config.WEALTH_STORAGE_STRICT_ENABLED
     kwargs["tamhap_mangchung_mode"] = period_v2_config.TAMHAP_MANGCHUNG_MODE

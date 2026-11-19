@@ -101,8 +101,12 @@ def test_window_block_skipped_when_hour_unknown() -> None:
         birth_date=date(1980, 11, 22), birth_time=None, birth_time_unknown=True,
         birth_place_name="서울", gender="male",
     )
-    # 시주 미상은 세력 기반 구조 상태를 산출하지 않는다(정책) — 블록도 없다.
-    assert chat_service._window_structure_block(unknown, _rows(_WINDOW), "구조는?") is None
+    # 시주 미상은 세력 기반 구조 상태를 산출하지 않는다(정책) — 구조 줄은 없다. 월주만으로 서는
+    # 계절 길흉 구간 참고 줄(2026-11-18)만 남는다.
+    block = chat_service._window_structure_block(unknown, _rows(_WINDOW), "구조는?")
+    assert block is not None and block.startswith("[계절로 보는 길흉 구간")
+    assert "[운에서 서는 구조" not in block and "대운 " not in block and "세운 " not in block
+    assert "계절 구간 2026-11(己亥월): 특히 나쁜 구간" in block
 
 
 def test_daewoon_change_inside_window_gets_its_own_backdrop_line() -> None:

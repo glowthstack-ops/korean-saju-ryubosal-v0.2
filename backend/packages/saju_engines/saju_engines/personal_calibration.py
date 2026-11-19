@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -63,11 +64,17 @@ def candidate_fingerprint(
     return ctx.with_glyphs(fp, c.period) if ctx is not None else fp
 
 
-def glyph_similarity(a: SignalFingerprint, b: SignalFingerprint) -> float:
-    """글자 지문 유사도 0~1 — 자리별 가중 일치(양쪽에 있는 자리만) + 원국 재현 공통 보너스."""
+def glyph_similarity(
+    a: SignalFingerprint, b: SignalFingerprint, cfg: Mapping[str, Any] | None = None,
+) -> float:
+    """글자 지문 유사도 0~1 — 자리별 가중 일치(양쪽에 있는 자리만) + 원국 재현 공통 보너스.
+
+    `cfg`는 측정용 설정 덮어쓰기(None=사전). 자리 가중에 없는 자리(예: 대운 두 칸)는 세지 않는다.
+    """
     if not a.glyphs or not b.glyphs:
         return 0.0
-    weights: dict[str, float] = _GLYPH_CFG["position_weights"]
+    conf = _GLYPH_CFG if cfg is None else cfg
+    weights: Mapping[str, float] = conf["position_weights"]
     total = 0.0
     hit = 0.0
     for pos, w in weights.items():
@@ -79,8 +86,40 @@ def glyph_similarity(a: SignalFingerprint, b: SignalFingerprint) -> float:
         return 0.0
     sim = hit / total
     if set(a.natal_echo) & set(b.natal_echo):
-        sim += float(_GLYPH_CFG.get("natal_echo_bonus", 0.0))
+        sim += float(conf.get("natal_echo_bonus", 0.0))
     return min(1.0, sim)
+
+
+def structure_similarity(a: SignalFingerprint, b: SignalFingerprint) -> float | None:
+    """운 구조 태그 Jaccard 0~1. 어느 한쪽에 태그가 없으면 None(차원 미적용)."""
+    sa, sb = set(a.structure), set(b.structure)
+    if not sa or not sb:
+        return None
+    return len(sa & sb) / len(sa | sb)
+
+
+def _other_daewoon(a: SignalFingerprint, b: SignalFingerprint) -> bool:
+    """양쪽에 대운 글자가 있고 서로 다른 대운인가(판도가 다른 과거 행)."""
+    ka = (a.glyphs.get("daewoon_stem"), a.glyphs.get("daewoon_branch"))
+    kb = (b.glyphs.get("daewoon_stem"), b.glyphs.get("daewoon_branch"))
+    return None not in ka and None not in kb and ka != kb
+
+
+def _cfg_for_event_key(
+    cfg: Mapping[str, Any] | None, event_key: str,
+) -> Mapping[str, Any] | None:
+    """다른 대운 배수를 `other_daewoon_event_keys` 에 든 사건 키에만 거는 측정 옵션.
+
+    배수를 모든 키에 걸면 과거 행이 적은 사건(이직·계약 등)은 대운이 바뀔 때마다 유사도가 깎이고
+    대운마다 행이 있는 취업만 남아, 취업이 그 달 1순위가 되는 달이 넓게 늘어난다(2026-11-18 측정:
+    재직 중인 달 27.5% → 53.4%). 근거가 측정된 키에만 걸 수 있게 한다. 사전에 키가 없으면(운영
+    기본) 설정을 그대로 돌려준다.
+    """
+    conf = _GLYPH_CFG if cfg is None else cfg
+    keys = conf.get("other_daewoon_event_keys")
+    if keys is None or conf.get("other_daewoon_factor") is None or event_key in keys:
+        return cfg
+    return {k: v for k, v in conf.items() if k != "other_daewoon_factor"}
 
 
 def default_glyph_weight() -> float:
@@ -90,20 +129,33 @@ def default_glyph_weight() -> float:
 
 def fingerprint_similarity(
     a: SignalFingerprint, b: SignalFingerprint, glyph_weight: float = 0.0,
+    cfg: Mapping[str, Any] | None = None,
 ) -> float:
     """두 신호 지문의 유사도 0~1 (십성그룹 Jaccard 0.4 + 궁성·관계·12운성 일치).
 
     `glyph_weight`>0 이고 양쪽에 글자가 있으면 (1-w)·기본 + w·글자 유사도. 0이면 기존 식과 동일.
+    측정 차원(사전에 키가 없으면 미적용 — 운영 기본): `structure_weight`>0 이고 양쪽에 구조 태그가
+    있으면 (1-ws)·유사도 + ws·구조 유사도, `other_daewoon_factor`<1 이면 대운이 다른 과거 행의
+    유사도에 그 배수를 곱한다(판도가 바뀌면 과거 반복을 덜 옮긴다).
     """
+    conf = _GLYPH_CFG if cfg is None else cfg
     sa, sb = set(a.ten_god_groups), set(b.ten_god_groups)
     jac = len(sa & sb) / len(sa | sb) if (sa or sb) else 0.0
     palace = 1.0 if a.palace and a.palace == b.palace else 0.0
     relation = 1.0 if a.relation and a.relation == b.relation else 0.0
     stage = 1.0 if a.twelve_stage and a.twelve_stage == b.twelve_stage else 0.0
-    base = 0.4 * jac + 0.3 * palace + 0.2 * relation + 0.1 * stage
+    sim = 0.4 * jac + 0.3 * palace + 0.2 * relation + 0.1 * stage
     if glyph_weight > 0 and a.glyphs and b.glyphs:
-        return (1 - glyph_weight) * base + glyph_weight * glyph_similarity(a, b)
-    return base
+        sim = (1 - glyph_weight) * sim + glyph_weight * glyph_similarity(a, b, conf)
+    ws = float(conf.get("structure_weight") or 0.0)
+    if ws > 0:
+        st = structure_similarity(a, b)
+        if st is not None:
+            sim = (1 - ws) * sim + ws * st
+    factor = conf.get("other_daewoon_factor")
+    if factor is not None and _other_daewoon(a, b):
+        sim *= float(factor)
+    return sim
 
 
 def glyph_lift(
@@ -168,6 +220,7 @@ def apply_personal_match(
     ctx: GlyphContext | None = None,
     glyph_weight: float | None = None,
     repeat_cap: float | None = None,
+    glyph_cfg: Mapping[str, Any] | None = None,
 ) -> list[EventCandidateV2]:
     """후보별 personal_match를 개인 시그니처로 산출하고, 그 강도를 점수·확신도에 상한 내 반영한다.
 
@@ -178,7 +231,8 @@ def apply_personal_match(
 
     P1(글자 차원): `ctx`가 있으면 후보 지문에 글자를 채우고, 같은 키의 취업 통계 행에서 월지 글자
     lift 가 기준을 넘으면 근거 코드 ``PERSONAL_GLYPH_REPEAT``를 붙인다(서술 전용). 점수에는
-    `glyph_weight`(None=플래그 기준, 기본 0)만큼만 들어간다.
+    `glyph_weight`(None=플래그 기준, 기본 0)만큼만 들어간다. `glyph_cfg`는 측정 스크립트용 설정
+    덮어쓰기(자리 가중·구조 가중·다른 대운 배수·그 배수를 걸 사건 키) — None 이면 사전 그대로다.
     """
     if not signature:
         return candidates
@@ -197,8 +251,10 @@ def apply_personal_match(
         cfp = candidate_fingerprint(c, ctx)
         oc = occurred.get(ek, [])
         fl = failed.get(ek, []) if failed.get(ek) is not None else []
+        key_cfg = _cfg_for_event_key(glyph_cfg, ek)
         match = max(
-            (fingerprint_similarity(cfp, r.signal_fingerprint, w) for r in oc), default=0.0,
+            (fingerprint_similarity(cfp, r.signal_fingerprint, w, key_cfg) for r in oc),
+            default=0.0,
         )
         repeat = 0.2 * max(0, len({r.period for r in oc}) - 1)  # 반복 확정 테마 가중
         if cap is not None:
@@ -207,7 +263,7 @@ def apply_personal_match(
         # 반감 — 27세 결혼 실패가 47세 결혼 후보를 그대로 깎던 실답 교정(생애 단계가 다르다).
         fail = max(
             (
-                fingerprint_similarity(cfp, r.signal_fingerprint, w)
+                fingerprint_similarity(cfp, r.signal_fingerprint, w, key_cfg)
                 * _failure_age_decay(c.period, r.period)
                 for r in fl
             ),

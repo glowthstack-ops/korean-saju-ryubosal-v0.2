@@ -42,18 +42,22 @@ def test_relocation_intent_gate() -> None:
 
 
 def test_group_block_aggregates_two_subjects() -> None:
-    """본인+상대 이사 택일 → 그룹 집계 블록(랭킹·방위·그룹 라벨)."""
+    """본인+상대 이사 택일 → 구성원별 풀이 블록(구성원 줄·방위·라벨, 2026-11-17 개편).
+
+    세부 규칙은 `test_group_relocation_members_20261117.py` 가 고정한다.
+    """
     intent = parse_message(
         "배우자랑 같이 이사 좋은 날 언제야?", date(2026, 6, 11), birth_year=1990
     ).intents[0]
     block = chat_service._relocation_group_block(
-        _SELF, _PARTNER, intent, date(2026, 6, 11), "본인", "배우자",
+        [("본인", _SELF), ("배우자", _PARTNER)], intent, date(2026, 6, 11),
     )
     assert block is not None
-    assert "그룹" in block.purpose_ko and "본인" in block.purpose_ko
-    assert block.rows  # 함께 무난한 이사일 랭킹
+    assert "구성원별" in block.purpose_ko and "본인" in block.purpose_ko
+    assert block.rows and block.group_members == ["본인", "배우자"]
     assert all(0 <= r.score <= 100 for r in block.rows)
-    assert block.directions  # 방위 적합 동반
+    assert all([m.label for m in r.members] == ["본인", "배우자"] for r in block.rows)
+    assert any(line.startswith("방위(") for line in block.group_lines)  # 방위 동반
 
 
 def test_group_block_falls_back_when_not_relocation() -> None:
@@ -107,7 +111,7 @@ def test_chat_group_block_surfaces_reasons() -> None:
         "배우자랑 같이 이사 좋은 날 언제야?", date(2026, 6, 11), birth_year=1990
     ).intents[0]
     block = chat_service._relocation_group_block(
-        _SELF, _PARTNER, intent, date(2026, 6, 11), "본인", "배우자",
+        [("본인", _SELF), ("배우자", _PARTNER)], intent, date(2026, 6, 11),
     )
     assert block is not None
     assert block.relocation_reasons  # 십성 이유분류 동반

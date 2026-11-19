@@ -2190,5 +2190,39 @@
         "reason": "편인 운(도식 — 식신 유무 무관) — 직장 생활이 피곤·불안해지고 휴직·긴 휴가처럼 복귀를 전제로 쉬는 일이 거론될 수 있다(번아웃·건강·출산). 완전 이탈(career_change)과 구분."
       }
     ]
+  },
+  "output_authority_relocation_rules": {
+    "id": "OUTPUT_AUTHORITY_RELOCATION",
+    "reviewed": false,
+    "basis": "2026-11-18 데굴님 승인. 기준 회귀 사례(2025-08 甲申월 — 己 일간에게 천간 정관·지지 상관, 甲己合·역마 동반, 실제 사건은 이사)의 규칙 '정관+합+역마+식상 → 이사·이동 우선'이 사례 픽스처와 events/relocation.json 에만 있고 운영 채점에는 없었다. 브랜처는 이사 후보를 재성이 낀 조합에서만 만들어 식상+관성 달에는 이사 후보가 생기지 않았다. 식상(움직임·표현)과 관성(자리·소속)이 한 기둥으로 들어오고 이동 동반 신호(역마·충·합)가 붙으면 이사·이동 후보를 만든다 — 십성만으로는 만들지 않는다(event_gate_rules.relocation 주의 문구와 같은 원칙). 기준점은 비겁 이동 시드의 유입 강도 배점과 같은 눈금(44·58·68) — 명리 확정 수치가 아닌 초기 설계값. 길흉·충합·궁성·12운성 보정과 사건 간 충돌 해결은 뒤 계층이 그대로 적용한다.",
+    "incoming_groups": [
+      "output",
+      "authority"
+    ],
+    "layers": [
+      "sewoon",
+      "wolwoon"
+    ],
+    "event": "relocation",
+    "polarity": "conditional",
+    "companions": {
+      "yeokma": "역마(상대 12신살 — 기준 자리는 공용 상수 SELF_SINSAL_BASE_SLOTS): 운 지지가 역마 글자로 오거나, 운 지지가 원국의 역마 글자를 충·육합으로 건드림",
+      "clash": "운 지지가 그 밖의 원국 지지를 충(역마 글자와의 충은 역마로만 센다)",
+      "hap": "운 천간이 일간과 천간합 또는 운 지지가 그 밖의 원국 지지와 육합(역마 글자와의 육합은 역마로만 센다)"
+    },
+    "required_companions": [],
+    "min_companions": 1,
+    "base_by_companions": {
+      "1": 44,
+      "2": 58,
+      "3": 68
+    },
+    "reason_prefix": "OUTPUT_AUTHORITY_RELOCATION",
+    "companion_reason_codes": {
+      "yeokma": "RELOC_COMPANION_YEOKMA",
+      "clash": "RELOC_COMPANION_CLASH",
+      "hap": "RELOC_COMPANION_HAP"
+    },
+    "base_note": "동반 신호 1개는 주제 수준(44), 2개는 사건 후보(58), 3개는 강한 유입(68). 85사례 재생·이동 시기 백테스트·데굴님 이력으로 측정해 ON/OFF 와 required_companions·min_companions 를 정한다(EMPLOYMENT_HISTORY_CALIBRATION.md §9-1c)."
   }
 }

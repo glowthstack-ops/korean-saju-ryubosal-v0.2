@@ -15,7 +15,10 @@ from datetime import date
 from pathlib import Path
 
 from saju_manse_analysis.luck.luck_calendar import luck_month_label, sewoon_year_of
-from saju_manse_analysis.yongsin.operational_role_config import is_favorable_role
+from saju_manse_analysis.yongsin.operational_role_config import (
+    is_favorable_role,
+    is_unfavorable_role,
+)
 
 from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.constants import BRANCH_ELEMENT, GENERATES
@@ -28,7 +31,7 @@ from saju_shared_types.date_selection import (
 )
 from saju_shared_types.enums import Branch, Element
 from saju_shared_types.events import EventKey
-from saju_shared_types.precompute import CompositeLevel, LuckComposite
+from saju_shared_types.precompute import CompositeLevel, InteractionHit, LuckComposite
 
 from . import period_v2_config
 from .folk_direction import folk_note_for_day
@@ -39,6 +42,7 @@ from .relocation import (
     office_day_fit,
     ten_god_day_fit,
 )
+from .windfall_lens import windfall_day_lens
 
 # 목적 → 계약일/이삿날 점수표 키(사용자 스펙 9~11장). 표가 있는 목적만 십성 블렌드.
 _TEN_GOD_TABLE_BY_PURPOSE: dict[str, str] = {
@@ -65,6 +69,82 @@ _DOMAIN_KO: dict[str, str] = {
     "relocation": "이사", "wealth": "재물", "career": "직업", "relationship": "관계",
     "health": "건강", "education": "학업", "general": "전반",
 }
+
+
+#: 위험도에 드는 관계 종류(충·형·원진 계열) — `_risk_score` 와 표 사유가 같은 목록을 쓴다.
+_RISK_KINDS = frozenset({
+    "branch_clash", "stem_clash", "branch_punish", "self_punish", "wonjin",
+})
+#: 관계 ID 꼬리(한자) → 한글 종류. 긴 꼬리를 먼저 본다('自刑'이 '刑'보다 앞).
+_RELATION_TAIL_KO: tuple[tuple[str, str], ...] = (
+    ("自刑", "자형"), ("三刑", "삼형"), ("三合", "삼합"), ("方合", "방합"), ("怨嗔", "원진"),
+    ("合", "합"), ("沖", "충"), ("刑", "형"), ("破", "파"), ("害", "해"),
+)
+#: 등급 기준(2026-11-16) — [추천] 조건 안내. 목적 옵션에 따라 둘 중 하나를 싣는다.
+#: 실답: 재물 신호 0건·천간 기신인 날이 중립 50점으로 추천 문턱(70)을 넘어 '가장 추천'이 됐다.
+#: ① recommendRequiresDayBasis(횡재·재물·개업·결혼): 그날 유리 방향 신호까지 요구.
+GRADE_BASIS_NOTE = (
+    "[추천]은 그날 {domain} 신호가 유리 방향으로 있고, 일진 천간이 기신·구신이 아니며, 걸리는 "
+    "관계(충·형·원진)가 1건 이하인 날에만 붙는다. [무난]은 그런 근거가 없는 날이다 — [무난]인 "
+    "날을 추천일·가장 좋은 날로 올려 말하지 않는다."
+)
+#: ② recommendBlocksUnfavorableStem 만(이사·계약·수술): 그날 근거는 십성 적합표(이사·계약)나
+#: 걸리는 관계가 없는 것(수술)이라 신호를 요구하지 않고, 기신·구신 천간 날만 [추천]에서 뺀다.
+GRADE_STEM_NOTE = (
+    "[추천]은 일진 천간이 기신·구신이 아니고 걸리는 관계(충·형·원진)가 1건 이하인 날에만 "
+    "붙는다. [무난]인 날을 추천일·가장 좋은 날로 올려 말하지 않는다."
+)
+GRADE_NONE_NOTE = (
+    "이 기간에는 [추천] 등급 날이 없다 — 첫 문단에서 두드러지게 유리한 날은 없다고 먼저 밝히고, "
+    "그다음 무난한 날을 안내한다."
+)
+
+
+def reality_allows_day(day: date, constraints: list[str] | None) -> bool:
+    """현실 제약('주말만'·'평일만')이 그 날을 후보로 허용하는가.
+
+    `DateSelectionEngine.select` 의 후보 필터와 같은 기준이다. 그룹(다인) 택일이 금기일로 빠진
+    날을 구성원별로 다시 모을 때, 제약으로 애초에 후보가 아닌 날을 가려내려고 공개한다
+    ('평일 선호'는 필터가 아니라 가점이라 여기서 보지 않는다).
+    """
+    is_weekend = day.weekday() >= 5
+    if any("주말만" in c for c in constraints or []) and not is_weekend:
+        return False
+    return not (any("평일만" in c for c in constraints or []) and is_weekend)
+
+
+def relation_label_ko(relation_id: str) -> str:
+    """관계 ID('rel_巳申破') → 표 사유용 표기('巳申 파'). 모르는 꼴은 꼬리를 그대로 돌려준다."""
+    tail = relation_id.removeprefix("rel_")
+    for hanja, ko in _RELATION_TAIL_KO:
+        if tail.endswith(hanja) and len(tail) > len(hanja):
+            return f"{tail[: -len(hanja)]} {ko}"
+    return tail
+
+
+#: 부분 성립(2자) 관계의 종류 표기 — 관계 ID 는 완성형('寅巳申三刑')이라 그대로 쓰면 없는
+#: 글자(寅)가 있는 것처럼 읽힌다. 실제 참여 글자로 표기한다.
+_PARTIAL_TAIL_KO: dict[str, str] = {"삼형": "형(삼형 일부)", "삼합": "반합", "방합": "방합 일부"}
+
+
+def hit_label_ko(hit: InteractionHit) -> str:
+    """상호작용 1건 → 표 사유용 표기. 부분 성립은 실제 참여 글자로 적는다('巳申 형(삼형 일부)')."""
+    label = relation_label_ko(hit.relation_id)
+    if not hit.partial or " " not in label:
+        return label
+    kind = _PARTIAL_TAIL_KO.get(label.rsplit(" ", 1)[1])
+    if kind is None:
+        return label
+    glyphs = "".join(dict.fromkeys(pt.ganji for pt in hit.participants))
+    return f"{glyphs} {kind}"
+
+
+def _count_labels(labels: list[str]) -> list[str]:
+    """같은 표기를 '亥亥 자형 ×2'로 묶는다(처음 나온 순서 유지)."""
+    counts: dict[str, int] = {}
+    for label in labels:
+        counts[label] = counts.get(label, 0) + 1
+    return [label if n == 1 else f"{label} ×{n}" for label, n in counts.items()]
 
 
 #: 민속 흉방 근거 줄을 붙이는 택일 목적(사전 applies_actions: 이사·개업·혼례 — docs/19 §5-3).
@@ -98,6 +178,23 @@ class DateSelectionEngine:
 
     # ── 공개 API (T7.3) ──────────────────────────────────────────
 
+    def grade_basis_note(
+        self, purpose: EventKey, domain_override: str | None = None
+    ) -> str | None:
+        """그 목적의 [추천] 조건 안내 문장 — 등급 옵션이 없는 목적이면 None.
+
+        목적 옵션이 단일 기준이다: recommendRequiresDayBasis → `GRADE_BASIS_NOTE`(도메인명
+        치환), recommendBlocksUnfavorableStem 만 → `GRADE_STEM_NOTE`.
+        """
+        profile = self._profiles.get(str(purpose)) or self._profiles["relocation"]
+        options = profile["options"]
+        if options.get("recommendRequiresDayBasis"):
+            domain = domain_override or profile.get("domainOverride", "relocation")
+            return GRADE_BASIS_NOTE.format(domain=_DOMAIN_KO.get(domain, domain))
+        if options.get("recommendBlocksUnfavorableStem"):
+            return GRADE_STEM_NOTE
+        return None
+
     def select(
         self,
         purpose: EventKey,
@@ -113,6 +210,7 @@ class DateSelectionEngine:
         stated_direction: str | None = None,
         relocation_kind: str = "home",
         domain_override: str | None = None,
+        body: str | None = None,
     ) -> DateSelectionResult:
         """기간 [start, end](ISO 일자) 안에서 목적별 실행일을 랭킹한다.
 
@@ -126,11 +224,20 @@ class DateSelectionEngine:
             top_n: 반환 후보 수.
             domain_override: 연·월 신호 가중의 도메인을 프로필 domainOverride 대신 지정
                 (목적 별칭 — 취업 서류 제출이 계약·문서 프로필을 빌릴 때 career, 2026-10-19).
+            body: 일간 쪽(``windfall_lens.body_side`` — strong/weak/neutral). 횡재 목적에서
+                일진 십성의 횡재 관점 라벨을 붙일 때만 쓴다(점수·등급 불변). None 이면 라벨 없음.
         """
         profile = self._profiles.get(str(purpose)) or self._profiles["relocation"]
         weights = profile["weights"]
         options = profile["options"]
         domain = domain_override or profile.get("domainOverride", "relocation")
+        domain_ko = _DOMAIN_KO.get(domain, domain)
+        # 등급·사유 옵션(2026-11-16) — 기신·구신 천간 날의 [추천] 차단(전 목적)과 그날 유리 방향
+        # 신호 요구(횡재·재물·개업·결혼). 옵션이 없는 프로필은 종전 그대로(점수 문턱만).
+        block_unfavorable = bool(options.get("recommendBlocksUnfavorableStem"))
+        require_basis = bool(options.get("recommendRequiresDayBasis"))
+        basis_notes = bool(options.get("dayBasisNotes"))
+        wealth_role = (favorability or {}).get(wealth_element) if wealth_element else None
         # R3·R4 — 계약일/이삿날이면 십성 점수표를 일운 실행 점수에 블렌드.
         # 이사 목적 + 사무실 이전(office)이면 월주 중심 officeMove 규격을 적용한다.
         table_key = _TEN_GOD_TABLE_BY_PURPOSE.get(str(purpose))
@@ -170,9 +277,7 @@ class DateSelectionEngine:
 
             # ⑥ Reality Constraint(T7.4) — 가능한 날 중 가장 좋은 날.
             is_weekend = day.weekday() >= 5
-            if weekend_only and not is_weekend:
-                continue
-            if weekday_only and is_weekend:
+            if not reality_allows_day(day, constraints):
                 continue
 
             # ⑤ Calendar Rule(E10-a): 손없는 날·공휴일·요일.
@@ -195,7 +300,23 @@ class DateSelectionEngine:
                 reality_fit = 100  # 한정 제약은 위에서 이미 후보를 걸러냄(통과한 날은 모두 적합)
 
             # ①~③ 점수. 계약일/이삿날은 일운 실행 점수에 십성 적합을 블렌드.
-            day_execution = _to100(_signed_weight(c, domain))
+            signed_day = _signed_weight(c, domain)
+            day_execution = _to100(signed_day)
+            # 그날 신호의 방향과 출처 — 표 사유·등급 근거(점수 계산에는 쓰지 않는다).
+            domain_hits = [s for s in c.domain_signals if s.domain == domain]
+            day_signal = (
+                "positive" if domain_hits and signed_day > 0
+                else "negative" if domain_hits and signed_day < 0
+                else "none"
+            )
+            hit_by_id = {h.relation_id: h for h in reversed(c.interactions)}
+            signal_relations = list(dict.fromkeys(
+                hit_label_ko(hit_by_id[s.source_interaction])
+                if s.source_interaction in hit_by_id
+                else relation_label_ko(s.source_interaction)
+                for s in domain_hits
+            ))
+            risk_relations = _count_labels([hit_label_ko(h) for h in self._risk_hits(c)])
             if office_move:
                 fit = office_day_fit(c, self._date_table["officeMove"])
                 day_execution = round(
@@ -228,6 +349,40 @@ class DateSelectionEngine:
             scores.final = max(0, min(100, final))
 
             risk = self._risk_score(c)
+            signal_note = {
+                "positive": f"{domain_ko} 신호 있음(유리 방향)",
+                "negative": f"{domain_ko} 신호 있음(불리 방향)",
+                "none": f"{domain_ko} 신호 없음",
+            }[day_signal]
+            lens_notes: list[str] = []
+            if basis_notes:
+                # 표 사유를 엔진 값으로 채운다 — 천간·지지 십성, 천간 역할, 신호 출처, 걸리는 관계.
+                if signal_relations and day_signal != "none":
+                    signal_note = signal_note[:-1] + f": {'·'.join(signal_relations)})"
+                risk_note = (
+                    f"걸리는 관계 {len(self._risk_hits(c))}건({'·'.join(risk_relations)})"
+                    if risk_relations else "걸리는 관계(충·형·원진) 없음"
+                )
+                if str(purpose) == "windfall" and body:
+                    lens_notes = windfall_day_lens(
+                        stem_ten_god=c.ten_god.stem, branch_ten_god=c.ten_god.branch_main,
+                        body=body, wealth_role=wealth_role,
+                    )
+                reasons = [
+                    f"천간 {c.ganji.stem} {c.ten_god.stem}({c.favorability}) · "
+                    f"지지 {c.ganji.branch} {c.ten_god.branch_main}",
+                    signal_note,
+                    risk_note,
+                    *(["횡재 관점: " + " / ".join(lens_notes)] if lens_notes else []),
+                    *reasons,
+                ]
+            # [추천] = 점수 문턱 + 낮은 위험도 + 등급 옵션. 길흉은 용신·기신이 정하므로 천간이
+            # 기신·구신인 날은 어느 목적에서도 [추천]이 아니다. 근거 요구 목적은 그날 유리 방향
+            # 신호까지 있어야 한다(신호 0건인 날의 중립 50점은 근거가 아니다).
+            basis_ok = (
+                not (block_unfavorable and is_unfavorable_role(c.favorability))
+                and (not require_basis or day_signal == "positive")
+            )
             cautions: list[str] = []
             if options.get("volatilityWarning"):
                 cautions.append(_VOLATILITY_CAUTION)
@@ -241,19 +396,33 @@ class DateSelectionEngine:
                 ganji=f"{c.ganji.stem}{c.ganji.branch}",
                 scores=scores,
                 risk_score=risk,
-                reasons=reasons or [f"{_DOMAIN_KO.get(domain, domain)} 신호 기반"],
+                reasons=reasons or [signal_note],
                 cautions=cautions,
                 recommendation=(
-                    "recommended" if scores.final >= 70 and risk < 40
+                    "recommended" if scores.final >= 70 and risk < 40 and basis_ok
                     else "avoid" if risk >= 70 else "acceptable"
                 ),
                 is_holiday=holiday_name is not None,
                 is_weekend=is_weekend,
                 son_eomneun_nal=son,
                 folk_direction_note=folk_note,
+                stem_ten_god=c.ten_god.stem,
+                branch_ten_god=c.ten_god.branch_main,
+                stem_role=c.favorability,
+                day_signal=day_signal,
+                signal_relations=signal_relations,
+                risk_relations=risk_relations,
+                lens_notes=lens_notes,
             ))
 
-        candidates.sort(key=lambda c: (-c.scores.final, c.date))
+        if require_basis or block_unfavorable:
+            # 등급 옵션이 있는 목적은 [추천] 날을 앞에 둔다 — 점수만 높고 [추천]이 아닌 날이 표
+            # 머리에 오면 그 날이 추천처럼 읽힌다. 등급 안에서는 종전 순서(점수 내림차순·날짜).
+            candidates.sort(key=lambda c: (
+                c.recommendation != "recommended", -c.scores.final, c.date,
+            ))
+        else:
+            candidates.sort(key=lambda c: (-c.scores.final, c.date))
         picked = candidates[:top_n]
         if include_hour_fit and yongsin_element:
             picked = [
@@ -340,15 +509,14 @@ class DateSelectionEngine:
         return f"지정 방위 {stated}({element}·{role}) — {tone}.{tail}"
 
     @staticmethod
-    def _risk_score(c: LuckComposite) -> int:
+    def _risk_hits(c: LuckComposite) -> list[InteractionHit]:
+        """위험도에 드는 상호작용(충·형·원진 계열) 목록."""
+        return [h for h in c.interactions if h.kind.value in _RISK_KINDS]
+
+    @classmethod
+    def _risk_score(cls, c: LuckComposite) -> int:
         """일운 위험도 — 충·형 계열 상호작용 수 기반(0~100, 초안)."""
-        risky = sum(
-            1 for h in c.interactions
-            if h.kind.value in (
-                "branch_clash", "stem_clash", "branch_punish", "self_punish", "wonjin",
-            )
-        )
-        return min(100, risky * 30)
+        return min(100, len(cls._risk_hits(c)) * 30)
 
 
 # ── T7.7 시진 적합도 ─────────────────────────────────────────────

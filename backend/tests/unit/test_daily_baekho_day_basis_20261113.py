@@ -38,7 +38,9 @@ def test_boundary_selects_model_version_and_keeps_dict_version() -> None:
     assert not baekho_needs_day_pillar(_BEFORE) and baekho_needs_day_pillar(_FROM)
     assert active_model_v2_version(_BEFORE) == MODEL_V2_VERSION_BEFORE_BAEKHO_DAY_BASIS
     assert MODEL_V2_VERSION_BEFORE_BAEKHO_DAY_BASIS == "model.v2.3"
-    assert active_model_v2_version(_FROM) == MODEL_V2_VERSION == "model.v2.4"
+    # 11/14~11/17 은 model.v2.4, 11/18 부터 v2.5(로또 문구 유입 표지 게이트 — docs/17 §33).
+    assert active_model_v2_version(_FROM) == "model.v2.4"
+    assert MODEL_V2_VERSION == "model.v2.5"
     # 사전 문구는 그대로다 — dict 버전은 경계 앞뒤가 같고, 캐시 키는 model 버전으로 갈린다.
     assert active_dict_version(_BEFORE) == active_dict_version(_FROM)
     assert content_version_v2_for(_BEFORE) != content_version_v2_for(_FROM)

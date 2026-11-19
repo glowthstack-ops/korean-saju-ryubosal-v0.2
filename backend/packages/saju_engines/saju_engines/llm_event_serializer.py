@@ -78,6 +78,10 @@ _REASON_PREFIX_KO: dict[str, str] = {
     "OFFICER_YEAR_RELOCATION": "관성 해의 장소 변경(사무실 이전 등)",
     "OUTPUT_YEAR_RELATIONSHIP_CHANGE": "식상 해의 인연 교체 흐름",
     "TRANSIT_CLASH": "운끼리 충(변화 보조 근거)",
+    "OUTPUT_AUTHORITY_RELOCATION": "식상·관성이 함께 온 운(자리 이동 쪽 후보)",
+    "RELOC_COMPANION_YEOKMA": "운 지지가 역마(이동 동반 신호)",
+    "RELOC_COMPANION_CLASH": "운 지지가 원국 지지를 충(이동 동반 신호)",
+    "RELOC_COMPANION_HAP": "운이 원국과 합(이동 동반 신호)",
     # 2026-10-16 — 역할별 사건 전환 시드(사흉신 용신 운·사길신 기신 운) + 유입 강도·상위 뿌리 코드.
     # 2026-10-25 — 연애운 대조(외부 강의 4편) 실험 코드.
     "LOVE_QISHA_FEMALE_PARTNER": "편관 운(여성 명식 — 이성 인연이 걸리기 쉬운 해·달)",

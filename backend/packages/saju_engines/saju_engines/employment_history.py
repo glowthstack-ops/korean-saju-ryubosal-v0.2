@@ -132,6 +132,64 @@ def rows_from_history(
     return rows
 
 
+#: 채팅 발화 사실의 종류 → 원장 사건 키. 'move'(같은 때의 퇴사+입사 = 이직 보고)는 이직 한 행.
+CHAT_FACT_EVENT_KEY: dict[str, str] = {
+    "entry": "job_gain",
+    "exit": "resignation",
+    "move": "career_change",
+}
+
+
+def chat_statement_row(
+    *,
+    kind: str,
+    stated_date: str,
+    precision: str,
+    exit_reason: str | None,
+    message_id: int,
+    subject_id: str,
+    owner_id: str,
+    pillars_sig: tuple[str, str, str, str | None, str | None],
+    month_fp: MonthFingerprintResolver | None = None,
+) -> LifeEventRow | None:
+    """채팅 발화 사실 1건 → LifeEventRow(confirmed, source=chat_statement). 못 만들면 None.
+
+    사용자가 채팅에 스스로 적은 본인 완료형 입사·퇴사·이직 보고(수집 스크립트 산출)를 원장 행으로
+    옮긴다(EMPLOYMENT_HISTORY_CALIBRATION.md §8). 때가 일·월 정밀도일 때만 만든다 — 연 단위·
+    때 없음은 절기월을 정할 수 없어 적재하지 않는다(추측 금지). 행 id 는 대상·종류·때로 정해져
+    재실행에 멱등이다. 회사명·인용문은 싣지 않고 메시지 번호만 남긴다. 이 소스는 점수에 쓰지
+    않는다(`SCORING_EXCLUDED_SOURCES`).
+    """
+    event_key = CHAT_FACT_EVENT_KEY.get(kind)
+    if event_key is None or precision not in ("day", "month"):
+        return None
+    d, parsed_precision = parse_history_date(stated_date)
+    label = luck_month_label(d)
+    fp = month_fp(d, label, event_key) if month_fp is not None else None
+    py, pm, pd, ph, gender = pillars_sig
+    stamp = d.isoformat() if parsed_precision == "day" else d.strftime("%Y-%m")
+    return LifeEventRow(
+        event_row_id=f"{subject_id}:cs:{stamp}:{event_key}",
+        subject_id=subject_id,
+        owner_id=owner_id,
+        pillar_year=py, pillar_month=pm, pillar_day=pd, pillar_hour=ph,
+        gender=gender,
+        event_key=event_key,
+        period=label,
+        signal_fingerprint=fp or SignalFingerprint(),
+        outcome=LifeEventOutcome.CONFIRMED,
+        source=LifeEventSource.CHAT_STATEMENT,
+        weight=1.0,
+        attrs=LifeEventAttrs(
+            event_date=d if parsed_precision == "day" else None,
+            date_precision=parsed_precision,
+            exit_reason="involuntary" if kind == "exit" and exit_reason == "involuntary" else None,
+            luck_month_label=label,
+            source_ref=f"chat_message:{message_id}",
+        ),
+    )
+
+
 def make_month_fingerprint_resolver(
     birth: Any, engine: Any, calculate_fn: Callable[[Any], Any],
 ) -> MonthFingerprintResolver:

@@ -52,6 +52,7 @@ from saju_shared_types.daily_fortune import (
     DayGanjiContext,
     LuckyPlace,
     content_version_for,
+    lotto_requires_windfall_star,
     stage_direction_forward,
 )
 from saju_shared_types.enums import Branch, Stem
@@ -1078,6 +1079,37 @@ def _domain_score(scored: list[_ScoredEvent], domain: str) -> float:
     return top + 0.3 * second - 0.5 * worst
 
 
+#: 횡재 유입 표지와 그 분탈 쪽 십성(docs/17 §33) — 로또 문구 게이트 전용.
+_WINDFALL_STAR = "편재"
+_PEER_STARS = frozenset({"비견", "겁재"})
+
+
+def surface_ten_gods(ilju_stem: Stem, ctx: DayGanjiContext) -> set[str]:
+    """오늘 일진의 표면 십성 — 일간 기준 오늘 천간과 오늘 지지 본기(중기·여기 제외)."""
+    gods = {ten_god(ilju_stem, Stem(ctx.day_stem)).value}
+    for hidden_stem, hidden_type, _weight in hidden_stems_for(Branch(ctx.day_branch)):
+        if str(getattr(hidden_type, "value", hidden_type)) == "main":
+            gods.add(ten_god(ilju_stem, Stem(hidden_stem)).value)
+    return gods
+
+
+def lotto_inflow_ok(ilju_stem: Stem, ctx: DayGanjiContext) -> bool:
+    """로또 문구의 횡재 유입 표지 조건(model.v2.5, docs/17 §33).
+
+    경계일부터는 오늘 일진의 표면 십성에 편재가 있고 비견·겁재가 없어야 한다. 종전 게이트는
+    '공돈' 사건 확률만 보아, 그 사건이 인성 방향(오늘이 나를 생함)만으로 뜬 날에도 로또 문구가
+    나갔다(경계 뒤 1년 측정: 278건 중 편재가 지장간에도 없는 날 114건). 경계 이전 날짜는 항상 True.
+
+    Args:
+        ilju_stem: 일주 천간(=일간).
+        ctx: 오늘 일진 간지.
+    """
+    if not lotto_requires_windfall_star(ctx.the_date):
+        return True
+    gods = surface_ten_gods(ilju_stem, ctx)
+    return _WINDFALL_STAR in gods and not (gods & _PEER_STARS)
+
+
 def _lotto_slot_open(d: date, ilju_index: int) -> bool:
     """이력 저장 없는 일주별 로또 쿨다운 — date-ordinal 슬롯(주 1회 이하)."""
     return (d.toordinal() + ilju_index) % 7 == 0
@@ -1174,6 +1206,7 @@ def compute_board(
             best_p >= _LOTTO_MIN_MONEY_P
             and weak_loss
             and _lotto_slot_open(d, row["index"])
+            and lotto_inflow_ok(row["stem"], ctx)
         ):
             lotto_iljus.add(row["ilju"])
 

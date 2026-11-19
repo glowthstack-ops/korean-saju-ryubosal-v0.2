@@ -35,6 +35,9 @@ class CompatSignalKind(StrEnum):
     # (2026-10-27, 끌림 가중 1).
     OUTPUT_YONGSIN_SUPPORT = "output_yongsin_support"
     YONGSIN_BURDEN = "yongsin_burden"          # 상대 오행이 본인 기·구신 강화
+    # 일간 오행 관계(2026-11-18 데굴님 제공): 내가 생해 주는 오행의 사람 / 나를 극하는 오행의 사람.
+    ELEMENT_AFFINITY_GOOD = "element_affinity_good"    # 함께하면 좋은 사람(보완)
+    ELEMENT_AFFINITY_DRAIN = "element_affinity_drain"  # 함께할 때 운이 깎일 수 있는 사람(마찰)
     PEER_EXCESS = "peer_excess"                # 한쪽 비겁 과다 — 자기 우선 가능성(보조·중립)
     SINSAL_CHARM = "sinsal_charm"              # 홍염 교차 끌림(보조 — 가볍게)
     # 개인 도화(진도화 성립) — 그 사람이 매력적으로 비치기 쉬운 결(보조). 두 사람의 상호 끌림
