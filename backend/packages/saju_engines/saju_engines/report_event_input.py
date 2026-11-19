@@ -36,6 +36,19 @@ def _dir(c: EventCandidate) -> str:
     return direction_label(c.quality, c.timing) or polarity_ko(str(c.polarity))
 
 
+def candidate_brief(c: EventCandidate) -> str:
+    """부수 사건 한 건의 한글 표기 — '재물 변화(신호 강도 96 · 손실·지출)'.
+
+    같은 시점의 다른 사건을 프롬프트에 병기할 때 쓴다. 사건 키(영문)만 나열하면 강도·방향이
+    없어 LLM 이 그 영역을 서술할 근거가 되지 못한다(2026-11-19 실답 — 한해 리포트가 직업에
+    쏠림). 표기 전용이며 점수·판정은 후보 값 그대로다.
+    """
+    return (
+        f"{event_display_ko(str(c.event_key), c.quality, c.timing)}"
+        f"(신호 강도 {c.score} · {_dir(c)})"
+    )
+
+
 def _marriage_stage_note(c: EventCandidate) -> str:
     """관계 단계(MT) 접미사 — MT 신호가 있을 때만(비-MT·default 프로파일은 빈 문자열, 출력 불변).
 

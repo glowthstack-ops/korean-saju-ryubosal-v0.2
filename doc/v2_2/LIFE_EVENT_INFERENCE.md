@@ -185,6 +185,15 @@ cohort_sample_n ≥ ACTIVATION_THRESHOLD  →  해당 계층 코호트 신호 �
 기존 순서(score 튜닝 → 이관 → 회귀)를 **목표 재정의 → 저장소·수집 → life_fit 배선 → score 격하
 → (그 다음) 튜닝 → 이관 → 회귀**로 교체한다.
 
+**리포트 대표 선정의 예외(2026-11-19, 데굴님 승인 — 리포트 한정)**: 리포트(`report_service._CANDIDATE_RANK_KEY`)는
+시점 대표·섹션 후보를 고를 때 `life_fit > score > personal_match` 순서를 쓴다. `personal_match` 에는 같은 사건이 여러 번
+확정되면 붙는 반복 항(상한 0.6)이 있어, 한 사건의 이력만 많이 쌓인 명식(입사 11건)은 그 사건이 어느 달이든 다른 종류의
+사건을 전부 앞섰다 — 2027년 한해 리포트 12달 전부의 대표가 취업이 되고(재물 변화 점수 100 이 유사도 18 로 밀림), 관계
+섹션에서는 점수 97 인 결혼 신호가 '관계 변화'에 밀려 채팅과 다른 내용이 나갔다. `personal_match` 는 이미 점수 보정
+(±cap)에 들어가 있으므로 리포트에서는 동점 가름(같은 사건의 달 사이 순서)에만 쓴다. 채팅(`context_reducer`)과 엔진
+출력(`lei_rank_key`)의 정렬축은 그대로다 — 채팅은 질문 도메인으로 후보를 먼저 좁히므로 종류가 다른 사건끼리 겨루는
+자리가 총운형 질문뿐이다(그 경로를 바꿀지는 측정 뒤 별도 결정).
+
 **구현 현황(2026-07-07 문서 싱크)**: 1~5 완료 — ①본 문서 ②`migrations/008_life_events.sql`+
 `life_event_store.py` ③`life_fit_ranker.py`(개인 시그니처·코호트 배선, `event_engine_v2.rank`)
 ④`EventCandidateV2.life_fit/personal_match` + score의 display 격하(`event_engine.py` 정렬축)

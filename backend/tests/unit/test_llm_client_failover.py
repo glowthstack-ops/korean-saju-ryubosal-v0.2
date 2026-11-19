@@ -118,6 +118,34 @@ def test_sanitize_normalizes_mixed_ganji() -> None:
     assert s("그는 기사를 읽었다") == "그는 기사를 읽었다"
 
 
+def test_sanitize_keeps_plain_words_that_look_like_ganji() -> None:
+    """'정해주다' 류 일반어를 간지로 바꾸지 않는다(2026-11-19 실답 '고丁亥(정해)주고' 교정)."""
+    s = llm_client._sanitize_output
+    # 앞 글자가 한글 = 더 긴 낱말의 가운데 — 변환하지 않는다.
+    for text in (
+        "일간의 뿌리를 단단히 고정해주고, 온기를 불어넣어요.",
+        "기준을 결정해주는 달이에요.",
+        "역할을 대신해주는 사람이 나타나요.",
+        "노력을 인정해주시는 분이 있어요.",
+    ):
+        assert s(text) == text, text
+    # 낱말 첫머리라도 '주' 뒤가 동사 활용이면 변환하지 않는다.
+    for text in (
+        "방향을 먼저 정해주고 움직이세요.",
+        "날짜는 미리 정해주세요.",
+        "기준을 정해주는 편이 좋아요.",
+        "만전을 기해주시길 바라요.",
+    ):
+        assert s(text) == text, text
+    # 반례 — 기둥을 가리키는 순수 한글 간지는 그대로 병기한다(교정이 변환을 끄지 않았다).
+    assert s("데굴님은 기해일주예요.") == "데굴님은 己亥(기해)일주예요."
+    assert s("올해 병오년은") == "올해 丙午(병오)년은"
+    assert s("2027년 정미년에는") == "2027년 丁未(정미)년에는"
+    assert s("을사월과 무신월에") == "乙巳(을사)월과 戊申(무신)월에"
+    # 한자가 섞인 표기는 앞 글자와 무관하게 통일한다(기존 동작).
+    assert "丁卯(정묘)일" in s("그날은정卯일이라")
+
+
 def test_sanitize_collapses_duplicate_gloss() -> None:
     """병기 중복 정리(2026-06-27) — 중첩 '한글(한자(한글))'과 자기중복 'X(X)' 제거."""
     s = llm_client._sanitize_output

@@ -541,6 +541,35 @@ def _normalize_sinsal_terms(text: str) -> str:
     return text
 
 
+#: 표식 '주' 바로 뒤에 오면 기둥(柱)이 아니라 동사 '주다'의 활용인 글자 — '정해주고·정해주세요'.
+_JU_VERB_ENDINGS = frozenset("고세어면며니기시신실셔지려었겠던자")
+#: 한글 독음이 '○하다'의 활용형('정해'·'기해')과 같은 간지 — '주' 뒤에 한글이 이어지면 동사로 본다
+#: ('기준을 정해주는', '만전을 기해주시길'). 기둥을 가리킬 때 LLM 은 한자(丁亥)로 쓴다.
+_VERB_LIKE_READINGS = frozenset({"정해", "기해"})
+
+
+def _is_hangul(ch: str) -> bool:
+    """한글 음절 한 글자인가(빈 문자열은 False)."""
+    return bool(ch) and "가" <= ch <= "힣"
+
+
+def _is_plain_word_not_ganji(m: re.Match[str], nxt: str) -> bool:
+    """순수 한글 두 글자가 간지가 아니라 일반어의 일부인가(변환 제외 판정).
+
+    2026-11-19 실답: '단단히 고정해주고' → '고丁亥(정해)주고'. 표식 '주'가 동사 '주다'와 겹쳐
+    '○정해주다·대신해주다' 류가 간지로 바뀌었다(채팅 6건·리포트 10건 누적). 한자가 섞인 표기는
+    대상이 아니다 — 호출부가 순수 한글일 때만 부른다.
+    """
+    if _is_hangul(m.string[m.start() - 1:m.start()] if m.start() else ""):
+        return True  # 앞 글자가 한글 = 더 긴 낱말의 가운데('고정해주고'·'대신해주다')
+    if nxt != "주":
+        return False
+    after = m.string[m.end() + 1:m.end() + 2]
+    if after in _JU_VERB_ENDINGS:
+        return True  # '주고·주세요·주면' — 명사(기둥) 뒤에는 오지 않는 활용
+    return m.group(0) in _VERB_LIKE_READINGS and _is_hangul(after)
+
+
 def _normalize_ganji(text: str) -> str:
     """간지(천간+지지) 표기를 '한자(한글)'로 통일한다 — 혼용·부분 음역 교정."""
 
@@ -550,7 +579,9 @@ def _normalize_ganji(text: str) -> str:
         b_hanja = b_ch in _BRANCH_H2K
         nxt = m.string[m.end():m.end() + 1]
         # 순수 한글 간지는 표식(일·월·년·시·주)이 따라올 때만 변환(일반어 오탐 차단).
-        if not s_hanja and not b_hanja and nxt not in _GANJI_MARKERS:
+        if not s_hanja and not b_hanja and (
+            nxt not in _GANJI_MARKERS or _is_plain_word_not_ganji(m, nxt)
+        ):
             return m.group(0)
         sh = s_ch if s_hanja else _STEM_K2H[s_ch]
         bh = b_ch if b_hanja else _BRANCH_K2H[b_ch]

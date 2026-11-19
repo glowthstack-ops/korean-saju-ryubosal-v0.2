@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from functools import lru_cache
@@ -24,6 +24,7 @@ from saju_manse_analysis.luck.luck_calendar import luck_month_label
 from saju_manse_analysis.luck.luck_cycles import month_pillar_as_luck
 
 from saju_engines import counseling_arbiter, period_v2_config
+from saju_engines.addendum_gate_modifier import profile_career_key_map
 from saju_engines.ai_tell_audit import audit_ai_tells
 from saju_engines.answer_label_audit import rewrite_rank_labels, rewrite_raw_period_labels
 from saju_engines.candidate_semantics import candidate_semantics
@@ -40,8 +41,11 @@ from saju_engines.context_reducer import (
     _DOMAIN_EVENT_KEYS,
     _PROFILE_FACTS_INSTRUCTION,
     _STRUCTURE_PATTERN_INSTRUCTION,
+    OVERVIEW_COVERAGE_MIN_SCORE,
+    OVERVIEW_RELATIVE_WINDOW,
     PERIOD_OTHER_SIGNAL_MIN,
     PERSONAL_REPEAT_DIRECTIVE,
+    SCORE_FLOOR,
     build_birth_summary,
     event_ko,
     first_sentence,
@@ -136,6 +140,7 @@ from saju_engines.relationship_tendency import relationship_tendency_lines
 from saju_engines.repetition_structure import activation_line, repetition_activations
 from saju_engines.report_builder import ReportBuilder
 from saju_engines.report_event_input import (
+    candidate_brief,
     month_overview_lines,
     precise_candidate_clusters,
     score_table_lines,
@@ -316,9 +321,19 @@ class PeriodCandidate(Protocol):
 
     @property
     def period(self) -> str: ...
-#: 후보 원순위 — LEI 정렬축(현실적합>과거유사>점수). 그룹 대표 선정도 **이 키를 그대로**
-#: 쓴다. 대표 선정에 새 점수나 타이브레이크를 만들면 점수 의미론이 바뀐다.
-_CANDIDATE_RANK_KEY = lambda c: (-c.life_fit, -c.personal_match, -c.score)  # noqa: E731
+#: 후보 원순위 — 현실 적합 > 점수 > 과거 유사. 그룹 대표 선정도 **이 키를 그대로** 쓴다.
+#: 대표 선정에 새 점수나 타이브레이크를 만들면 점수 의미론이 바뀐다.
+#:
+#: 2026-11-19 데굴님 승인(리포트 한정): 종전 순서(현실 적합 > 과거 유사 > 점수)는 종류가 다른
+#: 사건끼리도 과거 유사도로 먼저 겨뤘다. 과거 유사도에는 '같은 사건이 여러 번 확정됐으면 가산'
+#: 하는 반복 항(상한 0.6)이 있어, 원장에 입사 이력 11건이 있는 명식은 취업이 어느 달이든
+#: 80~115 로 1위였다(재물 변화 점수 100 이 유사도 18 로 밀림 · 프로필 상태로 6점이 된 이직이
+#: 유사도 70 으로 2~3위). 한해 리포트 12달 전부의 대표가 취업이 되고, 관계 섹션에서는 점수
+#: 97 인 결혼 신호가 '관계 변화'에 밀려 채팅과 다른 내용이 나갔다. 과거 유사도는 이미 점수
+#: 보정(±`_PERSONAL_SCORE_CAP`)에 들어가 있으므로 여기서는 동점 가름에만 쓴다 — 같은 사건의
+#: 달 사이 순서는 그대로 유사도가 가른다(점수가 상한에 포화되는 구간). 채팅(`context_reducer`)
+#: 의 정렬축은 바꾸지 않았다.
+_CANDIDATE_RANK_KEY = lambda c: (-c.life_fit, -c.score, -c.personal_match)  # noqa: E731
 #: 시점당 프롬프트에 병기할 부수 사건 상한. 그룹 구성원 보존과 별개인 **전달 압축**
 #: 이며 점수·사건 선택 의미를 바꾸지 않는다.
 _PROMPT_COMPANIONS_PER_PERIOD = 2
@@ -350,6 +365,50 @@ def _period_representatives[CandT: PeriodCandidate](
     picked = list(groups.items())[:limit]
     reps = [min(members, key=rank_key) for _, members in picked]
     return reps, {period: list(members) for period, members in picked}
+
+
+def _domain_companions(
+    reps: list[EventCandidate],
+    groups: dict[str, list[EventCandidate]],
+    per_period: int = _PROMPT_COMPANIONS_PER_PERIOD,
+) -> dict[str, list[EventCandidate]]:
+    """시점 대표와 **영역이 다른** 사건 중 품질 게이트를 통과한 것 — 영역별 최고 1건.
+
+    개관 섹션(한눈에·운과 신호·행동 가이드 등)은 시점마다 대표 1건만 받아, 대표가 한 영역에
+    몰리면 풀이 전체가 그 영역 이야기가 된다(2026-11-19 실답 — 한해 리포트가 직업에 쏠림).
+    균등 배분은 하지 않는다: 채팅 총운형 다변화와 같은 게이트(절대 하한
+    `OVERVIEW_COVERAGE_MIN_SCORE` · 그 시점 최고점 대비 `OVERVIEW_RELATIVE_WINDOW` 이내)를
+    통과한 영역만 싣고, 통과한 것이 없으면 그 시점은 대표만 남는다. 새 점수는 만들지 않는다.
+
+    Args:
+        reps: 시점 대표(시점당 1건).
+        groups: 시점 → 그 시점의 전체 후보(대표 포함).
+        per_period: 시점당 상한.
+
+    Returns:
+        시점 → 다른 영역 사건(순위순, 최대 `per_period`건). 해당 없는 시점은 키가 없다.
+    """
+    out: dict[str, list[EventCandidate]] = {}
+    for rep in reps:
+        members = groups.get(rep.period, [])
+        if not members:
+            continue
+        top_score = max(m.score for m in members)
+        rep_domain = _EVENT_DOMAIN.get(str(rep.event_key))
+        best: dict[str, EventCandidate] = {}
+        for m in sorted(members, key=_CANDIDATE_RANK_KEY):
+            domain = _EVENT_DOMAIN.get(str(m.event_key))
+            if domain is None or domain == rep_domain or domain in best:
+                continue
+            if m.score < OVERVIEW_COVERAGE_MIN_SCORE:
+                continue
+            if m.score < top_score - OVERVIEW_RELATIVE_WINDOW:
+                continue
+            best[domain] = m
+        picked = sorted(best.values(), key=_CANDIDATE_RANK_KEY)[:per_period]
+        if picked:
+            out[rep.period] = picked
+    return out
 # Context Reduction(report 경로, docs/09 L333) 최대 단계 — 1=다년 월별 흐름 ★주목 축소,
 # 2=연도별 흐름도 ★주목 축소. 섹션 입력이 토큰 상한을 넘을 때만 단계가 올라간다(상한 내=0단계).
 _MAX_REPORT_REDUCTION = 2
@@ -1166,6 +1225,8 @@ class _ReportData:
         # 직업/관계 상태 분기(공직자 등)·특수직군 충형 길화(자료 9-6) — 채팅과 동일 신호를
         # 테마사주(리포트)에도 반영. 프로필 미설정·무DB면 None(게이트 미적용 — 규칙11).
         _form, occ_status, rel_status, occ_category = profile_event_signals(subject_id)
+        #: 직업 상태(프로필 미설정이면 None) — 토픽 요약 줄의 사건명 전환에 쓴다(2026-11-19).
+        self.occupation_status: str | None = occ_status
         # 사용자가 지정한 '상대와의 관계'(RP 풀이 방향 — 2026-07-03). 테마 14종이 아니라 등록
         # 관계 키(mother·husband …)가 오면 테마 어휘로 번역한다(2026-10-15 — 종전엔 번역이 없어
         # '어머니' 등록에 연애 궁합 톤이 나왔다). 미지정·번역 불가 None(중립 톤).
@@ -1211,7 +1272,7 @@ class _ReportData:
             c for c in scored if spec.period.start[:4] <= c.period[:4] <= spec.period.end[:4]
         ]
         # LEI 정렬축(현실적합>과거유사>점수) — 개인 시그니처 미배선 시 -c.score와 동치.
-        pool = sorted(in_period or scored, key=lambda c: (-c.life_fit, -c.personal_match, -c.score))
+        pool = sorted(in_period or scored, key=_CANDIDATE_RANK_KEY)
         # 예측 테마(향후 N년: 직업·재물·관계)는 과거 고점이 아니라 '오늘 이후'를 앵커링한다.
         # 생애 전체에서 과거 고점(예: 2022·2025)이 top을 점유해 '향후 5년'이 지난 시점에
         # 머무는 결함 차단 — 오늘이 속한 달 이후 ~ +5년 창으로 한정(2026-06-14 실로그 결함).
@@ -1239,6 +1300,10 @@ class _ReportData:
         # 기준으로 top-K 를 고른다. 그룹의 나머지 사건은 버리지 않고 보조 근거로 남긴다.
         self.candidates, self.period_groups = _period_representatives(
             pool, _TOP_CANDIDATES, _CANDIDATE_RANK_KEY
+        )
+        #: 개관 섹션(전역 후보)에서 시점 대표와 함께 싣는 다른 영역의 사건(2026-11-19).
+        self.overview_companions: dict[str, list[EventCandidate]] = _domain_companions(
+            self.candidates, self.period_groups
         )
         # 부록 점수표용 전체 풀(P3, 2026-07-22) — 표 선별은 점수순 절단이 아니라 계층
         # 선별(중복 제거·방향별 대표)을 거친다. 본문 후보(self.candidates)는 불변.
@@ -3288,6 +3353,12 @@ class _ReportData:
                 )
         if daewoon_only:
             return lines  # 미래 이벤트 후보 4블록 생략(과거·메타 섹션 — 시간범위 정합)
+        # 개관 섹션(전역 후보)에는 시점 대표와 영역이 다른 사건도 같은 줄 형식으로 싣는다
+        # (2026-11-19) — 섹션 도메인 후보를 받은 호출은 그 영역만 다루므로 그대로 둔다.
+        shown_companions: list[EventCandidate] = (
+            [m for c in cands for m in self.overview_companions.get(c.period, [])]
+            if candidates is None and include_event_candidates else []
+        )
         # P1 정책 경로는 이벤트 후보를 named view 로 따로 낸다 — 이 legacy 전역 블록만
         # 끄고 합작용·발현분기·내부근거는 **같은 후보 범위로** 유지한다(2026-07-30).
         if include_event_candidates:
@@ -3298,7 +3369,7 @@ class _ReportData:
             )
             # CDS 리포트 배선 — 결실 뉘앙스·검토월·기간 내 상대 순위 병기(채팅 패리티).
             clusters = precise_candidate_clusters(
-                self.result, cands,
+                self.result, [*cands, *shown_companions],
                 fav_map=self.fav_map,
                 rank_by_period=self._domain_rank.get(domain or ""),
                 # 직장 강의 문구는 호출자가 섹션으로 결정(2026-10-30 — 관계 섹션 누출 교정: 일반
@@ -3336,7 +3407,10 @@ class _ReportData:
         # 같은 시점의 부수 사건(그룹 구성원) — 시점 슬롯은 대표 1건이 차지하지만 같은
         # 달의 다른 신호를 삭제하지 않는다(2026-07-30 교정). 새 판정이 아니라 이미
         # 점수화된 사건의 이름만 병기한다.
-        co = self._co_signal_lines(cands) if include_event_candidates else []
+        co = (
+            self._co_signal_lines(cands, shown=shown_companions)
+            if include_event_candidates else []
+        )
         if co:
             lines.append("")
             lines.append(
@@ -3392,8 +3466,14 @@ class _ReportData:
             lines += paths
         return lines
 
-    def _co_signal_lines(self, cands: list[EventCandidate]) -> list[str]:
+    def _co_signal_lines(
+        self, cands: list[EventCandidate], shown: Sequence[EventCandidate] = (),
+    ) -> list[str]:
         """대표 후보와 같은 시점에 걸린 부수 사건(프롬프트 전달분).
+
+        2026-11-19: 사건 키(영문) 나열을 한글 사건명 + 신호 강도 + 방향으로 바꿨다 — 키만으로는
+        LLM 이 그 사건을 서술할 근거가 없다. 언급 생략 구간(`SCORE_FLOOR` 미만 — 프로필 상태로
+        눌린 사건 포함)은 싣지 않고, `shown`(이미 후보 줄로 실린 사건)은 다시 싣지 않는다.
 
         **저장과 전달을 분리한다.** 그룹 구성원 전체는 `period_groups` 에 남기고(감사·
         디버깅), 프롬프트에는 시점당 `_PROMPT_COMPANIONS_PER_PERIOD` 건만 보낸다 —
@@ -3404,6 +3484,7 @@ class _ReportData:
         새 점수·타이브레이크를 만들지 않는다.
         """
         reps = {c.period: str(c.event_key) for c in cands}
+        shown_keys = {(c.period, str(c.event_key)) for c in shown}
         pools: list[dict[str, list[EventCandidate]]] = [self.period_groups]
         pools += list(self._domain_period_groups.values())
         out: list[str] = []
@@ -3412,8 +3493,10 @@ class _ReportData:
             for groups in pools:
                 for member in groups.get(period, []):
                     key = str(member.event_key)
-                    if key == reps[period]:
+                    if key == reps[period] or (period, key) in shown_keys:
                         continue
+                    if member.score < SCORE_FLOOR:
+                        continue      # 언급 생략 구간 — 약한 신호를 부수로 올리지 않는다
                     if any(str(x.event_key) == key for x in seen):
                         continue      # 같은 event_key 중복 후보는 한 번만
                     seen.append(member)
@@ -3421,7 +3504,7 @@ class _ReportData:
                 :_PROMPT_COMPANIONS_PER_PERIOD
             ]
             if companions:
-                names = ", ".join(str(c.event_key) for c in companions)
+                names = ", ".join(candidate_brief(c) for c in companions)
                 out.append(f"{period}: {names}")
         return out
 
@@ -3593,7 +3676,14 @@ def _topic_module_block(module_id: str, data: _ReportData, spec: ReportSpec) -> 
         return []
     period = _topic_period(spec)
     try:
-        if module_id in ("M01", "M02", "M07", "M08", "M09", "M11", "M12", "M15"):
+        if module_id == "M07":
+            # 직업 상태에 따른 사건 종류 전환(구직 중: 이직→취업 등) — 개인 채점을 거치지 않는
+            # 사전계산 요약에도 같은 전환표를 적용한다(2026-11-19, 표기 전용).
+            ctx = build_topic_context(
+                module_id, spec.subjects, period, data.composites,
+                event_key_map=profile_career_key_map(data.occupation_status),
+            )
+        elif module_id in ("M01", "M02", "M08", "M09", "M11", "M12", "M15"):
             ctx = build_topic_context(module_id, spec.subjects, period, data.composites)
         elif module_id in ("M03", "M04", "M05", "M06"):
             if not data.natal_ten_god_dist:
@@ -4235,7 +4325,7 @@ def _policy_evidence(
                     line += " · 검토월(공망 충발 — 조사·조건 확인까지)"
             if cl.companions:
                 cos = ", ".join(
-                    dict.fromkeys(str(c.event_key) for c in cl.companions)
+                    dict.fromkeys(candidate_brief(c) for c in cl.companions)
                 )
                 line += f" / 같은 시점 함께 나타나는 신호: {cos}"
             lines.append(line)

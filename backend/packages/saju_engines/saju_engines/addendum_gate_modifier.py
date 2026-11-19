@@ -103,6 +103,28 @@ class GateContext:
     today_year: int | None = None
 
 
+def profile_career_key_map(occupation_status: str | None) -> dict[str, str]:
+    """직업 상태가 바꾸는 직업 사건 종류 — `_apply_profile_rules` 의 직업 분기와 같은 전환표.
+
+    사전계산 저장분(LuckComposite)에서 만든 토픽 요약(M07)은 개인 채점을 거치지 않아 직업 상태가
+    반영되지 않는다. 그래서 구직 중인 사람의 월별 페이지에 '이직·보직 변경'이 실렸다(2026-11-19
+    실답 — 같은 리포트의 다른 섹션과 채팅은 '취업'). 요약 줄의 사건명을 같은 전환표로 읽기 위한
+    조회용이며 점수·후보 선별에는 쓰지 않는다. 이동운 동반(`move_with`) 분기는 후보 단위 판정이라
+    여기서는 다루지 않는다(재직자의 취업 신호 = 승진·직무 변경 기본형).
+
+    Args:
+        occupation_status: `derive_occupation_status` 값. None·미해당 상태면 빈 표.
+
+    Returns:
+        원래 사건 키 → 전환된 사건 키.
+    """
+    if occupation_status == "unemployed":
+        return {str(EventKeyV2.CAREER_CHANGE): str(EventKeyV2.JOB_GAIN)}
+    if occupation_status in ("employee", "public_official"):
+        return {str(EventKeyV2.JOB_GAIN): str(EventKeyV2.PROMOTION)}
+    return {}
+
+
 class AddendumGateModifier:
     """후보에 안전 게이트·프로필 분기·공망 보정을 적용한다.
 

@@ -20,7 +20,7 @@ LuckComposite 스키마(규격)에 없는 정적 차트 정보는 Static Chart L
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from saju_manse_analysis.yongsin.operational_role_config import (
@@ -29,6 +29,7 @@ from saju_manse_analysis.yongsin.operational_role_config import (
 )
 
 from saju_shared_types.birth_input import BirthInput
+from saju_shared_types.event_taxonomy_v2 import EVENT_KO
 from saju_shared_types.intent import SubjectRef
 from saju_shared_types.llm_input import UsefulGods
 from saju_shared_types.manse_result import ManseV2Result
@@ -53,6 +54,8 @@ from .past_validation import ComputeFn, generate_past_candidates
 from .relocation import RelocationResolver
 
 _DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries"
+#: 사건 키 → 한글 사건명(요약 줄 표기 전용 — `event_taxonomy_v2.EVENT_KO` 가 SSOT).
+_EVENT_KO_BY_KEY: dict[str, str] = {str(k): v for k, v in EVENT_KO.items()}
 
 # 모듈 전체 목록 (docs/09 4장 표 — id, 담당 질의, 구현 여부는 레지스트리로 관리).
 MODULES: dict[str, str] = {
@@ -132,11 +135,15 @@ def build_career_context(
     subjects: list[SubjectRef],
     period: PeriodSpec,
     composites: list[LuckComposite],
+    event_key_map: Mapping[str, str] | None = None,
 ) -> TopicContext:
     """M07 career — 취업/이직/승진/퇴사 (docs/09 4장: natal+daewoon+year+month 참조).
 
     LuckComposite의 career 도메인 신호를 기간 내 시계열로 합산하고, 상위 시기를
     findings로 확정한다. 모든 수치는 여기서 확정되며 LLM은 서술만 한다.
+
+    event_key_map: 요약 줄 사건명의 종류 전환표(직업 상태 — `profile_career_key_map`). 요약
+    표기에만 쓰며 점수·`Finding.event_key`·시계열은 그대로다. None 이면 전환 없음.
     """
     wanted_levels = {CompositeLevel.YEAR, CompositeLevel.MONTH}
     selected = [
@@ -165,7 +172,8 @@ def build_career_context(
             key=f"{top.event_key}@{c.period_key}",
             summary=(
                 f"{c.period_key} {c.ganji.stem}{c.ganji.branch} — "
-                f"직업 신호 {len(signals)}건({_lead_event_keys(signals, '직업')} 중심), "
+                f"직업 신호 {len(signals)}건"
+                f"({_lead_event_keys(signals, '직업', key_map=event_key_map)} 중심), "
                 f"{c.favorability} 기조"
             ),
             score=score,
@@ -626,28 +634,37 @@ def _sort_findings_by_raw(pairs: list[tuple[float, Finding]]) -> list[Finding]:
     ]
 
 
-def _lead_event_keys(signals: list, label: str, limit: int = 3) -> str:
-    """요약 줄의 '○○ 중심' 자리 — 가중치 상위 사건 키를 중복 없이 최대 ``limit``개 '·'로 잇는다.
+def _lead_event_keys(
+    signals: list, label: str, limit: int = 3, key_map: Mapping[str, str] | None = None,
+) -> str:
+    """요약 줄의 '○○ 중심' 자리 — 가중치 상위 사건을 중복 없이 최대 ``limit``개 ', '로 잇는다.
 
     점수는 0~100 상한에 포화되기 쉬워(가중치 합 ≥1.0) 명식이 달라도 같은 줄이 나오던 것을,
     사건 구성으로 변별한다(2026-10-26 실답). 새 수치는 만들지 않는다.
+
+    2026-11-19: 사건 키(영문) 대신 한글 사건명으로 적는다 — 키로는 LLM 이 사건을 서술할 근거가
+    약하다. `key_map` 을 주면 표기 전에 사건 종류를 전환한다(직업 상태 — 전환 뒤 같은 사건이
+    되면 한 번만 적는다). 구분자는 ', ' — 사건명 안에 가운뎃점이 있다('계약·문서').
 
     Args:
         signals: 해당 시기의 도메인 신호(``weight``·``event_key`` 속성).
         label: event_key 가 비었을 때 대신 쓸 라벨.
         limit: 최대 표기 개수.
+        key_map: 사건 종류 전환표(원래 키 → 전환 키). None 이면 전환 없음.
 
     Returns:
-        ``"new_relationship·marriage_signal"`` 형태의 문자열.
+        ``"새 인연, 결혼 신호"`` 형태의 문자열(사전에 없는 키는 키 그대로).
     """
     seen: list[str] = []
     for s in sorted(signals, key=lambda s: -s.weight):
         k = s.event_key or label
+        if key_map:
+            k = key_map.get(k, k)
         if k not in seen:
             seen.append(k)
         if len(seen) >= limit:
             break
-    return "·".join(seen)
+    return ", ".join(_EVENT_KO_BY_KEY.get(k, k) for k in seen)
 
 
 def _domain_series_findings(

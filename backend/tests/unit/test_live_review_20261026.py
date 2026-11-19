@@ -79,7 +79,8 @@ class _Sig:
 
 def test_lead_event_keys_distinct_top3_by_weight() -> None:
     sigs = [_Sig("a", 0.2), _Sig("b", 0.5), _Sig("a", 0.4), _Sig("c", 0.3), _Sig("d", 0.1)]
-    assert _lead_event_keys(sigs, "연애") == "b·a·c"
+    # 2026-11-19: 구분자 ', '(사건명 안에 가운뎃점이 있다) · 사전에 있는 키는 한글 사건명.
+    assert _lead_event_keys(sigs, "연애") == "b, a, c"
     assert _lead_event_keys([_Sig(None, 0.3)], "연애") == "연애"
     assert _lead_event_keys(sigs, "연애", limit=1) == "b"
 
