@@ -188,6 +188,33 @@ def lotto_requires_windfall_star(target_date: date) -> bool:
     return target_date >= LOTTO_INFLOW_GATE_EFFECTIVE_FROM
 
 
+#: 로또 문구의 일주별 쉬는 기간을 '날짜 산술 슬롯'에서 '최근 조건 성립일'로 바꾸는 기준일
+#: (model.v2.6, docs/17 §36). 11/20 보드는 11/19 20시 선생성·게시분이라 종전 슬롯을 유지하고,
+#: 11/21 보드(11/20 20시 선생성)부터 쓴다. 사전 문구는 그대로라 dict 버전은 올리지 않는다.
+LOTTO_SIGNAL_COOLDOWN_EFFECTIVE_FROM = date(2026, 11, 21)
+
+#: 같은 일주에게 로또 문구를 다시 내기까지 쉬는 기간(일) — docs/17 §12 "최근 14일 내 같은 일주
+#: 미사용". 오늘을 뺀 직전 13일 안에 로또 조건이 성립한 날이 있으면 오늘은 내지 않는다.
+LOTTO_COOLDOWN_DAYS = 14
+
+
+def lotto_uses_signal_cooldown(target_date: date) -> bool:
+    """그 날짜의 로또 문구 쉬는 기간 규칙 — True 면 '최근 조건 성립일' 기준으로 쉰다.
+
+    종전 규칙(False)은 이력 없이 쉬는 기간을 흉내 낸 날짜 산술 슬롯
+    `(날짜 서수 + 일주 번호) % 7 == 0` 이다. 이 슬롯은 신호와 무관하게 7일 중 하루만 열려서,
+    유입 표지 게이트(§33) 뒤로는 편재가 표면에 온 날의 6/7 을 버렸다(1년 측정: 조건 성립
+    816건 중 110건만 노출, 문구가 실린 날 28%). True 면 그 일주에게 직전
+    `LOTTO_COOLDOWN_DAYS - 1` 일 안에 로또 조건(금전 순위·공돈 확률·손실 신호·유입 표지)이
+    성립한 날이 없을 때만 낸다 — 이전 날짜를 같은 엔진으로 다시 채점해 판정하므로 이력 저장이
+    없다. 과거 날짜는 그날 계약으로 재생돼야 하므로 날짜가 규칙을 고른다.
+
+    Args:
+        target_date: 운세 대상 날짜(KST 기준).
+    """
+    return target_date >= LOTTO_SIGNAL_COOLDOWN_EFFECTIVE_FROM
+
+
 def stage_direction_forward(target_date: date) -> bool:
     """그 날짜의 12운성 방향 — True 면 일간→운 지지(통설·만세력 엔진과 동일), False 면 종전
     '오늘(월운) 천간→일지'.

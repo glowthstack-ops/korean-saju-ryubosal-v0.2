@@ -18,6 +18,7 @@ from saju_shared_types.daily_fortune import (
     CATALOG_EXPANSION_3_EFFECTIVE_FROM,
     CATALOG_EXPANSION_EFFECTIVE_FROM,
     LOTTO_INFLOW_GATE_EFFECTIVE_FROM,
+    LOTTO_SIGNAL_COOLDOWN_EFFECTIVE_FROM,
     STAGE_DIRECTION_EFFECTIVE_FROM,
     DailyDomain,
     DailySlot,
@@ -39,7 +40,13 @@ from saju_shared_types.daily_fortune import (
 #: v2.5(2026-11-16): 로또 문구 게이트에 횡재 유입 표지 요구(docs/17 §33) — 오늘 일진의 표면 십성
 #: (천간·지지 본기)에 편재가 있고 비견·겁재가 없을 때만 로또 문구를 낸다. 카탈로그·채널은 v2.4 와
 #: 같고 로또 게이트만 바뀌므로 경계(LOTTO_INFLOW_GATE_EFFECTIVE_FROM, 11/18)로 버전을 고른다.
-MODEL_V2_VERSION = "model.v2.5"
+#: v2.6(2026-11-20): 로또 문구의 일주별 쉬는 기간을 날짜 산술 슬롯에서 '직전 13일 안에 조건
+#: 성립일 없음'으로(docs/17 §36). 유입 표지 게이트(v2.5)와 날짜 슬롯(1/7)이 겹쳐 편재가 온 날의
+#: 6/7 이 버려지던 것을 바로잡는다. 카탈로그·채널·유입 표지 조건은 v2.5 와 같고 쉬는 기간 규칙만
+#: 바뀌므로 경계(LOTTO_SIGNAL_COOLDOWN_EFFECTIVE_FROM, 11/21)로 버전을 고른다.
+MODEL_V2_VERSION = "model.v2.6"
+#: 로또 쉬는 기간 규칙 경계 이전(11/18~11/20)에 적용되는 v2 모델 버전(유입 표지 + 날짜 슬롯).
+MODEL_V2_VERSION_BEFORE_LOTTO_SIGNAL_COOLDOWN = "model.v2.5"
 #: 로또 유입 표지 게이트 경계 이전(11/14~11/17)에 적용되는 v2 모델 버전(종전 로또 게이트).
 MODEL_V2_VERSION_BEFORE_LOTTO_INFLOW_GATE = "model.v2.4"
 #: 백호 일주 기준 경계 이전(11/5~11/13)에 적용되는 v2 모델 버전(82종, 일진만 보는 백호).
@@ -62,7 +69,8 @@ def active_model_v2_version(target_date: date) -> str:
     Returns:
         9/12 이전 `PREVIOUS_MODEL_V2_VERSION`(48종) → 9/20 이전 model.v2.1(64종) → 11/5 이전
         model.v2.2(82종, 역방향 12운성) → 11/14 이전 model.v2.3(일간→오늘 지지 12운성) → 11/18
-        이전 model.v2.4(백호 일주 기준) → 이후 `MODEL_V2_VERSION`(로또 문구 유입 표지 게이트).
+        이전 model.v2.4(백호 일주 기준) → 11/21 이전 model.v2.5(로또 문구 유입 표지 게이트) →
+        이후 `MODEL_V2_VERSION`(로또 문구 쉬는 기간 = 최근 조건 성립일 기준).
     """
     if target_date < CATALOG_EXPANSION_EFFECTIVE_FROM:
         return PREVIOUS_MODEL_V2_VERSION
@@ -74,6 +82,8 @@ def active_model_v2_version(target_date: date) -> str:
         return MODEL_V2_VERSION_BEFORE_BAEKHO_DAY_BASIS
     if target_date < LOTTO_INFLOW_GATE_EFFECTIVE_FROM:
         return MODEL_V2_VERSION_BEFORE_LOTTO_INFLOW_GATE
+    if target_date < LOTTO_SIGNAL_COOLDOWN_EFFECTIVE_FROM:
+        return MODEL_V2_VERSION_BEFORE_LOTTO_SIGNAL_COOLDOWN
     return MODEL_V2_VERSION
 
 #: prior 3등급 → 사전확률 가산치 (§22-1: signature=출전권, prior=순위만).
