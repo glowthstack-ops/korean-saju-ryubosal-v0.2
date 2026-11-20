@@ -31,10 +31,10 @@
         "counterVersion": "countTokens-v1beta-r2",
         "providerId": "gemini",
         "providerRequestSchemaVersion": "1",
-        "resolvedModelId": "gemini-3-flash-preview",
+        "resolvedModelId": "gemini-3.8-flash",
         "validationPolicyHash": "ccb348d0555601d2ad9f6f1bb507695a407e15d0ce54cc84edbf4a7b1292483d",
-        "validationCorpusHash": "0f3258651fe37c8708dcbe1848cf406415942705008bc56238c973e26f3a0c3b",
-        "validationArtifactHash": "565ffd4e2f1be3bf2f3b0664d7d4cdb02556c5bc2f760823b31841d230e06676",
+        "validationCorpusHash": "750243fc9907eaec62d7524521a53cacfaaa7dbe005415278d957deaa3267290",
+        "validationArtifactHash": "ce594ba741979cef2fc1c46c183e97c28a050622a33dd1380951361a6d6305bd",
         "reviewed": true
       }
     ]

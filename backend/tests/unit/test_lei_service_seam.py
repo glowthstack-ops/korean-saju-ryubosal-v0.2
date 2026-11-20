@@ -54,13 +54,35 @@ def test_legacy_carries_lei_fields() -> None:
 
 
 def test_reduce_candidates_lei_order() -> None:
-    # 점수 낮아도 personal_match 높으면 상위(LEI 정렬축).
+    # 점수 낮아도 현실 적합(life_fit)이 높으면 상위(LEI 정렬축의 1순위는 그대로다).
     cs = [
         _legacy("career_change", 90),
         _legacy("relocation", 20, life_fit=40, pm=60),
     ]
     out = reduce_candidates(cs, graph_scope=[], score_floor=0)
     assert str(out[0].event_key) == "relocation"
+
+
+def test_reduce_candidates_score_precedes_past_similarity() -> None:
+    """2026-11-20: 과거 유사(personal_match)는 점수 뒤 — 동점 가름에만 쓴다(리포트와 같은 규칙).
+
+    실답 web-mwobgi4o: 입사 이력과 글자가 겹치는 74~77점 달이 98점 달을 밀어내 상위 5개에서 빠졌다.
+    """
+    cs = [
+        _legacy("job_gain", 74, pm=110),
+        _legacy("job_gain", 77, pm=90),
+        _legacy("career_change", 98, pm=0),
+    ]
+    out = reduce_candidates(cs, graph_scope=[], score_floor=0)
+    assert [c.score for c in out] == [98, 77, 74]
+    # 반례 ①: 점수가 같으면 과거 유사가 가른다(같은 사건의 달 사이 순서 유지).
+    tie = [_legacy("job_gain", 80, pm=10), _legacy("relocation", 80, pm=70)]
+    assert str(reduce_candidates(tie, graph_scope=[], score_floor=0)[0].event_key) == "relocation"
+    # 반례 ②: 현실 적합은 여전히 점수보다 앞선다.
+    fit = [_legacy("career_change", 98), _legacy("relocation", 60, life_fit=30)]
+    assert str(reduce_candidates(fit, graph_scope=[], score_floor=0)[0].event_key) == "relocation"
+    # 상위 N 절단에서도 같은 순서 — 98점이 남는다.
+    assert [c.score for c in reduce_candidates(cs, graph_scope=[], top_n=1, score_floor=0)] == [98]
 
 
 def test_reduce_candidates_backward_compatible() -> None:

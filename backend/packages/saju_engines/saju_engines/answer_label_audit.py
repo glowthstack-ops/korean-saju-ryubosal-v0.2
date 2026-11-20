@@ -79,15 +79,19 @@ def relative_year_mentions(text: str) -> list[str]:
     return _RELATIVE_YEAR_RE.findall(text or "")
 
 
-_DONE_STEM_RE = re.compile(r"성사")
+# 2026-11-20: 첫 문단의 틀이 '성사 달·움직이는 달'에서 '유력한 달·약하지만 가능성 있는 달·흐름이
+# 보이는 달'로 바뀌었다(엔진 배정 지시문). 달 칸 어간은 새 틀의 세 표현을 본다 — '성사'는 더 이상
+# 첫 문단 표지가 아니다(부재 선언 '성사가 확정되는 달은 보이지 않지만'이 통과로 세어지던 원인).
+_DONE_STEM_RE = re.compile(r"유력|가능성\s*(?:이\s*)?있는|흐름이\s*보이")
 _MOVE_STEM_RE = re.compile(r"움직이|움직여|움직임")
 
 
 def entry_window_labels_present(text: str) -> tuple[bool, bool]:
-    """첫 문단에 (성사 칸 어간, 움직이는 칸 어간)이 있는가 — 두 칸 지시 준수 관측(로그 전용).
+    """첫 문단에 (달 칸 어간, 움직이는 칸 어간)이 있는가 — 두 칸 지시 준수 관측(로그 전용).
 
-    실답(2026-10-22 web-mvjjpmvz)은 "성사 기운이 뚜렷한 달 … 미리 움직이며"로 의미는 지켰으나
-    '성사 달·움직이는 달' 정확 표기는 없었다 — 관측은 어간 기준, 정확 표기는 지시문이 계속 요구한다.
+    달 칸 어간 = '유력한 달·가능성 있는 달·흐름이 보이는 달' 가운데 하나(2026-11-20). 관측은 어간
+    기준이고 정확 표기는 지시문이 요구한다. 움직이는 칸은 첫 문단 필수가 아니다(유력한 달 한두 달
+    앞의 과정 서술) — 호출부는 달 칸만으로 통과를 판정한다.
     """
     first = _FIRST_PARA_SPLIT.split(text.strip(), maxsplit=1)[0] if text else ""
     return (bool(_DONE_STEM_RE.search(first)), bool(_MOVE_STEM_RE.search(first)))
@@ -99,10 +103,12 @@ def entry_window_labels_present(text: str) -> tuple[bool, bool]:
 # 같은 사건의 시점 후속에 주입하기 위한 추출기. 첫 문단만 본다(두 칸 지시가 첫 문단을 요구).
 _YM = r"(?:(\d{4})\s*년\s*)?(\d{1,2})\s*월"
 # 라벨 → 달: '성사 달은 2027년 2월' / '성사 달 2월'.
-_DONE_THEN_MONTH_RE = re.compile(r"성사\s*달[은는이가]?\s*(?:인|로|:)?\s*" + _YM)
+_DONE_THEN_MONTH_RE = re.compile(
+    r"(?:성사|유력한)\s*달[은는이가을]?\s*(?:인|로|:|찾아보니)?\s*" + _YM
+)
 _MOVE_THEN_MONTH_RE = re.compile(r"움직이는\s*달[은는이가]?\s*(?:인|로|:)?\s*" + _YM)
 # 달 → 라벨: '2027년 2월이 … 성사 달' / '2026년 12월부터 … 움직이는'. 같은 문장 안 40자 이내.
-_MONTH_THEN_DONE_RE = re.compile(_YM + r"[^.。!?\n]{0,40}?성사\s*달")
+_MONTH_THEN_DONE_RE = re.compile(_YM + r"[^.。!?\n]{0,40}?(?:성사\s*달|유력)")
 _MONTH_THEN_MOVE_RE = re.compile(_YM + r"[^.。!?\n]{0,40}?움직이(?:는|며|기)")
 
 
@@ -139,6 +145,30 @@ def extract_entry_slots(text: str, today: date) -> dict[str, str]:
                     out[key] = ym
                     break
     return out
+
+
+# ── 부재 선언 감사(로그 전용, 2026-11-20) ───────────────────────────────────────────────────
+# 실답(web-mwobgi4o): "앞으로 12개월 동안 취직과 관련해 성사가 확정되는 달은 보이지 않지만" —
+# 데굴님 "앞으로 네게 그런 기회는 없어 라고 말하는 것과 같아". 지시문이 부재 선언을 금지한 뒤에도
+# 답에 다시 나오는지 센다(교정·재호출 없음).
+_ABSENCE_MONTH_RE = re.compile(
+    r"(?:성사|확정|유력|입사|합격)[^.。!?\n]{0,20}?(?:달|시기|시점)[은는이가도]?\s*"
+    r"[^.。!?\n]{0,6}?(?:없|보이지\s*않|찾기\s*어렵|찾을\s*수\s*없)"
+)
+_ABSENCE_BAR_RE = re.compile(r"기준[을에]?\s*(?:충족하지\s*못|못\s*미[치칩쳐친]|미달)")
+
+
+def absence_declarations(text: str) -> list[str]:
+    """'성사 달이 없다·기준에 못 미친다' 류 부재 선언 문장(앞 80자) — 비어 있으면 통과.
+
+    '유력한 달은 2월이며 부담은 없습니다'처럼 달을 말한 뒤 다른 것이 없다는 문장은 잡지 않는다
+    (달 표지 뒤 6자 안에서 '없다'가 나와야 한다).
+    """
+    hits: list[str] = []
+    for sent in _SENTENCE_SPLIT_RE.split(text or ""):
+        if _ABSENCE_MONTH_RE.search(sent) or _ABSENCE_BAR_RE.search(sent):
+            hits.append(sent.strip()[:80])
+    return hits
 
 
 def format_ym_ko(ym: str) -> str:

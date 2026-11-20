@@ -30,6 +30,7 @@ for _p in (
         sys.path.insert(0, str(_p))
 
 from saju_api.services import report_service as R  # noqa: E402
+from saju_engines.report_event_input import candidate_brief  # noqa: E402
 from saju_shared_types.event_engine import EventKeyV2  # noqa: E402
 from saju_shared_types.events import (  # noqa: E402
     Confidence,
@@ -178,13 +179,15 @@ def test_co_signal_lines_dedupe_by_event_key_and_respect_the_cap() -> None:
     """같은 event_key 중복 후보를 다시 나열하지 않고 상한을 지킨다."""
     data = R._ReportData.__new__(R._ReportData)   # 엔진 실행 없이 렌더링만 시험
     rep = _real("2027-02", "career_change", 99)
+    promo, job = _real("2027-02", "promotion", 90), _real("2027-02", "job_gain", 88)
+    contract = _real("2027-02", "contract_document", 87)  # 상한 초과 — 전달 제외
     data.period_groups = {
         "2027-02": [
             rep,
-            _real("2027-02", "promotion", 90),
+            promo,
             _real("2027-02", "promotion", 89),     # 같은 키 — 한 번만
-            _real("2027-02", "job_gain", 88),
-            _real("2027-02", "contract_document", 87),  # 상한 초과 — 전달 제외
+            job,
+            contract,
         ]
     }
     data._domain_period_groups = {}
@@ -192,9 +195,11 @@ def test_co_signal_lines_dedupe_by_event_key_and_respect_the_cap() -> None:
     assert len(lines) == 1
     assert lines[0].startswith("2027-02: ")
     names = lines[0].split(": ", 1)[1].split(", ")
-    assert names == ["promotion", "job_gain"]
-    assert "contract_document" not in names
-    assert "career_change" not in names
+    # 2026-11-19: 사건 키(영문) 대신 한글 사건명 + 신호 강도 + 방향으로 싣는다.
+    assert names == [candidate_brief(promo), candidate_brief(job)]
+    assert candidate_brief(contract) not in names
+    assert candidate_brief(rep) not in names
+    assert not any("_" in n for n in names)   # 영문 키가 그대로 나가지 않는다
 
 
 # ── 다중 view 병합 후 companion 재압축 ───────────────────────────────────

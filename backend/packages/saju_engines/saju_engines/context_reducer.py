@@ -45,6 +45,7 @@ from saju_shared_types.llm_input import (
     ChartInterpretation,
     DaewoonEntry,
     DateSelectionBlock,
+    EntryWindowCandidate,
     LlmBudget,
     LlmCalendarContext,
     LlmEventCandidate,
@@ -89,6 +90,7 @@ from .direction_suggestion import (
     format_direction_suggestion_lines,
     select_direction_suggestions,
 )
+from .entry_channel import ENTRY_CHANNEL_KEYS
 from .event_engine_v2 import EventEngineV2
 from .event_lexicon import derive_process_types, process_type_legend
 from .event_scoring import favorability_map
@@ -965,19 +967,12 @@ def reduce_candidates(
         and c.score >= score_floor
         and in_question_range(c.period, period_start, period_end, month_bounds)
     ]
-    # LEI 정렬축(현실적합>과거유사) 우선 → 점수 포화 시 raw 가중 합 → 시점·키. 개인 시그니처
-    # 미배선 시 life_fit·personal_match=0이라 기존 (-score, -raw_total) 정렬과 동치.
-    return sorted(
-        scoped,
-        key=lambda c: (
-            -getattr(c, "life_fit", 0.0),
-            -getattr(c, "personal_match", 0.0),
-            -c.score,
-            -getattr(c, "raw_total", 0.0),
-            c.period,
-            str(c.event_key),
-        ),
-    )[:top_n]
+    # 선별 순위(2026-11-20 개정 — 리포트 `_CANDIDATE_RANK_KEY` 와 같은 규칙): 현실 적합 → 점수 →
+    # 과거 유사 → raw 가중 합 → 시점·키. 과거 유사도는 이미 점수 보정에 들어가 있으므로 동점
+    # 가름에만 쓴다. 종전 (현실 적합 → 과거 유사 → 점수)에서는 입사 이력과 글자가 겹치는 74~77점
+    # 달이 98점 달을 밀어내 '유력한 달'이 LLM 입력에서 통째로 빠졌다(실답 web-mwobgi4o).
+    # 개인 시그니처 미배선 시 life_fit·personal_match=0이라 (-score, -raw_total) 정렬과 동치.
+    return sorted(scoped, key=_life_fit_sort_key)[:top_n]
 
 
 # ── 총운형 다변화 선별 (2026-07-14 데굴님 설계 확정) ─────────────────────
@@ -1051,11 +1046,15 @@ def overview_cluster_key(c: EventCandidate) -> tuple[str, str, str]:
 
 
 def _life_fit_sort_key(c: EventCandidate) -> tuple:
-    """reduce_candidates와 동일한 정렬 계층(life_fit>personal_match>score>raw) — 불변."""
+    """채팅 후보 선별의 정렬 계층 — 현실 적합 > 점수 > 과거 유사 > raw > 시점·키.
+
+    `reduce_candidates`·총운형 선별·기간 외 참고가 함께 쓰는 단일 키(2026-11-20: 과거 유사를 점수
+    뒤로 — LIFE_EVENT_INFERENCE.md §1). 엔진의 `lei_rank_key` 는 바꾸지 않았다.
+    """
     return (
         -getattr(c, "life_fit", 0.0),
-        -getattr(c, "personal_match", 0.0),
         -c.score,
+        -getattr(c, "personal_match", 0.0),
         -getattr(c, "raw_total", 0.0),
         c.period,
         str(c.event_key),
@@ -1283,8 +1282,8 @@ def reduce_with_context(
         out_scoped,
         key=lambda c: (
             -getattr(c, "life_fit", 0.0),
-            -getattr(c, "personal_match", 0.0),
             -c.score,
+            -getattr(c, "personal_match", 0.0),
             c.period,
         ),
     )[:out_of_range_n]
@@ -2636,6 +2635,24 @@ def build_llm_input(
                 candidates, graph_scope, period_start, period_end, month_bounds,
             )
         ]
+    # 두 칸 엔진 배정의 입력(2026-11-20) — 상위 N개가 아니라 선별 전 모집단(질문 사건 계열·점수
+    # 하한·질문 창)의 진입 월 후보 전부. 진입 사건 질문에서만 채운다.
+    entry_window: list[EntryWindowCandidate] = []
+    if not overview_mode and str(getattr(intent.event_key, "value", "")) in ENTRY_CHANNEL_KEYS:
+        _entry_scope = graph_scope or [b.event_key for b in bundles]
+        entry_window = [
+            EntryWindowCandidate(
+                event_key=c.event_key, period=c.period, ganji=ganji.get(c.period, ""),
+                score=c.score, quality=c.quality or "", direction=_direction_for(c),
+                review_month=review_month_from_signals(list(c.signals)),
+            )
+            for c in candidates
+            if len(c.period) == 7
+            and str(c.event_key) in ENTRY_CHANNEL_KEYS
+            and (not _entry_scope or c.event_key in _entry_scope)
+            and c.score >= SCORE_FLOOR
+            and in_question_range(c.period, period_start, period_end, month_bounds)
+        ]
     period_other: list[str] = []
     if _specific and period_v2_config.PERIOD_OTHER_SIGNALS_ENABLED:
         period_other = period_other_signal_lines(
@@ -2849,6 +2866,7 @@ def build_llm_input(
         calendar_context=build_calendar_context(result, selected, intent),
         event_candidates=llm_candidates,
         family_candidates=family_extra,
+        entry_window_candidates=entry_window,
         period_other_signals=period_other,
         out_of_range_candidates=out_candidates,
         overview_dropped_notables=overview_dropped,

@@ -618,13 +618,19 @@ def compute_board_v2(
     cat = catalog or load_catalog_v2_for(ctx.the_date)
     from saju_manse_core.calendar.sexagenary_cycle import ganzi_from_index
 
-    scored_rows: dict[str, list[v1._ScoredEvent]] = {}
-    for idx in range(60):
-        stem, branch = ganzi_from_index(idx)
-        ch = day_channels(stem, branch, ctx)
-        pool, _eligible, _fallback = build_pool_v2(cat, ch)
-        scored_rows[f"{stem.value}{branch.value}"] = pool
-    board = v1.compute_board(ctx, dicts, scored_rows=scored_rows)
+    def _rows_for(day_ctx: DayGanjiContext) -> dict[str, list[v1._ScoredEvent]]:
+        """그 날 60일주의 v2 후보 풀 — 오늘 보드와 로또 쉬는 기간(§36) 판정이 같이 쓴다."""
+        rows: dict[str, list[v1._ScoredEvent]] = {}
+        for idx in range(60):
+            stem, branch = ganzi_from_index(idx)
+            ch = day_channels(stem, branch, day_ctx)
+            pool, _eligible, _fallback = build_pool_v2(cat, ch)
+            rows[f"{stem.value}{branch.value}"] = pool
+        return rows
+
+    board = v1.compute_board(
+        ctx, dicts, scored_rows=_rows_for(ctx), history_rows=_rows_for
+    )
     layer = dicts.templates.get("month_layer")
     if layer:
         d = ctx.the_date

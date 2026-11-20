@@ -28,7 +28,7 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PY="$ROOT/.venv/bin/python"
-MODEL="${SAJU_READING_MODEL:-gemini-3-flash-preview}"
+MODEL="${SAJU_READING_MODEL:-gemini-3.8-flash}"
 LEASE="$ROOT/backend/var/risk_state/validation_lease__${MODEL}.json"
 MANIFEST="$ROOT/doc/v2_2/RISK_REVIEW_MANIFEST.json"
 STAGE_ROOT="$ROOT/backend/var/risk_state/revalidation_stage"

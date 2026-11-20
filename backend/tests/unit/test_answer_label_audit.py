@@ -56,13 +56,47 @@ def test_relative_year_mentions_log_only() -> None:
 
 
 def test_entry_window_labels_present_first_paragraph_only() -> None:
+    # 2026-11-20: 달 칸 어간 = '유력한 달·가능성 있는 달·흐름이 보이는 달'(엔진 배정 지시문의
+    # 새 틀).
     present = entry_window_labels_present
-    assert present("성사 달은 2월, 움직이는 달은 1월이에요.\n\n본문") == (True, True)
-    # 어간 기준 — "성사 기운이 뚜렷한 달 … 미리 움직이며"도 의미상 두 칸으로 센다.
-    semantic = "성사 기운이 뚜렷한 달은 2월이며, 11월부터 미리 움직이며 조건을 확인하세요.\n\n본문"
+    both = "유력한 달을 찾아보니 2월이에요. 움직이는 달은 1월이에요.\n\n본문"
+    assert present(both) == (True, True)
+    # 어간 기준 — "가능성 있는 달 … 미리 움직이며"도 의미상 두 칸으로 센다.
+    semantic = "가능성 있는 달은 2월이며, 11월부터 미리 움직이며 조건을 확인하세요.\n\n본문"
     assert present(semantic) == (True, True)
-    assert present("2월이 유력해요.\n\n움직이는 달은 1월, 성사 달은 2월.") == (False, False)
+    assert present("흐름이 보이는 달은 11월이에요.\n\n본문") == (True, False)
+    # 첫 문단만 본다 — 표지가 둘째 문단에 있으면 세지 않는다.
+    assert present("2월을 보세요.\n\n유력한 달은 2월, 움직이는 달은 1월.") == (False, False)
+    # 반례(실답 web-mwobgi4o): 부재 선언의 '성사'는 달 칸 표지가 아니다 — 종전에는 통과로 셌다.
+    absent = "성사가 확정되는 달은 보이지 않지만, 움직이는 달은 분명히 존재합니다.\n\n본문"
+    assert present(absent) == (False, True)
     assert entry_window_labels_present("") == (False, False)
+
+
+def test_absence_declarations_catch_no_month_sentences_only() -> None:
+    """부재 선언 감사(2026-11-20) — '달이 없다' 문장만 잡고, 달을 말한 문장은 놓아둔다."""
+    from saju_engines.answer_label_audit import absence_declarations
+
+    for bad in (
+        "앞으로 12개월 동안 취직과 관련해 성사가 확정되는 달은 보이지 않지만, 움직이는 달은 "
+        "있습니다.",
+        "다만 질문하신 12개월 안에는 최종 성사 기준을 충족하는 달이 없고, 단계적으로 나아갑니다.",
+        "이 창 안에는 성사 가능 달이 없습니다.",
+        "유력한 달은 없지만 준비는 가능합니다.",
+        "신호가 성사 기준에 못 미칩니다.",
+    ):
+        assert absence_declarations(bad), bad
+    for good in (
+        "유력한 달을 찾아보니 2027년 2월이며 큰 부담은 없습니다.",
+        "성사를 단정할 수는 없지만 유력한 달은 2월입니다.",
+        "이 달은 지출 부담이 없습니다.",
+        "2027년 2월이 가장 유력하고 3월은 약하지만 가능성 있는 달입니다.",
+        "",
+    ):
+        assert absence_declarations(good) == [], good
+    # 여러 문장 가운데 해당 문장만 돌려준다.
+    mixed = "유력한 달은 2월입니다. 그 밖에 성사 달은 없습니다. 준비를 이어가세요."
+    assert absence_declarations(mixed) == ["그 밖에 성사 달은 없습니다."]
 
 
 def test_ilju_intro_and_referent_removed_for_timing_but_kept_for_domain() -> None:

@@ -2289,7 +2289,7 @@ def test_bootstrap_stamps_derived_state_in_expose(monkeypatch) -> None:
     from saju_api.services.token_counter_registry import (
         set_validation_state,
     )
-    set_validation_state("gemini-3-flash-preview", "SHADOW_VALIDATING")
+    set_validation_state("gemini-3.8-flash", "SHADOW_VALIDATING")
 
 
 def test_runtime_inputs_fail_closed_defaults(monkeypatch) -> None:
@@ -2303,10 +2303,10 @@ def test_runtime_inputs_fail_closed_defaults(monkeypatch) -> None:
     inputs = exposure_runtime_inputs("chat_single")
     # 실물 corpus 승격 후에도 runtime 상태는 startup stamp 전
     # SHADOW_VALIDATING이므로 counter는 해소되지 않는다(VALIDATED만).
-    assert inputs["resolved_model_id"] == "gemini-3-flash-preview"
+    assert inputs["resolved_model_id"] == "gemini-3.8-flash"
     assert inputs["context_limit"] >= 0
     assert inputs["response_reserve"] > 0
-    shapes = load_reviewed_shape_digests("gemini-3-flash-preview")
+    shapes = load_reviewed_shape_digests("gemini-3.8-flash")
     assert len(shapes) == 7  # 감수 61차 §5 — 이름 결속 7종
     assert load_reviewed_shape_digests("unknown-model") == frozenset()
 
@@ -2660,7 +2660,7 @@ def test_service_initial_request_shape_in_reviewed_corpus() -> None:
         output_schema=_json.dumps(transport, ensure_ascii=False,
                                   sort_keys=True))
     digest = request_shape_digest("INITIAL", initial)
-    reviewed = load_reviewed_shape_digests("gemini-3-flash-preview")
+    reviewed = load_reviewed_shape_digests("gemini-3.8-flash")
     assert digest in reviewed, "실서비스 INITIAL shape이 corpus에 없음"
 
 

@@ -34,7 +34,10 @@ from saju_engines.entry_slots import (
     COND_SMOOTH,
     DEFAULT_ENTRY_SLOT_MODE,
     ENTRY_DONE_MIN_SCORE,
+    ENTRY_LIKELY_MIN_SCORE,
+    ENTRY_POSSIBLE_MIN_SCORE,
     ENTRY_SLOT_HEADER,
+    NO_ABSENCE_CLAUSE,
     NOTE_DELAY,
     assign_entry_slots,
     condition_grade,
@@ -125,13 +128,19 @@ def test_direction_mode_splits_by_result_direction() -> None:
     assert "국면 달을 성사 달로 세우지 말 것" in d and "가장 이른 2027-04로 두고" in d
 
 
-def test_direction_mode_without_done_says_so() -> None:
+def test_direction_mode_without_done_names_months_without_absence() -> None:
+    """2026-11-20: 성사 방향 후보가 없어도 '없다'고 선언시키지 않는다 — 있는 달을 이름 들어 말한다.
+
+    direction 모드(비교·회귀용)의 무성사 갈래.
+    """
     a = assign_entry_slots(
         [_cand("2027-02", 90, "pressure"), _cand("2027-03", 86, "pressure")], mode="direction",
     )
     assert a is not None
     d = entry_slot_directive(a, event_ko="취업·합격", earliest_asked=True)
-    assert "성사 달 후보 없음" in d and "2027-02·2027-03" in d and "지어내지 말 것" in d
+    assert "움직임이 보이는 달을 찾아보니" in d and "2027-02·2027-03" in d
+    assert "입사·계약이 맺어지는 달로 세우지는 말 것" in d and NO_ABSENCE_CLAUSE in d
+    assert "성사 달 후보 없음" not in d and "성사 달 후보가 없고" not in d
 
 
 # ── B. trigger 모드(기본) — 점수 하한 + 조건 등급 ───────────────────────────────
@@ -178,22 +187,128 @@ def test_trigger_directive_names_earliest_and_smooth_months() -> None:
         ganji_by_period={"2027-02": "壬寅", "2027-04": "甲辰"},
     )
     assert d.startswith(ENTRY_SLOT_HEADER)
-    assert "성사 가능 달(사건 신호 매우 강함" in d
-    assert "2027-02(壬寅 · 조건 불리(처우·강도 주의))" in d and "2027-04(甲辰 · 순조)" in d
-    assert "움직이는 달(사건 신호는 있으나 성사 기준 미달" in d and "2026-12·2027-03" in d
-    assert "가장 이른 성사 가능 달은 2027-02(壬寅)(조건 불리" in d
+    # 2026-11-20: 틀 = 유력한 달(93점 이상 전부, 시점순 · 조건 등급 병기 · 최고점 표시).
+    assert "유력한 달('취업·합격' 사건 신호가 매우 강한 달" in d
+    assert (
+        "2027-02(壬寅 · 조건 불리(처우·강도 주의))·"
+        "2027-04(甲辰 · 순조 · 신호 가장 강함)·2027-05(순조 · " in d
+    )
+    # 86~92점은 약하지만 가능성 있는 달(조건 등급 없음), 86 미만은 '흐름이 보이는 달'로만.
+    assert "약하지만 가능성 있는 달(신호는 있으나 유력한 달보다 약함): 2027-03." in d
+    assert "그 밖에 흐름이 보이는 달(탐색·준비 단계): 2026-12." in d
+    assert set(a.conditions) == {"2027-02", "2027-04", "2027-05"}
+    # 95점 이상(성사 가능 달)은 유력한 달 가운데 결정 행동이 붙는 달로 병기한다.
+    assert "유력한 달 가운데 2027-02(壬寅)·2027-04(甲辰)·2027-05은(는) 신호가 가장 강한 구간" in d
+    assert "가장 이른 유력한 달은 2027-02(壬寅)(조건 불리" in d
     assert "조건까지 순조한 가장 이른 달은 2027-04(甲辰)" in d
-    assert "불성사·국면으로 격하하지 말 것" in d and "각각 한 번씩 달 이름을 들어" in d
+    assert "국면으로 격하하지 말 것" in d and "각각 한 번씩 달 이름을 들어" in d
+    assert "유력한 달을 찾아보니" in d and NO_ABSENCE_CLAUSE in d
     d2 = entry_slot_directive(a, event_ko="취업·합격")
-    assert "가장 이른 성사 가능 달" not in d2
+    assert "가장 이른 유력한 달" not in d2
 
 
-def test_trigger_directive_without_done_says_so() -> None:
-    a = assign_entry_slots(_LIVE_TOP5, mode="trigger", done_min=95)
-    assert a is not None
+def test_trigger_directive_without_done_names_likely_months() -> None:
+    """95점 이상이 없어도 93점 이상은 전부 '유력한 달' — 부재 선언을 시키지 않는다(2026-11-20).
+
+    데굴님: "성사가 확정되는 달은 보이지 않지만 … 은 앞으로 네게 그런 기회는 없어 라고 말하는 것과
+    같아. 유력한 달을 찾아보니, 같은 식으로 정리해주는게 맞을 것 같아."
+    """
+    cands = [
+        _cand("2027-02", 94, "pressure"), _cand("2027-05", 93, "opportunity"),
+        _cand("2027-03", 92, "pressure"), _cand("2027-04", 90, "opportunity"),
+        _cand("2026-12", 60, "pressure"),
+    ]
+    a = assign_entry_slots(cands, mode="trigger", done_min=95)
+    assert a is not None and a.done_periods == []
+    assert a.likely_periods == ["2027-02", "2027-05"] and a.strongest_likely == "2027-02"
+    assert a.possible_periods == ["2027-03", "2027-04"]
     d = entry_slot_directive(a, event_ko="취업·합격", earliest_asked=True)
-    assert "성사 가능 달 없음" in d and "성사 기준에 못 미친다" in d and "지어내지 말 것" in d
-    assert "2026-12·2027-02·2027-03·2027-04·2027-05" in d
+    assert "유력한 달('취업·합격' 사건 신호가 매우 강한 달" in d
+    assert "2027-02(조건 불리(처우·강도 주의) · 신호 가장 강함)·2027-05(순조)" in d
+    assert "약하지만 가능성 있는 달(신호는 있으나 유력한 달보다 약함): 2027-03·2027-04." in d
+    assert "그 밖에 흐름이 보이는 달(탐색·준비 단계): 2026-12." in d
+    assert "유력한 달을 찾아보니" in d and NO_ABSENCE_CLAUSE in d
+    assert "제안·접수·면접과 조건 확인이 본격적으로 오가는 달" in d
+    assert "가장 이른 유력한 달은 2027-02" in d and "조건까지 순조한 가장 이른 달은 2027-05" in d
+    # 종전 문구가 남아 있으면 안 된다.
+    for old in ("성사 가능 달 없음", "사건 신호가 성사 기준에 못 미친다", "없다'고 먼저 말"):
+        assert old not in d
+    # 결정 행동 병기는 95점 이상 달이 있을 때만.
+    assert "입사·계약까지 닿을 수 있는 달" not in d
+    # 승계 저장: 성사 가능 달이 없으면 유력한 달 가운데 신호가 가장 강한 달.
+    assert a.to_state_slots() == {"done": "2027-02", "move": "2026-12"}
+
+
+def test_trigger_tiers_follow_score_boundaries() -> None:
+    """점수 경계 — 유력한 달 = 93점 이상 전부 / 약하지만 가능성 있는 달 = 86~92 / 55~85 = 흐름만.
+
+    경계값은 데굴님 확정(2026-11-20 "93/86으로 가자" — 처음 지정한 85/70 은 실이력에서 한 해 평균
+    8.6달이 유력한 달이 됐다).
+    """
+    assert (ENTRY_LIKELY_MIN_SCORE, ENTRY_POSSIBLE_MIN_SCORE) == (93, 86)
+    cands = [
+        _cand("2027-01", 93, "opportunity"),   # 경계 — 유력
+        _cand("2027-02", 92, "opportunity"),   # 경계 바로 아래 — 가능성
+        _cand("2027-03", 86, "pressure"),      # 경계 — 가능성
+        _cand("2027-04", 85, "opportunity"),   # 경계 바로 아래 — 흐름만
+        _cand("2027-05", 55, "opportunity"),   # 흐름 하한
+        _cand("2027-06", 54, "opportunity"),   # 어느 칸에도 없음
+        _cand("2027-07", 99, "opportunity"),   # 성사 가능 달 — 유력한 달에 포함
+        _cand("2027", 99, "opportunity"),      # 연 단위 — 월 배정 대상 아님
+    ]
+    a = assign_entry_slots(cands, mode="trigger", done_min=95)
+    assert a is not None
+    assert a.likely_periods == ["2027-01", "2027-07"] and a.done_periods == ["2027-07"]
+    assert a.possible_periods == ["2027-02", "2027-03"]
+    assert a.move_periods == ["2027-01", "2027-02", "2027-03", "2027-04", "2027-05"]
+    assert a.scores["2027-06"] == 54 and "2027" not in a.scores
+    # 조건 등급은 유력한 달에만 붙는다.
+    assert set(a.conditions) == {"2027-01", "2027-07"}
+    d = entry_slot_directive(a, event_ko="취업·합격")
+    assert "2027-01(순조)·2027-07(순조 · 신호 가장 강함)" in d
+    assert "약하지만 가능성 있는 달(신호는 있으나 유력한 달보다 약함): 2027-02·2027-03." in d
+    assert "그 밖에 흐름이 보이는 달(탐색·준비 단계): 2027-04·2027-05." in d
+    assert "2027-06" not in d
+    # 같은 달에 후보가 둘이면 높은 점수로 칸을 정한다.
+    b = assign_entry_slots(
+        [_cand("2027-03", 88, "pressure"),
+         _cand("2027-03", 94, "opportunity", event=EventKey.CAREER_CHANGE)],
+        mode="trigger", done_min=95,
+    )
+    assert b is not None and b.likely_periods == ["2027-03"] and b.possible_periods == []
+    assert b.conditions["2027-03"].startswith(COND_SMOOTH)   # 88점 pressure 는 등급에 참여하지 않음
+
+
+def test_trigger_directive_possible_only_and_faint_only() -> None:
+    """유력한 달이 없을 때도 '없다'가 아니라 있는 달을 강도대로 — 유력한 달로 올리지도 않는다."""
+    # 실답 2턴 Top-5(오전 라벨 기준 점수 90·88·86·87·60)는 93 미만이라 전부 '가능성 있는 달'이다.
+    poss = assign_entry_slots(_LIVE_TOP5, mode="trigger", done_min=95)
+    assert poss is not None and poss.likely_periods == [] and poss.strongest_likely is None
+    assert poss.possible_periods == ["2027-02", "2027-03", "2027-04", "2027-05"]
+    d = entry_slot_directive(poss, event_ko="취업·합격", earliest_asked=True)
+    head = ENTRY_SLOT_HEADER + " 약하지만 가능성 있는 달('취업·합격' 신호가 있는 달): "
+    assert d.startswith(head)
+    assert "2027-02·2027-03·2027-04·2027-05." in d and "가능성 있는 달을 찾아보니" in d
+    assert "그 밖에 흐름이 보이는 달(탐색·준비 단계): 2026-12." in d
+    assert "'가장 유력한 달·유력한 달'이라고 부르지는 말 것" in d and NO_ABSENCE_CLAUSE in d
+    assert "유력한 달(" not in d and "가장 이른 유력한 달" not in d
+    # 반례: 입력 줄에 '기준에 못 미친다'가 금지 예시 밖에서 쓰이면 답으로 샌다.
+    assert "못 미치는" not in d and d.count("못 미친다") == 1   # 금지 문장 안의 한 번뿐
+    assert poss.to_state_slots() == {}          # 유력한 달이 없으면 승계할 달도 없다
+
+    faint = assign_entry_slots(
+        [_cand("2026-12", 85, "pressure"), _cand("2027-01", 55, "opportunity")],
+        mode="trigger", done_min=95,
+    )
+    assert faint is not None and faint.likely_periods == [] and faint.possible_periods == []
+    d2 = entry_slot_directive(faint, event_ko="취업·합격")
+    assert d2.startswith(ENTRY_SLOT_HEADER + " 흐름이 보이는 달(")
+    assert "2026-12·2027-01." in d2 and "흐름이 보이는 달을 찾아보니" in d2
+    assert "'유력한 달'이라고 부르지는 말 것" in d2 and NO_ABSENCE_CLAUSE in d2
+    # 85점 달은 후보 줄 강도가 '신호가 매우 강합니다'다 — 지시문이 '약하게'라고 깎지 않는다.
+    assert "약하게" not in d2
+    # 55점 미만뿐이면 배정 자체가 없다(약한 후보 예외 지시문 소관).
+    assert assign_entry_slots([_cand("2026-12", 54, "pressure")], mode="trigger") is None
 
 
 def test_non_entry_or_year_candidates_give_none() -> None:
@@ -269,7 +384,7 @@ def test_prior_slots_directive_for_open_when_followup() -> None:
     )
     d = _prior_entry_slots_directive(st, open_when, "2026-10", is_followup=False)
     assert d is not None
-    assert "성사 달 2027년 4월" in d and "'언제' 질문" in d and "뒤집어" in d
+    assert "유력한 달 2027년 4월" in d and "'언제' 질문" in d and "뒤집지 말 것" in d
     d2 = _prior_entry_slots_directive(st, _intent("2027-02"), "2026-10", is_followup=False)
     assert d2 is not None and "2027년 2월" in d2 and "'언제' 질문" not in d2
     assert _prior_entry_slots_directive(
@@ -318,10 +433,15 @@ def test_counseling_block_review_periods_line() -> None:
     ))
     assert "결정 행동(수락·계약·실행) 허용 시기: 2027-05, 2027-04" in both
     assert "준비·검토 시기(결정 권고 금지): 2027-02, 2027-03" in both
-    assert "성사 기준에 못 미치는 달" in both and "국면·압박 후보 달" not in both
+    assert "사건 신호가 있는 달" in both and "국면·압박 후보 달" not in both
+    # 2026-11-20: '성사 기준 미달' 문구가 답으로 새지 않게 줄 자체에서 뺐다.
+    assert "성사 기준에 못 미치는 달" not in both
+    assert "'기준에 못 미친다'는 말은 답에 쓰지 말 것" in both
     assert both.index("허용 시기") < both.index("준비·검토 시기") < both.index("[상담 서술 계약]")
     only_review = "\n".join(ca.counseling_block_lines(sem, review_periods=("2027-02",)))
-    assert "허용 시기: 없음" in only_review
+    assert "결정 행동(수락·계약·실행) 권고는 이 창의 어느 달에도 붙이지 말 것" in only_review
+    assert "'성사되는 달이 없다·기회가 없다'는 뜻으로 답에 옮기지 말 것" in only_review
+    assert "허용 시기: 없음" not in only_review and "성사 기준에 못 미쳐" not in only_review
     assert "준비·검토 시기(결정 권고 금지): 2027-02" in only_review
     plain = "\n".join(ca.counseling_block_lines(sem))
     assert "허용 시기" not in plain and "준비·검토 시기" not in plain
@@ -340,8 +460,11 @@ def test_live_case_prompts_under_default_mode(monkeypatch: pytest.MonkeyPatch) -
     r1 = chat_service.chat(birth, "다른 사주에서는 내년 4월에 취업할 수 있을거래. ", _TODAY, True)
     pp1 = r1.prompt_preview or ""
     assert r1.postprocess is not None
-    # 1턴(2027-04 한 달 창): 95 하한에 못 미쳐 '성사 가능 달 없음' + 움직이는 달 2027-04.
-    assert "성사 가능 달 없음" in pp1 and "움직이는 달 후보: 2027-04(甲辰)" in pp1
+    # 1턴(2027-04 한 달 창): 90점 — 86~92 구간이라 '약하지만 가능성 있는 달'이다
+    # (2026-11-20: 종전에는 '성사 가능 달 없음 + 움직이는 달 2027-04'로 나갔다).
+    assert "약하지만 가능성 있는 달('취업·합격' 신호가 있는 달): 2027-04(甲辰)." in pp1
+    assert "가능성 있는 달을 찾아보니" in pp1
+    assert "성사 가능 달 없음" not in pp1 and "움직이는 달 후보: 2027-04" not in pp1
     assert r1.postprocess.entry_slots_engine == {}
     # 권유 처리 A: 질문 사건이 그 달의 강한 후보면 '동반 신호로만' 격하 대신 함께 서술.
     # 최상위 사건명은 점수 규칙에 따라 바뀐다(2026-11-07 결혼 실험 ON 뒤 이 달은 '결혼 신호') —
@@ -355,14 +478,27 @@ def test_live_case_prompts_under_default_mode(monkeypatch: pytest.MonkeyPatch) -
     r2 = chat_service.chat(birth, "최대한 빠르게 취업하려면 언제 가능할가", _TODAY, True)
     pp2 = r2.prompt_preview or ""
     assert r2.postprocess is not None
-    assert "성사 가능 달(사건 신호 매우 강함" in pp2
+    assert "유력한 달('취업·합격' 사건 신호가 매우 강한 달" in pp2
     # 2026-10-25 연애운 대조 P0-1(삼합완성·반합성립 변환 복구)을 전 궁위에 열면 2027-03 癸卯가
     # 亥卯 반합(월지·일지 亥) 월·일주 HAP 가산으로 job_gain 92→96 이 되어 성사 가능 달에 편입되고
     # 실이력 trigger95 정밀도가 6.4%→5.6% 로 내려갔다(`var/entry_slot_modes_20261025_love.md`).
     # 2차 조정(`hap_grade_scope`: half·full 은 일지 × 관계 사건만)으로 직업 사건은 종전과 같다.
-    assert "2027-02(壬寅 · 조건 불리(처우·강도 주의))" in pp2
-    assert "2026-12(庚子)·2027-03(癸卯)·2027-04(甲辰)·2027-05(乙巳)" in pp2
-    assert "가장 이른 성사 가능 달은 2027-02(壬寅)(조건 불리" in pp2
+    # 점수 98·93 = 유력한 달, 92·90 = 약하지만 가능성 있는 달, 56 = 그 밖에 흐름이 보이는 달.
+    assert (
+        "2027-02(壬寅 · 조건 불리(처우·강도 주의) · 신호 가장 강함)·2027-05(乙巳 · 순조)" in pp2
+    )
+    assert (
+        "약하지만 가능성 있는 달(신호는 있으나 유력한 달보다 약함): "
+        "2027-03(癸卯)·2027-04(甲辰)." in pp2
+    )
+    assert "그 밖에 흐름이 보이는 달(탐색·준비 단계): 2026-12(庚子)." in pp2
+    assert "조건까지 순조한 가장 이른 달은 2027-05(乙巳)" in pp2
+    assert "유력한 달 가운데 2027-02(壬寅)은(는) 신호가 가장 강한 구간" in pp2
+    assert "가장 이른 유력한 달은 2027-02(壬寅)(조건 불리" in pp2
+    # 배정 입력 = 질문 창 전체의 진입 월 후보(상위 5개 밖의 달도 담긴다).
+    _window = {c.period for c in r2.postprocess.payload.entry_window_candidates}
+    assert {c.period for c in r2.postprocess.payload.event_candidates} <= _window
+    assert {"2026-11", "2027-06"} <= _window
     assert r2.postprocess.entry_slots_engine == {"done": "2027-02", "move": "2026-12"}
     # 권유 처리 B: 결정 행동 허용 시기는 성사 가능 달만, 나머지 월 후보는 준비·검토 시기.
     allowed, review = _decision_periods(r2.postprocess.payload)
@@ -373,3 +509,37 @@ def test_live_case_prompts_under_default_mode(monkeypatch: pytest.MonkeyPatch) -
         assert "준비·검토 시기(결정 권고 금지): 2027-05, 2027-03, 2027-04, 2026-12" in pp2
     d2 = assign_entry_slots(list(r2.postprocess.payload.event_candidates), mode="direction")
     assert d2 is not None and d2.done_periods == ["2027-04", "2027-05"]
+
+
+def test_slot_assignment_reads_whole_window_not_top_n(monkeypatch: pytest.MonkeyPatch) -> None:
+    """실답 web-mwobgi4o(2026-11-20): 98점 달이 상위 5개 선별에서 빠져 '성사 가능 달 없음'이 나갔다.
+
+    배정·결정 행동 허용 시기는 `entry_window_candidates`(창 전체)를 본다 — 실린 후보에서 유력한 달을
+    지워도 결과가 같아야 한다. 창 전체 목록이 비어 있을 때만 실린 후보로 돌아간다.
+    """
+    from saju_api.services.chat_service import _entry_slot_candidates
+
+    monkeypatch.delenv("SAJU_ENTRY_SLOT_MODE", raising=False)
+    monkeypatch.delenv("SAJU_ENTRY_DONE_MIN_SCORE", raising=False)
+    birth = BirthInput.model_validate(json.loads(_FIXTURE.read_text(encoding="utf-8")))
+    r = chat_service.chat(birth, "최대한 빠르게 취업하려면 언제 가능할가", _TODAY, True)
+    assert r.postprocess is not None
+    payload = r.postprocess.payload
+    trimmed = payload.model_copy(update={
+        "event_candidates": [c for c in payload.event_candidates if c.period == "2026-12"],
+    })
+    assert [c.period for c in trimmed.event_candidates] == ["2026-12"]
+    a = assign_entry_slots(_entry_slot_candidates(trimmed))
+    assert a is not None and a.done_periods == ["2027-02"]
+    assert a.likely_periods == ["2027-02", "2027-05"]
+    assert a.possible_periods == ["2027-03", "2027-04"]
+    # 종전 방식(실린 후보만)이면 유력한 달이 사라진다 — 이 차이가 결함이었다.
+    old = assign_entry_slots(list(trimmed.event_candidates))
+    assert old is not None and old.likely_periods == [] and old.done_periods == []
+    # 결정 행동 허용 시기도 창 전체 기준: 실린 2026-12 는 검토 시기, 허용 달은 실린 후보 안에서만.
+    assert _decision_periods(trimmed) == ((), ("2026-12",))
+    # 창 전체 목록이 없으면(진입 사건 질문이 아닌 payload) 실린 후보로 돌아간다.
+    empty = payload.model_copy(update={"entry_window_candidates": []})
+    assert [c.period for c in _entry_slot_candidates(empty)] == [
+        c.period for c in payload.event_candidates
+    ]

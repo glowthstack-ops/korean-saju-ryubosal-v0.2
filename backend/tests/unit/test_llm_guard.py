@@ -28,10 +28,11 @@ def test_limit_table_matches_spec() -> None:
     assert CALL_LIMITS["report_focus_section"].max_output_chars == 4_500
     # 2026-10-25 데굴님 승인: 풀이 섹션 20,000→22,000(세운 grounding·월주 상대 관점 블록 추가분).
     # 2026-10-27 데굴님 결정: 22,000→26,000(실측 최대 21,635tok — 한도의 98%).
-    assert CALL_LIMITS["report_focus_section"].max_input_tokens == 26_000
-    assert CALL_LIMITS["report_full_section"].max_input_tokens == 26_000
-    # 2026-10-15: 궁합 상대 운 표 섹션(RP-06·RP-07·RP-06-Y*)만 입력 두 배(2026-10-25: 44,000).
-    assert CALL_LIMITS["report_focus_section_pair"].max_input_tokens == 52_000
+    # 2026-11-19 데굴님 결정: 26,000→36,000(실측 최대 29,545tok — Y-04·Y-08 등 초과 실패).
+    assert CALL_LIMITS["report_focus_section"].max_input_tokens == 36_000
+    assert CALL_LIMITS["report_full_section"].max_input_tokens == 36_000
+    # 2026-10-15: 궁합 상대 운 표 섹션(RP-06·RP-07·RP-06-Y*)만 입력 두 배(2026-11-19: 72,000).
+    assert CALL_LIMITS["report_focus_section_pair"].max_input_tokens == 72_000
     assert CALL_LIMITS["consistency_check"].max_output_tokens == 500
     # 일주별 오늘의 운세 배치 교정(2026-07-23 계획 승인) — 60건 JSONL 1회/일.
     assert CALL_LIMITS["daily_fortune_polish"].max_input_tokens == 30_000

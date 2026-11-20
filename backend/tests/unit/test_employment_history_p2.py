@@ -36,7 +36,9 @@ def test_entry_window_on_job_when_question_and_directive_text() -> None:
     pol = resolve_horizon("언제쯤 취업이 될까요", _intent(event_key="job_gain"))
     assert pol is not None and pol.kind == "transactional_when" and pol.entry_window
     text = horizon_directive(pol)
-    assert "움직이는 달" in text and "성사 달" in text and "회사명" in text
+    assert "움직이는 달" in text and "유력한 달" in text and "회사명" in text
+    # 2026-11-20: 첫 문단은 달 이름으로 시작한다 — '달이 없다'는 선언으로 열지 않는다.
+    assert "'달이 없다'는 선언으로 시작하지 말 것" in text and "성사 달 ○월" not in text
     assert ENTRY_WINDOW_DIRECTIVE in text
 
 

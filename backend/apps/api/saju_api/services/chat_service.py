@@ -38,6 +38,7 @@ from saju_engines import (
 from saju_engines.agent_relations import agent_relation_lines, detect_agent_question
 from saju_engines.ai_tell_audit import audit_ai_tells
 from saju_engines.answer_label_audit import (
+    absence_declarations,
     audit_entry_candidate_coverage,
     audit_intensity_claims,
     entry_window_labels_present,
@@ -2513,7 +2514,7 @@ def finalize_answer_full(
             _has_done, _has_move = entry_window_labels_present(answer)
             _logger.info(
                 "entry_window_audit result=%s done_label=%s move_label=%s thread=%s",
-                "pass" if (_has_done and _has_move) else "miss", _has_done, _has_move, thread_id,
+                "pass" if _has_done else "miss", _has_done, _has_move, thread_id,
             )
         # 강도 충실 감사(2026-10-23, 로그 전용) — '조짐이 약하게' 이하 후보 달을
         # '강하게·가장 유력'으로
@@ -2535,13 +2536,21 @@ def finalize_answer_full(
         # 성사 달 후보 커버리지 감사(2026-10-24, 로그 전용) — 엔진 배정 성사 달이 답에서 빠졌는가.
         # 실답(web-mvm8zqyr): 2027-04 성사 후보가 2턴 답에서 통째로 빠져 직전 턴과 모순.
         if ctx.entry_window:
-            _assign = assign_entry_slots(list(ctx.payload.event_candidates))
-            if _assign is not None and _assign.done_periods:
-                _omitted = audit_entry_candidate_coverage(answer, _assign.done_periods)
+            _assign = assign_entry_slots(_entry_slot_candidates(ctx.payload))
+            # 유력한 달(93점 이상 전부 — 성사 가능 달 포함)이 답에서 빠졌는가(2026-11-20 확장).
+            _must = (_assign.likely_periods or _assign.done_periods) if _assign is not None else []
+            if _must:
+                _omitted = audit_entry_candidate_coverage(answer, _must)
                 _logger.log(
                     logging.WARNING if _omitted else logging.INFO,
                     "entry_candidate_coverage result=%s done=%s omitted=%s thread=%s",
-                    "violation" if _omitted else "pass", _assign.done_periods, _omitted, thread_id,
+                    "violation" if _omitted else "pass", _must, _omitted, thread_id,
+                )
+            # 부재 선언 감사(2026-11-20, 로그 전용) — '성사 달이 없다' 류가 답에 다시 나오는가.
+            _absent = absence_declarations(answer)
+            if _absent:
+                _logger.warning(
+                    "entry_absence_audit result=violation hits=%s thread=%s", _absent, thread_id,
                 )
         # 이동 주체 단정 감사(2026-10-15) — 로그 전용, 답 불변.
         answer = _audit_mobility_agency_answer(answer, ctx.payload, ctx.question, thread_id)
@@ -5668,10 +5677,10 @@ def _entry_window_directive_needed(
 #: 두 칸 지시 예외(2026-10-23) — 창 안의 진입 후보가 모두 약하거나 검토월이면 성사 달로 세우지
 #: 않는다.
 _ENTRY_WINDOW_WEAK_NOTE = (
-    "[진입 시기 두 칸 — 예외] 질문 창 안의 '{event}' 후보는 {reason}. 이런 달은 성사 달로 두지 "
-    "말고 '검토·준비 달'로 밝혀라 — 첫 문단에서 이 달이 성사 달이 아니라 검토·준비 단계임을 먼저 "
-    "말하고, 성사 달·움직이는 달은 자료에 없으면 지어내지 말 것('이 창 안에는 성사 달 후보가 "
-    "없다'로 말할 것). "
+    "[진입 시기 두 칸 — 예외] 질문 창 안의 '{event}' 후보는 {reason}. 이런 달은 유력한 달로 "
+    "세우지 말고 '검토·준비 달'로 밝혀라 — 첫 문단에서 이 달이 검토·준비 단계임을 먼저 말하고, "
+    "자료에 없는 유력한 달·움직이는 달을 지어내지 말 것. '성사 달이 없다·기회가 없다'처럼 달이 "
+    "없다고 선언하지는 말 것(이 달의 단계만 말하면 된다). "
     "'가장 유력·강하게 움직이는'처럼 위 절대 강도 표현을 넘어서는 말을 쓰지 말 것."
 )
 #: 약함 판정 경계 — tone_for_score 의 '조짐이 약하게 있습니다' 상한(55 미만).
@@ -5705,13 +5714,24 @@ def _entry_window_weak_note(candidates: list[LlmEventCandidate], intent: IntentJ
     return _ENTRY_WINDOW_WEAK_NOTE.format(event=event, reason="·".join(reasons))
 
 
+def _entry_slot_candidates(payload: LlmInput) -> list:
+    """두 칸 엔진 배정의 입력 — 질문 창 전체의 진입 월 후보(없으면 실린 이벤트 후보).
+
+    2026-11-20: 배정을 `payload.event_candidates`(상위 N개)로 하면 '창 안에 유력한 달이 없다'가
+    선별 순서에 좌우된다(실답 web-mwobgi4o — 98점 달이 선별에서 빠져 '성사 가능 달 없음'). 배정·
+    결정 행동 허용 시기·커버리지 감사가 모두 이 함수를 거쳐 같은 모집단을 본다.
+    """
+    return list(payload.entry_window_candidates or payload.event_candidates)
+
+
 def _entry_slot_block(
-    candidates: list[LlmEventCandidate], intent: IntentJson, question: str,
+    candidates: list, intent: IntentJson, question: str,
 ) -> tuple[str | None, dict[str, str]]:
     """두 칸 엔진 배정 — (지시문, 승계 저장용 {'done','move'}). 월 진입 후보가 없으면 (None, {}).
 
     배정은 `saju_engines.entry_slots.assign_entry_slots`(채팅·리포트 공용)이 한다. '최대한 빨리'
-    질문이면 가장 이른 성사 달 후보를 성사 달로 못박는다.
+    질문이면 가장 이른 유력한 달을 짚게 한다. `candidates` 는 `_entry_slot_candidates(payload)` —
+    질문 창 전체의 진입 월 후보다.
     """
     assignment = assign_entry_slots(candidates)
     if assignment is None:
@@ -5720,8 +5740,10 @@ def _entry_slot_block(
     other_mode = "direction" if assignment.mode == "trigger" else "trigger"
     other = assign_entry_slots(candidates, mode=other_mode)
     _logger.info(
-        "entry_slot_modes mode=%s done=%s move=%s other_mode=%s other_done=%s",
-        assignment.mode, assignment.done_periods, assignment.move_periods,
+        "entry_slot_modes mode=%s done=%s likely=%s possible=%s move=%s other_mode=%s "
+        "other_done=%s",
+        assignment.mode, assignment.done_periods, assignment.likely_periods,
+        assignment.possible_periods, assignment.move_periods,
         other_mode, other.done_periods if other is not None else [],
     )
     ganji = {c.period: c.ganji for c in candidates if len(c.period) == 7 and c.ganji}
@@ -5737,17 +5759,19 @@ def _entry_slot_block(
 _PRIOR_ENTRY_SLOTS_DIRECTIVE = (
     "[진입 시기 — 직전 안내 유지] 이 스레드에서 직전에 {slots}로 안내했다. 이번에 물은 "
     "{asked}은(는) 그 두 달과 같은 달이면 같은 칸으로 그대로 말하고, 다른 달이면 '그 앞 단계"
-    "(준비·검토)'인지 '두 달 사이'인지부터 밝혀라. 직전 안내를 뒤집어 이 달을 새 성사 달로 "
-    "올리지 말 것 — 자료가 직전 안내와 "
-    "다르게 읽히면 '직전에 안내한 성사 달은 그대로이고, 이 달은 …'처럼 둘을 함께 말하라."
+    "(준비·검토)'인지 '두 달 사이'인지부터 밝혀라. 직전 안내를 뒤집어 이 달만 새로 가장 유력한 "
+    "달로 올리지 말 것(이번 엔진 배정 블록이 이 달을 유력한 달로 들면 그대로 따른다) — 자료가 "
+    "직전 안내와 "
+    "다르게 읽히면 '직전에 안내한 유력한 달은 그대로이고, 이 달은 …'처럼 둘을 함께 말하라."
 )
 #: 직전 안내 유지 — 시점을 열어 둔 '언제' 후속(2026-10-24, 실답 web-mvm8zqyr: 1턴 '내년 4월 취업' →
 #: 2턴 '최대한 빨리 언제'가 성사 달을 2027-04에서 2027-02(국면 달)로 뒤집음).
 _PRIOR_ENTRY_SLOTS_OPEN_DIRECTIVE = (
     "[진입 시기 — 직전 안내 유지] 이 스레드에서 직전에 {slots}로 안내했다. 이번 질문은 시점을 "
-    "열어 둔 '언제' 질문이다 — 직전 성사 달을 뒤집어 다른 달을 새 성사 달로 올리지 말 것. 그보다 "
+    "열어 둔 '언제' 질문이다 — 직전에 안내한 유력한 달을 빼거나 뒤집지 말 것(유력한 달의 범위는 "
+    "이번 엔진 배정 블록을 따른다). 그보다 "
     "이른 달은 '그 앞 단계(움직이는 달·준비)'로 두고, 자료가 직전 안내와 다르게 읽히면 '직전에 "
-    "안내한 성사 달은 그대로이고, 이 달은 …'처럼 둘을 함께 말하라."
+    "안내한 유력한 달은 그대로이고, 이 달은 …'처럼 둘을 함께 말하라."
 )
 
 
@@ -5819,7 +5843,7 @@ def _prior_entry_slots_directive(
     live = {k: slots[k] for k in ("done", "move") if slots.get(k) and slots[k] >= luck_month}
     if not live:
         return None
-    names = {"done": "성사 달", "move": "움직이는 달"}
+    names = {"done": "유력한 달", "move": "움직이는 달"}
     slots_ko = "·".join(f"{names[k]} {format_ym_ko(v)}" for k, v in live.items())
     tr = intent.time_range
     if tr is not None and tr.start and len(tr.start) >= 7:
@@ -8078,7 +8102,7 @@ def chat(
         # 내린다 — 같은 사건 키의 국면 후보(압박·부담)가 '최대한 빨리' 질문에서 성사 달로 올라가던
         # 결함 차단.
         _slot_dir, _entry_slots_engine = _entry_slot_block(
-            list(payload.event_candidates), intent, question,
+            _entry_slot_candidates(payload), intent, question,
         )
         if _slot_dir:
             trailing.append(_slot_dir)
@@ -9221,7 +9245,7 @@ def _decision_periods(payload: LlmInput) -> tuple[tuple[str, ...], tuple[str, ..
     ri = getattr(payload, "resolved_intent", None)
     if ri is None or ri.event_key not in _ENTRY_CHANNEL_KEYS:
         return periods, ()
-    assignment = assign_entry_slots(list(payload.event_candidates))
+    assignment = assign_entry_slots(_entry_slot_candidates(payload))
     if assignment is None:
         return periods, ()
     done = set(assignment.done_periods)

@@ -18,10 +18,10 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from contextvars import ContextVar
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -45,6 +45,7 @@ from saju_shared_types.constants import (
     ten_god,
 )
 from saju_shared_types.daily_fortune import (
+    LOTTO_COOLDOWN_DAYS,
     DailyEventForecast,
     DailyFortuneBoard,
     DailyIljuFortune,
@@ -53,6 +54,7 @@ from saju_shared_types.daily_fortune import (
     LuckyPlace,
     content_version_for,
     lotto_requires_windfall_star,
+    lotto_uses_signal_cooldown,
     stage_direction_forward,
 )
 from saju_shared_types.enums import Branch, Stem
@@ -1106,19 +1108,137 @@ def lotto_inflow_ok(ilju_stem: Stem, ctx: DayGanjiContext) -> bool:
     """
     if not lotto_requires_windfall_star(ctx.the_date):
         return True
+    return _windfall_surface_ok(ilju_stem, ctx)
+
+
+def _windfall_surface_ok(ilju_stem: Stem, ctx: DayGanjiContext) -> bool:
+    """표면 십성에 편재가 있고 비견·겁재가 없는가 — 날짜 경계를 보지 않는 순수 판정."""
     gods = surface_ten_gods(ilju_stem, ctx)
     return _WINDFALL_STAR in gods and not (gods & _PEER_STARS)
 
 
 def _lotto_slot_open(d: date, ilju_index: int) -> bool:
-    """이력 저장 없는 일주별 로또 쿨다운 — date-ordinal 슬롯(주 1회 이하)."""
+    """이력 저장 없는 일주별 로또 쿨다운 — date-ordinal 슬롯(주 1회 이하).
+
+    model.v2.5 이하 계약 전용이다. model.v2.6 부터는 `_lotto_recent_signal_iljus` 가 대신한다
+    (docs/17 §36) — 이 슬롯은 신호와 무관하게 7일 중 하루만 열려, 유입 표지 게이트(§33) 뒤로는
+    편재가 표면에 온 날의 6/7 을 버렸다.
+    """
     return (d.toordinal() + ilju_index) % 7 == 0
+
+
+def _money_ranked(per_ilju: list[dict[str, Any]], d: date) -> list[dict[str, Any]]:
+    """금전 도메인 점수 내림차순(동점은 날짜·일주 해시) — Top5 와 로또 순위가 같은 줄을 쓴다."""
+    return sorted(
+        per_ilju,
+        key=lambda row: (
+            -_domain_score(row["scored"], "money"),
+            _stable_hash(f"{d.isoformat()}|money|{row['ilju']}") % 9973,
+        ),
+    )
+
+
+def _lotto_money_signal_ok(scored: list[_ScoredEvent]) -> bool:
+    """로또 문구의 금전 조건 — 공돈 계열 확률이 문턱 이상이고 손실 신호가 약하다."""
+    best_p = max(
+        (s.probability for s in scored if s.domain == "money" and s.valence == "good"),
+        default=0,
+    )
+    worst_loss = max(
+        (s.activation for s in scored if s.domain == "money" and s.valence == "caution"),
+        default=0.0,
+    )
+    return best_p >= _LOTTO_MIN_MONEY_P and worst_loss < 0.35
+
+
+def lotto_signal_iljus(
+    ctx: DayGanjiContext, rows: Mapping[str, list[_ScoredEvent]]
+) -> list[str]:
+    """그 날 로또 조건이 성립한 일주(금전 순위순) — 쉬는 기간·당일 상한을 적용하기 전 목록.
+
+    조건 = 금전 순위 `_LOTTO_MAX_MONEY_RANK` 위 이내 · 공돈 확률 문턱 이상 · 손실 신호 약함 ·
+    표면 십성에 편재가 있고 비견·겁재 없음(docs/17 §12·§33). 유입 표지는 날짜 경계를 보지 않고
+    항상 요구한다 — model.v2.6 의 쉬는 기간은 '강한 신호가 성립한 날'만 센다(§36).
+
+    Args:
+        ctx: 그 날의 일진 간지.
+        rows: 일주(한자 2자) → 그 날의 채점 결과 목록(60일주 전부).
+    """
+    per_ilju: list[dict[str, Any]] = []
+    for idx in range(60):
+        stem, branch = ganzi_from_index(idx)
+        ilju = f"{stem.value}{branch.value}"
+        per_ilju.append({"ilju": ilju, "stem": stem, "scored": rows[ilju]})
+    return [
+        row["ilju"]
+        for row in _money_ranked(per_ilju, ctx.the_date)[:_LOTTO_MAX_MONEY_RANK]
+        if _lotto_money_signal_ok(row["scored"]) and _windfall_surface_ok(row["stem"], ctx)
+    ]
+
+
+def _lotto_recent_signal_iljus(
+    d: date, rows_for: Callable[[DayGanjiContext], Mapping[str, list[_ScoredEvent]]]
+) -> frozenset[str]:
+    """직전 `LOTTO_COOLDOWN_DAYS - 1` 일 안에 로또 조건이 성립한 적 있는 일주(model.v2.6, §36).
+
+    이력을 저장하지 않는다 — 이전 날짜를 같은 채점기로 다시 채점해 판정한다(결정론). 실제로
+    문구가 나갔는지(쉬는 기간·당일 상한 통과 여부)는 보지 않고 조건 성립만 본다. 재귀 없이
+    날짜만으로 값이 정해져 과거 날짜 재생이 가능하다. 그 대신 조건 성립일이 13일 이내 간격으로
+    이어지는 일주는 첫 날만 문구를 받는다(실측 같은 일주 최소 간격 16일).
+
+    Args:
+        d: 오늘 날짜.
+        rows_for: 일진 컨텍스트 → 60일주 채점 결과. 오늘 보드와 같은 채점기를 쓴다.
+    """
+    recent: set[str] = set()
+    for back in range(1, LOTTO_COOLDOWN_DAYS):
+        prev_ctx = build_day_context(d - timedelta(days=back))
+        recent.update(lotto_signal_iljus(prev_ctx, rows_for(prev_ctx)))
+    return frozenset(recent)
+
+
+def lotto_iljus_with_cooldown(
+    ctx: DayGanjiContext,
+    rows: Mapping[str, list[_ScoredEvent]],
+    rows_for: Callable[[DayGanjiContext], Mapping[str, list[_ScoredEvent]]],
+) -> list[str]:
+    """오늘 로또 문구를 받는 일주(model.v2.6, docs/17 §36) — 금전 순위순, 당일 상한 이내.
+
+    오늘 조건이 성립한 일주 가운데 쉬는 중(직전 13일 안에 조건 성립일 있음)이 아닌 일주를
+    금전 순위순으로 `_LOTTO_MAX_PER_DAY` 개까지 고른다. 오늘 조건이 성립한 일주가 없으면 이전
+    날짜를 채점하지 않는다.
+
+    Args:
+        ctx: 오늘 일진 간지.
+        rows: 오늘의 60일주 채점 결과.
+        rows_for: 이전 날짜의 일진 컨텍스트 → 60일주 채점 결과(오늘과 같은 채점기).
+    """
+    today_signal = lotto_signal_iljus(ctx, rows)
+    if not today_signal:
+        return []
+    resting = _lotto_recent_signal_iljus(ctx.the_date, rows_for)
+    return [ilju for ilju in today_signal if ilju not in resting][:_LOTTO_MAX_PER_DAY]
+
+
+def _v1_scored_rows(
+    ctx: DayGanjiContext, dicts: DailyFortuneDicts
+) -> dict[str, list[_ScoredEvent]]:
+    """v1 채점기로 그 날 60일주를 채점한다 — 일주(한자 2자) → 채점 결과 목록."""
+    rows: dict[str, list[_ScoredEvent]] = {}
+    for idx in range(60):
+        stem, branch = ganzi_from_index(idx)
+        rows[f"{stem.value}{branch.value}"] = [
+            _score_event(key, ev, stem, branch, ctx)
+            for key, ev in dicts.catalog["events"].items()
+        ]
+    return rows
 
 
 def compute_board(
     ctx: DayGanjiContext, dicts: DailyFortuneDicts,
     selection_override: Mapping[str, Mapping[str, str]] | None = None,
     scored_rows: Mapping[str, list[_ScoredEvent]] | None = None,
+    history_rows: Callable[[DayGanjiContext], Mapping[str, list[_ScoredEvent]]] | None = None,
 ) -> DailyFortuneBoard:
     """60일주 전체 보드를 산출한다(결정론 — 동일 입력이면 동일 출력).
 
@@ -1135,6 +1255,10 @@ def compute_board(
             패스를 건너뛰고 이 후보 풀을 그대로 쓴다 — 3층 판정 모델(v2,
             `daily_fortune_v2.compute_board_v2`)이 선발·렌더 파이프라인을 재사용하는
             주입 지점. None 이면 라이브 거동이 바이트 단위로 동일하다.
+        history_rows: 이전 날짜의 일진 컨텍스트 → 60일주 채점 결과. 로또 문구의 쉬는 기간
+            (model.v2.6, docs/17 §36) 판정에만 쓰며, `scored_rows` 를 주입하는 호출자는 같은
+            채점기를 함께 넘긴다. None 이면 v1 `_score_event` 로 채점한다. 쉬는 기간 경계
+            (`lotto_uses_signal_cooldown`) 이전 날짜에서는 호출되지 않는다.
     """
     d = ctx.the_date
     per_ilju: list[dict[str, Any]] = []
@@ -1180,7 +1304,7 @@ def compute_board(
             ),
         )
 
-    money_ranked = _ranked("money")
+    money_ranked = _money_ranked(per_ilju, d)
     top5 = DailyTop5(
         money=[row["ilju"] for row in money_ranked[:5]],
         love=[row["ilju"] for row in _love_ranked()[:5]],
@@ -1189,26 +1313,24 @@ def compute_board(
 
     # 로또 적격 — 순위 기준 결정론 선택, 당일 최대 3개 (PRD §12)
     lotto_iljus: set[str] = set()
-    for row in money_ranked[:_LOTTO_MAX_MONEY_RANK]:
-        if len(lotto_iljus) >= _LOTTO_MAX_PER_DAY:
-            break
-        money_goods = [
-            s for s in row["scored"]
-            if s.domain == "money" and s.valence == "good"
-        ]
-        money_cautions = [
-            s.activation for s in row["scored"]
-            if s.domain == "money" and s.valence == "caution"
-        ]
-        best_p = max((s.probability for s in money_goods), default=0)
-        weak_loss = max(money_cautions, default=0.0) < 0.35
-        if (
-            best_p >= _LOTTO_MIN_MONEY_P
-            and weak_loss
-            and _lotto_slot_open(d, row["index"])
-            and lotto_inflow_ok(row["stem"], ctx)
-        ):
-            lotto_iljus.add(row["ilju"])
+    if lotto_uses_signal_cooldown(d):
+        # model.v2.6(§36): 쉬는 기간 = 직전 13일 안에 조건 성립일 없음.
+        lotto_iljus.update(lotto_iljus_with_cooldown(
+            ctx,
+            {row["ilju"]: row["scored"] for row in per_ilju},
+            history_rows or (lambda prev_ctx: _v1_scored_rows(prev_ctx, dicts)),
+        ))
+    else:
+        # model.v2.5 이하 계약 — 날짜 산술 슬롯(과거 날짜 재생용, 거동 불변).
+        for row in money_ranked[:_LOTTO_MAX_MONEY_RANK]:
+            if len(lotto_iljus) >= _LOTTO_MAX_PER_DAY:
+                break
+            if (
+                _lotto_money_signal_ok(row["scored"])
+                and _lotto_slot_open(d, row["index"])
+                and lotto_inflow_ok(row["stem"], ctx)
+            ):
+                lotto_iljus.add(row["ilju"])
 
     # 2패스 — 슬롯 선발(전 일주) → 보드 단위 도메인 캡 → 문장 생성
     # 순서가 중요하다: 60건 후보를 모두 확정한 뒤에 재배정해야 일주 순서 편향이 없다.

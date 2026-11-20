@@ -60,6 +60,7 @@ _MANIFEST_PATH = _BACKEND.parent / "doc" / "v2_2" / "RISK_REVIEW_MANIFEST.json"
 # 그때만 해당 entry가 reviewed=true로 생성된다(30표본 통과 자체는 승격이
 # 아니다). corpus hash가 다르면(재검증) 새 identity로 재감수.
 _REVIEWED_COUNTER_CORPUS_HASHES: frozenset[str] = frozenset({
+    # [이하 2026-11-20 이전 이력은 gemini-3-flash-preview 기준]
     # gemini-3-flash-preview · countTokens-v1beta-r1 · schema 1 ·
     # PROVIDER_EXACT — 감수 61차 §8 승격: attempt shape 12형×3=36표본·
     # delta 전부 0·shape digest 7종·full digest 결속. adapter 감수≠EXPOSE
@@ -98,7 +99,18 @@ _REVIEWED_COUNTER_CORPUS_HASHES: frozenset[str] = frozenset({
     # countTokens-v1beta-r2 · 13형×3=39표본 · undercount 0 · overcount
     # max 0 · relative_error 0 · framing overhead 일관 · modelVersion 일관
     # · cache 경로 3/3 VALIDATED · rerouting recount 3/3.
-    "0f3258651fe37c8708dcbe1848cf406415942705008bc56238c973e26f3a0c3b",
+    # [이력] 0f325865…(gemini-3-flash-preview · 2026-11-07 승격)은
+    # RISK-MODEL-SWITCH-01(2026-11-20)로 대체. 폐기 사유는 결함이 아니라
+    # **통변 모델 교체**: primary 가 gemini-3.8-flash 로 바뀌어
+    # resolvedModelId 가 달라졌다(identity 4요소 중 모델만 변경 —
+    # counterVersion·schema·countMode·validationPolicyHash·shape digest
+    # 7종은 전부 동일).
+    # [RISK-MODEL-SWITCH-01 승격(2026-11-20 데굴님 "그래 진행해")]
+    # gemini-3.8-flash · countTokens-v1beta-r2 · 13형×3=39표본 ·
+    # undercount 0 · overcount max 0 · relative_error 0 · framing overhead
+    # 일관 · modelVersion 일관 · cache 경로 3/3 VALIDATED · rerouting
+    # recount 3/3.
+    "750243fc9907eaec62d7524521a53cacfaaa7dbe005415278d957deaa3267290",
 })
 
 _ADAPTER_VALIDATION_DIR = (

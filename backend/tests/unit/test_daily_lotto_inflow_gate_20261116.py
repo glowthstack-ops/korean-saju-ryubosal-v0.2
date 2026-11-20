@@ -25,8 +25,8 @@ from saju_shared_types.daily_fortune import (
     lotto_requires_windfall_star,
 )
 from saju_shared_types.daily_fortune_v2 import (
-    MODEL_V2_VERSION,
     MODEL_V2_VERSION_BEFORE_LOTTO_INFLOW_GATE,
+    MODEL_V2_VERSION_BEFORE_LOTTO_SIGNAL_COOLDOWN,
     active_model_v2_version,
 )
 from saju_shared_types.enums import Stem as S
@@ -46,7 +46,9 @@ def test_boundary_selects_model_version_and_keeps_dict_version() -> None:
     assert not lotto_requires_windfall_star(_BEFORE) and lotto_requires_windfall_star(_FROM)
     assert active_model_v2_version(_BEFORE) == MODEL_V2_VERSION_BEFORE_LOTTO_INFLOW_GATE
     assert MODEL_V2_VERSION_BEFORE_LOTTO_INFLOW_GATE == "model.v2.4"
-    assert active_model_v2_version(_FROM) == MODEL_V2_VERSION == "model.v2.5"
+    # 11/18~11/20 은 model.v2.5, 11/21 부터 v2.6(로또 쉬는 기간 규칙 — docs/17 §36).
+    assert active_model_v2_version(_FROM) == MODEL_V2_VERSION_BEFORE_LOTTO_SIGNAL_COOLDOWN
+    assert MODEL_V2_VERSION_BEFORE_LOTTO_SIGNAL_COOLDOWN == "model.v2.5"
     # 사전 문구는 그대로다 — dict 버전은 경계 앞뒤가 같고, 캐시 키는 model 버전으로 갈린다.
     assert active_dict_version(_BEFORE) == active_dict_version(_FROM)
     assert content_version_v2_for(_BEFORE) != content_version_v2_for(_FROM)
@@ -88,7 +90,12 @@ def test_boards_after_boundary_only_show_lotto_with_windfall_star() -> None:
 
 
 def test_gate_changes_lotto_phrase_only(monkeypatch: pytest.MonkeyPatch) -> None:
-    """게이트는 로또 문구 유무만 바꾼다 — 사건·확률·Top5·헤드라인·장소·연애 줄·조언은 그대로."""
+    """게이트는 로또 문구 유무만 바꾼다 — 사건·확률·Top5·헤드라인·장소·연애 줄·조언은 그대로.
+
+    유입 표지 게이트(v2.5)만 떼어 보려고 쉬는 기간 규칙은 종전 날짜 슬롯으로 고정한다 — 11/21
+    부터의 v2.6 규칙(§36)은 유입 표지를 날짜 경계와 무관하게 요구해, 그대로 두면 두 보드가 같아진다.
+    """
+    monkeypatch.setattr(M, "lotto_uses_signal_cooldown", lambda _d: False)
     changed_days = 0
     for offset in range(20):
         d = _FROM + dt.timedelta(days=offset)
