@@ -19,6 +19,19 @@
 적중률의 정의(데굴님 2026-10-24): **성사 가능하다고 한 달 가운데 실제 성사된 달의 비율(정밀도)**.
 모드·임계값은 `scripts/measure_entry_slot_modes.py` 로 실이력에 대고 정밀도로 고른다.
 
+2026-11-20 개정(데굴님 "성사가 확정되는 달은 보이지 않지만 … 은 앞으로 네게 그런 기회는 없어 라고
+말하는 것과 같아. 유력한 달을 찾아보니, 같은 식으로" → 경계는 같은 날 실이력 측정을 보고
+"93/86으로 가자"로 확정 — 처음 지정한 85/70 은 한 해 평균 8.6달이 유력한 달이 됐다):
+- trigger 모드 지시문의 **말하는 틀**을 '성사 가능 달 있음/없음'에서 '유력한 달(93점 이상 전부)·
+  약하지만 가능성 있는 달(86~92점)'으로 바꿨다. 86점 미만(55점 이상)은 '그 밖에 흐름이 보이는
+  달'로만 든다. 95점 이상(`done_periods`)은 유력한 달 가운데
+  '입사·계약까지 닿을 수 있는 달'로 병기하고, 결정 행동 허용 시기의 기준으로 그대로 쓴다(정밀도
+  측정값 불변).
+- 어떤 경우에도 '성사 달이 없다·기준에 못 미친다' 같은 **부재 선언을 답에 쓰게 하지 않는다**.
+- 배정 입력은 LLM 에 실린 상위 N개가 아니라 **질문 창 전체의 진입 월 후보**다(호출부 책임 —
+  `LlmInput.entry_window_candidates`). 실답(web-mwobgi4o): 98점인 2027-02 가 상위 5개 선별에서 빠져
+  '창 안에 성사 가능 달 없음'이 엔진 값과 다르게 나갔다.
+
 규칙은 순수 함수이며 점수·판정은 바꾸지 않는다(지시문 전용).
 """
 
@@ -49,6 +62,21 @@ _DONE_MIN_ENV = "SAJU_ENTRY_DONE_MIN_SCORE"
 ENTRY_DONE_MIN_SCORE = 95
 #: 움직이는 달 하한(tone_for_score '흐름이 나타날 수 있습니다').
 ENTRY_MOVE_MIN_SCORE = 55
+#: 유력한 달 하한(2026-11-20 데굴님 "93/86으로 가자"). 실이력 측정(5명·672달·입사 19건, 운영
+#: 플래그): 93점 이상 = 전체 달의 38%(한 해 평균 4.5달)·정밀도 4.0%(기저율 2.8% 대비 ×1.40).
+#: 처음 지정한 85 는 71%(8.6달)·×1.18 이라 창 대부분이 유력한 달이 됐다.
+#: EMPLOYMENT_HISTORY_CALIBRATION.md §4-8.
+ENTRY_LIKELY_MIN_SCORE = 93
+#: 약하지만 가능성 있는 달 하한(같은 결정). 85~87점 구간에 실제 입사가 몰려 있어(63달 중 4건)
+#: 88 대신 86 — 86 미만은 '그 밖에 흐름이 보이는 달'로만 든다.
+ENTRY_POSSIBLE_MIN_SCORE = 86
+
+#: 부재 선언 금지 문장(지시문 공용) — '없다'는 사용자에게 '기회가 없다'로 읽힌다(2026-11-20).
+NO_ABSENCE_CLAUSE = (
+    "'성사 달이 없다·성사가 확정되는 달은 보이지 않는다·기준에 못 미친다·유력한 달이 없다'처럼 "
+    "달이 없다고 선언하는 문장은 답 어디에도 쓰지 말 것 — 있는 달을 강도대로 말하는 것으로 "
+    "충분하다."
+)
 
 #: '가장 빠른 성사' 질문 표지 — 성사 달 후보 중 가장 이른 달로 답하게 한다.
 _EARLIEST_RE = re.compile(
@@ -94,6 +122,21 @@ class EntrySlotAssignment:
     conditions: dict[str, str] = field(default_factory=dict)
     mode: str = DEFAULT_ENTRY_SLOT_MODE
     done_min: int = ENTRY_DONE_MIN_SCORE
+    #: 유력한 달(trigger 모드) — 사건 신호 `ENTRY_LIKELY_MIN_SCORE` 이상인 **모든** 달, 시점순.
+    #: 성사 가능 달(`done_periods`)을 포함한다.
+    likely_periods: list[str] = field(default_factory=list)
+    #: 약하지만 가능성 있는 달(trigger 모드) — `ENTRY_POSSIBLE_MIN_SCORE` 이상·유력 하한 미만,
+    #: 시점순.
+    possible_periods: list[str] = field(default_factory=list)
+    #: 달별 진입 사건 최고 점수(trigger 모드) — 강한 순 판정·관측용.
+    scores: dict[str, int] = field(default_factory=dict)
+
+    @property
+    def strongest_likely(self) -> str | None:
+        """유력한 달 가운데 신호가 가장 강한 달(동점이면 이른 달, 없으면 None)."""
+        if not self.likely_periods:
+            return None
+        return min(self.likely_periods, key=lambda p: (-self.scores.get(p, 0), p))
 
     @property
     def earliest_done(self) -> str | None:
@@ -116,7 +159,9 @@ class EntrySlotAssignment:
     def to_state_slots(self) -> dict[str, str]:
         """승계 저장용 두 칸 — {'done': …, 'move': …}(없는 칸 생략)."""
         out: dict[str, str] = {}
-        done = self.earliest_done
+        # 성사 가능 달(95점 이상)이 있으면 가장 이른 달, 없으면 유력한 달 중 신호가 가장 강한 달
+        # (2026-11-20 — 답이 '유력한 달'로 안내한 달을 후속 턴이 뒤집지 않게 한다).
+        done = self.earliest_done or self.strongest_likely
         if done is None:
             return out
         out["done"] = done
@@ -206,6 +251,7 @@ def assign_entry_slots(
     done: set[str] = set()
     move: set[str] = set()
     conds: dict[str, str] = {}
+    best: dict[str, int] = {}
     for c in candidates:
         if not _is_entry_month(c):
             continue
@@ -214,18 +260,30 @@ def assign_entry_slots(
             (done if is_done_candidate(c) else move).add(period)
             continue
         score = int(getattr(c, "score", 0))
+        best[period] = max(best.get(period, 0), score)
         if score >= th:
             done.add(period)
-            conds[period] = _merge_condition(conds.get(period), condition_grade(c))
         elif score >= ENTRY_MOVE_MIN_SCORE:
             move.add(period)
+        # 조건 등급은 유력한 달(`ENTRY_LIKELY_MIN_SCORE` 이상) 전부에 붙인다 — 성사 가능 달만
+        # 달던 것을 넓혔다(2026-11-20). 그 미만 후보는 등급에 참여하지 않는다(약한 후보의 방향이
+        # 섞이지 않게).
+        if score >= min(th, ENTRY_LIKELY_MIN_SCORE):
+            conds[period] = _merge_condition(conds.get(period), condition_grade(c))
     if not done and not move:
         return None
     # 같은 달에 성사·국면 후보가 함께 있으면 성사 달로 본다(국면은 그 달의 과정 서술).
     move -= done
+    likely = sorted(p for p, sc in best.items() if sc >= ENTRY_LIKELY_MIN_SCORE or p in done)
+    possible = sorted(
+        p for p, sc in best.items()
+        if ENTRY_POSSIBLE_MIN_SCORE <= sc < ENTRY_LIKELY_MIN_SCORE and p not in done
+    )
     return EntrySlotAssignment(
         done_periods=sorted(done), move_periods=sorted(move),
         conditions={p: conds[p] for p in sorted(conds)}, mode=m, done_min=th,
+        likely_periods=likely, possible_periods=possible,
+        scores={p: best[p] for p in sorted(best)},
     )
 
 
@@ -242,18 +300,6 @@ def _fmt(periods: Iterable[str], ganji_by_period: dict[str, str] | None) -> str:
     return "·".join(parts)
 
 
-def _fmt_done_with_conditions(
-    assignment: EntrySlotAssignment, ganji_by_period: dict[str, str] | None,
-) -> str:
-    parts = []
-    for p in assignment.done_periods:
-        g = (ganji_by_period or {}).get(p, "")
-        cond = assignment.conditions.get(p, "")
-        inner = " · ".join(x for x in (g, cond) if x)
-        parts.append(f"{p}({inner})" if inner else p)
-    return "·".join(parts)
-
-
 def _directive_direction(
     assignment: EntrySlotAssignment, *, event_ko: str,
     ganji_by_period: dict[str, str] | None, earliest_asked: bool,
@@ -262,10 +308,10 @@ def _directive_direction(
     move = assignment.move_periods
     if not done:
         return (
-            f"{ENTRY_SLOT_HEADER} 성사 달 후보 없음 — 질문 창 안의 '{event_ko}' 후보는 전부 "
-            f"국면·압박·지연 쪽({_fmt(move, ganji_by_period)})이다. 첫 문단에서 '이 창 안에는 "
-            "성사 달 후보가 없고 이 달들은 제안·접수·면접이 오가는 움직이는(국면) 달'임을 먼저 "
-            "말하고, 성사 달을 지어내지 말 것."
+            f"{ENTRY_SLOT_HEADER} 질문 창 안의 '{event_ko}' 후보는 국면·압박·지연 쪽"
+            f"({_fmt(move, ganji_by_period)})이다. 첫 문단은 '움직임이 보이는 달을 찾아보니 "
+            "○월…'처럼 이 달들을 이름 들어 시작하고, 제안·접수·면접이 오가는 움직이는(국면) 달로 "
+            f"서술할 것. 이 달들을 입사·계약이 맺어지는 달로 세우지는 말 것. {NO_ABSENCE_CLAUSE}"
         )
     parts = [
         f"{ENTRY_SLOT_HEADER} 성사 달 후보(결과 방향 긍정): {_fmt(done, ganji_by_period)}",
@@ -293,43 +339,106 @@ def _directive_direction(
     return " ".join(parts)
 
 
+def _fmt_likely(
+    assignment: EntrySlotAssignment, ganji_by_period: dict[str, str] | None,
+) -> str:
+    """유력한 달 목록 — 'YYYY-MM(간지 · 조건 등급 · 신호 가장 강함)', 시점순."""
+    strongest = assignment.strongest_likely if len(assignment.likely_periods) > 1 else None
+    parts = []
+    for p in assignment.likely_periods:
+        inner = " · ".join(
+            x for x in (
+                (ganji_by_period or {}).get(p, ""),
+                assignment.conditions.get(p, ""),
+                "신호 가장 강함" if p == strongest else "",
+            ) if x
+        )
+        parts.append(f"{p}({inner})" if inner else p)
+    return "·".join(parts)
+
+
+#: 조건 등급 읽는 법(유력한 달에 병기되는 괄호 안 등급) — 성사 여부가 아니라 성사의 질이다.
+_CONDITION_GUIDE = (
+    "유력한 달은 괄호 안 조건 등급을 함께 말할 것 — '순조'는 기회와 조건이 함께 열리는 달, "
+    "'조건 불리'는 자리는 생기나 처우·강도·실속이 아쉬울 수 있는 달('유력하나 조건 불리'로 쓰고 "
+    "유력한 달에서 빼거나 국면으로 격하하지 말 것), '완화'는 흉신이 합으로 묶여 부담이 줄어든 달. "
+    "'시점 이연 가능'은 달 후반이나 다음 달로 걸칠 수 있다는 뜻이지 안 된다는 뜻이 아니다."
+)
+
+
 def _directive_trigger(
     assignment: EntrySlotAssignment, *, event_ko: str,
     ganji_by_period: dict[str, str] | None, earliest_asked: bool,
 ) -> str:
+    """trigger 모드 지시문 — '유력한 달·약하지만 가능성 있는 달' 틀(2026-11-20).
+
+    세 갈래: 유력한 달이 있음 / 가능성 있는 달만 있음 / 그보다 약한 흐름만 있음. 어느 갈래도
+    '달이 없다'는 선언을 요구하지 않는다(`NO_ABSENCE_CLAUSE`).
+    """
     done = assignment.done_periods
-    move = assignment.move_periods
-    if not done:
+    likely = assignment.likely_periods
+    possible = assignment.possible_periods
+    named = {*likely, *possible}
+    faint = [p for p in assignment.move_periods if p not in named]  # 55~69점
+    if not likely and not possible:
         return (
-            f"{ENTRY_SLOT_HEADER} 성사 가능 달 없음 — 질문 창 안의 '{event_ko}' 사건 신호가 성사 "
-            f"기준에 못 미친다(움직이는 달 후보: {_fmt(move, ganji_by_period) or '없음'}). "
-            "첫 문단에서 '이 창 안에는 성사 가능 달이 없고 제안·접수·면접이 오가는 움직이는 달만 "
-            "있다'고 먼저 말하고, 성사 달을 지어내지 말 것."
+            f"{ENTRY_SLOT_HEADER} 흐름이 보이는 달('{event_ko}' 움직임이 나타나는 달): "
+            f"{_fmt(faint, ganji_by_period)}. 첫 문단은 '흐름이 보이는 달을 찾아보니 ○월…'처럼 "
+            "이 달들을 이름 들어 시작하고, 탐색·준비와 지원 경로를 넓히는 달로 서술할 것. 강도는 "
+            "[이벤트 후보]·[월별 요약]의 표현을 그대로 따르되 이 달들을 '유력한 달'이라고 부르지는 "
+            "말 것. "
+            f"{NO_ABSENCE_CLAUSE}"
         )
-    parts = [
-        f"{ENTRY_SLOT_HEADER} 성사 가능 달(사건 신호 매우 강함 · 괄호 안은 조건 등급): "
-        f"{_fmt_done_with_conditions(assignment, ganji_by_period)}",
-    ]
-    if move:
+    if not likely:
+        parts = [
+            f"{ENTRY_SLOT_HEADER} 약하지만 가능성 있는 달('{event_ko}' 신호가 있는 달): "
+            f"{_fmt(possible, ganji_by_period)}.",
+        ]
+        if faint:
+            parts.append(
+                f"/ 그 밖에 흐름이 보이는 달(탐색·준비 단계): {_fmt(faint, ganji_by_period)}."
+            )
         parts.append(
-            "/ 움직이는 달(사건 신호는 있으나 성사 기준 미달 — 제안·접수·면접 과정): "
-            f"{_fmt(move, ganji_by_period)}."
+            "첫 문단은 '가능성 있는 달을 찾아보니 ○월…'처럼 이 달들을 이름 들어 시작하고, 답에서 "
+            "각각 한 번씩 다룰 것. 제안·접수·면접과 조건 확인이 오가는 달로 서술하고, 강도는 "
+            "[이벤트 후보]·[월별 요약]의 표현을 그대로 따르되 '가장 유력한 달·유력한 달'이라고 "
+            "부르지는 말 것. "
+            f"{NO_ABSENCE_CLAUSE}"
+        )
+        return " ".join(parts)
+    parts = [
+        f"{ENTRY_SLOT_HEADER} 유력한 달('{event_ko}' 사건 신호가 매우 강한 달 · 괄호 안은 간지·"
+        f"조건 등급): {_fmt_likely(assignment, ganji_by_period)}",
+    ]
+    if possible:
+        parts.append(
+            "/ 약하지만 가능성 있는 달(신호는 있으나 유력한 달보다 약함): "
+            f"{_fmt(possible, ganji_by_period)}."
+        )
+    if faint:
+        parts.append(f"/ 그 밖에 흐름이 보이는 달(탐색·준비 단계): {_fmt(faint, ganji_by_period)}.")
+    parts.append(
+        "첫 문단은 '유력한 달을 찾아보니 ○월…'처럼 유력한 달부터 이름을 들어 시작하고, 유력한 "
+        "달은 하나도 빠뜨리지 말고 답에서 각각 한 번씩 달 이름을 들어 다룰 것. 약하지만 가능성 "
+        "있는 달은 그 뒤에 '약하지만 가능성 있는 달'로 묶어 말하고 유력한 달로 올리지 말 것."
+    )
+    if done:
+        parts.append(
+            f"유력한 달 가운데 {_fmt(done, ganji_by_period)}은(는) 신호가 가장 강한 구간이라 "
+            "입사·계약까지 닿을 수 있는 달이다 — 수락·계약 같은 결정 행동은 이 달에만 붙이고, "
+            "나머지 유력한 달은 제안·접수·면접과 조건 확인까지로 서술할 것."
         )
     else:
-        parts.append("/ 움직이는 달 후보 없음(성사 가능 달 한두 달 앞으로 잡을 것).")
-    parts.append(
-        "성사 달은 위 성사 가능 달 안에서만 고르고, 조건 등급을 반드시 함께 말할 것 — '순조'는 "
-        "성사와 조건이 함께 열리는 달, '조건 불리'는 자리는 생기나 처우·강도·실속이 아쉬울 수 있는 "
-        "달('성사 가능하나 조건 불리'로 쓰고 불성사·국면으로 격하하지 말 것), '완화'는 흉신이 "
-        "합으로 묶여 부담이 줄어든 달. '시점 이연 가능'은 성사가 달 후반이나 다음 달로 걸칠 수 "
-        "있다는 뜻이지 안 된다는 뜻이 아니다."
-    )
-    earliest = assignment.earliest_done
-    smooth = assignment.earliest_smooth
-    if earliest_asked and earliest is not None:
+        parts.append("유력한 달은 제안·접수·면접과 조건 확인이 본격적으로 오가는 달로 서술할 것.")
+    parts.append(_CONDITION_GUIDE)
+    if earliest_asked:
+        earliest = likely[0]
         line = (
-            "'가장 빠른·최대한 빨리' 질문이므로 가장 이른 성사 가능 달은 "
+            "'가장 빠른·최대한 빨리' 질문이므로 가장 이른 유력한 달은 "
             f"{_fmt([earliest], ganji_by_period)}({assignment.conditions.get(earliest, '')})이다"
+        )
+        smooth = next(
+            (p for p in likely if assignment.conditions.get(p, "").startswith(COND_SMOOTH)), None,
         )
         if smooth is not None and smooth != earliest:
             line += (
@@ -337,10 +446,7 @@ def _directive_trigger(
                 "'가장 빠른 달'과 '조건이 좋은 달'로 나눠 함께 말할 것"
             )
         parts.append(line + ".")
-    parts.append(
-        "성사 가능 달은 답에서 각각 한 번씩 달 이름을 들어 다룰 것(건너뛰지 말 것). 성사 가능 "
-        "달이라도 성사를 단정하지 말 것."
-    )
+    parts.append(f"유력한 달이라도 성사를 단정하지 말 것. {NO_ABSENCE_CLAUSE}")
     return " ".join(parts)
 
 

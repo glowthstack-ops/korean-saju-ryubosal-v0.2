@@ -196,6 +196,24 @@ class LlmLayerGrounding(BaseModel):
     grounding_codes: list[str] = Field(default_factory=list)
 
 
+class EntryWindowCandidate(BaseModel):
+    """질문 창 전체의 진입(입사·이직) 월 후보 요약 — 두 칸 엔진 배정 전용(2026-11-20).
+
+    `event_candidates` 는 상위 N개만 싣는다. 두 칸 배정이 그 N개만 보면 '창 안에 유력한 달이 없다'
+    같은 **창 전체에 대한 주장**이 선별 순서에 좌우된다(실답 web-mwobgi4o: 98점 달 누락). 그래서
+    선별 전 모집단(질문 사건 계열·점수 하한·질문 창)을 배정에 필요한 필드만 추려 따로 운반한다.
+    프롬프트 본문에는 직렬화하지 않는다 — 배정 결과만 지시문으로 나간다.
+    """
+
+    event_key: EventKey
+    period: str
+    ganji: str = ""
+    score: int = Field(ge=0, le=100)
+    quality: str = ""
+    direction: str = ""
+    review_month: bool = False
+
+
 class LlmEventCandidate(BaseModel):
     """이벤트 후보 — 간지·대운 맥락 **반드시 포함**(LLM 간지 계산 불가 보완)."""
 
@@ -590,6 +608,9 @@ class LlmInput(BaseModel):
     #: 같은 영역 다른 사건 후보(2026-10-27) — 질문 사건 키가 아닌 같은 영역 계열 사건 중 70점 이상.
     #: 진입 시기·상담 결론 판정이 읽는 `event_candidates` 와 분리한다(별도 블록 렌더).
     family_candidates: list[LlmEventCandidate] = Field(default_factory=list)
+    #: 질문 창 전체의 진입(입사·이직) 월 후보 요약(2026-11-20) — 두 칸 엔진 배정의 입력. 상위 N개
+    #: 선별과 무관하게 창 전체를 담는다. 진입 사건 질문이 아니면 빈 목록(직렬화 대상 아님).
+    entry_window_candidates: list[EntryWindowCandidate] = Field(default_factory=list)
     #: 대상의 교제 상태(2단계 프로필 marital → single|dating|married, 미입력 "").
     #: 같은 영역 관계 후보의 해석 분기 전용(2026-10-27) — 점수·선별 비개입, 미입력이어도
     #: 기능을 막지 않는다(원칙 11).

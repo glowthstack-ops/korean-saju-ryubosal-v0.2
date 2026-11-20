@@ -80,7 +80,9 @@ def test_multi_month_window_keeps_relative_rank_labels() -> None:
 def test_weak_review_candidate_triggers_exception_note() -> None:
     note = _entry_window_weak_note([_cand("2026-11", 48, review=True)], _intent("2026-11"))
     assert note is not None
-    assert "조짐이 약하게 있습니다" in note and "검토월" in note and "성사 달로 두지" in note
+    assert "조짐이 약하게 있습니다" in note and "검토월" in note and "유력한 달로 세우지" in note
+    # 2026-11-20: 부재 선언을 시키지 않는다(종전 "'성사 달 후보가 없다'로 말할 것").
+    assert "없다'로 말할 것" not in note and "선언하지는 말 것" in note
 
 
 def test_strong_candidate_keeps_default_directive() -> None:
@@ -132,7 +134,7 @@ def test_prior_slots_directive_conditions() -> None:
     )
     d = _prior_entry_slots_directive(st, _intent("2026-11"), "2026-10", is_followup=True)
     assert d is not None
-    assert "성사 달 2027년 2월" in d and "움직이는 달 2026년 12월" in d and "2026년 11월" in d
+    assert "유력한 달 2027년 2월" in d and "움직이는 달 2026년 12월" in d and "2026년 11월" in d
     # 2026-10-24 개정: 링크 판정이 NEW 여도 같은 진입 사건이면 주입(실답 '최대한 빨리 언제'가 NEW 로
     # 끊겨 승계가 비켜 간 결함) / 시점 미명시('언제')는 열린 질문 문안으로 주입.
     assert _prior_entry_slots_directive(
