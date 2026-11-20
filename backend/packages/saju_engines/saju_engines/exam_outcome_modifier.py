@@ -54,7 +54,10 @@ class _Rule:
 
 
 class ExamOutcomeModifier:
-    """시험·합격·취업 후보에 합격 기류(십성 구조 패턴의 양의 합)를 favorability 로 반영한다."""
+    """시험·합격·취업·승진 후보에 합격 기류(십성 구조 패턴의 양의 합)를 favorability 로 반영한다.
+
+    대상 사건은 사전 `target_events` 가 정한다(승진은 2026-11-20 데굴님 결정으로 추가).
+    """
 
     def __init__(self, dictionaries_dir: Path) -> None:
         """event_engine/exam_outcome_patterns.json을 로드해 룰을 인덱싱한다."""

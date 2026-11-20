@@ -319,6 +319,17 @@ compiled/
 - 실사례 측정(2026-11-10, `scripts/measure_hidden_latent_activation.py`): 원장 표본 84행·대상 5명(직업·학업뿐, 재물·관계 0) — 세운 투출은 독립 표본 1해, 자극은 lift 1.5 안팎이 한두 대상에 몰림. 사례집 표본 2~5건. **표본 부족으로 점수 반영 보류**(대조 문서 §3-1).
 - 검증 픽스처: 1975-01-21 09:30 남(丑 중기 辛 편재·癸 편관 잠복) · 1980-11-22 09:08 남(재성 본기 — 재물 블록 없음). 테스트 `test_hidden_latent_activation_20261110`.
 
+### interpretations/axis_arrival_lens.json — 축 글자 도래 층(주제별 중심 십성군 × 운 도래) (2026-11-20 데굴님 결정)
+
+- 대조 문서 `doc/v2_2/EXTERNAL_TEXT_GAP_POSITION_SEAL_VIDEO.md`. 결정: "제안대로 진행해. 그리고 비슷한 형태의 풀이로 다른 intent에 대한 풀이를 고도화할 수 있는지를 검토해서 추가 진행해줘." 서술 전용(점수·판정 불변).
+- 렌즈 5종 `AxisArrivalLensFile`(키 정확 커버리지): `position_seal`(시험·자격·취업·승진·공모 — 관성·인성) · `business`(창업·사업 — 재성·식상) · `wealth`(재물 — 재성의 천간/지지 양상만) · `children_female`·`children_male`(출산·자녀 — 여성 식상·남성 관성, 같은 날 데굴님 "출산은 가능성 여부를 궁금해하는 부분이라 민감영역은 아니야").
+- 렌즈 필드: `axes`(축 십성군 1~2, 첫 군이 '줄이 움직임'의 기준) · `chainPatterns`(원국에 이어지는 구조로 보는 구조 패턴 id) · `bridgeExcess`/`bridgeGroup`(많은 군 + 들어오는 군 = 다리) · `nextArrival`(다음에 드는 해 줄 여부) · `items`.
+- 문구 id: `absent_arrive.<군>` · `bridge` · `decade.<군>` · `chain_move` · `chain_long` · `aspect.<군>.<stem|branch>` · `care.<군>` · `turn_care`. 렌즈에 없는 id 의 뜻 줄은 나오지 않는다(재물 렌즈는 `aspect` 2문장뿐).
+- `saju_engines.axis_arrival_lens`: `lens_for`(사건 키 → 도메인 순, 심사형 선발은 자리·자격) · `is_judged_selection`(공모·지원사업·선정만, 추첨·배정형 제외) · `axis_arrivals` · `daewoon_turn_near`(교운 가중 앞뒤 1년) · `next_arrival_years`(뒤 12년 안 군마다 2해) · `axis_arrival_block`(채팅 말미 + 리포트 `lecture_block`·학업 기간 섹션 공용). 판정은 `luck_structure_tags.natal_structure_profile`·구조 패턴·`hidden_latent_activation.luck_units` 를 그대로 읽는다.
+- lint: 렌즈 키·문구 id 형식·축 군 정합, `bridge` 문구와 설정 정합, `chainPatterns` 가 구조 패턴 사전에 실재, 당락·단정·부재 선언 어휘(반드시·무조건·합격한다·붙는다·당락·기회가 없 …)와 임신·출산 확정 어휘·난임·불임 금지. 전부 reviewed:false.
+- 함께 바뀐 사전: `interpretations/exam_stage_traits.json` 1.1.0 — 인성 다자 항목 추가(2 → 3항목, `ExamStageTraitsFile` 정확 커버리지 3) · `event_engine/exam_outcome_patterns.json` — `target_events` 에 `promotion` 추가(데굴님 결정, 승진 후보에도 합격 기류 표지·결과 유불리 가산, 점수·순위 불변).
+- 검증 픽스처: 1980-11-22 09:40 남(관성 드러난 글자 없음) · 1969-12-13 02:30 남(관인상생 원국·庚 대운) · 1993-08-01 14:30 여(癸亥 대운) · 1981-02-12 06:30 남(관성·인성 모두 없음). 테스트 `test_axis_arrival_lens_20261120`.
+
 ### interpretations/love_separation_lecture_text.json + 연애 실험 키 `separation_*` — 외부 강의 「남녀의 이별운」 번역층 (2026-10-29 데굴님 결정)
 
 - 대조 문서 `doc/v2_2/EXTERNAL_TEXT_GAP_LOVE_SEPARATION.md`. 강의 4축: ① 여·원국 관성 매우 약(십성군 officer <10% — 구조 패턴 존재 임계와 같음) × 운 식신·상관 ② 남·일지 본기 정재 × 운 겁재(배우자궁 쟁재) ③ 여·원국 정인 없음(`missing_ten_gods`)·지장간에만(`hidden_only_ten_gods`) × 운 정인 ④ 원국 정재(천간 연·월·시 또는 지지 본기) × 운 비견·겁재(겁재 > 비견).

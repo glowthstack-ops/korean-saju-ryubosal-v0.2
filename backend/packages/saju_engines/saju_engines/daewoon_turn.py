@@ -54,6 +54,11 @@ def _jiao_date(result: ManseV2Result, approx: date) -> date:
     return nearest if abs((nearest - approx).days) <= _MAX_GAP_DAYS else approx
 
 
+def jiao_date_of(result: ManseV2Result, approx: date) -> date:
+    """대운 시작 근사일에 대응하는 교운일(공개 이름) — 다른 서술층이 같은 교운일을 쓰도록 연다."""
+    return _jiao_date(result, approx)
+
+
 def daewoon_turn_lines(result: ManseV2Result, start_year: int, end_year: int) -> list[str]:
     """[start_year, end_year] 창이 방향이 분명한 교운의 교운기(앞뒤 2년)에 걸리면 1블록.
 

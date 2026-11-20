@@ -1,4 +1,7 @@
-"""합격 준비 성향 서술층 — 원국 식상·재성 다자일 때 준비 방식 해설 한 줄(2026-11-11).
+"""합격 준비 성향 서술층 — 원국 식상·재성·인성 다자일 때 준비 방식 해설 한 줄(2026-11-11).
+
+2026-11-20: 인성 다자(생각·준비가 길어 실행이 늦어지기 쉬움 — 마감부터) 한 항목을 더했다(영상
+스크립트 대조, doc/v2_2/EXTERNAL_TEXT_GAP_POSITION_SEAL_VIDEO.md). 판정·사용 규칙은 그대로다.
 
 외부 '합격운' 글 대조(doc/v2_2/EXTERNAL_TEXT_GAP_EXAM_LUCK_POST.md)에서 5번(식상이 강하면 면접·
 실기)·6번(재성이 강하면 실무 경력)만 채택했다. 같은 글의 시기 주장(관성·인성이 겹치는 달 등)은
@@ -40,13 +43,13 @@ def _texts(dictionaries_dir: Path = _DICTS_DEFAULT) -> dict[str, str]:
 
 
 def exam_stage_trait_lines(result: ManseV2Result) -> list[str]:
-    """원국 식상·재성 다자일 때 합격 준비 성향 블록(머리 + 항목 + 규칙). 해당 없으면 빈 목록.
+    """원국 식상·재성·인성 다자일 때 합격 준비 성향 블록(머리 + 항목 + 규칙). 해당 없으면 빈 목록.
 
     Args:
         result: 만세 결과(pillars 필수 — 없으면 빈 목록).
 
     Returns:
-        프롬프트에 그대로 싣는 줄 목록. 식상·재성 모두 다자면 글자 수가 많은 군부터 두 줄.
+        프롬프트에 그대로 싣는 줄 목록. 여러 군이 다자면 글자 수가 많은 군부터 싣는다.
     """
     if result.pillars is None:
         return []

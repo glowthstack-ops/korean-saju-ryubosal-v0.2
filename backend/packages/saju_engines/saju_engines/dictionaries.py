@@ -690,7 +690,9 @@ class StorageGateTextFile(_AliasModel):
 
 
 #: exam_stage_traits.json id → 십성군 정확 커버리지(2026-11-11 합격 준비 성향 서술층).
-EXAM_STAGE_TRAIT_GROUPS: dict[str, str] = {"output_many": "식상", "wealth_many": "재성"}
+EXAM_STAGE_TRAIT_GROUPS: dict[str, str] = {
+    "output_many": "식상", "wealth_many": "재성", "resource_many": "인성",
+}
 
 
 class ExamStageTraitItem(_AliasModel):
@@ -705,11 +707,57 @@ class ExamStageTraitItem(_AliasModel):
 
 
 class ExamStageTraitsFile(_AliasModel):
-    """합격 준비 성향 사전 — 식상 다자·재성 다자 2항목 정확 커버리지."""
+    """합격 준비 성향 사전 — 식상·재성·인성 다자 3항목 정확 커버리지(인성 2026-11-20 추가)."""
 
     version: str
     note: str | None = None
-    items: list[ExamStageTraitItem] = Field(min_length=2, max_length=2)
+    items: list[ExamStageTraitItem] = Field(min_length=3, max_length=3)
+
+
+#: axis_arrival_lens.json 렌즈 키 정확 커버리지(2026-11-20 축 글자 도래 층).
+AXIS_LENS_KEYS: tuple[str, ...] = (
+    "position_seal", "business", "wealth", "children_female", "children_male",
+)
+_AxisGroup = Literal["peer", "output", "wealth", "officer", "resource"]
+
+
+class AxisLensAxis(_AliasModel):
+    """렌즈의 축 십성군 하나 (axis_arrival_lens.json)."""
+
+    group: _AxisGroup
+    label: str = Field(min_length=4)
+
+
+class AxisLensTextItem(_AliasModel):
+    """축 글자 도래 문구 1건 — id 는 `absent_arrive.<군>`·`bridge`·`decade.<군>`·`chain_move`·
+    `chain_long`·`aspect.<군>.<stem|branch>`·`care.<군>`·`turn_care` 가운데 하나."""
+
+    id: str
+    text: str = Field(min_length=20)
+    basis: str = Field(min_length=10)
+    reviewed: bool
+
+
+class AxisLens(_AliasModel):
+    """주제 렌즈 1건 — 축 십성군(1~2)과 문구."""
+
+    key: str
+    title: str = Field(min_length=2)
+    intro: str = Field(min_length=20)
+    axes: list[AxisLensAxis] = Field(min_length=1, max_length=2)
+    chain_patterns: list[str] = Field(default_factory=list, alias="chainPatterns")
+    bridge_excess: _AxisGroup | None = Field(default=None, alias="bridgeExcess")
+    bridge_group: _AxisGroup | None = Field(default=None, alias="bridgeGroup")
+    next_arrival: bool = Field(default=False, alias="nextArrival")
+    items: list[AxisLensTextItem] = Field(min_length=1)
+
+
+class AxisArrivalLensFile(_AliasModel):
+    """축 글자 도래 층 사전 — 렌즈 5종 정확 커버리지(서술 전용)."""
+
+    version: str
+    note: str | None = None
+    lenses: list[AxisLens] = Field(min_length=5, max_length=5)
 
 
 class RelationshipTendencyTextItem(_AliasModel):
@@ -3039,6 +3087,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/hidden_latent_text.json": HiddenLatentTextFile,
     "interpretations/storage_gate_text.json": StorageGateTextFile,
     "interpretations/exam_stage_traits.json": ExamStageTraitsFile,
+    "interpretations/axis_arrival_lens.json": AxisArrivalLensFile,
     "interpretations/relationship_tendency_text.json": RelationshipTendencyTextFile,
     "interpretations/daewoon_turn_text.json": DaewoonTurnTextFile,
     "interpretations/yearly_environment.json": YearlyEnvironmentFile,
@@ -3685,8 +3734,60 @@ def _lint_storage_gate_text(file: StorageGateTextFile) -> list[str]:
     return errors
 
 
+#: 축 글자 도래 문구 금지 어휘 — 당락·성사 확정, 부재 선언(2026-11-20 '없다' 선언 금지 원칙).
+_AXIS_LENS_BANNED = (
+    "반드시", "확실히", "틀림없이", "무조건", "합격한다", "합격합니다", "불합격", "떨어진다",
+    "붙는다", "당락", "성사된다", "기회가 없", "글자가 없는 해", "임신한다", "임신합니다",
+    "출산한다", "출산합니다", "아이가 생긴다", "난임", "불임",
+)
+
+
+def _lint_axis_arrival_lens(file: AxisArrivalLensFile, pattern_ids: set[str]) -> list[str]:
+    """axis_arrival_lens.json — 렌즈 키 정확 커버리지, 문구 id 형식·축 군 정합, 구조 패턴 id 실재,
+    다리(bridge) 설정 정합, 당락·단정·부재 선언 어휘 금지(서술 전용)."""
+    head = "interpretations/axis_arrival_lens.json"
+    errors: list[str] = []
+    keys = [ln.key for ln in file.lenses]
+    if sorted(keys) != sorted(AXIS_LENS_KEYS):
+        errors.append(f"{head}: 렌즈 키가 정의와 다름 — {keys}")
+    for ln in file.lenses:
+        groups = [a.group for a in ln.axes]
+        if len(set(groups)) != len(groups):
+            errors.append(f"{head}: {ln.key} 축 군 중복 — {groups}")
+        ids = [it.id for it in ln.items]
+        if len(set(ids)) != len(ids):
+            errors.append(f"{head}: {ln.key} 문구 id 중복")
+        for it in ln.items:
+            parts = it.id.split(".")
+            ok = (
+                (parts[0] in ("absent_arrive", "decade", "care") and len(parts) == 2
+                 and parts[1] in groups)
+                or (parts[0] == "aspect" and len(parts) == 3 and parts[1] in groups
+                    and parts[2] in ("stem", "branch"))
+                or it.id in ("bridge", "chain_move", "chain_long", "turn_care")
+            )
+            if not ok:
+                errors.append(f"{head}: {ln.key} 문구 id '{it.id}' 형식 오류 또는 축 밖의 군")
+            for bad in _AXIS_LENS_BANNED:
+                if bad in it.text:
+                    errors.append(f"{head}: {ln.key}/{it.id} 문구에 금지 어휘 '{bad}'")
+        has_bridge = "bridge" in ids
+        if has_bridge != (ln.bridge_excess is not None and ln.bridge_group is not None):
+            errors.append(f"{head}: {ln.key} bridge 문구와 bridgeExcess·bridgeGroup 설정이 어긋남")
+        if ln.bridge_group is not None and ln.bridge_group not in groups:
+            errors.append(f"{head}: {ln.key} bridgeGroup 이 축 군이 아님")
+        if ("chain_move" in ids or "chain_long" in ids) != bool(ln.chain_patterns):
+            errors.append(f"{head}: {ln.key} chain 문구와 chainPatterns 설정이 어긋남")
+        if "chain_long" in ids and "chain_move" not in ids:
+            errors.append(f"{head}: {ln.key} chain_long 은 chain_move 와 함께 있어야 함")
+        for pid in ln.chain_patterns:
+            if pattern_ids and pid not in pattern_ids:
+                errors.append(f"{head}: {ln.key} chainPatterns '{pid}' 가 구조 패턴 사전에 없음")
+    return errors
+
+
 def _lint_exam_stage_traits(file: ExamStageTraitsFile) -> list[str]:
-    """exam_stage_traits.json — 2 id·십성군 정합, 당락·단정 어휘 금지(준비 방식 해설 전용)."""
+    """exam_stage_traits.json — 3 id·십성군 정합, 당락·단정 어휘 금지(준비 방식 해설 전용)."""
     head = "interpretations/exam_stage_traits.json"
     errors: list[str] = []
     got = {it.id: it.group for it in file.items}
@@ -4505,6 +4606,16 @@ def _lint_folk_taboo(file: FolkTabooDict) -> list[str]:
     return errors
 
 
+def _structure_pattern_ids(directory: Path) -> set[str]:
+    """구조 패턴 사전의 pattern_id 집합(파일이 없거나 읽지 못하면 빈 집합 — 교차 검사 생략)."""
+    path = directory / "structure_patterns.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return set()
+    return {str(p.get("pattern_id")) for p in data.get("patterns", []) if isinstance(p, dict)}
+
+
 def lint_dictionaries(directory: Path) -> list[str]:
     """충돌 검사(dict:lint). 스키마 위반 파일은 여기서 건너뛴다(validate가 보고)."""
     errors: list[str] = []
@@ -4555,6 +4666,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_storage_gate_text(parsed))
         elif isinstance(parsed, ExamStageTraitsFile):
             errors.extend(_lint_exam_stage_traits(parsed))
+        elif isinstance(parsed, AxisArrivalLensFile):
+            errors.extend(_lint_axis_arrival_lens(parsed, _structure_pattern_ids(directory)))
         elif isinstance(parsed, RelationshipTendencyTextFile):
             errors.extend(_lint_relationship_tendency_text(parsed))
         elif isinstance(parsed, DaewoonTurnTextFile):

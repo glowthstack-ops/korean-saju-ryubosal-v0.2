@@ -55,6 +55,7 @@ from saju_engines.assistant_commitments import (
     merge_commitments,
     prior_statement_lines,
 )
+from saju_engines.axis_arrival_lens import axis_arrival_block, is_judged_selection, lens_for
 from saju_engines.career_field import build_career_field_facts, render_career_field_lines
 from saju_engines.chart_interpretation import (
     build_luck_grounding,
@@ -8047,6 +8048,33 @@ def chat(
         trailing.extend(career_exit_lecture_block(
             result, [(c.period, c.ganji) for c in payload.event_candidates],
         ))
+    # 축 글자 도래 층(2026-11-20 영상 스크립트 대조) — 질문 주제의 중심 십성군(시험·취업·승진·공모
+    # = 관성·인성, 창업·사업 = 재성·식상, 재물 = 재성 천간/지지 양상, 출산·자녀 = 여성 식상·남성
+    # 관성)이 원국에 어떻게 놓였고 후보
+    # 기간·질문 기간의 운 어느 층·자리로 오는지를 주제의 말로 싣는다(서술 전용, 점수·판정 불변).
+    # 사건 후보가 비는 질문(예: 무직 프로필의 승진 질문)에도 질문 기간의 세운을 보도록 연도를
+    # 보탠다.
+    if result is not None and period_v2_config.AXIS_LENS_BLOCK_ENABLED:
+        _ax_sel = detect_selection_query(question)
+        _ax_lens = lens_for(
+            intent.event_key.value if intent.event_key is not None else None,
+            intent.domain.value,
+            selection=is_judged_selection(
+                _ax_sel.domain if _ax_sel is not None else None, question,
+            ),
+            gender=birth.gender,
+        )
+        if _ax_lens is not None:
+            _ax_periods = [(c.period, c.ganji) for c in payload.event_candidates]
+            _ax_span = tr_year_span(intent.time_range)
+            if _ax_span is not None:
+                _ax_periods += [(str(y), "") for y in range(_ax_span[0], _ax_span[1] + 1)]
+            _ax_lines = axis_arrival_block(result, _ax_periods, _ax_lens)
+            trailing.extend(_ax_lines)
+            _logger.info(
+                "axis_lens lens=%s lines=%d periods=%d thread=%s",
+                _ax_lens, len(_ax_lines), len(_ax_periods), thread_id,
+            )
     # 충 완화 글자(2026-11-07 충 강의 대조) — 후보 기간 운 지지가 원국 용·희신 글자를 충하면
     # 묶어 주는 글자·시기를 서술 전용으로 싣는다(도메인 무관, 조건 없으면 블록 없음).
     if result is not None:
