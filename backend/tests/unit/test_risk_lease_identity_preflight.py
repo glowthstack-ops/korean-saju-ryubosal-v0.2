@@ -30,7 +30,7 @@ _MODEL = "preflight-model"
 _IDENTITY = "24f64a029fc6c556"          # 운영 lease 와 같은 형태의 고정 값
 _OPERATIONAL = (
     Path(__file__).resolve().parents[2] / "var" / "risk_state"
-    / "validation_lease__gemini-3-flash-preview.json"
+    / "validation_lease__gemini-3.8-flash.json"
 )
 
 
@@ -185,7 +185,7 @@ def test_paid_run_budget_is_computable_without_provider_calls() -> None:
     sys.path.insert(0, str(_Path(__file__).resolve().parents[2] / "scripts"))
     import risk_adapter_shadow_validation as harness
 
-    model = "gemini-3-flash-preview"
+    model = "gemini-3.8-flash"
     corpus, extra = harness._build_corpus(model, model)
     categories = {s["category"] for s in corpus}
 

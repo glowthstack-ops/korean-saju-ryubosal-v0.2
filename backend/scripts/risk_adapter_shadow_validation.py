@@ -34,7 +34,7 @@ manifest 감수 후보 출력까지만 한다 — VALIDATED 전환은 manifest �
 (reviewed entry) + 유효 lease 이후 startup 파생으로만.
 
 사용: python scripts/risk_adapter_shadow_validation.py
-      [--model gemini-3-flash-preview] [--reroute-model gemini-2.5-flash]
+      [--model gemini-3.8-flash] [--reroute-model gemini-2.5-flash]
 """
 
 from __future__ import annotations
@@ -335,7 +335,7 @@ def _provider_reported(model_id: str, body: dict,
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", default="gemini-3-flash-preview")
+    parser.add_argument("--model", default="gemini-3.8-flash")
     parser.add_argument("--reroute-model", default="gemini-2.5-flash")
     parser.add_argument("--out-dir", default=str(
         Path(__file__).resolve().parents[1] / "compiled"

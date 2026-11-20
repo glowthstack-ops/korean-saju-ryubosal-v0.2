@@ -69,7 +69,7 @@ cat >&2 <<EOF
   .env fingerprint  : $(env_fp "$ROOT/.env")
   .env.risk         : $(env_fp "$ROOT/.env.risk")
   HMAC key fp       : $KEY_FP (값 미출력)
-  model / provider  : ${SAJU_READING_MODEL:-gemini-3-flash-preview} / gemini
+  model / provider  : ${SAJU_READING_MODEL:-gemini-3.8-flash} / gemini
   git HEAD          : $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '-')
   script fingerprint: $(env_fp "$SCRIPT")
   out-dir           : ${PASSTHRU[*]:-<기본: backend/compiled/risk_adapter_validation>}
