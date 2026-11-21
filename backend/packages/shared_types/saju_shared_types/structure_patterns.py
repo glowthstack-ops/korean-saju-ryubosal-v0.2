@@ -130,6 +130,10 @@ class PatternState(BaseModel):
     evidence: list[str] = Field(default_factory=list)
     # burden|over_control|competition|broken|reversal|mixed_officer … (문구: pattern_transit_text)
     flags: list[str] = Field(default_factory=list)
+    # 다리별 근거 글자(2026-11-21) — '재성 亥(원국)·子(월운)' 형태. 운에서 선 생극·제어 구조가 어느
+    # 글자로 섰는지 밝혀, 그 달 운 글자의 십성을 다른 다리로 읽는 오독을 막는다. 글자 없이 선
+    # 다리는 '丁壬合 化木(글자 없음)'·'지장간(드러난 글자 없음)'으로 적는다.
+    leg_notes: list[str] = Field(default_factory=list)
 
 
 class PatternTimelineCell(BaseModel):
@@ -138,6 +142,7 @@ class PatternTimelineCell(BaseModel):
     status: PatternTransitStatus
     operating: bool
     label: str  # 신규 성립/강화/완화/해소/변동 없음(유형별 어휘)
+    legs: str = ""  # 신규 성립 칸의 다리별 근거 글자 한 줄(없으면 빈 문자열)
 
 
 class PatternTimelineRow(BaseModel):

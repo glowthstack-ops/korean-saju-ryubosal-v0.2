@@ -60,14 +60,21 @@ from saju_manse_analysis.distribution.ten_god_distribution import GROUPS as _TG_
 
 from saju_shared_types.constants import (
     BRANCH_CLASHES,
+    CONTROLS,
+    GENERATES,
     STEM_ELEMENT,
     group_elements,
     hidden_stems_for,
+    season_state,
     ten_god,
 )
-from saju_shared_types.enums import Branch, Stem
+from saju_shared_types.enums import Branch, Element, Stem
 from saju_shared_types.manse_result import ManseV2Result
-from saju_shared_types.relation_semantics import BindingState, TransformationState
+from saju_shared_types.relation_semantics import (
+    BindingState,
+    RelationSemantics,
+    TransformationState,
+)
 from saju_shared_types.structure_patterns import (
     DetectedPattern,
     PatternState,
@@ -275,7 +282,14 @@ class AdjustedStrength:
     #: 원국 글자가 합·충·化로 잃은 단위(그룹별) — 층 간 차이로 '차단자를 덜어냄'을 판정한다.
     natal_lost: dict[str, float] = field(default_factory=dict)
     #: 운 글자별 직접 공급(스택 순서): (십성 집합 — 천간·지지 본기, 化 그룹 집합).
+    #: 化 그룹은 구조 기여가 인정되는 化(지지 合化·局, 천간은 진합화)만 담는다(2026-11-21).
     luck_supply: list[tuple[frozenset[str], frozenset[str]]] = field(default_factory=list)
+    #: 작용 중인 원국 글자(천간·지지 본기): (글자, 주 십성). 합거·化로 빠진 글자는 없다.
+    natal_main: list[tuple[str, frozenset[str]]] = field(default_factory=list)
+    #: 운 층별 작용 중인 글자(스택 순서): [(글자, 주 십성), …]. 化한 글자는 없다.
+    luck_glyphs: list[list[tuple[str, frozenset[str]]]] = field(default_factory=list)
+    #: 구조 기여가 인정되는 化의 표기(그룹별) — '丁壬合 化木'. 진합화가 아닌 천간 합화는 없다.
+    hwa_labels: dict[str, list[str]] = field(default_factory=dict)
 
     def group(self, tgs: Sequence[str]) -> float:
         """십성 목록의 세력 합(%). 그룹 전체 목록이면 化 세력을 포함한 그룹 세력."""
@@ -296,6 +310,8 @@ class _Glyph:
     main_tgs: set[str]  # 손상 판정에 쓰는 주 십성(천간/본기)
     factor: float = 1.0
     transform_to: str | None = None  # 化 오행(한자)
+    #: 이 글자의 化가 구조 기여로 인정되는가 — 천간 합화는 진합화일 때만(`_true_stem_transform`).
+    transform_true: bool = True
 
 
 def _natal_glyphs(result: ManseV2Result) -> list[_Glyph]:
@@ -340,18 +356,134 @@ def _luck_glyphs(dm: Stem, stack: Sequence[LuckGlyph]) -> list[_Glyph]:
     return out
 
 
+# ── 진합화(眞合化) — 천간 합화의 구조 기여 전제(2026-11-21 데굴님 제공 조건) ─────────────
+# 실답 결함: 己 일간 명식(庚申 丁亥 己亥 己巳)에서 壬辰 대운의 壬이 월간 丁과 합화해 木(관성)
+# 세력이 생기자, 관성 글자가 하나도 없는 달(丙申·庚子·辛丑월 — 인성·식상·재성 운)에 '재관인상생
+# 신규 성립'이 떴다. 천간이 합했다고 모두 化하여 구조에 기여하는 것은 아니다 — 아래 조건을 채운
+# 진합화만 다리 공급·직접 기여로 인정한다. 세력 계산(化 세력의 그룹 편입)은 그대로 둔다.
+#   ① 득령: 化 오행이 월지에서 旺·相.
+#   ② 인접: 운 천간 + 원국 천간의 합(데굴님 결정 — 운 글자끼리의 합화는 원국 글자가 변한 것이
+#      아니라 구조 기여로 보지 않는다).
+#   ③ 방해 세력 없음 — 방해 = 化 오행을 극하는 오행이 다음 중 하나:
+#      (1) 월지 장악(월령 旺·相) (2) 천간에 드러나고(투간) 지지에 뿌리를 둠(통근)
+#      (3) 합하는 원국 천간 바로 옆 자리에 있음, 또는 월지가 옆 지지·운 지지와 충
+#      (4) 원국 여덟 글자에서 化 오행을 극·설하는 글자가 돕는 글자(같은 오행·생하는 오행)보다
+#          압도적으로 많음.
+_PILLAR_ORDER: tuple[str, ...] = ("year", "month", "day", "hour")
+#: ③-(4) '압도적으로 많다'의 기준 — 극·설 글자 수가 돕는 글자 수의 이 배수 이상이고 이 개수 이상
+#: 많을 때. 데굴님 제공 문구에 수치가 없어 둔 값이다(바꾸려면 이 두 상수만).
+_HWA_MAJORITY_RATIO = 2
+_HWA_MAJORITY_GAP = 2
+
+
+def _branch_main_element(branch: str) -> Element:
+    """지지 본기의 오행."""
+    main = next(hs for hs, kind, _w in hidden_stems_for(Branch(branch)) if kind.value == "main")
+    return STEM_ELEMENT[main]
+
+
+def _hwa_obstructed(
+    target: Element, natal_pos: str, luck_char: str,
+    result: ManseV2Result, stack: Sequence[LuckGlyph],
+) -> bool:
+    """化 오행(target)을 극하는 세력이 합화를 방해하는가(진합화 조건 ③).
+
+    Args:
+        target: 化 오행.
+        natal_pos: 합하는 원국 천간의 자리('year'|'month'|'day'|'hour').
+        luck_char: 합하는 운 천간 글자.
+        result: 만세 결과(원국 4주).
+        stack: 이 층까지의 운 글자.
+    """
+    pillars = result.pillars
+    assert pillars is not None
+    killer = next(k for k, v in CONTROLS.items() if v == target)
+    present = [
+        (pos, getattr(pillars, pos)) for pos in _PILLAR_ORDER
+        if getattr(pillars, pos) is not None
+    ]
+    month_branch = Branch(pillars.month.branch)
+    # (1) 월지 장악
+    if season_state(killer, month_branch) in ("wang", "xiang"):
+        return True
+    # (2) 투간 + 통근 — 합 당사자 두 글자는 뺀다(甲己合土의 甲처럼 당사자가 극 오행일 수 있다).
+    natal_stems = [(pos, Stem(pl.stem)) for pos, pl in present if pos != natal_pos]
+    luck_stems = [Stem(g.stem) for g in stack]
+    if Stem(luck_char) in luck_stems:
+        luck_stems.remove(Stem(luck_char))
+    revealed = any(STEM_ELEMENT[st] == killer for _p, st in natal_stems) or any(
+        STEM_ELEMENT[st] == killer for st in luck_stems
+    )
+    branches = [pl.branch for _p, pl in present] + [g.branch for g in stack]
+    rooted = any(
+        STEM_ELEMENT[hs] == killer for b in branches for hs, _k, _w in hidden_stems_for(Branch(b))
+    )
+    if revealed and rooted:
+        return True
+    # (3) 합하는 원국 천간 바로 옆의 극 글자 / 월지 충(옆 지지·운 지지)
+    if natal_pos in _PILLAR_ORDER:
+        i = _PILLAR_ORDER.index(natal_pos)
+        for pos, st in natal_stems:
+            if abs(_PILLAR_ORDER.index(pos) - i) == 1 and STEM_ELEMENT[st] == killer:
+                return True
+    beside_month = [pl.branch for pos, pl in present if pos in ("year", "day")]
+    if any(
+        frozenset({month_branch, Branch(b)}) in BRANCH_CLASHES
+        for b in (*beside_month, *(g.branch for g in stack))
+    ):
+        return True
+    # (4) 글자 수 우세 — 원국 여덟 글자(지지는 본기). 합하는 원국 천간은 化 오행 편으로 센다.
+    drained = GENERATES[target]  # 化 오행이 생하는 오행(설기)
+    helpers, opposers = 1, 0
+    elements = [STEM_ELEMENT[st] for _p, st in natal_stems] + [
+        _branch_main_element(pl.branch) for _p, pl in present
+    ]
+    for el in elements:
+        if el == target or GENERATES[el] == target:
+            helpers += 1
+        elif el in (killer, drained):
+            opposers += 1
+    return (
+        opposers >= helpers * _HWA_MAJORITY_RATIO and opposers - helpers >= _HWA_MAJORITY_GAP
+    )
+
+
+def _true_stem_transform(
+    sem: RelationSemantics, result: ManseV2Result, stack: Sequence[LuckGlyph]
+) -> bool:
+    """천간 합화 1건이 진합화인가 — 운+원국 합 ∧ 化 오행 득령 ∧ 방해 세력 없음."""
+    pillars = result.pillars
+    if pillars is None or not sem.transform_element:
+        return False
+    natal_occ = [o for o in sem.occurrences if o.position != "luck"]
+    luck_occ = [o for o in sem.occurrences if o.position == "luck"]
+    if len(natal_occ) != 1 or len(luck_occ) != 1:
+        return False  # 운 글자끼리의 합화(또는 자리 정보 없음)
+    target = Element(sem.transform_element)
+    if season_state(target, Branch(pillars.month.branch)) not in ("wang", "xiang"):
+        return False
+    return not _hwa_obstructed(
+        target, natal_occ[0].position, luck_occ[0].char, result, stack
+    )
+
+
 def _apply_relation_modifiers(
     result: ManseV2Result,
     natal: list[_Glyph],
     luck: list[_Glyph],
     stack: Sequence[LuckGlyph],
-) -> None:
+) -> dict[str, list[str]]:
     """합반·합거·합화·충을 글자 factor/transform 으로 옮긴다.
 
     기존 운 합 의미화 결과를 읽기만 한다(재판정 없음).
+
+    Returns:
+        구조 기여가 인정되는 化의 표기(化 오행 → ['丁壬合 化木', …]). 진합화가 아닌 천간 합화는
+        세력에는 그대로 반영되지만 여기에 들지 않고 글자의 `transform_true` 가 False 가 된다.
     """
+    labels: dict[str, list[str]] = {}
     if not stack:
-        return
+        return labels
     sems = collect_luck_relation_semantics(
         result,
         luck_stems=[g.stem for g in stack],
@@ -362,6 +494,8 @@ def _apply_relation_modifiers(
         by_key.setdefault(g.key, []).append(g)
     for sem in sems:
         kind = "stem" if sem.kind == "stem_combination" else "branch"
+        # 지지 合化·局은 글자가 그 오행으로 바뀐 것이라 그대로 인정, 천간 합화는 진합화만.
+        true_hwa = kind == "branch" or _true_stem_transform(sem, result, stack)
         for occ in sem.occurrences:
             for g in by_key.get((kind, occ.position, occ.char), []):
                 if sem.binding_state == BindingState.BOUND:
@@ -373,6 +507,15 @@ def _apply_relation_modifiers(
                     and sem.transform_element
                 ):
                     g.transform_to = sem.transform_element
+                    g.transform_true = true_hwa
+        if (
+            true_hwa and sem.transformation_state == TransformationState.TRANSFORMED
+            and sem.transform_element
+        ):
+            label = f"{sem.relation_label} 化{sem.transform_element}"
+            bucket = labels.setdefault(sem.transform_element, [])
+            if label not in bucket:
+                bucket.append(label)
     luck_branches = {Branch(g.branch) for g in stack}
     for g in natal:
         if g.key[0] != "branch":
@@ -380,6 +523,7 @@ def _apply_relation_modifiers(
         b = Branch(g.key[2])
         if any(frozenset({b, lb}) in BRANCH_CLASHES for lb in luck_branches):
             g.factor = min(g.factor, _CLASH_FACTOR)
+    return labels
 
 
 def compute_adjusted_strength(
@@ -402,7 +546,7 @@ def compute_adjusted_strength(
     base = {tg: float(v) for tg, v in (force.ten_gods.effective_percent or {}).items()}
     natal = _natal_glyphs(result)
     luck = _luck_glyphs(dm, stack)
-    _apply_relation_modifiers(result, natal, luck, stack)
+    hwa_by_element = _apply_relation_modifiers(result, natal, luck, stack)
 
     ge = group_elements(STEM_ELEMENT[dm])
     el_of_group = {g: str(e) for g, e in ge.items()}
@@ -479,17 +623,28 @@ def compute_adjusted_strength(
     elements = {el_of_group[grp]: v for grp, v in groups.items()}
     # 운 글자별 직접 공급: 化하지 않은 천간·지지 본기의 십성, 化한 글자는 化 오행 그룹.
     luck_supply: list[tuple[frozenset[str], frozenset[str]]] = []
+    luck_glyphs: list[list[tuple[str, frozenset[str]]]] = []
     for i in range(len(stack)):
         tgs: set[str] = set()
         grps: set[str] = set()
+        acting: list[tuple[str, frozenset[str]]] = []
         for g in luck[2 * i : 2 * i + 2]:  # (천간, 지지)
             if g.transform_to is not None:
                 grp = group_of_el.get(g.transform_to)
-                if grp is not None:
+                if grp is not None and g.transform_true:
                     grps.add(grp)
             elif g.factor > 0:
                 tgs |= g.main_tgs
+                acting.append((g.key[2], frozenset(g.main_tgs)))
         luck_supply.append((frozenset(tgs), frozenset(grps)))
+        luck_glyphs.append(acting)
+    natal_main = [
+        (g.key[2], frozenset(g.main_tgs)) for g in natal
+        if g.factor > 0 and g.transform_to is None
+    ]
+    hwa_labels = {
+        group_of_el[el]: list(v) for el, v in hwa_by_element.items() if el in group_of_el
+    }
 
     rooted: set[str] = set()
     branches: set[str] = set()
@@ -509,6 +664,7 @@ def compute_adjusted_strength(
     return AdjustedStrength(
         ten_gods, groups, elements, damaged, rooted, stems, branches, el_of_group,
         transformed_groups=transformed, natal_lost=dict(damaged_units), luck_supply=luck_supply,
+        natal_main=natal_main, luck_glyphs=luck_glyphs, hwa_labels=hwa_labels,
     )
 
 
@@ -925,6 +1081,80 @@ def _is_support_layer(pid: str, now: AdjustedStrength) -> bool:
     return not (legs & now.damaged_groups)
 
 
+# ── 다리별 근거 글자(2026-11-21) ─────────────────────────────────────────────
+_LEG_GROUP_KO: dict[str, str] = {
+    "peer": "비겁", "output": "식상", "wealth": "재성", "officer": "관성", "resource": "인성",
+}
+_LAYER_KO: dict[str, str] = {"daewoon": "대운", "year": "세운", "month": "월운", "day": "일운"}
+_LEG_MAX_CHARS = 3
+
+
+def _leg_has_glyph(leg: Sequence[str], s: AdjustedStrength) -> bool:
+    """다리의 십성 글자(원국 천간·지지 본기 또는 운 글자)가 이 층까지의 스택에 있는가."""
+    want = set(leg)
+    if any(tgs & want for _c, tgs in s.natal_main):
+        return True
+    return any(tgs & want for layer in s.luck_glyphs for _c, tgs in layer)
+
+
+def _legs_grounded(pid: str, s_natal: AdjustedStrength, now: AdjustedStrength) -> bool:
+    """원국에 빠진 다리가 글자(또는 인정되는 化)로 채워졌는가 — 운 생성 패턴의 성립 전제.
+
+    근거: 《子平真詮》 論行運成格變格 "成而未全，從而就之" — 운의 成格은 빠진 부분이 채워질 때다.
+    종전 직접 기여 게이트(`_contributes`)는 '이 층 글자가 아무 다리나 공급했는가'만 보아, 빠진
+    다리(예: 관성)의 글자가 원국·운 어디에도 없어도 이미 있는 다리(재성·인성)를 보탠 달에 신규
+    성립이 떴다(2026-11-21 데굴님 실답 — 식상 운 달의 '재관인상생').
+
+    빠진 다리 = 원국 세력 10% 미만인 다리. 그 다리는 ①십성 글자가 원국 본기·운 글자에 있거나
+    ②구조 기여가 인정되는 化(지지 合化·局, 천간 진합화)로 그룹 세력이 서야 한다. 생극·제어
+    구조(T1·T2)에만 적용한다 — 억부·수화 유형의 '다리'는 세력 축이라 글자 조건이 아니다.
+    """
+    spec = contribution_spec(pid)
+    if spec is None:
+        return True
+    for leg in spec.legs:
+        if s_natal.group(list(leg)) >= _MIN_PRESENCE:
+            continue
+        if _leg_has_glyph(leg, now):
+            continue
+        grp = full_group_of(leg)
+        if grp is not None and now.hwa_labels.get(grp):
+            continue
+        return False
+    return True
+
+
+def _leg_notes(pid: str, now: AdjustedStrength, stack: Sequence[LuckGlyph]) -> list[str]:
+    """다리별 근거 글자 줄 — '재성 亥(원국)·子(월운)'. 조건 미정의 패턴은 빈 목록.
+
+    글자가 없는 다리는 인정되는 化 표기('丁壬合 化木(글자 없음)') 또는 '지장간(드러난 글자
+    없음)'으로 적는다 — 그 달 운 글자의 십성을 다른 다리로 읽지 않게 하는 엔진 값이다.
+    """
+    spec = contribution_spec(pid)
+    if spec is None:
+        return []
+    out: list[str] = []
+    for leg in spec.legs:
+        want = set(leg)
+        grp = full_group_of(leg)
+        name = _LEG_GROUP_KO.get(grp or "", "·".join(leg))
+        parts: list[str] = []
+        natal_chars = [c for c, tgs in now.natal_main if tgs & want][:_LEG_MAX_CHARS]
+        if natal_chars:
+            parts.append("·".join(natal_chars) + "(원국)")
+        for g, layer in zip(stack, now.luck_glyphs, strict=False):
+            chars = [c for c, tgs in layer if tgs & want]
+            if chars:
+                parts.append("·".join(chars) + f"({_LAYER_KO.get(g.layer, g.layer)})")
+        if not parts:
+            hwa = now.hwa_labels.get(grp or "", [])
+            parts.append(
+                f"{hwa[0]}(글자 없음)" if hwa else "지장간(드러난 글자 없음)"
+            )
+        out.append(f"{name} " + "·".join(parts))
+    return out
+
+
 def _new_allowed(pid: str) -> bool:
     t = _TYPE_OF.get(pid)
     if t in ("T1", "T2"):
@@ -1081,10 +1311,15 @@ def evaluate_pattern_states(
                 if pid in natal_ids:
                     now_ok = True if pid in fixed else ev_i.operating
                 else:
-                    now_ok = ev_i.operating and (
-                        on or _contributes(
-                            specs[pid], layers[i], prev_layer,
-                            frail=frail and contribution_spec(pid) is not None,
+                    # 빠진 다리가 글자(또는 인정되는 化)로 채워져 있어야 운에서 선다(2026-11-21).
+                    now_ok = (
+                        ev_i.operating
+                        and _legs_grounded(pid, s_natal, layers[i])
+                        and (
+                            on or _contributes(
+                                specs[pid], layers[i], prev_layer,
+                                frail=frail and contribution_spec(pid) is not None,
+                            )
                         )
                     )
                     if now_ok and not on:
@@ -1194,6 +1429,10 @@ def evaluate_pattern_states(
                 activation_sources=sources,
                 evidence=ev.evidence,
                 flags=list(ev.flags),
+                # 운에서 선(원국 미성립·작동 중) 생극·제어 구조에만 — 어느 글자로 섰는지 밝힌다.
+                leg_notes=(
+                    _leg_notes(pid, layers[-1], stack) if ev.operating and not natal_on else []
+                ),
             )
         )
     _mark_competition(states)
@@ -1290,6 +1529,8 @@ def pattern_change_lines(
         used_flags |= set(st.flags)
         if flags:
             line += " — " + " · ".join(flags)
+        if st.status_vs_parent == "new" and st.leg_notes:
+            line += " (근거 글자: " + " · ".join(st.leg_notes) + ")"
         out.append(line)
         if len(out) >= max_count:
             break
@@ -1317,6 +1558,7 @@ def _cell(st: PatternState) -> PatternTimelineCell:
     return PatternTimelineCell(
         status=st.status_vs_parent, operating=st.operating,
         label=status_label_ko(st.transit_type, st.status_vs_parent),
+        legs=" · ".join(st.leg_notes) if st.status_vs_parent == "new" else "",
     )
 
 
@@ -1470,8 +1712,10 @@ def window_structure_lines(
         return "이 기간의 큰 배경"
 
     def _changes(cells: Sequence[tuple[str, PatternTimelineCell | None]]) -> str:
+        # 신규 성립 칸은 다리별 근거 글자를 괄호로 붙인다 — 어느 글자가 어느 다리인지 엔진이
+        # 밝혀, 그 달 운 글자의 십성을 다른 다리로 읽지 않게 한다(2026-11-21).
         parts = [
-            f"{name} {c.label}" for name, c in cells
+            f"{name} {c.label}" + (f"({c.legs})" if c.legs else "") for name, c in cells
             if c is not None and c.status != "unchanged"
         ]
         return " · ".join(parts) if parts else "변동 없음"

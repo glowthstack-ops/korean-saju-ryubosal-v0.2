@@ -726,6 +726,8 @@ export interface PatternTimelineCell {
   status: "new" | "strengthened" | "weakened" | "resolved" | "unchanged";
   operating: boolean;
   label: string;
+  /** 신규 성립 칸의 다리별 근거 글자 한 줄(엔진 값, 없으면 빈 문자열). */
+  legs?: string;
 }
 export interface PatternTimelineRow {
   pattern_id: string;
