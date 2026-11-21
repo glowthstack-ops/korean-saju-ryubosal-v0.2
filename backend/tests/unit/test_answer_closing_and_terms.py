@@ -76,11 +76,19 @@ def test_the_single_owner_is_the_system_prompt() -> None:
     assert "답변 끝에 핵심을 한두 문장으로 정리" in llm_client._SYSTEM_PROMPT
 
 
-def test_system_prompt_caps_the_question_count() -> None:
-    """마무리 질문이 하나뿐임을 시스템 프롬프트가 못박는다."""
+def test_system_prompt_ends_with_summary_not_a_question() -> None:
+    """마무리는 정리 한 번이고 질문으로 끝내지 않는다(2026-11-21 데굴님 — 추가 질문 폐지).
+
+    종전에는 '이어서 생각해볼 만한 질문 1개'를 덧붙이라고 해 답 200건 중 194건이 질문으로
+    끝났다('지금 생각하시는 희망 직무나 … 근무 조건은 무엇입니까?').
+    """
     text = llm_client._SYSTEM_PROMPT
     assert "마무리는 이 한 번뿐이다" in text
-    assert "마지막 질문 하나뿐이어야 한다" in text
+    assert "답을 질문으로 끝내지 않는다" in text
+    assert "물음표로 끝나는 문장은 답 전체에서 쓰지 않는다" in text
+    # 반례 — 질문을 요구하던 옛 문구가 남아 있으면 안 된다.
+    assert "이어서 생각해볼 만한 질문" not in text
+    assert "마지막 질문 하나뿐" not in text
 
 
 def test_suggestion_block_no_longer_claims_the_ending() -> None:
@@ -93,15 +101,48 @@ def test_suggestion_block_no_longer_claims_the_ending() -> None:
 
 @pytest.mark.parametrize(
     "directive",
-    ["_YEAR_DIGEST_DIRECTIVE", "_MONTH_PICK_DIRECTIVE"],
+    ["_YEAR_DIGEST_DIRECTIVE", "_MONTH_PICK_DIRECTIVE", "_DAEWOON_UNIT_DIRECTIVE_TMPL"],
 )
-def test_followup_directives_supply_a_topic_not_another_question(
+def test_followup_directives_guide_with_a_statement_not_a_question(
     directive: str,
 ) -> None:
-    """되묻기 지시는 질문을 **추가**하지 않고 마무리 질문의 소재만 정한다."""
+    """더 자세히 보는 방법은 마무리 정리 안의 평서문 한 문장으로만 안내한다."""
     text = getattr(chat_service, directive)
-    assert "마무리 질문을 따로 더 만들지 말고" in text
+    assert "마무리 문단을 따로 더 만들지 말고" in text
+    assert "평서문 한 문장으로" in text and "질문으로 만들지 않는다" in text
+    assert "마무리 질문" not in text
     assert "자연스럽게 물어라" not in text
+
+
+def test_no_chat_directive_asks_for_a_closing_question() -> None:
+    """같은 계열 훑기 — 질문으로 맺으라던 지시문이 다른 입구에 남아 있지 않다."""
+    from saju_engines import structural_context
+
+    texts = [
+        chat_service._RETRO_TENSE_DIRECTIVE,
+        chat_service._GOSSIP_TOPIC_FRAME_DIRECTIVE,
+        structural_context.BEHAVIOR_PATTERN_DIRECTIVE,
+        structural_context.RETRO_BEHAVIOR_DIRECTIVE,
+        structural_context.TRAIT_FEEDBACK_DIRECTIVE,
+    ]
+    for text in texts:
+        assert "확인 질문" not in text and "후속 질문" not in text
+    assert "평서문 한 문장으로" in structural_context.RETRO_BEHAVIOR_DIRECTIVE
+
+
+def test_finalize_strips_a_closing_question_from_the_answer() -> None:
+    """모델이 지시를 어겨 질문으로 끝내도 사용자에게 가는 답에는 질문이 없다."""
+    body = (
+        "2027년 5월은 막혔던 절차가 재개되는 달입니다. 제안을 받는 즉시 수락하기보다 처우와 "
+        "업무 조건을 확인한 뒤 결정하는 자세가 성패를 가릅니다."
+    )
+    out = chat_service.finalize_answer_text(
+        body + "\n\n지금 생각하시는 희망 직무나 양보할 수 없는 근무 조건은 무엇입니까?"
+    )
+    assert "?" not in out
+    assert out.rstrip().endswith("성패를 가릅니다.")
+    # 반례 — 평서문으로 끝난 답은 그대로다.
+    assert chat_service.finalize_answer_text(body).rstrip().endswith("성패를 가릅니다.")
 
 
 # ── 신살 표기 훼손 ───────────────────────────────────────────────────────

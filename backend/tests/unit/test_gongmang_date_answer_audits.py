@@ -14,7 +14,7 @@ import pytest
 
 from saju_api.services import chat_service
 from saju_engines.challenge_detect import is_challenge
-from saju_engines.date_answer_audit import rewrite_avoid_ranges, strip_after_closing_question
+from saju_engines.date_answer_audit import rewrite_avoid_ranges, strip_closing_question
 from saju_engines.gongmang_claim_audit import audit_gongmang_claims
 from saju_engines.horizon import horizon_directive, resolve_horizon
 from saju_engines.ilju_mention_audit import audit_ilju_mention
@@ -257,30 +257,61 @@ def test_career_fallback_keeps_presupposition_guard(monkeypatch) -> None:
     assert "[전제 금지]" in sent["p"] and "이미 들어온 제안" in sent["p"]
 
 
-# ── ⑨ 마무리 질문 뒤 꼬리 ────────────────────────────────────────────────
+# ── ⑨ 마무리 질문 제거(2026-11-21 — 규칙 8: 답을 질문으로 끝내지 않는다) ────────────
+
+_BODY = "이번 취직 국면에서는 제안을 받는 즉시 수락하기보다 처우와 업무 조건을 확인한 뒤 " \
+    "결정하는 자세가 성패를 가릅니다. 2027년 5월을 눈여겨볼 만합니다."
 
 
-def test_tail_after_closing_question_removed() -> None:
+def test_closing_question_paragraph_removed() -> None:
+    """실답(2026-11-21): 답 끝 한 문단이 사용자 사정을 묻는 질문이었다 — 문단째 지운다."""
+    text = _BODY + "\n\n지금 생각하시는 희망 직무나 양보할 수 없는 최소한의 근무 조건은 무엇입니까?"
+    out = strip_closing_question(text)
+    assert out.text == _BODY
+    assert out.rewritten and "희망 직무" in out.rewritten[0]
+
+
+def test_closing_question_inside_last_paragraph_removed_statement_kept() -> None:
+    """질문 뒤에 붙은 평서문 정리는 남긴다(종전 감사는 반대로 이 꼬리를 지웠다)."""
     text = (
-        "본문입니다.\n\n준비 중인 자격이 있습니까? "
+        _BODY + "\n\n준비 중인 자격이 있습니까? "
         "여기서부터 다음 운이 본격적으로 풀릴 것으로 보입니다."
     )
-    out = strip_after_closing_question(text)
-    assert out.text == "본문입니다.\n\n준비 중인 자격이 있습니까?"
+    out = strip_closing_question(text)
+    assert out.text == _BODY + "\n\n여기서부터 다음 운이 본격적으로 풀릴 것으로 보입니다."
+
+
+def test_full_width_and_quoted_question_mark_removed() -> None:
+    text = _BODY + " 어느 해를 먼저 볼까요？"
+    assert strip_closing_question(text).text == _BODY
+
+
+def test_notice_line_after_question_kept() -> None:
+    """질문 뒤 줄을 바꾼 고지 줄(과거 답변의 beta 안내 등)은 지우지 않고 질문만 지운다."""
+    text = _BODY + "\n무엇이 가장 중요한가요?\n\n※ 관계 신호는 시험(beta) 관측치예요."
+    out = strip_closing_question(text)
+    assert out.text == _BODY + "\n\n※ 관계 신호는 시험(beta) 관측치예요."
 
 
 def test_mid_answer_question_not_treated_as_closing() -> None:
     """반례 — 본문 중간 질문 뒤에 긴 본문이 이어지면 손대지 않는다."""
     text = "왜 늦어질까요? " + "이유는 지연 신호 때문이에요. " * 20
-    assert strip_after_closing_question(text).text == text
+    assert strip_closing_question(text.strip()).text == text.strip()
 
 
-def test_notice_line_after_question_kept() -> None:
-    """반례 — 질문 뒤 줄을 바꾼 고지 줄(beta 안내 등)은 지우지 않는다."""
-    text = "본문입니다.\n무엇이 가장 중요한가요?\n\n※ 관계 신호는 시험(beta) 관측치예요."
-    assert strip_after_closing_question(text).text == text
+def test_earlier_paragraph_question_untouched() -> None:
+    """반례 — 마지막 문단이 평서문이면 앞 문단의 질문은 대상이 아니다."""
+    text = "그럼 언제가 좋을까요?\n\n" + _BODY
+    assert strip_closing_question(text).text == text
 
 
-def test_answer_ending_with_question_untouched() -> None:
+def test_statement_only_answer_untouched() -> None:
+    """반례 — 물음표가 없는 답은 그대로다."""
+    assert strip_closing_question(_BODY).text == _BODY
+    assert strip_closing_question(_BODY).rewritten == []
+
+
+def test_short_answer_that_is_only_a_question_untouched() -> None:
+    """반례 — 지우고 남는 본문이 거의 없으면(답 전체가 확인 질문) 손대지 않는다."""
     text = "본문입니다. 어떤 달을 먼저 볼까요?"
-    assert strip_after_closing_question(text).text == text
+    assert strip_closing_question(text).text == text
