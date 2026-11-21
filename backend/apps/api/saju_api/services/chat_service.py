@@ -659,6 +659,64 @@ def _anchor_window_day_note(
     )
 
 
+#: 근사 날짜('2월 12일 정도') 앞뒤로 일운을 싣는 날 수 — 그 무렵 한 주.
+_APPROX_DATE_PAD_DAYS = 3
+
+
+def _is_approx_date_anchor(tr: TimeRange | None) -> bool:
+    """시점 창이 근사 날짜('2월 12일 정도·쯤')에서 온 달 단위 창인가.
+
+    파서(C5b)는 근사 날짜를 그 날이 든 절기월 + 말한 날짜 앵커로 만든다. 앵커 라벨이 날짜 표기
+    (숫자로 시작)면 근사 날짜 앵커다 — 명절·일정 앵커('추석'·'면접')는 낱말로 시작한다.
+    """
+    return bool(
+        tr is not None and tr.granularity is Granularity.MONTH and tr.anchor_dates
+        and tr.anchor_dates[0].label[:1].isdigit()
+    )
+
+
+def _approx_date_note(birth: BirthInput, anchor: AnchorDate, timezone: str) -> str:
+    """근사 날짜 — 말한 날 무렵 한 주의 일운을 참고 사실로 싣고, 답의 중심은 그 달에 둔다.
+
+    2026-11-21 데굴님 승인: "2월 12일 정도 이사를 해야해"는 그 날 하루의 일진을 묻는 말이 아니다.
+    날짜가 아직 정해지지 않았으므로 그 달의 흐름으로 풀고, 그 무렵 일운은 날을 고를 때의 참고다.
+    """
+    try:
+        ad = date.fromisoformat(anchor.date)
+    except ValueError:
+        return ""
+    start = ad - timedelta(days=_APPROX_DATE_PAD_DAYS)
+    end = ad + timedelta(days=_APPROX_DATE_PAD_DAYS)
+    by_label: dict[str, LuckPillar] = {}
+    for y, m in sorted({(d.year, d.month) for d in (start, end)}):
+        try:
+            days = luck_days(birth, y, m)
+        except (ValueError, RuntimeError):
+            days = []
+        by_label.update({p.label: p for p in days})
+    rows: list[str] = []
+    cur = start
+    while cur <= end:
+        dp = by_label.get(cur.isoformat())
+        if dp is not None:
+            grade = getattr(dp, "luck_label", "") or "등급 없음"
+            mark = "(말한 날)" if cur == ad else ""
+            rows.append(
+                f"{cur:%m-%d}{mark} {dp.ganji} 천간 {dp.stem_ten_god or '?'}"
+                f"·지지 {dp.branch_ten_god or '?'}·{grade}"
+            )
+        cur += timedelta(days=1)
+    if not rows:
+        return ""
+    return (
+        f"[근사 날짜 — 사용자가 '{anchor.label} 정도'로 말한 무렵, 엔진 확정 사실] 말한 날: "
+        f"{anchor.date}(날짜는 아직 확정이 아니다). 그 무렵 일운: " + " / ".join(rows) + ". "
+        "이 질문은 그 날 하루의 일진을 묻는 것이 아니다 — 답의 중심은 그 날이 든 달의 흐름"
+        "(월운·세운)에 두고, 위 일운은 그 무렵에서 날을 고를 때의 참고로 한두 문장만 쓸 것. "
+        "말한 날 하루의 길흉으로 결론을 내지 말 것."
+    )
+
+
 def _date_day_fortune_note(birth: BirthInput, dates: list[date], timezone: str) -> str:
     """특정 날짜 질문 — 그 날(들)의 일운(日運) 간지·십성·길흉 + 절기월을 '엔진 확정 사실'로 주입.
 
@@ -8328,10 +8386,19 @@ def chat(
     # 긴 일 범위는 빈 리스트(일별 흐름 블록 담당).
     # 단일 하루 판정은 예전 가드 그대로다(2026-07-17: offset 창·기간 창·월 granularity 제외).
     _tr_targets = _tr_day_targets(_tr)
+    # 근사 날짜('2월 12일 정도')는 달 단위 창 + 날짜 앵커다 — 본문의 날짜를 '질문한 날'로 다시
+    # 뽑아 그 날 일진 중심 지시를 붙이지 않는다(2026-11-21).
+    _approx_anchor = _is_approx_date_anchor(_tr)
     _date_targets = (
-        _tr_targets if _tr_targets is not None else _explicit_dates(question, _ref_year)
+        [] if _approx_anchor
+        else _tr_targets if _tr_targets is not None
+        else _explicit_dates(question, _ref_year)
     )
-    if _date_targets:
+    if _approx_anchor and _tr is not None and _tr.anchor_dates[0].label in question:
+        _ap_note = _approx_date_note(birth, _tr.anchor_dates[0], _tz)
+        if _ap_note:
+            trailing.append(_ap_note)
+    elif _date_targets:
         _df_note = _date_day_fortune_note(birth, _date_targets, _tz)
         if _df_note:
             trailing.append(_df_note)

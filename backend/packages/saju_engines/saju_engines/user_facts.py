@@ -12,10 +12,13 @@
 from __future__ import annotations
 
 import re
+from datetime import date
 
 from saju_shared_types.conversation import ConversationState, UserFact
+from saju_shared_types.intent import Granularity
 
 from .job_change_report import JOB_CHANGE_REPORT_RE, is_job_change_report
+from .time_parser import parse_time
 
 # 슬롯별 추출 패턴 — 매칭된 '문장 절'을 인용(quote)으로 보존한다(정규화 값보다 오해석이
 # 적다). singleton=True인 키는 스레드에 1건만 유지하고 재진술 시 supersede(정정 이력).
@@ -168,12 +171,42 @@ def _clause_of(text: str, span_start: int) -> str:
     return text[start:].strip()[:_MAX_QUOTE]
 
 
-def extract_user_facts(text: str, turn: int) -> list[UserFact]:
+#: 일정 슬롯 — 인용 속 날짜·달의 연도를 발화일 기준으로 보충해 둔다(`UserFact.stated_date`).
+_DATED_FACT_KEYS = frozenset({"fixed_schedule", "planned_task"})
+_DATE_IN_QUOTE_RE = re.compile(r"\d{1,2}\s*월")
+
+
+def _stated_date(quote: str, today: date) -> str | None:
+    """인용 속 날짜·달의 달력 환산('YYYY-MM-DD' | 'YYYY-MM') — 시점 파서 규칙 그대로.
+
+    근사 날짜('2월 12일 정도')는 말한 날짜(앵커)를 돌려준다. 달·날 단위가 아니면 None.
+    """
+    if not _DATE_IN_QUOTE_RE.search(quote):
+        return None
+    tr, _scope = parse_time(quote, today)
+    if tr is None or tr.type != "absolute" or not tr.start:
+        return None
+    if tr.anchor_dates:
+        return tr.anchor_dates[0].date
+    if tr.granularity in (Granularity.DAY, Granularity.MONTH) and tr.start == (tr.end or tr.start):
+        return tr.start
+    return None
+
+
+def _stated_date_ko(value: str) -> str:
+    """'2027-02-12' → '2027년 2월 12일', '2027-02' → '2027년 2월'."""
+    parts = value.split("-")
+    out = f"{int(parts[0])}년 {int(parts[1])}월"
+    return out + (f" {int(parts[2])}일" if len(parts) >= 3 else "")
+
+
+def extract_user_facts(text: str, turn: int, today: date | None = None) -> list[UserFact]:
     """이번 턴 발화에서 사용자 명시 사실을 추출한다(rules-first, LLM 미사용).
 
     Args:
         text: 사용자 발화 원문.
         turn: 이번 턴 번호(source_turn 기록).
+        today: 발화한 날. 주면 일정 슬롯의 연도 없는 날짜·달을 달력으로 환산해 둔다.
 
     Returns:
         추출된 UserFact 목록 — 같은 절에서 같은 key가 중복 매칭되면 1건만.
@@ -204,7 +237,13 @@ def extract_user_facts(text: str, turn: int) -> list[UserFact]:
             # 관계 사실은 scope=global — 주제 전환(topic reset)이 배우자·연애 사실을
             # 지우면 안 된다(C-3 §10). 그 외 슬롯은 기존 topic scope 유지.
             scope = "global" if key in _REL_FACT_KEYS else "topic"
-            out.append(UserFact(key=key, quote=quote, source_turn=turn, scope=scope))
+            stated = (
+                _stated_date(quote, today)
+                if today is not None and key in _DATED_FACT_KEYS else None
+            )
+            out.append(UserFact(
+                key=key, quote=quote, source_turn=turn, scope=scope, stated_date=stated,
+            ))
     # 같은 절이 fixed_schedule과 planned_task에 겹치면 구체적인 쪽(fixed)만 남긴다.
     fixed_quotes = {f.quote for f in out if f.key == "fixed_schedule"}
     return [f for f in out if not (f.key == "planned_task" and f.quote in fixed_quotes)]
@@ -306,6 +345,9 @@ def user_facts_block(facts: list[UserFact], cap: int = 10) -> str | None:
     for f in facts[-cap:]:
         label = _KEY_KO.get(f.key, f.key)
         line = f"- ({label}) “{f.quote}”"
+        if f.stated_date:
+            # 연도 없는 날짜는 발화일 기준 달력 환산을 병기 — 해를 추측하지 않게 한다.
+            line += f" [달력 환산: {_stated_date_ko(f.stated_date)}]"
         if f.key in _KEY_NOTE:
             line += f" ← {_KEY_NOTE[f.key]}"
         if f.superseded_quote:

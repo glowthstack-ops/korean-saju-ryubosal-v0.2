@@ -668,6 +668,9 @@ class LlmInput(BaseModel):
     # 민속 흉방(docs/19 §5) — 이사·이동·공사 질문은 전체 블록, 그 외 방향 질문은 고지 한 줄(추가
     # 정보). 개인 12신살과 별개 층. 없으면 빈 목록(무소음).
     folk_taboo_context: list[str] = Field(default_factory=list)
+    # 입춘 경계(2026-11-21) — 질문 창이 양력 2월을 짧게 짚으면 입춘 날짜와 전후 세운·월운 간지·십성.
+    # 세운과 연간 민속 흉방은 입춘에 바뀐다. 서술 전용(점수·판정 아님). 없으면 빈 목록.
+    ipchun_context: list[str] = Field(default_factory=list)
     # 오행 보완 방향 첨언(용희기구한 × 정오행 방위, 2026-09-22) — 수동 방향 질문에만. 12신살
     # 활용 방향과 별개 층(합산 금지), 서술 전용. 능동·택일·이사 경로에는 싣지 않는다.
     yongsin_direction: YongsinDirectionNote | None = None
