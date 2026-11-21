@@ -1322,9 +1322,10 @@ class EventEngineV2:
         글자살(寅申巳亥 보유)로 판정하지 않는다(승인 조건 1). relativeStarMatch 룰이
         이 집합과 피자극 글자를 대조한다. pillars 부재 시 빈 dict(fail-closed).
 
-        기준 자리는 공용 상수(SELF_SINSAL_BASE_SLOTS — 2026-11-12 부터 일지만)를 따른다. 위험 사전
-        룰의 reference 목록에 'year_branch' 가 남아 있어도 여기서 그 키를 내지 않으므로 연지 기준
-        역마는 성립하지 않는다(감수 해시로 잠긴 사전을 고치지 않고 사실 쪽에서 좁힌다).
+        기준 자리는 공용 상수(SELF_SINSAL_BASE_SLOTS — 2026-11-21 부터 연지·일지)를 따른다.
+        위험 사전 룰의 reference 목록('day_branch'·'year_branch')은 그대로이고, 사실 쪽이 상수에 든
+        자리의 키만 낸다(2026-11-12~20 에는 일지만이라 'year_branch' 키가 없었다 — 감수 해시로
+        잠긴 사전은 불변).
         """
         pillars = result.pillars
         if pillars is None:

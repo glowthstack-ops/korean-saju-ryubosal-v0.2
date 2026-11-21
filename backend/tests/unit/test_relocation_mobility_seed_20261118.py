@@ -77,8 +77,14 @@ def test_companions_read_yeokma_activation_without_double_counting() -> None:
     assert mobility_companions(_pillar("甲申"), chart) == [COMPANION_YEOKMA, COMPANION_HAP]
     # 반례: 巳申 육합 하나를 역마와 합으로 두 번 세지 않는다 — 천간합이 없으면 역마만 남는다.
     assert mobility_companions(_pillar("丙申"), chart) == [COMPANION_YEOKMA]
-    # 庚寅: 寅申 충(연지) + 寅亥 육합(월지·일지) — 역마 글자와는 무관.
-    assert mobility_companions(_pillar("庚寅"), chart) == [COMPANION_CLASH, COMPANION_HAP]
+    # 庚寅: 寅申 충(연지) + 寅亥 육합(월지·일지). 2026-11-21 부터 12신살 기준 자리가 연지·일지라
+    # 寅은 연지 申 기준 역마 글자(도래)이기도 하다 — 역마가 함께 선다.
+    assert mobility_companions(_pillar("庚寅"), chart) == [
+        COMPANION_YEOKMA, COMPANION_CLASH, COMPANION_HAP,
+    ]
+    # 반례: 甲辰 — 辰은 두 기준 어느 쪽 역마 글자도 아니고 원국 역마 글자(巳)도 건드리지 않는다.
+    # 일간 己와의 천간합만 남는다.
+    assert mobility_companions(_pillar("甲辰"), chart) == [COMPANION_HAP]
     # 반례: 원국과 충·합·역마가 없는 기둥.
     assert mobility_companions(_pillar("丙午"), chart) == []
 

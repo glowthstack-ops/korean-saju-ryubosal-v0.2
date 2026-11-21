@@ -11,9 +11,10 @@ from __future__ import annotations
 import re
 from datetime import date, timedelta
 
-from saju_manse_analysis.luck.luck_calendar import shift_month_label
+from saju_manse_analysis.luck.luck_calendar import luck_month_label, shift_month_label
 
 from saju_manse_core.calendar.lunar_solar_converter import lunar_to_solar
+from saju_manse_core.calendar.solar_terms import get_table
 from saju_shared_types.intent import (
     AgeRange,
     AnchorDate,
@@ -145,6 +146,163 @@ _PAST_TENSE_RE = re.compile(
     r"했|찍었|샀|봤|갔|왔|였|었[어은는을다나]|지났|끝났|난\s*뒤|[가-힣][은ㄴ]\s*(?:건|게|거)\b"
 )
 
+# ── 날짜가 걸린 문장 기준의 과거·계획 판정(2026-11-21 데굴님 실답) ─────────────────────
+# 실답 결함: 11월 21일에 "오늘 집이 팔렸어. 2월 12일 정도 이사를 해야해. … 좋은 선택일까?"를 묻자
+# 대상 시점이 오늘로 잡히고(사건 보고 문장의 '오늘'이 계획 날짜를 이김), 같은 계열로 "집 계약했어.
+# 2월 12일에 이사해야 해"는 앞 문장의 '했'이 날짜를 과거(2026-02-12)로 고정해 회고 모드로 답했다.
+# 과거 표지는 날짜가 든 문장 안에서 먼저 보고, 그 문장에 계획·미래 표지가 있으면 다른 문장의 과거
+# 표지를 쓰지 않는다. 그 문장에 어느 표지도 없으면 뒤 문장의 과거 표지만 인정한다('3월 5일 말이야.
+# 그날 왜 힘들었을까') — 앞 문장은 배경 보고다.
+_SENT_BOUNDARY_RE = re.compile(r"[.!?？。\n]+")
+_RIEUL_JONG = 8  # 한글 음절 종성 인덱스 — ㄹ('할까·될까·좋을까'의 앞 음절 받침)
+_PLAN_MARKER_RE = re.compile(
+    r"해야|하려|려고|려는|려면|예정|계획|고\s*싶|할\s*거|할게|할\s*생각|해도\s*[될돼되]|수\s*있을"
+)
+#: 연도를 따로 말한 표현 — 있으면 연도 없는 달·반기를 다음 해로 넘기지 않는다.
+_YEAR_WORD_RE = re.compile(r"작년|지난\s*해|재작년|전년|후년")
+#: 연도 없이 말한 달·반기가 이만큼(개월)보다 오래 지났으면 다가올 해로 읽는다(계획·과거 표지가
+#: 없는 중립 문장 한정 — 2026-11-21 데굴님 승인). 6월의 '5월은 어때?'는 올해 5월 그대로다.
+_NEUTRAL_PAST_MONTH_GRACE = 3
+#: 사건 보고 절의 시점어 — 이 말 뒤에 완료형 서술이 오면 그 절의 시점은 사건이 일어난 때다.
+_EVENT_TIME_RE = re.compile(r"오늘|어제|그저께|그제|방금|아까|이번\s*주|지난\s*주")
+#: 소원·가정형('됐으면 좋겠는데') — 완료 보고가 아니다.
+_EVENT_WISH_RE = re.compile(r"[가-힣]으면")
+#: 완료형 서술 뒤에 붙는 종결·연결 어미(긴 것부터 견준다).
+_EVENT_DONE_ENDINGS: tuple[str, ...] = (
+    "습니다", "어요", "네요", "거든", "는데", "지만", "어서", "으니", "더니",
+    "어", "다", "네", "지", "죠", "음", "고",
+)
+#: 근사 날짜 표지 — '2월 12일 정도·쯤·무렵'은 그 날 하루가 아니라 그 무렵이다.
+_APPROX_DATE_RE = re.compile(
+    r"\s*(?:정도|쯤|무렵|즈음|전후|경(?=에|으로|쯤|\s|[,.?!]|$)|께(?=에|로|\s|[,.?!]|$))"
+)
+
+
+def _year_stated(text: str) -> bool:
+    """발화가 연도를 따로 말했는가(2027년·내년·올해·작년 …)."""
+    return bool(
+        re.search(r"20\d{2}\s*년", text) or "내년" in text
+        or THIS_YEAR_RE.search(text) or _YEAR_WORD_RE.search(text)
+    )
+
+
+def _sentence_bounds(text: str, pos: int) -> tuple[int, int]:
+    """pos 가 속한 문장의 (시작, 끝) — 문장 부호·줄바꿈으로 가른다."""
+    start = 0
+    for m in _SENT_BOUNDARY_RE.finditer(text):
+        if m.start() >= pos:
+            return start, m.start()
+        start = m.end()
+    return start, len(text)
+
+
+def _has_plan_marker(sent: str) -> bool:
+    """문장에 계획·미래 표지가 있는가 — '해야·하려고·예정' 또는 '-ㄹ까'(할까·될까·좋을까).
+
+    '-ㄹ까'는 받침 ㄹ 음절 + '까'로 본다. 이유의 '~니까'는 앞 음절에 받침이 없어 걸리지 않고,
+    조사 '까지'('9월까지'·'12일까지')는 뒤에 '지'가 와서 뺀다.
+    """
+    if _PLAN_MARKER_RE.search(sent):
+        return True
+    for i in range(len(sent) - 1):
+        ch = sent[i]
+        if (
+            sent[i + 1] == "까" and sent[i + 2 : i + 3] != "지"
+            and "가" <= ch <= "힣" and (ord(ch) - 0xAC00) % 28 == _RIEUL_JONG
+        ):
+            return True
+    return False
+
+
+def _past_context(text: str, pos: int | None = None) -> bool:
+    """시점 표현(pos)에 걸리는 과거 시제 표지가 있는가.
+
+    Args:
+        text: 발화 본문.
+        pos: 시점 표현의 시작 위치. None 이면 본문 전체에서 찾는다(종전 동작).
+
+    Returns:
+        그 문장 안에 과거 표지가 있으면 True. 그 문장에 계획·미래 표지가 있으면 False(다른 문장의
+        과거 표지는 배경 보고다). 둘 다 없으면 뒤 문장의 과거 표지 여부.
+    """
+    if pos is None:
+        return bool(_PAST_TENSE_RE.search(text))
+    start, end = _sentence_bounds(text, pos)
+    sent = text[start:end]
+    if _PAST_TENSE_RE.search(sent):
+        return True
+    if _has_plan_marker(sent):
+        return False
+    return bool(_PAST_TENSE_RE.search(text[end:]))
+
+
+def _past_period_roll(
+    text: str, pos: int, end_label: str, this_month: str, *, explicit_year: bool
+) -> int:
+    """연도 없이 말한 달·반기가 이미 지났을 때 다음 해로 넘길 해 수(0 또는 1).
+
+    Args:
+        text: 발화 본문.
+        pos: 그 표현의 시작 위치(과거·계획 표지는 이 문장 기준).
+        end_label: 올해로 읽었을 때 그 구간의 마지막 달 라벨(YYYY-MM).
+        this_month: 오늘이 속한 절기월 라벨(YYYY-MM).
+        explicit_year: 연도를 말했는가(연도·내년·올해·작년 등) — 말했으면 넘기지 않는다.
+
+    Returns:
+        과거 표지가 걸리면 0(회고). 계획·미래 표지가 있으면 1. 중립이면 지난 지
+        `_NEUTRAL_PAST_MONTH_GRACE` 개월 이내는 0, 그보다 오래 지났으면 1.
+    """
+    if explicit_year or end_label >= this_month:
+        return 0
+    if _past_context(text, pos):
+        return 0
+    start, end = _sentence_bounds(text, pos)
+    if _has_plan_marker(text[start:end]):
+        return 1
+    months_ago = (
+        (int(this_month[:4]) - int(end_label[:4])) * 12
+        + int(this_month[5:7]) - int(end_label[5:7])
+    )
+    return 1 if months_ago > _NEUTRAL_PAST_MONTH_GRACE else 0
+
+
+def _event_report_end(sent: str) -> int | None:
+    """문장 안 '사건 시점어 + 완료형 서술'이 끝나는 위치(없으면 None).
+
+    완료형 서술 = 과거 선어말어미가 축약된 음절(했·됐·렸·았 …) + 종결·연결 어미. 소원·가정형
+    ('됐으면 좋겠는데')은 보고가 아니다.
+    """
+    m = _EVENT_TIME_RE.search(sent)
+    if m is None or _EVENT_WISH_RE.search(sent):
+        return None
+    for i in range(m.end(), len(sent)):
+        if not _is_past_syllable(sent[i]):
+            continue
+        for ending in _EVENT_DONE_ENDINGS:
+            if sent.startswith(ending, i + 1):
+                return i + 1 + len(ending)
+    return None
+
+
+def strip_event_report_clauses(text: str) -> str:
+    """사건 보고 절('오늘 집이 팔렸어'·'어제 계약했는데')을 뺀 본문.
+
+    보고 절의 시점어는 사건이 일어난 때이지 질문이 묻는 때가 아니다. 문장 머리부터 완료형 서술이
+    끝나는 곳까지를 지운다 — 연결 어미로 이어진 뒷부분('… 계약했는데 3월에 이사하려고')은 남는다.
+    """
+    out: list[str] = []
+    start = 0
+    for m in [*_SENT_BOUNDARY_RE.finditer(text), None]:
+        end = m.start() if m is not None else len(text)
+        sent = text[start:end]
+        cut = _event_report_end(sent)
+        out.append(" " * cut + sent[cut:] if cut is not None else sent)
+        if m is None:
+            break
+        out.append(m.group(0))
+        start = m.end()
+    return "".join(out)
+
 
 # ── C5d 복수 명시 일자 · 일 범위(2026-10-02 데굴님 승인) ─────────────────────────────
 # 실답 결함: 택일 답 뒤 "10월 7일과 9일은 어때?"가 C5b 첫 매치(10-07) 하나로만 파싱되어 9일이
@@ -194,9 +352,14 @@ def _nearest_month_day(dy: int, today: date, prefix: str, past_ok: bool) -> date
     return None
 
 
-def _roll_future(d: date, today: date, year_explicit: bool, text: str) -> date:
-    """연도 미지정 지난 날짜는 내년으로(C5b 규칙) — 명시 연도·'내년'·과거시제면 그대로."""
-    if year_explicit or "내년" in text or d >= today or _PAST_TENSE_RE.search(text):
+def _roll_future(
+    d: date, today: date, year_explicit: bool, text: str, pos: int | None = None
+) -> date:
+    """연도 미지정 지난 날짜는 내년으로(C5b 규칙) — 명시 연도·'내년'·과거시제면 그대로.
+
+    pos(날짜 표현 위치)를 주면 과거시제는 그 문장 기준으로 본다(`_past_context`).
+    """
+    if year_explicit or "내년" in text or d >= today or _past_context(text, pos):
         return d
     try:
         return date(d.year + 1, d.month, d.day)
@@ -271,15 +434,16 @@ def parse_multi_day(
                 pos = ct.end()
         if range_pair is not None:
             a, b = range_pair
-            a2 = _roll_future(a, today, year_explicit, text)
+            a2 = _roll_future(a, today, year_explicit, text, fulls[0].start())
             delta = (b - a).days
             return _mk([a2, a2 + timedelta(days=delta)], is_range=True)
         uniq = sorted(set(found))
         if len(uniq) >= 2:
             # 가장 이른 날이 지났고 연도 미지정이면 전부 한 해 뒤로(한 질문의 날짜는 같은 해 의도).
-            shifted = _roll_future(uniq[0], today, year_explicit, text)
+            _pos = fulls[0].start()
+            shifted = _roll_future(uniq[0], today, year_explicit, text, _pos)
             if shifted != uniq[0]:
-                uniq = [_roll_future(d, today, year_explicit, text) for d in uniq]
+                uniq = [_roll_future(d, today, year_explicit, text, _pos) for d in uniq]
             return _mk(uniq, is_range=False)
         return None
 
@@ -296,8 +460,9 @@ def parse_multi_day(
                 continue
         uniq = sorted(set(found))
         if len(uniq) >= 2:
-            if _roll_future(uniq[0], today, year_explicit, text) != uniq[0]:
-                uniq = [_roll_future(d, today, year_explicit, text) for d in uniq]
+            _pos = slashes[0].start()
+            if _roll_future(uniq[0], today, year_explicit, text, _pos) != uniq[0]:
+                uniq = [_roll_future(d, today, year_explicit, text, _pos) for d in uniq]
             return _mk(uniq, is_range=False)
         return None
 
@@ -306,7 +471,7 @@ def parse_multi_day(
     if not hm:
         return None
     prefix = (hm.group(1) or "").replace(" ", "")
-    past_ok = bool(_PAST_TENSE_RE.search(text))
+    past_ok = _past_context(text, hm.start())
     bare_head = _nearest_month_day(int(hm.group(2)), today, prefix, past_ok)
     if bare_head is None:
         return None
@@ -564,6 +729,14 @@ def _directed_month_range(text: str, today: date, this_month: str) -> tuple[str,
         )
         if in_tail or past_ahead:
             start_year, end_year = start_year - 1, end_year - 1
+    elif not (sy or snext or ey or enext or rel):
+        # 연도 없이 말한 구간이 통째로 지났으면 단일 달 규칙(C5)과 같은 기준으로 다음 해로 넘긴다
+        # (2026-11-21 같은 계열: 11월의 "3-5월 이사운"이 지난 봄으로 풀려 회고 모드가 됐다).
+        roll = _past_period_roll(
+            text, m.start(), f"{end_year}-{end_month:02d}", this_month,
+            explicit_year=_year_stated(text),
+        )
+        start_year, end_year = start_year + roll, end_year + roll
     return f"{start_year}-{start_month:02d}", f"{end_year}-{end_month:02d}"
 
 
@@ -946,6 +1119,11 @@ def parse_time(
         if word in text:
             ym = re.search(r"(20\d{2})\s*년", text)
             year = int(ym.group(1)) if ym else today.year + (1 if "내년" in text else 0)
+            # 연도 없이 말한 반기가 이미 지났으면 다음 해로(월 규칙 C5 와 같은 기준, 2026-11-21).
+            year += _past_period_roll(
+                text, text.index(word), f"{year}-{m2}", this_month,
+                explicit_year=_year_stated(text),
+            )
             return TimeRange(
                 type="absolute", granularity=Granularity.MONTH,
                 start=f"{year}-{m1}", end=f"{year}-{m2}", urgency=urgency,
@@ -980,8 +1158,20 @@ def parse_time(
             # 연도 미지정인데 이미 지난 날짜면 내년으로(미래 택일 의도). 단 과거시제 표지가
             # 있으면('계약했는데') 그 해 과거 그대로 둔다. 명시 연도는 항상 존중.
             if (yr_explicit is None and "내년" not in text and anchor_d < today
-                    and not _PAST_TENSE_RE.search(text)):
+                    and not _past_context(text, g.start())):
                 anchor_d = date(yr + 1, mo, dy)
+            # 근사 날짜('2월 12일 정도·쯤·무렵', 2026-11-21 데굴님 승인) — 그 날 하루의 일진이
+            # 아니라 그 날이 든 절기월을 대상으로 하고, 말한 날짜는 앵커로 남긴다(그 무렵 일운은
+            # 호출 측이 붙인다). '이후/부터'·시간대 요청은 날짜 고정이라 제외.
+            if open_kw is None and not hour_level and _APPROX_DATE_RE.match(text, g.end()):
+                label = luck_month_label(anchor_d, get_table())
+                return TimeRange(
+                    type="absolute", granularity=Granularity.MONTH, start=label, end=label,
+                    anchor_dates=[
+                        AnchorDate(label=g.group(0).strip(), date=anchor_d.isoformat())
+                    ],
+                    urgency=urgency,
+                ), TimeScope.SHORT_TERM
             # '시간대'(C17) 동반이면 시진 단위 — 단, 날짜 앵커는 유지(로또 실행 패키지 등).
             # '이후/부터'면 개방형(end=None) — 시진 단위는 특정일 고정이라 단일 앵커.
             open_ended = open_kw is not None and not hour_level
@@ -1032,7 +1222,7 @@ def parse_time(
         prefix = (m.group(1) or "").replace(" ", "")
         dy = int(m.group(2))
         if 1 <= dy <= 31:
-            past_ok = bool(_PAST_TENSE_RE.search(text))
+            past_ok = _past_context(text, m.start())
             if prefix in ("이번달", "이달"):
                 offsets = [0]  # 명시된 이번 달 고정(지난 날짜여도 그 달)
             elif prefix == "다음달":
@@ -1079,11 +1269,13 @@ def parse_time(
     if months_found and not re.search(r"\d{1,2}\s*월\s*\d{1,2}\s*일", text):
         ym = re.search(r"(20\d{2})\s*년", text)
         year = int(ym.group(1)) if ym else today.year + (1 if "내년" in text else 0)
+        _first_month = re.search(r"\d{1,2}\s*월", text)
         # 나열형이 해를 넘기는 경우("11월, 12월, 1월"·"11월과 1월 중") — 말한 순서가 달력 순으로
         # 한 번 넘어가고, 같은 해로 읽으면 뒤에 말한 달이 이미 지난 달일 때만 다음 해로 잇는다.
         wrapped = _wrapped_month_list(
             [int(x) for x in months_found], today,
-            explicit_year=bool(ym) or "내년" in text, past=bool(_PAST_TENSE_RE.search(text)),
+            explicit_year=bool(ym) or "내년" in text,
+            past=_past_context(text, _first_month.start() if _first_month else None),
         )
         if wrapped is not None:
             return TimeRange(
@@ -1092,6 +1284,14 @@ def parse_time(
                 urgency=urgency,
             ), TimeScope.MID_TERM
         month_nums = sorted({int(x) for x in months_found if 1 <= int(x) <= 12})
+        # 연도 없이 말한 달이 전부 이미 지났으면 다가올 해로 넘긴다(2026-11-21 데굴님 실답: 11월의
+        # "2월에 이사해도 될까?"가 2026-02 로 풀려 회고 모드로 답했다). 과거 표지가 걸리면 그대로,
+        # 계획·미래 표지가 있으면 다음 해, 중립이면 지난 지 3개월 이내만 올해로 둔다.
+        if month_nums and _first_month is not None:
+            year += _past_period_roll(
+                text, _first_month.start(), f"{year}-{month_nums[-1]:02d}", this_month,
+                explicit_year=_year_stated(text),
+            )
         if len(month_nums) >= 2:  # 다중 시점 비교 — 양 끝 달 포함 구간(둘 다 후보·근거 확보)
             return TimeRange(
                 type="absolute", granularity=Granularity.MONTH,
@@ -1608,6 +1808,15 @@ def parse_time_with_constraints(
     # 진술 절만 제거하므로 "오늘 운세 봐줘"류 순수 '오늘' 요청은 영향 없다.
     text = _TODAY_DATE_STATEMENT_RE.sub(" ", text)
     text = normalize_korean_counts(text)  # 제약 추출도 같은 정규화 본문을 본다
+    # 사건 보고 절('오늘 집이 팔렸어')의 시점어는 사건이 일어난 때다 — 보고 절 밖에 시점이 따로
+    # 있으면 그 시점이 질문 대상이다(2026-11-21 데굴님 실답: "오늘 집이 팔렸어. 2월 12일 정도 이사를
+    # 해야해"가 오늘로 잡혀 내년 2월 이사를 오늘 일진으로 풀었다). 보고 절 밖에 시점이 없으면
+    # 종전대로 둔다('오늘 면접 봤는데 붙을까'는 오늘).
+    _residual = strip_event_report_clauses(text)
+    if _residual != text:
+        _r_tr, _ = parse_time(_residual, today, birth_year, current_month_label, sunday_week)
+        if _r_tr is not None or holiday_anchor(_residual, today) is not None:
+            text = _residual
     tr, scope = parse_time(text, today, birth_year, current_month_label, sunday_week)
     tr, scope = _attach_holiday_anchor(text, today, tr, scope)
     items = extract_time_constraints(text, today)

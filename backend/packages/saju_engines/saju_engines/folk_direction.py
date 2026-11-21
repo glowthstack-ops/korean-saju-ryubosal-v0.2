@@ -36,6 +36,8 @@ from saju_shared_types.folk_direction import (
 from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
 
+from .ipchun_boundary import sewoon_year_of_day
+
 _DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries"
 _COMPILED_DEFAULT = Path(__file__).resolve().parents[3] / "compiled"
 FOLK_TABOO_VERSION = "1.1.0"
@@ -300,7 +302,7 @@ def format_folk_taboo_lines(
             f"- {n.direction}쪽[{dic.grades[n.grade]}]: {phrase_for_note(n, dic)} "
             f"전통적으로 {_actions_ko(n, dic)} 등에서 특히 꺼립니다."
             + (f" ({span})" if span else "")
-            + (" 오늘 손방도 이 방향입니다." if n.son_today else "")
+            + (" 그날 손방도 이 방향입니다." if n.son_today else "")
         )
     ground = [ground_phrase_for_note(n, dic) for n in summary.notes if n.ground_hits]
     if ground:
@@ -340,12 +342,14 @@ FOLK_TABOO_INSTRUCTION = (
 def folk_note_for_day(day: date, dictionary: FolkTabooDict | None = None) -> str:
     """택일 후보 1일의 민속 흉방 근거 줄 — '손방 남쪽 · 올해 삼살방 북·대장군방 동…'(추가 정보)."""
     dic = dictionary or load_folk_taboo_dict()
-    summary = folk_taboo_summary(day.year, day, dic)
+    # 연간 흉방은 입춘에 바뀐다(docs/19 §5-1 '연간 = 만세력 年支(입춘)') — 1월~입춘 전 날짜를 달력
+    # 연도로 읽으면 다음 해 흉방이 붙는다(2026-11-21 같은 계열 점검).
+    summary = folk_taboo_summary(sewoon_year_of_day(day), day, dic)
     annual = " · ".join(  # MOVE 층만(태세·세파는 이사 판정이 아니다)
         f"{h.name_ko} {h.direction}" for n in summary.notes for h in n.hits
     )
     son = f"손방 {summary.son.direction}쪽" if summary.son is not None else "손 없는 날"
-    return f"민속 흉방(추가 정보): {son} · 올해 {annual}"
+    return f"민속 흉방(추가 정보): {son} · {summary.year_ganji}년 {annual}"
 
 
 # ── 세운 카드(만세력) 부착 ─────────────────────────────────────────────────────

@@ -151,7 +151,7 @@ def test_phrase_uses_template_and_reason_grammar() -> None:
     assert "다만 그쪽을 향해 가는 것은 전통적으로 허용하고" in text  # 좌향 완화(三煞可向不可坐)
     full = "\n".join(format_folk_taboo_lines(s, full=True))
     assert "[민속 흉방 — 2026 丙午년" in full and "손방(그날): 음력 8월 11일 → 동쪽" in full
-    assert "오늘 손방도 이 방향입니다" in full and "범위:" in full
+    assert "그날 손방도 이 방향입니다" in full and "범위:" in full
     assert "(대장군방 2025~2027 3년 고정)" in full
     assert "- 참고(동토·좌향 참고, 이사 판정 아님): 북쪽 세파방(子)" in full
     assert "남쪽 태세방(午) — 건축·증축·터파기·땅을 건드리는 행위·집 좌향에서만 꺼림" in full
@@ -247,7 +247,7 @@ def test_theme_report_sections_carry_folk_taboo_and_verdicts() -> None:
 
 def test_folk_note_for_day_and_luck_pillar_attachment(chart) -> None:
     note = folk_note_for_day(date(2026, 9, 21))
-    assert note == "민속 흉방(추가 정보): 손방 동쪽 · 올해 삼살방 북 · 대장군방 동"
+    assert note == "민속 흉방(추가 정보): 손방 동쪽 · 丙午년 삼살방 북 · 대장군방 동"
     assert "세파방" not in note and "태세방" not in note  # 참고층은 택일 근거에 안 싣는다
     assert folk_note_for_day(date(2026, 9, 20)).startswith("민속 흉방(추가 정보): 손 없는 날")
     years = {p.label: p for p in chart.luck_cycles.yearly_luck}
@@ -275,7 +275,7 @@ def test_date_selection_candidates_carry_folk_note_only_for_relocation_purposes(
     assert res.candidates and all(c.folk_direction_note for c in res.candidates)
     assert all(
         c.folk_direction_note.startswith("민속 흉방(추가 정보)")
-        and "올해 삼살방 북" in c.folk_direction_note
+        and "丙午년 삼살방 북" in c.folk_direction_note
         for c in res.candidates
     )
     res2 = eng.select(EventKey.CONTRACT_DOCUMENT, composites, "2026-06-01", "2026-06-30", top_n=5)

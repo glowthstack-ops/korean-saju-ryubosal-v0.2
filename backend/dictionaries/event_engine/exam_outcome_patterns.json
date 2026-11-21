@@ -1,8 +1,8 @@
 {
   "schema": "exam_outcome_patterns.v1",
   "reviewed": false,
-  "purpose": "시험·합격·취업에 '합격 기류'가 있는지를 정하는 십성 구조 패턴(career_mobility 자료 9-3·9-4). 사건 형성도(activation)는 바꾸지 않고 favorability 채널(fav_adj)만 반영한다 — '합격 신호가 떠도 결과는 별개'(자료 0·16장, 절대원칙 3·4). 그 시점 운 십성(transit present_gods)에 패턴 쌍이 모두 있으면 성립. 2026-11-11 데굴님 결정: 합격 기류는 '있다'만 말한다 — 합·불 패턴의 합이 양수일 때만 가산·표지하고, 0 이하이면 아무것도 하지 않는다('관련 신호 없음'이지 불합격 위험이 아님). fail_patterns 는 pass_patterns 를 상쇄하는 데만 쓰인다.",
-  "target_events": ["education_admission", "job_gain"],
+  "purpose": "시험·합격·취업에 '합격 기류'가 있는지를 정하는 십성 구조 패턴(career_mobility 자료 9-3·9-4). 사건 형성도(activation)는 바꾸지 않고 favorability 채널(fav_adj)만 반영한다 — '합격 신호가 떠도 결과는 별개'(자료 0·16장, 절대원칙 3·4). 그 시점 운 십성(transit present_gods)에 패턴 쌍이 모두 있으면 성립. 2026-11-11 데굴님 결정: 합격 기류는 '있다'만 말한다 — 합·불 패턴의 합이 양수일 때만 가산·표지하고, 0 이하이면 아무것도 하지 않는다('관련 신호 없음'이지 불합격 위험이 아님). fail_patterns 는 pass_patterns 를 상쇄하는 데만 쓰인다. 2026-11-20 데굴님 결정: 승진(promotion)을 대상 사건에 넣는다 — 승진 후보에도 같은 패턴으로 '합격 기류 있음' 표지와 favorability 가산을 붙인다(사건 형성도·순위 불변). 승진 이력 표본은 원장 확정 1건·미발생 31칸뿐이라 변별력은 확인되지 않았다(doc/v2_2/EXTERNAL_TEXT_GAP_POSITION_SEAL_VIDEO.md §8).",
+  "target_events": ["education_admission", "job_gain", "promotion"],
   "fav_adj_cap": 0.5,
   "pass_patterns": [
     {"id": "EXAM_PASS_관인상생", "pattern": "관인상생", "ten_gods": ["ZHENGGUAN", "ZHENGYIN"], "fav_delta": 0.3, "note": "정관을 정인이 받쳐 제도권 합격·임용·승진에 가장 안정적"},

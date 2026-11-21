@@ -450,8 +450,9 @@ def test_observe_sync_carries_rule_contrast_values(monkeypatch: pytest.MonkeyPat
 def test_time_direction_reason_labels() -> None:
     from saju_api.services.chat_service import _question_time_direction_reason as reason
 
-    i = parse_message("5월은 어때?", _TODAY).intents[0]
-    assert reason("5월은 어때?", i, None, _TODAY) == (True, "window_past")
+    # 지난 지 3개월 이내의 달은 올해로 읽는다(2026-11-21 — 그보다 오래 지난 달은 다가올 해).
+    i = parse_message("9월은 어때?", _TODAY).intents[0]
+    assert reason("9월은 어때?", i, None, _TODAY) == (True, "window_past")
     i = parse_message("작년에 왜 힘들었을까", _TODAY).intents[0]
     assert reason("작년에 왜 힘들었을까", i, None, _TODAY)[1] in (
         "window_past", "past_phrase", "event_explanation",

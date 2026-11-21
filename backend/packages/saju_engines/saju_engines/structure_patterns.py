@@ -51,14 +51,52 @@ from .pattern_conditions import (
     NATAL_CONDITION_IDS,
     WEAK_DM_BASIS_NOTE,
     YIELDS_TO,
+    contribution_spec,
     dm_cannot_carry,
     evaluate_condition,
     evaluate_suhwa,
+    full_group_of,
     natal_condition_input,
 )
 from .relationship_relative_sinsal import get_relative_sinsal
 
 _DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries"
+_LEG_GROUP_KO: dict[str, str] = {
+    "peer": "비겁", "output": "식상", "wealth": "재성", "officer": "관성", "resource": "인성",
+}
+
+
+def _natal_main_ten_gods(result: ManseV2Result) -> frozenset[str] | None:
+    """원국에 드러난 글자의 십성 — 천간(연·월·시)과 지지 본기. 일간은 뺀다. 원국 없으면 None."""
+    pillars = result.pillars
+    if pillars is None:
+        return None
+    dm = Stem(pillars.day.stem)
+    out: set[str] = set()
+    for pos in ("year", "month", "day", "hour"):
+        pl = getattr(pillars, pos)
+        if pl is None:
+            continue
+        if pos != "day":
+            out.add(str(ten_god(dm, Stem(pl.stem))))
+        for hs, kind, _w in hidden_stems_for(Branch(pl.branch)):
+            if kind.value == "main":
+                out.add(str(ten_god(dm, hs)))
+    return frozenset(out)
+
+
+def _hidden_only_leg_notes(pid: str, main_tgs: frozenset[str] | None) -> list[str]:
+    """생극·제어 구조의 다리 가운데 드러난 글자 없이 지장간 세력만으로 선 것의 표기 줄."""
+    spec = contribution_spec(pid)
+    if spec is None or main_tgs is None:
+        return []
+    names = [
+        _LEG_GROUP_KO.get(full_group_of(leg) or "", "·".join(leg))
+        for leg in spec.legs if not (main_tgs & set(leg))
+    ]
+    if not names:
+        return []
+    return ["·".join(names) + "은(는) 지장간에만 있음(천간·지지 본기에 드러난 글자 없음)"]
 _STORAGE_CLASH_PAIRS = (("辰", "戌"), ("丑", "未"))  # 묘고 충 지지쌍(충개고)
 _STORAGE_PUNISH_PAIRS = (("丑", "戌"), ("戌", "未"))  # 묘고 형 지지쌍(충이 아닌 쌍 — 약한 개고)
 _COMPILED_DEFAULT = Path(__file__).resolve().parents[3] / "compiled"
@@ -350,6 +388,7 @@ def detect_structure_patterns(
     # 발동하더라도 원국 세력 조건을 통과해야 성립한다(원국 감지 ↔ 운 판정 일치, 2026-10-17 검수).
     cond_in = natal_condition_input(result)
     hour_known = result.pillars is not None and result.pillars.hour is not None
+    main_tgs = _natal_main_ten_gods(result)
 
     def emit(pid: str, strength: float, scope: str, extra: tuple[str, ...] = ()) -> None:
         if pid in seen:
@@ -367,6 +406,9 @@ def detect_structure_patterns(
                 return
         seen.add(pid)
         ev = list(entry.evidence) + [e for e in extra if e]
+        # 다리 세력이 지장간(중기·여기)에서만 온 성립은 그 사실을 근거 줄에 밝힌다(2026-11-21 —
+        # 판정은 그대로, 드러난 글자가 없는 십성을 있는 글자처럼 서술하지 않게).
+        ev += _hidden_only_leg_notes(pid, main_tgs)
         out.append(
             DetectedPattern(
                 pattern_id=entry.pattern_id,
@@ -830,7 +872,7 @@ def detect_structure_patterns(
 
     # ── H. 사고수 확장 — 역마·형 세분·행동/제어·건강 부담 (2026-07-23 승인안 A) ──
     # 역마는 글자살(寅申巳亥 보유)이 아니라 기준 자리 삼합국의 상대 12신살로 산출한다(데굴님 정정).
-    # 기준 자리는 공용 상수(SELF_SINSAL_BASE_SLOTS — 2026-11-12 부터 일지만, 종전 연지·일지).
+    # 기준 자리는 공용 상수(SELF_SINSAL_BASE_SLOTS — 2026-11-21 부터 연지·일지 병용 복원).
     # 사생지 충돌은 MOVEMENT_BRANCH_CLASH 보조 라벨로만.
     yeokma_refs: dict[str, list[str]] = {}  # 역마 지지(한자) → 기준 라벨
     for _slot, ref_name, base_branch in self_sinsal_bases(

@@ -39,7 +39,7 @@ from saju_shared_types.event_taxonomy_v2 import (
 from saju_shared_types.event_taxonomy_v2 import EVENT_KO as _EVENT_KO_V2
 from saju_shared_types.events import EventCandidate, EventKey
 from saju_shared_types.graph import EvidenceBundle
-from saju_shared_types.intent import Domain, IntentJson, QueryType
+from saju_shared_types.intent import Domain, Granularity, IntentJson, QueryType
 from saju_shared_types.llm_input import (
     BirthChartSummary,
     ChartInterpretation,
@@ -67,6 +67,7 @@ from saju_shared_types.llm_input import (
 from saju_shared_types.luck import LuckPillar
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.marriage_timing import derive_marriage_stage
+from saju_shared_types.palace_scope import PALACE_SCOPE_RULE
 from saju_shared_types.sinsal import LlmSinsalModifier
 from saju_shared_types.sinsal_direction import DirectionPurpose
 from saju_shared_types.structure_patterns import DetectedPattern
@@ -98,6 +99,12 @@ from .folk_direction import FOLK_TABOO_INSTRUCTION, folk_taboo_summary, format_f
 from .gongmang_state import natal_slot_lines, same_xun_line, transit_state, transit_suffix
 from .hap_lines import luck_hap_mode_lines
 from .hidden_latent_activation import NATAL_LATENT_PERIOD_RULE
+from .ipchun_boundary import (
+    detect_ipchun_boundary,
+    format_ipchun_lines,
+    sewoon_year_of_day,
+    sewoon_year_of_start,
+)
 from .layer_evidence_scope import (
     classify_layer_evidence_scope,
     normalize_layers,
@@ -133,6 +140,7 @@ from .structural_context import (
     partner_star_daewoon_tag,
 )
 from .structure_patterns import detect_structure_patterns, select_llm_patterns
+from .year_sinsal_flow import YEAR_SINSAL_INSTRUCTION, format_year_sinsal_lines
 from .yongsin_color import (
     YONGSIN_COLOR_INSTRUCTION,
     build_yongsin_color_note,
@@ -2431,20 +2439,78 @@ def _folk_taboo_lines(
     if not full and not intent.direction_question:
         return []
     year = _avoidance_year(intent, today)
+    tr = intent.time_range
     day: date_cls | None = None
     if full:
-        tr = intent.time_range
+        # 손방은 '그날' 기준 — 질문한 날(또는 근사 날짜 앵커)이 있으면 그 날, 시점이 없으면 오늘.
+        # 달·해 단위 질문에 오늘 손방을 싣지 않는다(다른 달의 손방은 오늘과 무관, 2026-11-21).
         start = str(tr.start) if tr is not None and tr.start else ""
-        day = date_cls.fromisoformat(start) if len(start) == 10 else today
+        if len(start) == 10:
+            day = date_cls.fromisoformat(start)
+        elif tr is not None and tr.anchor_dates:
+            day = date_cls.fromisoformat(tr.anchor_dates[0].date)
+        elif not start:
+            day = today
+    boundary = detect_ipchun_boundary(tr)
+    if full and boundary is not None and boundary.side == "both":
+        # 연간 흉방은 입춘에 바뀐다 — 2월 질문은 입춘 전(지난 해 흉방)과 입춘 뒤(새 해 흉방)를
+        # 모두 싣는다(2026-11-21 데굴님 "민속 방향은 입춘 전후로 모두 풀어 준다"). 손방은 말한
+        # 날이 놓인 쪽 블록에만 붙인다.
+        lc = boundary.lichun
+        day_before = day if day is not None and day < lc else None
+        day_after = day if day is not None and day >= lc else None
+        return [
+            "",
+            f"[민속 흉방 입춘 경계] 연간 흉방(삼살·대장군)은 입춘({lc.year}년 {lc.month}월 "
+            f"{lc.day}일)에 바뀐다. 입춘 전에 움직이는 경우와 입춘 뒤에 움직이는 경우를 나누어 "
+            "아래 두 블록을 각각 서술할 것 — 한쪽 해의 흉방만으로 답하지 않는다.",
+            # 원거리·범위 고지는 두 블록에 같은 문장이라 뒤 블록에만 둔다.
+            *[
+                ln for ln in format_folk_taboo_lines(
+                    folk_taboo_summary(boundary.year - 1, day_before), full=True
+                )
+                if not ln.startswith(("- 원거리 고지:", "범위:"))
+            ],
+            *format_folk_taboo_lines(folk_taboo_summary(boundary.year, day_after), full=True),
+        ]
     return format_folk_taboo_lines(folk_taboo_summary(year, day), full=full)
 
 
 def _avoidance_year(intent: IntentJson, today: date_cls) -> int:
-    """회피 판정 기준 연도 — 질문 시점 창의 시작 연도, 없으면 오늘 연도(docs/19 §4-1)."""
+    """회피 판정 기준 연도 — 질문 시점 창이 속한 세운 연도, 없으면 오늘의 세운 연도(docs/19 §4-1).
+
+    세운 연도는 입춘 기준이다 — 1월~입춘 전 날짜와 丑월 라벨('YYYY-01')은 전년이다(2026-11-21:
+    종전에는 표기의 앞 네 자리를 그대로 써 1월 질문에 다음 해 세운·흉방이 붙었다).
+    """
     tr = intent.time_range
     if tr is not None and tr.start and str(tr.start)[:4].isdigit():
-        return int(str(tr.start)[:4])
-    return today.year
+        return sewoon_year_of_start(str(tr.start), today)
+    return sewoon_year_of_day(today)
+
+
+#: 세운 12신살 결을 싣는 질문 창의 최대 연 수 — 이보다 긴 창은 해마다 결이 달라 한 블록으로 못 쓴다.
+_YEAR_SINSAL_MAX_SPAN = 2
+
+
+def _year_sinsal_years(intent: IntentJson, period_fortune: PeriodFortune | None) -> list[int]:
+    """세운 12신살 결 대상 연도 — 연 총운이면 그 해, 연 단위 질문이면 질문 창 연도(2년 이하).
+
+    일·월 총운과 일·월 단위 질문에는 싣지 않는다(그 해의 결은 연 지평의 재료다). 시점이 없거나
+    창이 3년 이상이면 빈 목록.
+    """
+    if period_fortune is not None:
+        label = period_fortune.period_label[:4]
+        return [int(label)] if period_fortune.fortune_type == "yearly" and label.isdigit() else []
+    tr = intent.time_range
+    if tr is None or tr.granularity not in (Granularity.YEAR, Granularity.DAEWOON):
+        return []
+    years: list[int] = []
+    for key in (tr.start, tr.end):
+        if key and str(key)[:4].isdigit():
+            years.append(int(str(key)[:4]))
+    if not years or max(years) - min(years) >= _YEAR_SINSAL_MAX_SPAN:
+        return []
+    return list(range(min(years), max(years) + 1))
 
 
 def _samjae_years(intent: IntentJson, today: date_cls | None) -> list[int]:
@@ -2812,7 +2878,24 @@ def build_llm_input(
         else []
     )
 
+    # 세운 12신살 결(docs/18 §9, 2026-11-21) — 연 총운은 전체(장면·대비 포함), 연 단위 사건 질문은
+    # 결·태도만(compact). 삼재와 같은 질문 유형 가드. 서술 전용(점수·판정 불변).
+    _year_sinsal_lines = (
+        format_year_sinsal_lines(
+            result, _year_sinsal_years(intent, period_fortune),
+            current_year=today.year if today else None,
+            compact=period_fortune is None,
+        )
+        if period_v2_config.YEAR_SINSAL_FLOW_ENABLED
+        and intent.query_type not in _NO_SAMJAE_QUERY_TYPES
+        else []
+    )
+
     _folk_lines = _folk_taboo_lines(intent, user_question, today)
+    # 입춘 경계(2026-11-21) — 질문 창이 양력 2월을 짧게 짚으면 입춘 전후 세운·월운을 모두 싣는다.
+    _ipchun_lines = format_ipchun_lines(
+        detect_ipchun_boundary(intent.time_range), str(day_master or ""), fav_map
+    )
     # 시주 미상으로 용희신이 미확정이면 용신 기반 처방(색·방향)을 싣지 않는다 — 사용자가 검증으로
     # 확정한 용신(favorability_confirmed)이 있을 때만 예외(2026-10-06 데굴님 원칙: 불완전 정보는
     # 확정이 아니므로 풀이에 적극 활용하지 않는다).
@@ -2899,7 +2982,9 @@ def build_llm_input(
         direction_suggestions=selected_suggestions,
         sinsal_direction=_sinsal_direction,
         samjae_context=_samjae_lines,
+        year_sinsal_context=_year_sinsal_lines,
         folk_taboo_context=_folk_lines,
+        ipchun_context=_ipchun_lines,
         yongsin_direction=_yongsin_direction,
         yongsin_color=_yongsin_color,
         yongsin_food=_yongsin_food,
@@ -3078,9 +3163,13 @@ def serialize_chart_prefix(summary: BirthChartSummary, ci: ChartInterpretation |
             )
             if pd.palace_role:
                 line += f" · 궁성: {pd.palace_role}"
+            if pd.palace_scope:
+                line += f" · 인연 범위(보조): {pd.palace_scope}"
             if pd.sinsal:
                 line += f" · 신살(보조): {','.join(pd.sinsal)}"
             lines.append(line)
+        if any(pd.palace_scope for pd in ci.pillar_details):
+            lines.append(PALACE_SCOPE_RULE)
         if ci.natal_relations:
             lines.append("원국 관계: " + " / ".join(ci.natal_relations))
         if ci.hap_modes:
@@ -4039,7 +4128,10 @@ def serialize_llm_input(payload: LlmInput) -> str:
     lines += format_yongsin_color_lines(payload.yongsin_color)
     # 오행 보완 음식 첨언 — 음식·끼니 질문 턴 전용(같은 층 모델, 2026-10-28).
     lines += format_yongsin_food_lines(payload.yongsin_food)
+    # 세운 12신살 결(docs/18 §9) — 삼재(같은 표의 연지 기준 3종) 바로 앞에 둔다.
+    lines += payload.year_sinsal_context
     lines += payload.samjae_context
+    lines += payload.ipchun_context
     lines += payload.folk_taboo_context
     if payload.evidence:  # 근거 경로 — 후보·증거 있을 때만(구조 질문 등 빈 헤더 방지).
         lines.append("")
@@ -4096,6 +4188,8 @@ def serialize_llm_input(payload: LlmInput) -> str:
         lines.append(YONGSIN_COLOR_INSTRUCTION)
     if payload.yongsin_food is not None:
         lines.append(YONGSIN_FOOD_INSTRUCTION)
+    if payload.year_sinsal_context:
+        lines.append(YEAR_SINSAL_INSTRUCTION)
     if payload.samjae_context:
         lines.append(SAMJAE_INSTRUCTION)
     if payload.folk_taboo_context:
@@ -4186,6 +4280,8 @@ def serialize_with_guard(
         no_sinsal = no_sinsal.model_copy(update={"sinsal_direction": None})
     if no_sinsal.samjae_context:
         no_sinsal = no_sinsal.model_copy(update={"samjae_context": []})
+    if no_sinsal.year_sinsal_context:
+        no_sinsal = no_sinsal.model_copy(update={"year_sinsal_context": []})
     # 민속 흉방 고지(추가 정보)도 같은 단계에서 버린다 — 전체 블록(이사·공사 질문)은 답의 재료라
     # 유지.
     # 사용자가 직접 방향을 물은 턴(수동 블록)에서는 고지도 답의 필수 재료라 남긴다.

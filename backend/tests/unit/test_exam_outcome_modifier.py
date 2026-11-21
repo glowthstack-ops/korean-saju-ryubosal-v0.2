@@ -87,3 +87,20 @@ def test_cap_limits_accumulation() -> None:
     }
     out = e.apply([_cand("job_gain", 60)], gods)
     assert out[0].contributions["fav_adj"] <= 0.5
+
+
+def test_promotion_is_a_target_event_since_20261120() -> None:
+    """승진 후보에도 합격 기류 표지·가산을 붙인다(2026-11-20 데굴님 결정) — 점수·종류 불변."""
+    e = _eng()
+    gods = {TenGod.ZHENGGUAN, TenGod.ZHENGYIN}
+    c = e.apply([_cand("promotion", 60)], gods)[0]
+    assert c.event_key.value == "promotion" and c.score == 60
+    assert c.contributions["fav_adj"] > 0
+    assert "EXAM_PASS_관인상생" in c.reason_codes
+    # 반례 — 같은 합격 패턴이 서도 대상이 아닌 사건(이직·이사)은 그대로다.
+    for other in ("career_change", "relocation"):
+        cand = _cand(other, 60)
+        assert e.apply([cand], gods)[0] is cand
+    # 반례 — 승진이라도 합격 패턴의 합이 0 이하이면 표지·가산이 없다.
+    plain = _cand("promotion", 60)
+    assert e.apply([plain], {TenGod.SHANGGUAN, TenGod.ZHENGGUAN})[0] is plain

@@ -31,6 +31,7 @@ from saju_shared_types.constants import (
     ten_god,
 )
 from saju_shared_types.enums import Branch, Element, Stem
+from saju_shared_types.twelve_sinsal import relative_twelve_sinsal
 
 #: 십성군 5종(사전 키와 같은 표기).
 GROUPS: tuple[str, ...] = ("비겁", "식상", "재성", "관성", "인성")
@@ -576,12 +577,84 @@ def year_ilju_kind(ilju_branch: Branch, year_branch: Branch) -> str:
     return "none"
 
 
+#: 고지(辰戌丑未) — 띠 삼합국 표기 순서(생지·왕지·고지) 정렬용.
+_STORAGE_BRANCHES: frozenset[Branch] = frozenset(
+    {Branch.JIN, Branch.SUL, Branch.CHUK, Branch.MI}
+)
+#: 띠 이름(연지 → 동물) — 조건 줄의 띠별 12신살 문장용.
+_ZODIAC_KO: dict[Branch, str] = {
+    Branch.JA: "쥐띠", Branch.CHUK: "소띠", Branch.IN: "호랑이띠", Branch.MYO: "토끼띠",
+    Branch.JIN: "용띠", Branch.SA: "뱀띠", Branch.O: "말띠", Branch.MI: "양띠",
+    Branch.SIN: "원숭이띠", Branch.YU: "닭띠", Branch.SUL: "개띠", Branch.HAE: "돼지띠",
+}
+
+
+def _trine_rank(branch: Branch, wangji: Branch) -> int:
+    """삼합국 안의 자리 순번 — 생지 0 · 왕지 1 · 고지 2."""
+    if branch is wangji:
+        return 1
+    return 2 if branch in _STORAGE_BRANCHES else 0
+
+
+def luck_sinsal_note(
+    ilju_branch: Branch, luck_branch: Branch, simple: dict[str, Any], horizon: str,
+) -> str | None:
+    """일지 삼합국 기준 운 지지의 12신살 흐름 한 문장(docs/17 §37) — 문장이 없으면 None.
+
+    사전 `simple_layer.luck_sinsal.body` 에 문장이 있는 12신살(화개살·월살·천살·반안살)만 붙는다.
+    일주 버킷에는 연지가 없어 일지 기준만 쓴다(띠 기준은 조건 줄 `year_zodiac_lines`).
+
+    Args:
+        ilju_branch: 일지.
+        luck_branch: 운 지지(세운 또는 월운).
+        simple: 사전의 `simple_layer`. 과거 계약(`luck_sinsal` 없음)은 None.
+        horizon: 'year' | 'month' — 문장 머리말을 고른다.
+    """
+    pool = simple.get("luck_sinsal")
+    if not pool:
+        return None
+    body = pool["body"].get(relative_twelve_sinsal(ilju_branch, luck_branch))
+    if body is None:
+        return None
+    return f"{pool['lead'][horizon]} {body}"
+
+
+def year_zodiac_lines(
+    year_branch: Branch, simple: dict[str, Any], *, scope: str = PANEL_YEAR_SCOPE,
+) -> list[str]:
+    """띠별 올해 12신살 흐름 조건 줄(docs/17 §37) — 띠 삼합국 넷을 한 줄씩.
+
+    일주 버킷은 띠를 모르므로 "돼지띠·토끼띠·양띠라면 …"으로 적고 사용자가 자기 띠로 고른다.
+    문장이 있는 12신살만 싣는다(辰戌丑未 해에는 네 줄, 그 밖의 해에는 빈 목록).
+    """
+    pool = simple.get("luck_sinsal")
+    if not pool:
+        return []
+    lines: list[str] = []
+    for members, _element, wangji in THREE_HARMONY:
+        # 띠 표기 순서 = 생지·왕지·고지(예: 돼지띠·토끼띠·양띠).
+        ordered = sorted(members, key=lambda b: _trine_rank(b, wangji))
+        body = pool["body"].get(relative_twelve_sinsal(ordered[0], year_branch))
+        if body is None:
+            continue
+        lines.append(str(pool["zodiac"]).format(
+            animals="·".join(_ZODIAC_KO[b] for b in ordered),
+            lead=str(pool["lead"]["zodiac"]).format(this=scope), body=body,
+        ))
+    return lines
+
+
 def year_ilju_line(ilju_branch: Branch, year_branch: Branch, simple: dict[str, Any]) -> str | None:
-    """일주별 올해 한 줄 — 60일주 전부 한 줄씩(관계 없으면 'none' 문장). 과거 계약은 None."""
+    """일주별 올해 한 줄 — 60일주 전부 한 줄씩(관계 없으면 'none' 문장). 과거 계약은 None.
+
+    dict.v1.24(§37)부터 일지 기준 세운 지지의 12신살 흐름 문장이 있으면 뒤에 한 문장 붙는다.
+    """
     pool = simple.get("year_ilju")
     if not pool:
         return None
-    return str(pool[year_ilju_kind(ilju_branch, year_branch)])
+    line = str(pool[year_ilju_kind(ilju_branch, year_branch)])
+    note = luck_sinsal_note(ilju_branch, year_branch, simple, "year")
+    return f"{line} {note}" if note else line
 
 
 def year_elements(year_stem: Stem, year_branch: Branch) -> list[Element]:
@@ -652,6 +725,8 @@ def year_condition_lines(
         f"{str(cond['excess_lead']).format(elements=elements)} "
         f"{str(cond['excess']).format(this=scope)}"
     )
+    # 띠별 12신살 흐름(§37, dict.v1.24) — 문장이 있는 해(辰戌丑未)에만 네 줄.
+    lines += year_zodiac_lines(year_branch, simple, scope=scope)
     return lines
 
 

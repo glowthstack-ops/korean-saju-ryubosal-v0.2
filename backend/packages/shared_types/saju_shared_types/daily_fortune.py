@@ -76,7 +76,13 @@ ENGINE_VERSION = "engine.v1"
 #   달 길흉 구간(봄·여름·가을 추석 전/추석 낀 달/추석 뒤·겨울 6문장). 판정·사건·점수 불변(문체
 #   전용), LLM 교정 대상 아님. 경계 MONTH_NOTES_EFFECTIVE_FROM(11/20 — 11/19 보드는 이미 생성·
 #   교정돼 v1.22 유지).
-DICT_VERSION = "dict.v1.23"
+# v1.24(2026-11-21): 12신살 흐름 문장(docs/17 §37, 데굴님 "오늘의 운세는 일주만으로도 해당되는 게
+#   있을 거야. 확인해서 할 수 있는 건 적용"). `simple_layer.luck_sinsal` — 운 지지가 일지 삼합국
+#   기준으로 놓인 12신살 흐름을 일주별 올해 줄·일주별 이번 달 줄 끝에 한 문장씩, 띠 삼합국 기준
+#   흐름을 '이런 명식이라면' 조건 줄에 띠별로 붙인다. 문장이 있는 4종(화개살·월살·천살·반안살 —
+#   辰戌丑未 해·달)에만 붙는다. 첫 노출은 2027년 丑월(1/5~)·未년(입춘~). 판정·사건·점수 불변
+#   (문체 전용), LLM 교정 대상 아님. 경계 LUCK_SINSAL_EFFECTIVE_FROM(11/23).
+DICT_VERSION = "dict.v1.24"
 PROMPT_VERSION = "polish.v1"
 #: 서사 family 회전 계약(OA-8b). 값이 바뀌면 새 epoch 이 시작되며 **캐시만** 무효화된다
 #: — 선택 seed 에는 들어가지 않으므로 사건 배정은 흔들리지 않는다(OA-6d1).
@@ -147,6 +153,10 @@ DICT_VERSION_BEFORE_YEAR_LINK = "dict.v1.21"
 #: 생성·교정돼 v1.22 를 유지한다.
 MONTH_NOTES_EFFECTIVE_FROM = date(2026, 11, 20)
 DICT_VERSION_BEFORE_MONTH_NOTES = "dict.v1.22"
+#: 12신살 흐름 문장(v1.24, docs/17 §37) 적용 시작일. 11/22 보드는 11/21 저녁 선생성 대상이라
+#: v1.23 을 유지하고, 11/23 보드부터 쓴다.
+LUCK_SINSAL_EFFECTIVE_FROM = date(2026, 11, 23)
+DICT_VERSION_BEFORE_LUCK_SINSAL = "dict.v1.23"
 
 
 #: 상해 채널의 백호를 일주 기준으로 좁히는 기준일(model.v2.4, docs/17 §32) — 11/13 보드는 11/12
@@ -236,8 +246,8 @@ def active_dict_version(target_date: date) -> str:
     Returns:
         7/30 이전 v1.10 → 9/3 이전 v1.11 → 9/12 이전 v1.12 → 9/20 이전 v1.13 → 11/2 이전
         v1.14 → 11/3 이전 v1.16 → 11/5 이전 v1.17 → 11/8 이전 v1.18 → 11/12 이전 v1.20
-        (v1.19 는 11/8 경계에서 당일 대체) → 11/19 이전 v1.21 → 11/20 이전 v1.22 → 이후 현재
-        `DICT_VERSION`(v1.23).
+        (v1.19 는 11/8 경계에서 당일 대체) → 11/19 이전 v1.21 → 11/20 이전 v1.22 → 11/23 이전
+        v1.23 → 이후 현재 `DICT_VERSION`(v1.24).
     """
     if target_date < SMALL_FIND_HEADLINE_REVERT_EFFECTIVE_FROM:
         return PREVIOUS_DICT_VERSION
@@ -261,6 +271,8 @@ def active_dict_version(target_date: date) -> str:
         return DICT_VERSION_BEFORE_YEAR_LINK
     if target_date < MONTH_NOTES_EFFECTIVE_FROM:
         return DICT_VERSION_BEFORE_MONTH_NOTES
+    if target_date < LUCK_SINSAL_EFFECTIVE_FROM:
+        return DICT_VERSION_BEFORE_LUCK_SINSAL
     return DICT_VERSION
 
 

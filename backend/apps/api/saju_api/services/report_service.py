@@ -244,6 +244,7 @@ from saju_engines.wealth_lecture import (
     wealth_vessel_lines,
 )
 from saju_engines.wealth_status_lean import analyze_wealth_status_lean
+from saju_engines.year_sinsal_flow import YEAR_SINSAL_INSTRUCTION, format_year_sinsal_lines
 from saju_engines.yearly_environment import (
     build_yearly_environment,
     render_yearly_environment,
@@ -1881,6 +1882,22 @@ class _ReportData:
             month_ganji=month_ganji, labels=sorted(set(labels)), max_years=max_years,
         )
 
+    def axis_lens_lines(self, labels: list[str], lens_key: str) -> list[str]:
+        """축 글자 도래 블록 — 채팅 말미와 같은 엔진 함수(2026-11-20 영상 스크립트 대조).
+
+        섹션 주제의 중심 십성군(직업·학업 = 관성·인성, 재물 = 재성 천간/지지 양상)이 원국에 어떻게
+        놓였고 섹션 후보 기간의 운 어느 층·자리로 오는지를 주제의 말로 싣는다. 플래그 OFF·시주 미상·
+        라벨 없음·축 글자가 들지 않으면 빈 목록. 서술 전용(점수·판정 불변).
+        """
+        from saju_engines.axis_arrival_lens import axis_arrival_block
+
+        if not period_v2_config.AXIS_LENS_BLOCK_ENABLED or not labels:
+            return []
+        periods = [(lb, self._ganji_by_label.get(lb, "")) for lb in sorted(set(labels))]
+        return axis_arrival_block(
+            self.result, periods, lens_key, natal_patterns=self.detected_patterns,
+        )
+
     def season_fortune_lines(self, labels: list[str]) -> list[str]:
         """계절 길흉 구간 참고 줄 — 채팅 창 블록과 같은 엔진 함수(2026-11-18).
 
@@ -1982,8 +1999,24 @@ class _ReportData:
             return [*mobility_marker_flip_lines(self.result), *relief]
         if domain not in ("career", "wealth", "relationship") or not cands:
             return []
+        # 축 글자 도래 층(2026-11-20) — 직업 섹션은 자리·자격 렌즈(관성·인성) + 사업 사건 후보
+        # 기간에 사업 렌즈(재성·식상), 재물 섹션은 재성의 천간/지지 양상, 관계 섹션은 출산·자녀
+        # 후보 기간에 자녀 렌즈(성별 분기). 배우자성은 기존 층이 같은 일을 해 싣지 않는다.
+        from saju_engines.axis_arrival_lens import (
+            BUSINESS_EVENT_KEYS,
+            CHILDBIRTH_EVENT_KEY,
+            children_lens,
+        )
+
+        _labels = [p for p, _g in periods]
         if domain == "career":
-            return [*career_exit_lecture_block(self.result, periods), *relief]
+            _biz = [c.period for c in cands if str(c.event_key) in BUSINESS_EVENT_KEYS]
+            return [
+                *career_exit_lecture_block(self.result, periods),
+                *self.axis_lens_lines(_labels, "position_seal"),
+                *self.axis_lens_lines(_biz, "business"),
+                *relief,
+            ]
         if domain == "wealth":
             best: dict[str, int] = {}
             for c in cands:
@@ -1998,10 +2031,14 @@ class _ReportData:
                     investment_month_advice_lines(list(periods))
                     if period_v2_config.INVEST_MONTH_ADVICE_ENABLED else []
                 ),
+                *self.axis_lens_lines(_labels, "wealth"),
                 *relief,
             ]
+        _child = [c.period for c in cands if str(c.event_key) == CHILDBIRTH_EVENT_KEY]
+        _child_lens = children_lens(self.birth.gender)
         return [
             *love_separation_block(self.result, periods), RELATIONSHIP_DIFFERENCE_PERSPECTIVE,
+            *(self.axis_lens_lines(_child, _child_lens) if _child_lens is not None else []),
             *relief,
         ]
 
@@ -2834,6 +2871,11 @@ class _ReportData:
         if pillar.luck_label or pillar.luck_summary:
             lines.append(f"운 요약: {pillar.luck_label} — {pillar.luck_summary}")
         lines += render_yearly_environment(build_yearly_environment(self.result, pillar))
+        # 세운 12신살 결(docs/18 §9, 2026-11-21) — 채팅 연 총운과 같은 블록·같은 지침(서술 전용).
+        if period_v2_config.YEAR_SINSAL_FLOW_ENABLED:
+            _ys = format_year_sinsal_lines(self.result, [year], current_year=self.today.year)
+            if _ys:
+                lines += [*_ys[1:], YEAR_SINSAL_INSTRUCTION]
         # 단식 참고 줄(docs/17 §26-3, 2026-11-08) — 채팅 연 총운과 같은 줄·같은 사용 규칙.
         from saju_engines.context_reducer import (
             SIMPLE_READING_DIRECTION_RULE,
@@ -4893,6 +4935,13 @@ def build_section_context(
         ):
             _role_labels = [str(y) for y in _forecast_years(spec, data.today)]
         _append_natal_luck_role(lines, data, _role_labels)
+        # 축 글자 도래 층(2026-11-20) — 학업 주제는 섹션 도메인이 없어 lecture_block 을 타지
+        # 않으므로 기간 섹션에 자리·자격 렌즈(관성·인성)를 예측 창의 해로 싣는다(직업·재물은
+        # lecture_block).
+        if spec.topic == "education" and not section_domain and _role_labels:
+            _axis = data.axis_lens_lines(_role_labels, "position_seal")
+            if _axis:
+                lines += ["", *_axis]
         # 재물 섹션 — 원국 횡재 그릇(운 분리 잠재구조) 표면화(Phase 1).
         if sid in _WEALTH_CAPACITY_SECTIONS:
             lines += ["", *data.wealth_capacity_block()]

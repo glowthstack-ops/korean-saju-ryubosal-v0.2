@@ -13,7 +13,7 @@ import {
   JA_HOUR_RULE_DESC, JA_HOUR_RULE_LABEL,
   type CalibrationResult, type JaHourRule, type LuckPillar, type LuckSinsal, type ManseResult,
   type FolkTabooHit, type SamjaeInfo,
-  type Profile, type StructurePatternItem, type PatternTimeline, type PatternTimelineCell,
+  type Profile, type StructurePatternItem, type PatternTimeline, type PatternTimelineCell, type PatternTimelineRow,
 } from "@/lib/types";
 
 // 백엔드 응답에 일부 필드가 없어도(구버전/부분 데이터) 깨지지 않도록 방어.
@@ -1139,7 +1139,7 @@ function PatternTimelinePanel({ tl, loading }: { tl: PatternTimeline | null; loa
                 <td className={`px-1 py-1 ${cellClass(r.daewoon)}`}>{r.daewoon && r.daewoon.status !== "unchanged" ? r.daewoon.label : cellSymbol(r.daewoon)}</td>
                 <td className={`border-r-2 border-gray-300 px-1 py-1 ${cellClass(r.year)}`}>{r.year && r.year.status !== "unchanged" ? r.year.label : cellSymbol(r.year)}</td>
                 {r.months.map((c, i) => ({ c, i })).reverse().map(({ c, i }) => (
-                  <td key={i} className={`border-l border-gray-200 px-1 py-1 ${cellClass(c)}`} title={c ? `${tl.month_labels[i]} ${c.label}` : tl.month_labels[i]}>
+                  <td key={i} className={`border-l border-gray-200 px-1 py-1 ${cellClass(c)}`} title={c ? `${tl.month_labels[i]} ${c.label}${c.legs ? ` — ${c.legs}` : ""}` : tl.month_labels[i]}>
                     {cellSymbol(c)}
                   </td>
                 ))}
@@ -1153,11 +1153,24 @@ function PatternTimelinePanel({ tl, loading }: { tl: PatternTimeline | null; loa
           <li key={r.pattern_id}>
             <span className="font-semibold">{r.name_ko}</span> — {r.summary}
             {r.flags.some((f) => FLAG_KO[f]) && <span className="ml-1 text-[10px] text-gray-400">({r.flags.map((f) => FLAG_KO[f]).filter(Boolean).join(" · ")})</span>}
+            {legLines(r, tl.month_labels).map((ln) => (
+              <div key={ln} className="ml-2 text-[10px] text-gray-500">근거 글자 — {ln}</div>
+            ))}
           </li>
         ))}
       </ul>
     </Collapsible>
   );
+}
+/** 신규 성립 칸의 다리별 근거 글자(엔진 값) — 어느 글자가 어느 십성으로 구조를 세웠는지. */
+function legLines(r: PatternTimelineRow, monthLabels: string[]): string[] {
+  const out: string[] = [];
+  if (r.daewoon?.legs) out.push(`대운: ${r.daewoon.legs}`);
+  if (r.year?.legs) out.push(`세운: ${r.year.legs}`);
+  r.months.forEach((c, i) => {
+    if (c?.legs) out.push(`${Number((monthLabels[i] ?? "").slice(5, 7)) || i + 1}월: ${c.legs}`);
+  });
+  return out;
 }
 const FLAG_KO: Record<string, string> = {
   burden: "일간이 약한데 식상·재성이 커서 부담으로도 작동",

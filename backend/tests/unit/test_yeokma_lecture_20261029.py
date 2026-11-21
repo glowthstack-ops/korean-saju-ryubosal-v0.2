@@ -1,7 +1,8 @@
 """역마살 강의 반영 고정 (2026-10-29 데굴님 결정 — "제안대로").
 
 엔진 역마 정의(2026-10-06 통일: 寅申巳亥 보유=이동지 표지, 역마살=삼합 기준 12신살)는 유지한다.
-기준 자리는 2026-11-12 부터 일지만이다(종전 연지·일지) — 표본의 역마 자리·연도를 그에 맞췄다.
+기준 자리는 2026-11-12 에 일지만으로 좁혔다가 2026-11-21 에 연지·일지 병용으로 되돌렸다 — 표본은
+두 기준이 각각 서는 자리·연도(일지 기준 2031 辛亥, 연지 기준 2028 戊申)를 함께 고정한다.
 강의의 글자별 결(寅·申·巳·亥)과 조언은 **역마 성립 자리**에만 붙는다.
 """
 
@@ -59,10 +60,16 @@ def test_luck_yeokma_line_carries_branch_note_and_advice() -> None:
     pillar = next(p for p in luck_years(b, [2031]) if p.label == "2031")
     lines = [x for x in build_luck_grounding(calculate(b), pillar)["sinsal_lines"] if "역마" in x]
     assert lines and "亥 역마" in lines[0] and "조언: " in lines[0]
-    # 반례: 2028 戊申은 연지 戌(寅午戌국) 기준으로만 역마 — 연지 기준은 인정하지 않는다.
+    # 2028 戊申은 연지 戌(寅午戌국) 기준 역마 — 2026-11-21 부터 연지 기준도 인정한다.
     y2028 = next(p for p in luck_years(b, [2028]) if p.label == "2028")
-    assert not [
+    lines28 = [
         x for x in build_luck_grounding(calculate(b), y2028)["sinsal_lines"] if "역마" in x
+    ]
+    assert lines28 and "申 역마" in lines28[0]
+    # 반례: 2027 丁未는 어느 기준의 역마 자리도 아니다.
+    y2027 = next(p for p in luck_years(b, [2027]) if p.label == "2027")
+    assert not [
+        x for x in build_luck_grounding(calculate(b), y2027)["sinsal_lines"] if "역마" in x
     ]
 
 
@@ -93,9 +100,8 @@ def test_natal_yeokma_block_for_movement_questions_only() -> None:
     move = chat_service.chat(b, "2028년에 이사나 이동 운이 있을까요?", t, dry_run=True)
     wealth = chat_service.chat(b, "2028년 재물운 어때요?", t, dry_run=True)
     assert "[역마 — 원국 성립" in (move.prompt_preview or "")
-    assert "위치: 연주(亥) —" in (move.prompt_preview or "")
-    # 반례: 일주·시주 巳는 연지 亥 기준으로만 역마 — 위치에 적지 않는다.
-    assert "위치: 연주(亥), 일주(巳)" not in (move.prompt_preview or "")
+    # 일지 巳 기준 역마 亥(연주) + 연지 亥 기준 역마 巳(일주·시주) — 2026-11-21 부터 두 기준.
+    assert "위치: 연주(亥), 일주(巳), 시주(巳)" in (move.prompt_preview or "")
     assert "[역마 — 원국 성립" not in (wealth.prompt_preview or "")
 
 
@@ -150,7 +156,7 @@ def test_marker_flip_line_in_movement_block_without_yeokma() -> None:
     held = "보유: 연주 亥(겁재·제왕)·월주 亥(겁재·제왕)·일주 亥(겁재·제왕)·시주 亥(겁재·제왕)"
     assert held in lines[0]
     assert "같은 글자 반복: 亥×4(자형 1그룹)" in lines[0]
-    assert "역마 성립: 없음(일지 亥 기준 亥=지살)" in lines[0]
+    assert "역마 성립: 없음(연지 亥·일지 亥 기준 亥=지살)" in lines[0]
     assert "이동지 충·형: 없음" in lines[0] and "방합: 미완성(亥: 子丑 부재)" in lines[0]
     assert "같은 계절 글자와 묶이면" not in lines[0]
 

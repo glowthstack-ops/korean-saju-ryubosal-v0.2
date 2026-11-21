@@ -609,7 +609,7 @@ class ConversationEngine:
         )
         new_state = self._advance_state(
             state, text, parsed, resolution, exclusions, own_time,
-            topic_reset=topic_reset,
+            topic_reset=topic_reset, today=today,
         )
         return parsed, new_state, resolution, link
 
@@ -1214,8 +1214,12 @@ class ConversationEngine:
         time_exclusions: list[TimeExclusion] | None = None,
         own_time: bool = False,
         topic_reset: bool = False,
+        today: date | None = None,
     ) -> ConversationState:
-        """턴 종료 상태 — 엔티티·반복·활성 문맥·배제 시점·시점 출처·사실 원장 갱신."""
+        """턴 종료 상태 — 엔티티·반복·활성 문맥·배제 시점·시점 출처·사실 원장 갱신.
+
+        today 는 사실 원장의 연도 없는 일정 날짜를 달력으로 환산하는 기준일이다.
+        """
         turn = state.turn_no + 1
         intent = parsed.intents[0]
         entities = list(state.entities)
@@ -1263,7 +1267,7 @@ class ConversationEngine:
             }
 
         # 사실 원장(P0, 2026-07-22) — 이번 턴 사용자 명시 사실 추출·병합(user_explicit만).
-        facts = merge_user_facts(state, extract_user_facts(text, turn), topic_reset)
+        facts = merge_user_facts(state, extract_user_facts(text, turn, today), topic_reset)
 
         return state.model_copy(update={
             "turn_no": turn,

@@ -55,6 +55,7 @@ from saju_engines.assistant_commitments import (
     merge_commitments,
     prior_statement_lines,
 )
+from saju_engines.axis_arrival_lens import axis_arrival_block, is_judged_selection, lens_for
 from saju_engines.career_field import build_career_field_facts, render_career_field_lines
 from saju_engines.chart_interpretation import (
     build_luck_grounding,
@@ -94,7 +95,7 @@ from saju_engines.counterfactual_context import (
 )
 from saju_engines.daewoon_progression import resolve_all_daewoon_progressions
 from saju_engines.daewoon_turn import daewoon_turn_lines
-from saju_engines.date_answer_audit import rewrite_avoid_ranges, strip_after_closing_question
+from saju_engines.date_answer_audit import rewrite_avoid_ranges, strip_closing_question
 from saju_engines.date_selection import (
     GRADE_NONE_NOTE,
     DateSelectionEngine,
@@ -658,6 +659,64 @@ def _anchor_window_day_note(
     )
 
 
+#: 근사 날짜('2월 12일 정도') 앞뒤로 일운을 싣는 날 수 — 그 무렵 한 주.
+_APPROX_DATE_PAD_DAYS = 3
+
+
+def _is_approx_date_anchor(tr: TimeRange | None) -> bool:
+    """시점 창이 근사 날짜('2월 12일 정도·쯤')에서 온 달 단위 창인가.
+
+    파서(C5b)는 근사 날짜를 그 날이 든 절기월 + 말한 날짜 앵커로 만든다. 앵커 라벨이 날짜 표기
+    (숫자로 시작)면 근사 날짜 앵커다 — 명절·일정 앵커('추석'·'면접')는 낱말로 시작한다.
+    """
+    return bool(
+        tr is not None and tr.granularity is Granularity.MONTH and tr.anchor_dates
+        and tr.anchor_dates[0].label[:1].isdigit()
+    )
+
+
+def _approx_date_note(birth: BirthInput, anchor: AnchorDate, timezone: str) -> str:
+    """근사 날짜 — 말한 날 무렵 한 주의 일운을 참고 사실로 싣고, 답의 중심은 그 달에 둔다.
+
+    2026-11-21 데굴님 승인: "2월 12일 정도 이사를 해야해"는 그 날 하루의 일진을 묻는 말이 아니다.
+    날짜가 아직 정해지지 않았으므로 그 달의 흐름으로 풀고, 그 무렵 일운은 날을 고를 때의 참고다.
+    """
+    try:
+        ad = date.fromisoformat(anchor.date)
+    except ValueError:
+        return ""
+    start = ad - timedelta(days=_APPROX_DATE_PAD_DAYS)
+    end = ad + timedelta(days=_APPROX_DATE_PAD_DAYS)
+    by_label: dict[str, LuckPillar] = {}
+    for y, m in sorted({(d.year, d.month) for d in (start, end)}):
+        try:
+            days = luck_days(birth, y, m)
+        except (ValueError, RuntimeError):
+            days = []
+        by_label.update({p.label: p for p in days})
+    rows: list[str] = []
+    cur = start
+    while cur <= end:
+        dp = by_label.get(cur.isoformat())
+        if dp is not None:
+            grade = getattr(dp, "luck_label", "") or "등급 없음"
+            mark = "(말한 날)" if cur == ad else ""
+            rows.append(
+                f"{cur:%m-%d}{mark} {dp.ganji} 천간 {dp.stem_ten_god or '?'}"
+                f"·지지 {dp.branch_ten_god or '?'}·{grade}"
+            )
+        cur += timedelta(days=1)
+    if not rows:
+        return ""
+    return (
+        f"[근사 날짜 — 사용자가 '{anchor.label} 정도'로 말한 무렵, 엔진 확정 사실] 말한 날: "
+        f"{anchor.date}(날짜는 아직 확정이 아니다). 그 무렵 일운: " + " / ".join(rows) + ". "
+        "이 질문은 그 날 하루의 일진을 묻는 것이 아니다 — 답의 중심은 그 날이 든 달의 흐름"
+        "(월운·세운)에 두고, 위 일운은 그 무렵에서 날을 고를 때의 참고로 한두 문장만 쓸 것. "
+        "말한 날 하루의 길흉으로 결론을 내지 말 것."
+    )
+
+
 def _date_day_fortune_note(birth: BirthInput, dates: list[date], timezone: str) -> str:
     """특정 날짜 질문 — 그 날(들)의 일운(日運) 간지·십성·길흉 + 절기월을 '엔진 확정 사실'로 주입.
 
@@ -1023,8 +1082,7 @@ _RETRO_TENSE_DIRECTIVE = (
     "[회고 모드 — 질문 기간은 이미 지난 과거] 전체 답변을 과거 추정형('…였을 것으로 보여요', "
     "'…했을 가능성이 커요')으로만 서술할 것. '…될 것으로 보여요'·'…열릴 거예요'·'기대돼요' 같은 "
     "미래 예측·권고 표현 금지. 신호 데이터는 '그 시기에 그런 흐름이 있었다'는 확인·복원 용도로만 "
-    "쓰고, 사용자가 묻지 않은 미래 조언을 덧붙이지 말 것. 마무리 확인 질문도 '실제로 그랬는지'를 "
-    "묻는 형태로 할 것."
+    "쓰고, 사용자가 묻지 않은 미래 조언을 덧붙이지 말 것. 마무리 정리도 과거 추정형으로 쓸 것."
 )
 
 
@@ -2800,11 +2858,13 @@ def finalize_answer_text(answer: str, thread_id: str | None = None) -> str:
     if _tell.fixes or _tell.findings:
         _logger.warning("ai_tell_audit scope=chat %s thread=%s", _tell.summary(), thread_id)
     answer = _tell.text
-    # ⑥ 마무리 질문 뒤 꼬리 문장 제거(2026-10-19) — 규칙 8: 물음표 문장이 답의 맨 끝.
-    _closing = strip_after_closing_question(answer)
+    # ⑥ 마무리 질문 제거(2026-11-21 데굴님) — 규칙 8: 답을 질문으로 끝내지 않는다. 지시를 어긴
+    # 답의 끝부분 질문 문장만 지우고(평서문 정리는 유지) 로그로 준수율을 본다. 종전(2026-10-19)
+    # 에는 질문을 남기고 그 뒤 꼬리 문장을 지웠다.
+    _closing = strip_closing_question(answer)
     if _closing.rewritten:
         _logger.warning(
-            "closing_tail_stripped tail=%s thread=%s", _closing.rewritten, thread_id,
+            "closing_question_stripped removed=%s thread=%s", _closing.rewritten, thread_id,
         )
     answer = _closing.text
     return _normalize_ganji_gloss(answer)
@@ -3795,9 +3855,9 @@ _YEAR_DIGEST_DIRECTIVE = (
     "범위가 넓다). 각 해가 어느 대운에 속하는지 배경을 깔고, 그 10년 안에서 대운이 바뀌는 "
     "교운기(전환기)가 있으면 그 시기의 갑작스럽고 비자발적인 전환 에너지를 반드시 함께 "
     "반영하라(교운 근접 해일수록 변동 폭이 크다). 강하게 작동하는 해와 주의가 필요한 해를 "
-    "골라 총평하라. 마무리 질문을 따로 더 만들지 말고, 시스템 지시의 마지막 마무리 질문 "
-    "하나의 소재를 '어느 해를 더 자세히 보고 싶은지'로 삼아 — 사용자가 특정 연도를 "
-    "지정하면 그때 그 해의 월별 상세를 풀어주겠다고 안내하라."
+    "골라 총평하라. 마무리 문단을 따로 더 만들지 말고, 시스템 지시의 마지막 정리 안에 "
+    "'특정 연도를 지정하면 그 해의 월별 상세를 볼 수 있다'는 안내를 평서문 한 문장으로 "
+    "담아라(질문으로 만들지 않는다)."
 )
 
 # 대운 단위 질문(2026-10-30) — '지금·다음 대운' 창을 대운표로 확정했을 때의 응답 형식. 10년 digest
@@ -3807,8 +3867,9 @@ _DAEWOON_UNIT_DIRECTIVE_TMPL = (
     "[응답 형식 — 대운 단위] 이 질문은 {label} 하나를 묻는다 — 대상 구간은 {lo}–{hi}년이다. "
     "이 대운 전체를 하나의 환경(계절)으로 먼저 총평하고, 그 안의 해들을 '연(세운) 단위'로 큰 "
     "줄기만 짚어라. 12개월 월별 나열·특정 달 단정은 하지 말 것. 구간 밖 연도는 교운(대운 교체) "
-    "배경으로만 짧게 언급한다. 마무리 질문 하나의 소재는 '어느 해를 더 자세히 보고 싶은지'로 "
-    "삼아 — 사용자가 연도를 지정하면 그 해의 월별 상세를 풀어주겠다고 안내하라."
+    "배경으로만 짧게 언급한다. 마무리 문단을 따로 더 만들지 말고, 시스템 지시의 마지막 정리 "
+    "안에 '연도를 지정하면 그 해의 월별 상세를 볼 수 있다'는 안내를 평서문 한 문장으로 "
+    "담아라(질문으로 만들지 않는다)."
 )
 
 # 전 생애/인생 단계 스캔(2026-08-07 데굴님 승인) — 발동 키워드. C13 단계 어휘(초년/청년/
@@ -3861,7 +3922,7 @@ def _lifetime_directive(
     if lo_year < this_year:
         parts.append(
             f"{this_year}년 이전의 후보 연도는 이미 지난 시기다 — '이런 흐름이 지나갔을 "
-            "시기'로 회고하고 실제 그랬는지 가볍게 확인을 유도하라(단정 금지). "
+            "시기'로 회고하라(단정 금지). "
             f"{this_year}년 이후의 후보 연도는 '사건이 확정되는 해'가 아니다 — 사건명은 "
             "그대로 쓰되 '이직이 거론될 수 있는 해'처럼 가능성형으로 표현하라(확정 어미만 금지)."
         )
@@ -3873,9 +3934,9 @@ def _lifetime_directive(
     parts.append(
         "표에 오른 연도는 신호가 상대적으로 강해 선별된 해다 — 표에 없는 해를 '아무 "
         "일 없는 해'로 단정하지 말 것. 백세 이후는 다루지 않는다 — 요청받아도 '풀이는 "
-        "백세까지를 기준으로 본다'고 한 줄로만 안내하라. 마무리 질문을 따로 더 만들지 "
-        "말고, 시스템 지시의 마지막 마무리 질문 하나의 소재를 '어느 해(또는 시기)를 "
-        "자세히 볼지'로 삼아라."
+        "백세까지를 기준으로 본다'고 한 줄로만 안내하라. 마무리 문단을 따로 더 만들지 "
+        "말고, 시스템 지시의 마지막 정리 안에 '어느 해(또는 시기)를 지정하면 그 시기를 "
+        "자세히 볼 수 있다'는 안내를 평서문 한 문장으로 담아라(질문으로 만들지 않는다)."
     )
     return " ".join(parts)
 
@@ -4007,7 +4068,7 @@ _GOSSIP_TOPIC_FRAME_DIRECTIVE = (
     "아니다. 사용자가 당사자 간 다툼을 직접 말하지 않는 한, 원인에 등장한 인물·집단"
     "(가족 등)과의 갈등·요구·화해 구도로 재해석하지 말고('가족 간 갈등'·'가족의 요구' 같은 "
     "표현 금지), 외부에서 도는 말(평판·소문)이 언제 가라앉고 그때까지 어떻게 처신할지를 "
-    "중심으로 서술하라. 마무리 후속 질문도 사용자가 말하지 않은 사실(다툼·요구의 존재)을 "
+    "중심으로 서술하라. 마무리 정리도 사용자가 말하지 않은 사실(다툼·요구의 존재)을 "
     "전제하지 말 것."
 )
 
@@ -4227,7 +4288,7 @@ _ACCIDENT_RISK_DIRECTIVE = (
     "이 질문의 주제는 '사고 위험'이다. 재물·직업 등 다른 주제로 흩어지지 말고, 아래 축 중 "
     "**제공된 후보·근거(충·형·기신 시기, 위험 신호 블록)에 실제로 존재하는 축만** 골라 "
     "'주의가 필요한 시기와 장면'으로 풀어라. 근거에 없는 축은 언급하지 않는다.\n"
-    "①이동·교통 축: 역마(일지 삼합국 기준)가 충·형으로 흔들리는 시기나 寅巳申 삼형이 "
+    "①이동·교통 축: 역마(연지·일지 삼합국 기준)가 충·형으로 흔들리는 시기나 寅巳申 삼형이 "
     "성립하는 시기는 이동 중 돌발·차량·낙상 같은 횡액성 주의 시기다(寅申巳亥 글자 보유만으로는 "
     "역마로 보지 않는다). 방어운전·일정 여유·무리한 이동 자제처럼 실행 "
     "가능한 대비로 연결하라.\n"
@@ -4245,7 +4306,7 @@ _ACCIDENT_RISK_DIRECTIVE = (
     "classicalInterpretation·구조 패턴의 전통 해석 문구를 활용해 감추거나 완화하지 말고 전달 "
     "②이번 판정의 근거 — 원국의 어떤 관계가 운의 무엇과 다시 충·형을 이루는지, 제공된 근거로만 "
     "③현실 확인 항목 — exposureCheckItems·노출 예시를 활용해 '실제로 운전·보증·기계 작업이 "
-    "많다면 주의 수준을 높이라'는 확인 질문·조건으로 ④보호·반대 신호 — 같은 기간의 합·생조 등 "
+    "많다면 주의 수준을 높이라'는 조건문으로 ④보호·반대 신호 — 같은 기간의 합·생조 등 "
     "완화 신호가 있으면 함께 ⑤사용자가 확인할 사항 목록. "
     "지나친 완화 금지: '조금 조심하면 아무 문제 없습니다'·'큰 걱정 마세요'식으로 위험을 상쇄해 "
     "숨기지 마라 — 전통 해석은 그대로 전하되 발생 단정만 하지 않는 것이 원칙이다. "
@@ -4611,8 +4672,9 @@ _MONTH_PICK_DIRECTIVE = (
     "나열로 답하지 말고, 아래 월별 흐름(오늘부터 12개월)에서 유리한 달 1–3개를 골라 월 "
     "단위로 답하라. 각 달은 '이 달에 된다' 단정이 아니라 기운이 열리는 창으로 표현하고, "
     "12개월 너머에 더 강한 해가 있으면 '길게 보면 ○○○○년이 더 크다' 정도로만 짧게 "
-    "덧붙여라. 마무리 질문을 따로 더 만들지 말고, 시스템 지시의 마지막 마무리 질문 하나의 "
-    "소재를 '특정 달의 상세나 다른 해의 달을 이어 볼지'로 삼아라."
+    "덧붙여라. 마무리 문단을 따로 더 만들지 말고, 시스템 지시의 마지막 정리 안에 '특정 "
+    "달이나 다른 해를 지정하면 그 달의 상세를 볼 수 있다'는 안내를 평서문 한 문장으로 "
+    "담아라(질문으로 만들지 않는다)."
 )
 _DAY_PICK_DIRECTIVE = (
     "[응답 형식 — '어느 날(날짜)' 질문] 사용자가 특정 기간 없이 날짜를 물었다. 대화 "
@@ -6889,7 +6951,7 @@ def chat(
     # 시점 없는 중립 과거 회고('그때 왜 그랬을까' — 2026-09-06 데굴님): 사용자가 이미 특정
     # 시점을 마음에 둔 후회·평가 질문이라 흐름표를 펼칠 대상이 아니다. 후속 턴이면 대화 상태가
     # 시점·도메인을 승계해(time_shift) 여기로 오지 않고 그 시기 배경(대운·세운) 경로를 탄다.
-    # 승계할 맥락이 없을 때만 — 원국 성향 층으로 답하고 시점·사건 확인 질문을 유도한다.
+    # 승계할 맥락이 없을 때만 — 원국 성향 층으로 답하고 시점·사건을 알려 달라고 안내한다.
     retro_fixed_moment = (
         intent.query_type is QueryType.EVENT_EXPLANATION
         and NEUTRAL_PAST_EXPLANATION_RE.search(question) is not None
@@ -8047,6 +8109,33 @@ def chat(
         trailing.extend(career_exit_lecture_block(
             result, [(c.period, c.ganji) for c in payload.event_candidates],
         ))
+    # 축 글자 도래 층(2026-11-20 영상 스크립트 대조) — 질문 주제의 중심 십성군(시험·취업·승진·공모
+    # = 관성·인성, 창업·사업 = 재성·식상, 재물 = 재성 천간/지지 양상, 출산·자녀 = 여성 식상·남성
+    # 관성)이 원국에 어떻게 놓였고 후보
+    # 기간·질문 기간의 운 어느 층·자리로 오는지를 주제의 말로 싣는다(서술 전용, 점수·판정 불변).
+    # 사건 후보가 비는 질문(예: 무직 프로필의 승진 질문)에도 질문 기간의 세운을 보도록 연도를
+    # 보탠다.
+    if result is not None and period_v2_config.AXIS_LENS_BLOCK_ENABLED:
+        _ax_sel = detect_selection_query(question)
+        _ax_lens = lens_for(
+            intent.event_key.value if intent.event_key is not None else None,
+            intent.domain.value,
+            selection=is_judged_selection(
+                _ax_sel.domain if _ax_sel is not None else None, question,
+            ),
+            gender=birth.gender,
+        )
+        if _ax_lens is not None:
+            _ax_periods = [(c.period, c.ganji) for c in payload.event_candidates]
+            _ax_span = tr_year_span(intent.time_range)
+            if _ax_span is not None:
+                _ax_periods += [(str(y), "") for y in range(_ax_span[0], _ax_span[1] + 1)]
+            _ax_lines = axis_arrival_block(result, _ax_periods, _ax_lens)
+            trailing.extend(_ax_lines)
+            _logger.info(
+                "axis_lens lens=%s lines=%d periods=%d thread=%s",
+                _ax_lens, len(_ax_lines), len(_ax_periods), thread_id,
+            )
     # 충 완화 글자(2026-11-07 충 강의 대조) — 후보 기간 운 지지가 원국 용·희신 글자를 충하면
     # 묶어 주는 글자·시기를 서술 전용으로 싣는다(도메인 무관, 조건 없으면 블록 없음).
     if result is not None:
@@ -8297,10 +8386,19 @@ def chat(
     # 긴 일 범위는 빈 리스트(일별 흐름 블록 담당).
     # 단일 하루 판정은 예전 가드 그대로다(2026-07-17: offset 창·기간 창·월 granularity 제외).
     _tr_targets = _tr_day_targets(_tr)
+    # 근사 날짜('2월 12일 정도')는 달 단위 창 + 날짜 앵커다 — 본문의 날짜를 '질문한 날'로 다시
+    # 뽑아 그 날 일진 중심 지시를 붙이지 않는다(2026-11-21).
+    _approx_anchor = _is_approx_date_anchor(_tr)
     _date_targets = (
-        _tr_targets if _tr_targets is not None else _explicit_dates(question, _ref_year)
+        [] if _approx_anchor
+        else _tr_targets if _tr_targets is not None
+        else _explicit_dates(question, _ref_year)
     )
-    if _date_targets:
+    if _approx_anchor and _tr is not None and _tr.anchor_dates[0].label in question:
+        _ap_note = _approx_date_note(birth, _tr.anchor_dates[0], _tz)
+        if _ap_note:
+            trailing.append(_ap_note)
+    elif _date_targets:
         _df_note = _date_day_fortune_note(birth, _date_targets, _tz)
         if _df_note:
             trailing.append(_df_note)

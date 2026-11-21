@@ -115,6 +115,10 @@ class UserFact(BaseModel):
     status: str = "confirmed"  # 'confirmed' | 'corrected'(supersede로 대체됨)
     source_turn: int = 0
     superseded_quote: str | None = None  # 같은 key 단수 슬롯이 정정된 경우 이전 인용(이력)
+    #: 인용 속 연도 없는 날짜·달의 달력 환산('YYYY-MM-DD' 또는 'YYYY-MM', 2026-11-21). 발화한 날을
+    #: 기준으로 연도만 보충한 값이다 — 명리 계산·추론이 아니라 사용자가 말한 날짜의 표기 정규화라
+    #: 쓰기 정책(사용자 명시 발화만)에 어긋나지 않는다. LLM 이 '2월 12일'의 해를 추측하지 않게 한다.
+    stated_date: str | None = None
 
 
 class AssistantCommitment(BaseModel):

@@ -24,16 +24,12 @@ from saju_shared_types.enums import Branch
 from saju_shared_types.intent import Domain
 from saju_shared_types.manse_result import ManseV2Result
 from saju_shared_types.palace_network import PalaceNetwork, PalacePairRelation
+from saju_shared_types.palace_scope import PALACE_SCOPE_RULE, palace_column, palace_scope_legend
 
 from .relationship_relation_labels import relation_summary_ko
 
-# 궁위 역할(한글) — 연·월·일·시.
-_PALACE_ROLES: dict[str, str] = {
-    "year": "연주(조상·가문·사회 배경)",
-    "month": "월주(부모·형제·성장환경)",
-    "day": "일지(배우자·친밀관계)",
-    "hour": "시주(자식·후대·결과)",
-}
+# 궁위 역할(한글) — 연·월·일·시. 문구 원천은 궁위 표(`saju_shared_types.palace_scope`).
+_PALACE_ROLES: dict[str, str] = palace_column("network_label")
 _PALACE_ORDER = ("year", "month", "day", "hour")
 
 
@@ -138,6 +134,9 @@ def palace_network_lines(network: PalaceNetwork, domain: Domain) -> list[str]:
         "[궁위 관계망 — 원국 구조(운 미반영). 연=조상·사회 배경, 월=부모·성장환경, 일=배우자·친밀, "
         "시=자식·결과. 궁위 간 관계질은 좋다/나쁘다 단정 없이 경향으로만, 구체 발현은 질문 맥락에 "
         "맞을 때만 가능성으로 서술]",
+        # 인연 범위(2026-11-21) — 궁위 간 관계가 '누구와의 일'인지 가늠하는 보조 단서.
+        f"궁위별 인연 범위: {palace_scope_legend()}",
+        PALACE_SCOPE_RULE,
     ]
     for pr in network.pairs:
         summ = relation_summary_ko(pr.relation)

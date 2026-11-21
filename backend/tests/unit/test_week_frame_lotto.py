@@ -252,8 +252,9 @@ def test_abbreviated_weekday_range() -> None:
     assert second.time_range is not None
     assert (second.time_range.start, second.time_range.end) == ("2026-10-04", "2026-10-10")
     assert _span("월~금 운세", _WED)[:2] == ("2026-10-05", "2026-10-09")
-    # 월(달) 범위·날짜 뒤 요일은 요일 범위가 아니다.
-    assert _span("3월~5월 재물운", _WED)[:2] == ("2026-03", "2026-05")
+    # 월(달) 범위·날짜 뒤 요일은 요일 범위가 아니다. 10월에 물은 '3월~5월'은 지난 지 3개월이 넘어
+    # 다가올 해로 읽는다(2026-11-21 해 넘김 기준 — 이 줄의 요점은 '요일 범위가 아님'이다).
+    assert _span("3월~5월 재물운", _WED)[:2] == ("2027-03", "2027-05")
 
 
 def test_week_after_next() -> None:

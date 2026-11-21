@@ -33,6 +33,7 @@ from saju_shared_types.constants import (
 )
 from saju_shared_types.enums import Branch, Stem
 from saju_shared_types.manse_result import ManseV2Result
+from saju_shared_types.palace_scope import palace_column
 from saju_shared_types.repetition_structure import (
     RepetitionActivation,
     RepetitionGroup,
@@ -50,10 +51,8 @@ _BRANCHES = frozenset("子丑寅卯辰巳午未申酉戌亥")
 _LAYER_KO = {"daewoon": "대운", "year": "세운", "month": "월운", "day": "일운"}
 #: 궁위 라벨(활성화 줄의 궁위별 가능성 영역 안내용, 2026-10-28). 사전 `palace` 항목의
 #: palace_ko 가 있으면 그쪽이 우선.
-_PALACE_KO = {
-    "year": "연지(조상·사회 배경)", "month": "월지(사회·직장)",
-    "day": "일지(배우자·몸)", "hour": "시지(자녀·지향·투자)",
-}
+#: 문구 원천은 궁위 표(`saju_shared_types.palace_scope`).
+_PALACE_KO = palace_column("repetition_label")
 _DICT_PATH = (
     Path(__file__).resolve().parents[3]
     / "dictionaries" / "interpretations" / "repetition_text.json"

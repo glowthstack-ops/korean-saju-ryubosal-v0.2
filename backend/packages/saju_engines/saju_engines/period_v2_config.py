@@ -179,6 +179,22 @@ NATAL_LUCK_ROLE_BLOCK_ENABLED: bool = (
     os.environ.get("SAJU_NATAL_LUCK_ROLE_BLOCK_ENABLED", "true").strip().lower()
     in ("1", "true", "yes")
 )
+# 축 글자 도래 층(2026-11-20 데굴님 "제안대로 진행해. 그리고 비슷한 형태의 풀이로 다른 intent 에
+# 대한 풀이를 고도화할 수 있는지를 검토해서 추가 진행") — 질문 주제의 중심 십성군(시험·취업·승진·
+# 공모 = 관성·인성, 창업·사업 = 재성·식상, 재물 = 재성 천간/지지 양상)이 원국에 어떻게 놓였고 운의
+# 어느 층·자리로 오는지를 주제의 말로 싣는다. 서술 전용(점수·판정 불변), 기본 ON(문구·기능층은
+# 노출해야 감수 가능). 'false'면 미노출.
+AXIS_LENS_BLOCK_ENABLED: bool = (
+    os.environ.get("SAJU_AXIS_LENS_BLOCK_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
+)
+# 세운 12신살 결 층(2026-11-21 데굴님 "권고대로 진행") — 그 해 세운 지지가 띠(연지)·일지 삼합국에서
+# 놓인 12신살의 결(장면·태도)을 연 총운·연 단위 질문·한해 리포트 세운 블록에 싣는다. 서술 전용
+# (점수·판정 불변), 기본 ON(문구·기능층은 노출해야 감수 가능). 'false'면 미노출.
+YEAR_SINSAL_FLOW_ENABLED: bool = (
+    os.environ.get("SAJU_YEAR_SINSAL_FLOW_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
+)
 # 입사 뒤 재직 기간 가능성 줄(2026-11-18 데굴님 "이 시점 입사의 경우 장기 재직할 수도 있다 정도의
 # 뉘앙스로 사용자에게 제공") — 입사·이직 진입 후보 기간의 세운에 용신 군 글자가 오면 가능성 한 문장
 # 지시를 싣는다. 한 사람 이력에서만 확인된 반복이라 규칙·등급이 아닌 서술 전용(점수·배정 불변),
@@ -361,6 +377,8 @@ def active_versions() -> dict[str, str | bool]:
         "relation_hit_dedup_enabled": RELATION_HIT_DEDUP_ENABLED,
         "period_other_signals_enabled": PERIOD_OTHER_SIGNALS_ENABLED,
         "natal_luck_role_block_enabled": NATAL_LUCK_ROLE_BLOCK_ENABLED,
+        "axis_lens_block_enabled": AXIS_LENS_BLOCK_ENABLED,
+        "year_sinsal_flow_enabled": YEAR_SINSAL_FLOW_ENABLED,
         "entry_tenure_note_enabled": ENTRY_TENURE_NOTE_ENABLED,
         "invest_month_advice_enabled": INVEST_MONTH_ADVICE_ENABLED,
         "compat_element_affinity_enabled": COMPAT_ELEMENT_AFFINITY_ENABLED,

@@ -77,6 +77,8 @@ class PillarDetail(BaseModel):
     twelve_stage: str
     sinsal: list[str] = Field(default_factory=list)  # 보조 자료 — 단독 결론 금지
     palace_role: str = ""  # 궁성 자리역할(항목 14): '천간 부친 · 지지 모친' 등
+    # 궁위 인연 범위(2026-11-21, palace_scope 표) — 그 자리가 가리키기 쉬운 사람의 범위(보조 단서).
+    palace_scope: str = ""
 
 
 class InterpretationExcerpt(BaseModel):
@@ -660,9 +662,15 @@ class LlmInput(BaseModel):
     sinsal_direction: SinsalDirectionBlock | None = None
     # 삼재 흐름(docs/18 §4) — 질문 창 안의 삼재 해만(없으면 빈 목록). 맥락 신호, 점수 아님.
     samjae_context: list[str] = Field(default_factory=list)
+    # 세운 12신살 결(docs/18 §9, 2026-11-21) — 띠(연지)·일지 삼합국 기준 그 해의 결. 연 총운이면
+    # 그 해, 연 단위 질문이면 질문 창 연도(2년 이하). 서술 전용 보조(점수·판정 아님).
+    year_sinsal_context: list[str] = Field(default_factory=list)
     # 민속 흉방(docs/19 §5) — 이사·이동·공사 질문은 전체 블록, 그 외 방향 질문은 고지 한 줄(추가
     # 정보). 개인 12신살과 별개 층. 없으면 빈 목록(무소음).
     folk_taboo_context: list[str] = Field(default_factory=list)
+    # 입춘 경계(2026-11-21) — 질문 창이 양력 2월을 짧게 짚으면 입춘 날짜와 전후 세운·월운 간지·십성.
+    # 세운과 연간 민속 흉방은 입춘에 바뀐다. 서술 전용(점수·판정 아님). 없으면 빈 목록.
+    ipchun_context: list[str] = Field(default_factory=list)
     # 오행 보완 방향 첨언(용희기구한 × 정오행 방위, 2026-09-22) — 수동 방향 질문에만. 12신살
     # 활용 방향과 별개 층(합산 금지), 서술 전용. 능동·택일·이사 경로에는 싣지 않는다.
     yongsin_direction: YongsinDirectionNote | None = None

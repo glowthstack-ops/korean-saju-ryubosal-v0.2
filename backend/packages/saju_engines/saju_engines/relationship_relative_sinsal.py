@@ -69,7 +69,7 @@ def relative_sinsal_lines(
     self_chart: ManseV2Result, partner_chart: ManseV2Result,
     self_label: str = "본인", partner_label: str = "상대",
 ) -> list[str]:
-    """[12신살 상대위치] — 두 사람의 일지(친밀) 기준 상대 12신살을 양방향으로 서술한다.
+    """[12신살 상대위치] — 두 사람의 연지(사회)·일지(친밀) 기준 상대 12신살을 양방향으로 서술한다.
 
     노출 tier(expose·movement)만 문구화하고 internal(겁살·재살·월살)은 생략한다. 승패·서열이 아니라
     비대칭 관계 역학 경향으로만 서술하도록 안내한다(점수 미개입).
@@ -85,8 +85,7 @@ def relative_sinsal_lines(
     if sp is None or pp is None or sp.day is None or pp.day is None:
         return []
     body: list[str] = []
-    # 기준 자리는 공용 상수(SELF_SINSAL_BASE_SLOTS — 2026-11-12 부터 일지만. 종전에는
-    # 사회(연지)도 봤다).
+    # 기준 자리는 공용 상수(SELF_SINSAL_BASE_SLOTS — 2026-11-21 부터 사회(연지)·친밀(일지) 두 맥락).
     ctx_label = {"day": "친밀(일지)", "year": "사회(연지)"}
     contexts = [
         (ctx_label[slot], getattr(sp, slot), getattr(pp, slot))
