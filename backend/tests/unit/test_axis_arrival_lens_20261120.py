@@ -348,7 +348,10 @@ def test_chat_carries_block_for_matching_intents_only(monkeypatch) -> None:
     )
     assert "[자리·자격 구조 — 원국 × 운에서 온 글자" in (grant.prompt_preview or "")
     # 출산 질문 — 여성 명식(甲 일간)의 자녀성(식상 = 火)이 세운 천간에 드는 해(2027 丁未).
-    child_q = "내년에 아이가 생길 수 있을까?"
+    # 질문은 룰 파서 어휘('임신')로 쓴다 — '아이가 생길'은 저장소에 없는 의도 유사도 모델
+    # (compiled/intent_onnx, gitignore)이 있어야 출산 사건으로 잡혀 CI 에서 블록이 빠졌다
+    # (2026-11-21).
+    child_q = "내년에 임신할 수 있을까?"
     child = chat_service.chat(_DECADE_SEAL, child_q, _T, dry_run=True)
     assert "[자녀 인연 구조 — 원국 × 운에서 온 글자" in (child.prompt_preview or "")
     assert "천간 丁 = 상관(식상" in (child.prompt_preview or "")
