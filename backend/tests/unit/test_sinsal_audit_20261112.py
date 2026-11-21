@@ -89,31 +89,40 @@ def test_yuanchen_is_not_judged_without_gender(gender: str | None) -> None:
 # ── 2. 자리별 12신살 9종 복원 ────────────────────────────────────────────────────
 
 
-def test_cheonsal_is_judged_from_day_trine_only() -> None:
-    # 일지 酉(巳酉丑국)의 천살은 辰.
+def test_cheonsal_is_judged_from_year_and_day_trines() -> None:
+    # 일지 酉(巳酉丑국)의 천살은 辰, 연지 午(寅午戌국)의 천살은 丑 — 2026-11-21 부터 두 기준을
+    # 함께 본다.
     p = _pillars("丙午", "辛丑", "乙酉", "庚辰")
     got = _natal(p)
     assert ("hour", "천살") in got
-    # 반례 ①: 월지 丑은 연지 午(寅午戌국) 기준으로만 천살 — 연지 기준은 인정하지 않는다.
-    assert ("month", "천살") not in got
-    assert all("연지" not in basis for _n, c, _p, basis in _detect(p) if c == "twelve_sinsal")  # type: ignore[arg-type]
+    assert ("month", "천살") in got
+    basis = {pos: b for n, c, pos, b in _detect(p) if n == "천살" and c == "twelve_sinsal"}  # type: ignore[arg-type]
+    assert "일지 酉 기준" in basis["hour"] and "연지 午 기준" in basis["month"]
+    # 반례 ①: 어느 기준의 천살 자리도 아닌 연주 午·일주 酉에는 천살이 서지 않는다.
+    assert ("year", "천살") not in got and ("day", "천살") not in got
     # 반례 ②: 일지 卯(亥卯未국)에서 未는 천살이 아니라 화개살, 천살은 戌이다.
     q = _pillars("丙午", "乙未", "乙卯", "丙子")
     assert not any(name == "천살" for _pos, name in _natal(q))
     assert ("month", "화개살") in _natal(q)
 
 
-def test_self_sinsal_base_is_day_only_everywhere() -> None:
-    """자기 명식 상대 12신살의 기준 자리는 일지 하나 — 모든 소비처가 같은 상수를 읽는다."""
+def test_self_sinsal_base_is_year_and_day_everywhere() -> None:
+    """자기 명식 상대 12신살의 기준 자리는 연지·일지 — 모든 소비처가 같은 상수를 읽는다.
+
+    2026-11-12 에 일지만으로 좁혔다가 2026-11-21 데굴님 결정으로 12종 전체 병용을 되돌렸다.
+    """
     from saju_shared_types.twelve_sinsal import SELF_SINSAL_BASE_SLOTS, self_sinsal_bases
 
-    assert SELF_SINSAL_BASE_SLOTS == ("day",)
-    assert self_sinsal_bases("午", "酉") == [("day", "일지", B.YU)]
-    assert self_sinsal_bases("午", "酉", "역마살") == [("day", "일지", B.YU)]
-    # 운: 연지 午(寅午戌국) 기준 역마 申은 인정하지 않고, 일지 酉(巳酉丑국) 기준 역마 亥만 인정한다.
+    both = [("year", "연지", B.O), ("day", "일지", B.YU)]
+    assert SELF_SINSAL_BASE_SLOTS == ("year", "day")
+    assert self_sinsal_bases("午", "酉") == both
+    assert self_sinsal_bases("午", "酉", "역마살") == both
+    # 운: 연지 午(寅午戌국) 기준 역마 申, 일지 酉(巳酉丑국) 기준 역마 亥 모두 인정한다.
     p = _pillars("丙午", "辛丑", "乙酉", "庚辰")
     assert "역마살" in _luck(p, S.GYE, B.HAE)
-    assert "역마살" not in _luck(p, S.GAP, B.SIN)
+    assert "역마살" in _luck(p, S.GAP, B.SIN)
+    # 반례: 寅 운은 寅申巳亥 글자지만 어느 기준의 역마 자리도 아니다.
+    assert "역마살" not in _luck(p, S.GAP, B.IN)
 
 
 def test_luck_twelve_sinsal_matches_shared_table_for_every_branch() -> None:
@@ -412,15 +421,18 @@ def test_dohwa_alone_keeps_year_and_day_bases() -> None:
     # 도화.
     p = _pillars("丙午", "辛丑", "乙酉", "庚辰")
     assert ("year", "도화") in _natal(p)
-    # 운: 卯(연지 기준)·午(일지 기준) 모두 도화. 역마는 일지 기준만(申은 연지 기준이라 아님).
+    # 운: 卯(연지 기준)·午(일지 기준) 모두 도화. 2026-11-21 부터 역마도 두 기준(申 = 연지 기준).
     assert "도화" in _luck(p, S.JEONG, B.MYO) and "도화" in _luck(p, S.GAP, B.O)
-    assert "역마살" not in _luck(p, S.GAP, B.SIN)
+    assert "역마살" in _luck(p, S.GAP, B.SIN)
     # 일지 자신이 도화가 되는 경우가 다시 생긴다 — 연지 丑(巳酉丑국)의 년살 午가 일지에.
     q = _pillars("辛丑", "乙未", "丙午", "戊辰")
     day_dohwa = [basis for n, _c, pos, basis in _detect(q) if n == "도화" and pos == "day"]  # type: ignore[arg-type]
     assert len(day_dohwa) == 1 and "연지 丑 기준" in day_dohwa[0]
-    # 반례: 같은 명식에서 화개(연지 丑 기준 丑)는 연지 기준이라 인정하지 않는다.
-    assert not any("연지" in basis for n, _c, _p, basis in _detect(q) if n == "화개살")  # type: ignore[arg-type]
+    # 2026-11-21 부터 화개도 두 기준 — 같은 명식의 연주 丑은 연지 丑(巳酉丑국) 기준 화개다.
+    hwagae = {pos: basis for n, _c, pos, basis in _detect(q) if n == "화개살"}  # type: ignore[arg-type]
+    assert "연지 丑 기준" in hwagae["year"]
+    # 반례: 월지 未는 어느 기준의 화개 자리도 아니다(일지 午 기준 화개는 戌).
+    assert "month" not in hwagae
 
 
 def test_goegang_days_follow_modern_korean_sources() -> None:

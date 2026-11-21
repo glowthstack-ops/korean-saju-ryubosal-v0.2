@@ -244,6 +244,7 @@ from saju_engines.wealth_lecture import (
     wealth_vessel_lines,
 )
 from saju_engines.wealth_status_lean import analyze_wealth_status_lean
+from saju_engines.year_sinsal_flow import YEAR_SINSAL_INSTRUCTION, format_year_sinsal_lines
 from saju_engines.yearly_environment import (
     build_yearly_environment,
     render_yearly_environment,
@@ -2870,6 +2871,11 @@ class _ReportData:
         if pillar.luck_label or pillar.luck_summary:
             lines.append(f"운 요약: {pillar.luck_label} — {pillar.luck_summary}")
         lines += render_yearly_environment(build_yearly_environment(self.result, pillar))
+        # 세운 12신살 결(docs/18 §9, 2026-11-21) — 채팅 연 총운과 같은 블록·같은 지침(서술 전용).
+        if period_v2_config.YEAR_SINSAL_FLOW_ENABLED:
+            _ys = format_year_sinsal_lines(self.result, [year], current_year=self.today.year)
+            if _ys:
+                lines += [*_ys[1:], YEAR_SINSAL_INSTRUCTION]
         # 단식 참고 줄(docs/17 §26-3, 2026-11-08) — 채팅 연 총운과 같은 줄·같은 사용 규칙.
         from saju_engines.context_reducer import (
             SIMPLE_READING_DIRECTION_RULE,

@@ -236,7 +236,7 @@ def _period_facts(
     yeokma = False
     try:
         # 역마는 글자살이 아니라 기준 자리 삼합국의 상대 12신살로만 판정한다(2026-07-23 정정).
-        # 기준 자리 = SELF_SINSAL_BASE_SLOTS(2026-11-12 부터 일지만).
+        # 기준 자리 = SELF_SINSAL_BASE_SLOTS(2026-11-21 부터 연지·일지).
         for _slot, _label, base in self_sinsal_bases(p.year.branch, p.day.branch):
             res = get_relative_sinsal(base, lb)
             if "역마" in str(getattr(res, "name", "") or getattr(res, "sinsal", "")):

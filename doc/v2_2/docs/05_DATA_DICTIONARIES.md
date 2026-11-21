@@ -330,6 +330,17 @@ compiled/
 - 함께 바뀐 사전: `interpretations/exam_stage_traits.json` 1.1.0 — 인성 다자 항목 추가(2 → 3항목, `ExamStageTraitsFile` 정확 커버리지 3) · `event_engine/exam_outcome_patterns.json` — `target_events` 에 `promotion` 추가(데굴님 결정, 승진 후보에도 합격 기류 표지·결과 유불리 가산, 점수·순위 불변).
 - 검증 픽스처: 1980-11-22 09:40 남(관성 드러난 글자 없음) · 1969-12-13 02:30 남(관인상생 원국·庚 대운) · 1993-08-01 14:30 여(癸亥 대운) · 1981-02-12 06:30 남(관성·인성 모두 없음). 테스트 `test_axis_arrival_lens_20261120`.
 
+### interpretations/year_sinsal_text.json — 세운 12신살 결 층 (2026-11-21 데굴님 결정)
+
+- 설계 `docs/18_SINSAL_DIRECTION.md` §8(12신살 기준 자리 연지·일지 병용 복원 + 측정)·§9(결 층). 결정: 범위 "권고대로 진행할게"(12종 전체) · 방식 "후자를 우선적으로 측정해서 시도하고, 안 되면 권고대로 진행해" · 궁위 표 "그래".
+- `YearSinsalTextFile`: `scopes` 3종 정확 커버리지(year·day·both — 띠 기준 = 바깥·사회 쪽 / 일지 기준 = 가까운 관계·생활 쪽 / 두 기준 일치) + `items` 1~12건(12신살명 유효·중복 금지). 항목 필드 `core`(그 해의 결) · `scenes`(일상 장면 2~6, 가능성 어미) · `stance`(권하는 태도) · `contrast`(다른 살과의 대비, 선택) · `cycle`(삼합 주기 서술, 선택 — 연도는 엔진이 붙임) · `who`(바깥 주체 읽는 법, 선택 — 십성·귀인 사실은 엔진이 붙임).
+- 현재 문구: 辰戌丑未 해의 4종(화개살·월살·천살·반안살), 전부 reviewed:false. 나머지 8종은 `sinsal_text.json` 의 뜻 한 문장 폴백 — 문구는 승인 개정으로만 추가.
+- `saju_engines.year_sinsal_flow`: `build_year_sinsal`(두 기준 이름·띠 기준 3년 흐름·삼재 병기·세운 십성·천을귀인 동반) · `format_year_sinsal_lines`(전체 / compact). 서술 전용(점수·판정 불변), 플래그 `SAJU_YEAR_SINSAL_FLOW_ENABLED`(기본 true).
+- lint: 기준 자리 id 집합, 이름 유효·중복, 결과 확정·공포 어휘(반드시·무조건·망한다·큰일 등) 금지.
+- 함께 바뀐 사전: `interpretations/sinsal_text.json` 1.4.0 — 역마·화개 기준 표현을 '연지·일지 삼합국 기준'으로, 월살·천살·반안살 `fromLuck` 추가 · `daily_fortune/daily_phrase_templates.json` dict.v1.24 — `simple_layer.luck_sinsal`(docs/17 §37).
+- 궁위 의미 표는 사전이 아니라 코드 상수다 — `saju_shared_types/palace_scope.py`(`PALACE_TABLE`, 열: 육친 자리역할·신살 자리 라벨·관계망 라벨·반복 구조 라벨·인연 범위).
+- 검증 픽스처: 1983-05-05 10:00 남(연지 亥·일지 巳 — 2027 띠 기준 화개살·일지 기준 월살) · 1988-03-03 남(연지 辰 — 2027 천살) · 1995-07-07 남(연지·일지 亥 — 두 기준 일치). 테스트 `test_year_sinsal_flow_20261121`.
+
 ### interpretations/love_separation_lecture_text.json + 연애 실험 키 `separation_*` — 외부 강의 「남녀의 이별운」 번역층 (2026-10-29 데굴님 결정)
 
 - 대조 문서 `doc/v2_2/EXTERNAL_TEXT_GAP_LOVE_SEPARATION.md`. 강의 4축: ① 여·원국 관성 매우 약(십성군 officer <10% — 구조 패턴 존재 임계와 같음) × 운 식신·상관 ② 남·일지 본기 정재 × 운 겁재(배우자궁 쟁재) ③ 여·원국 정인 없음(`missing_ten_gods`)·지장간에만(`hidden_only_ten_gods`) × 운 정인 ④ 원국 정재(천간 연·월·시 또는 지지 본기) × 운 비견·겁재(겁재 > 비견).

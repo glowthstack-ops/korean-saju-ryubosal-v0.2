@@ -45,6 +45,7 @@ from saju_shared_types.llm_input import (
     YongsinOperationalSummary,
 )
 from saju_shared_types.manse_result import ManseV2Result
+from saju_shared_types.palace_scope import palace_column
 from saju_shared_types.twelve_sinsal import TWELVE_SINSAL_POSITIONAL
 
 from .clash_relief import natal_clash_relief_by_name
@@ -53,12 +54,10 @@ from .dohwa import analyze_luck_dohwa
 _DICT_DIR = Path(__file__).resolve().parents[3] / "dictionaries"
 _PALACE_KO = {"year": "연주", "month": "월주", "day": "일주", "hour": "시주"}
 # 궁성 자리역할(항목 14) — 천간/지지 가족 궁. 자녀 유무·성별은 통설 기준 일반 배치.
-_PALACE_ROLE = {
-    "year": "천간 조부 · 지지 조모(뿌리·조상궁)",
-    "month": "천간 부친 · 지지 모친(부모·사회궁)",
-    "day": "천간 자신 · 지지 배우자(나·배우자궁)",
-    "hour": "천간 아들 · 지지 딸(자녀·결과궁)",
-}
+# 문구 원천은 궁위 표(`saju_shared_types.palace_scope`, 2026-11-21 한 표로 모음).
+_PALACE_ROLE = palace_column("kin_role")
+# 궁위 인연 범위(2026-11-21) — 그 자리가 가리키기 쉬운 사람의 범위(서술 보조 단서).
+_PALACE_SCOPE = palace_column("relation_scope")
 # 원국 관계 중 명식 구조에 표기할 가시 관계 — 지장간 암합류는 보조라 제외(다이어그램 정책 동일).
 _HIDDEN_RELATION_PREFIX = "hidden_"
 # relations.json에 participants가 없는 패턴형 관계의 표시명.
@@ -783,6 +782,7 @@ def build_chart_interpretation(result: ManseV2Result) -> ChartInterpretation | N
             twelve_stage=pillar.twelve_unseong,
             sinsal=by_pillar_sinsal.get(palace, []),
             palace_role=_PALACE_ROLE.get(palace, ""),
+            palace_scope=_PALACE_SCOPE.get(palace, ""),
         ))
         for name in (pillar.stem_ten_god, pillar.branch_main_ten_god):
             if name and name != "일간" and name not in ten_god_names:
@@ -1067,12 +1067,8 @@ def _group_trait_excerpts(pillars: object) -> list[InterpretationExcerpt]:
 
 _MAX_SINSAL_EXCERPTS = 5
 # 궁성론(2026-06-12 사용자 확정) — 같은 신살도 자리에 따라 시기·대상·작용이 갈린다.
-_SINSAL_PALACE_LABEL = {
-    "year": "연주(조상·고향·초년)",
-    "month": "월주(부모·직장·사회·청년 — 작용력 최대)",
-    "day": "일주(나·배우자·장년)",
-    "hour": "시주(자녀·내면·말년)",
-}
+# 문구 원천은 궁위 표(`saju_shared_types.palace_scope`).
+_SINSAL_PALACE_LABEL = palace_column("sinsal_label")
 _SOCIAL_PALACES = {"year", "month"}  # 年月 = 사회·대외 발현
 _PERSONAL_PALACES = {"day", "hour"}  # 日時 = 개인·가정 발현
 
@@ -1106,7 +1102,7 @@ def _sinsal_branch_advice_note(item: dict, branches: list[str]) -> str:
 
 
 _YEOKMA = "역마살"
-#: 일지 삼합국 기준으로 성립하는 상대 신살의 집계기 표시명(년살=도화).
+#: 연지·일지 삼합국 기준으로 성립하는 상대 신살의 집계기 표시명(년살=도화).
 _RELATIVE_BASE_SINSAL: tuple[str, ...] = ("역마살", "도화", "화개살")
 #: 운 역마 블록 줄 상한 — 긴 창(5년 이상)에서 월·연 역마 줄이 불어나지 않게.
 _YEOKMA_PERIOD_MAX = 6
@@ -1180,8 +1176,8 @@ def _mobility_marker_facts(result: ManseV2Result, pos: list[str]) -> str:
         parts.append("같은 글자 반복: " + "·".join(
             f"{g}×{n}" + ("(자형 1그룹)" if g == "亥" else "(1그룹)") for g, n in rep
         ))
-    # 역마 성립 — 기준 자리(SELF_SINSAL_BASE_SLOTS, 2026-11-12 부터 일지만). 미성립이면 보유 글자의
-    # 12신살 이름(예: 亥=지살)을 밝힌다.
+    # 역마 성립 — 기준 자리(SELF_SINSAL_BASE_SLOTS, 2026-11-21 부터 연지·일지). 미성립이면 보유
+    # 글자의 12신살 이름(예: 亥=지살)을 밝힌다.
     refs = self_sinsal_bases(pil.year.branch, pil.day.branch)
     est: list[str] = []
     for _slot, ref_ko, ref in refs:
@@ -1192,14 +1188,20 @@ def _mobility_marker_facts(result: ManseV2Result, pos: list[str]) -> str:
     if est:
         parts.append("역마 성립: " + "·".join(dict.fromkeys(est)))
     else:
-        _slot0, ref_ko0, ref0 = refs[0]
-        names: list[str] = []
-        for g in dict.fromkeys(x.branch for _p, x in held):
-            try:
-                names.append(f"{g}={relative_twelve_sinsal(ref0, Branch(g))}")
-            except (ValueError, KeyError):
-                continue
-        parts.append(f"역마 성립: 없음({ref_ko0} {ref0.value} 기준 " + "·".join(names) + ")")
+        # 기준 자리마다(연지·일지) 보유 글자가 어느 12신살 자리인지 밝힌다. 두 기준의 이름이 같으면
+        # (같은 삼합국) 기준 라벨을 묶어 한 번만 쓴다.
+        by_names: dict[str, list[str]] = {}
+        for _slot0, ref_ko0, ref0 in refs:
+            names: list[str] = []
+            for g in dict.fromkeys(x.branch for _p, x in held):
+                try:
+                    names.append(f"{g}={relative_twelve_sinsal(ref0, Branch(g))}")
+                except (ValueError, KeyError):
+                    continue
+            by_names.setdefault("·".join(names), []).append(f"{ref_ko0} {ref0.value}")
+        parts.append("역마 성립: 없음(" + " / ".join(
+            f"{'·'.join(labels)} 기준 {names_txt}" for names_txt, labels in by_names.items()
+        ) + ")")
     # 이동지 충·형(원국 관계 목록) — 자형은 반복 항목이 담당.
     sa = result.structure_analysis
     hits: list[str] = []
@@ -1325,9 +1327,9 @@ def _sinsal_excerpts(result: ManseV2Result) -> list[InterpretationExcerpt]:
         return []
     analysis = result.traditional_extras.sinsal
     positions = _sinsal_positions(analysis)
-    # 일지 기준 상대 신살(역마살·도화·화개살)은 어느 자리에 서든 '나(일지)를 기준으로 한 판정'이라
-    # 일주 신살 보충분 앞에 둔다. 기준 자리가 일지만이 된 뒤로(2026-11-12) 역마·도화는 일주 자리에
-    # 서는 일이 없어, 일주 목록만 보면 성립한 역마·도화가 발췌 후보에서 통째로 빠진다.
+    # 상대 신살(역마살·도화·화개살)은 어느 자리에 서든 '기준 자리(연지·일지)에서 본 판정'이라
+    # 일주 신살 보충분 앞에 둔다. 일지 기준 역마·도화는 일주 자리에 서는 일이 없어, 일주 목록만 보면
+    # 성립한 역마·도화가 발췌 후보에서 빠질 수 있다(2026-11-12 보정, 병용 복원 뒤에도 유지).
     established_relative = [
         name for name in _RELATIVE_BASE_SINSAL
         if any(name in analysis.by_pillar.get(p, []) for p in ("year", "month", "day", "hour"))

@@ -830,7 +830,7 @@ def detect_structure_patterns(
 
     # ── H. 사고수 확장 — 역마·형 세분·행동/제어·건강 부담 (2026-07-23 승인안 A) ──
     # 역마는 글자살(寅申巳亥 보유)이 아니라 기준 자리 삼합국의 상대 12신살로 산출한다(데굴님 정정).
-    # 기준 자리는 공용 상수(SELF_SINSAL_BASE_SLOTS — 2026-11-12 부터 일지만, 종전 연지·일지).
+    # 기준 자리는 공용 상수(SELF_SINSAL_BASE_SLOTS — 2026-11-21 부터 연지·일지 병용 복원).
     # 사생지 충돌은 MOVEMENT_BRANCH_CLASH 보조 라벨로만.
     yeokma_refs: dict[str, list[str]] = {}  # 역마 지지(한자) → 기준 라벨
     for _slot, ref_name, base_branch in self_sinsal_bases(

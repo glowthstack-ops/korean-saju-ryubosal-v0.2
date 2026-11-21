@@ -689,6 +689,48 @@ class StorageGateTextFile(_AliasModel):
     items: list[StorageGateTextItem] = Field(min_length=22, max_length=22)
 
 
+#: year_sinsal_text.json 기준 자리 id 정확 커버리지(2026-11-21 세운 12신살 결 층).
+YEAR_SINSAL_SCOPE_IDS: tuple[str, ...] = ("year", "day", "both")
+
+
+class YearSinsalScope(_AliasModel):
+    """세운 12신살 기준 자리 읽는 법 1건 (year_sinsal_text.json `scopes`)."""
+
+    id: Literal["year", "day", "both"]
+    label: str = Field(min_length=6)
+    text: str = Field(min_length=15)
+    basis: str = Field(min_length=10)
+    reviewed: bool
+
+
+class YearSinsalTextItem(_AliasModel):
+    """세운 12신살 결 문구 1건 (year_sinsal_text.json `items`) — 서술 전용.
+
+    core=그 해의 결 한 문장, scenes=일상 장면(가능성 어미), stance=권하는 태도,
+    contrast=다른 살과의 대비(선택), cycle=삼합 주기 서술(선택, 엔진이 연도를 붙인다),
+    who=바깥 주체 읽는 법(선택, 엔진이 십성·귀인 사실을 붙인다).
+    """
+
+    name: str
+    core: str = Field(min_length=20)
+    scenes: list[str] = Field(min_length=2, max_length=6)
+    stance: str = Field(min_length=20)
+    contrast: str | None = None
+    cycle: str | None = None
+    who: str | None = None
+    basis: str = Field(min_length=10)
+    reviewed: bool
+
+
+class YearSinsalTextFile(_AliasModel):
+    """세운 12신살 결 층 사전 — 기준 자리 3종 + 12신살 문구(1~12건, 이름 중복 금지)."""
+
+    version: str
+    note: str | None = None
+    scopes: list[YearSinsalScope] = Field(min_length=3, max_length=3)
+    items: list[YearSinsalTextItem] = Field(min_length=1, max_length=12)
+
+
 #: exam_stage_traits.json id → 십성군 정확 커버리지(2026-11-11 합격 준비 성향 서술층).
 EXAM_STAGE_TRAIT_GROUPS: dict[str, str] = {
     "output_many": "식상", "wealth_many": "재성", "resource_many": "인성",
@@ -3088,6 +3130,7 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/storage_gate_text.json": StorageGateTextFile,
     "interpretations/exam_stage_traits.json": ExamStageTraitsFile,
     "interpretations/axis_arrival_lens.json": AxisArrivalLensFile,
+    "interpretations/year_sinsal_text.json": YearSinsalTextFile,
     "interpretations/relationship_tendency_text.json": RelationshipTendencyTextFile,
     "interpretations/daewoon_turn_text.json": DaewoonTurnTextFile,
     "interpretations/yearly_environment.json": YearlyEnvironmentFile,
@@ -3731,6 +3774,38 @@ def _lint_storage_gate_text(file: StorageGateTextFile) -> list[str]:
         for bad in ("반드시", "확실히", "틀림없이", "무조건", "당첨", "대박", "횡재한다"):
             if bad in it.text:
                 errors.append(f"{head}: {it.id} 문구에 단정 어휘 '{bad}'")
+    return errors
+
+
+#: 세운 12신살 결 문구 금지 어휘 — 결과 확정·공포 조장(신살은 보조, 가능성 어미만).
+_YEAR_SINSAL_BANNED = (
+    "반드시", "확실히", "틀림없이", "무조건", "망한다", "망합니다", "사고가 난다", "큰일",
+    "합격한다", "불합격", "당첨", "죽", "이혼한다", "파산",
+)
+
+
+def _lint_year_sinsal_text(file: YearSinsalTextFile) -> list[str]:
+    """year_sinsal_text.json — 기준 자리 3종 정확 커버리지, 12신살 이름 유효·중복 금지,
+    결과 확정·공포 어휘 금지(서술 전용 층)."""
+    head = "interpretations/year_sinsal_text.json"
+    errors: list[str] = []
+    scope_ids = [sc.id for sc in file.scopes]
+    if sorted(scope_ids) != sorted(YEAR_SINSAL_SCOPE_IDS):
+        errors.append(f"{head}: 기준 자리 id 가 정의와 다름 — {scope_ids}")
+    names = [it.name for it in file.items]
+    if len(set(names)) != len(names):
+        errors.append(f"{head}: 12신살 이름 중복 — {names}")
+    for it in file.items:
+        if it.name not in TWELVE_SINSAL_ORDER:
+            errors.append(f"{head}: 알 수 없는 12신살명 '{it.name}'")
+        texts = [it.core, it.stance, *it.scenes, it.contrast or "", it.cycle or "", it.who or ""]
+        for bad in _YEAR_SINSAL_BANNED:
+            if any(bad in t for t in texts):
+                errors.append(f"{head}: {it.name} 문구에 금지 어휘 '{bad}'")
+    for sc in file.scopes:
+        for bad in _YEAR_SINSAL_BANNED:
+            if bad in sc.text or bad in sc.label:
+                errors.append(f"{head}: scope {sc.id} 문구에 금지 어휘 '{bad}'")
     return errors
 
 
@@ -4668,6 +4743,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_exam_stage_traits(parsed))
         elif isinstance(parsed, AxisArrivalLensFile):
             errors.extend(_lint_axis_arrival_lens(parsed, _structure_pattern_ids(directory)))
+        elif isinstance(parsed, YearSinsalTextFile):
+            errors.extend(_lint_year_sinsal_text(parsed))
         elif isinstance(parsed, RelationshipTendencyTextFile):
             errors.extend(_lint_relationship_tendency_text(parsed))
         elif isinstance(parsed, DaewoonTurnTextFile):

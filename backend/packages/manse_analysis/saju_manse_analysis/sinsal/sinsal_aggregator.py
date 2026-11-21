@@ -57,8 +57,8 @@ def _detect(pillars: FourPillarsResult, gender: str | None = None) -> list[_Dete
     day_branch = Branch(pillars.day.branch)
 
     # 역마·도화·화개 — 값 3종 분리(2026-10-06 데굴님 승인): ①글자 보유=표지(이동지·사정지·사고지)
-    # ②성립=삼합국 기준 상대 12신살(역마살·년살→'도화'·화개살). 기준 자리는 역마·화개가 일지
-    # (SELF_SINSAL_BASE_SLOTS — 2026-11-12 부터 연지 제외), 도화만 연지·일지(DOHWA_BASE_SLOTS)
+    # ②성립=삼합국 기준 상대 12신살(역마살·년살→'도화'·화개살). 기준 자리는 세 신살 모두 연지·일지
+    # (SELF_SINSAL_BASE_SLOTS·DOHWA_BASE_SLOTS — 2026-11-21 병용 복원)
     # ③활성화=구조 패턴·기회 엔진(여기선 안 봄). 자리별 9종은 `_positional_twelve_sinsal` 이 낸다.
     for pos, p in positions:
         for marker, group, what in _BRANCH_MARKERS:
@@ -329,7 +329,7 @@ def _added_20261112(
 def _positional_twelve_sinsal(
     positions: list[tuple[str, Pillar]], year_branch: Branch, day_branch: Branch,
 ) -> list[_Detection]:
-    """자리별 12신살 9종 — 기준 자리(일지, SELF_SINSAL_BASE_SLOTS)의 삼합국 기준.
+    """자리별 12신살 9종 — 기준 자리(연지·일지, SELF_SINSAL_BASE_SLOTS)의 삼합국 기준.
 
     겁살·재살·천살·지살·월살·망신살·장성살·반안살·육해살.
 
@@ -371,8 +371,8 @@ def _relative_trine_sinsal(
 ) -> list[_Detection]:
     """기준 자리 삼합국의 상대 역마·도화(년살)·화개.
 
-    역마·화개는 일지 기준(SELF_SINSAL_BASE_SLOTS), 도화만 연지·일지 기준(DOHWA_BASE_SLOTS —
-    2026-11-13 데굴님 결정). 두 기준이 같은 자리에 겹치면 1건으로 병기한다.
+    역마·화개(SELF_SINSAL_BASE_SLOTS)·도화(DOHWA_BASE_SLOTS) 모두 연지·일지 기준이다(2026-11-21
+    데굴님 결정으로 12종 전체 병용 복원). 두 기준이 같은 자리에 겹치면 1건으로 병기한다.
 
     글자살(寅申巳亥·子午卯酉·辰戌丑未 보유)로 판정하지 않는다 — structure_patterns.json
     `yeokma_rule`(2026-07-23 데굴님 정정)과 같은 원칙을 세 신살 모두에 적용한다(2026-10-06 통일).
@@ -462,7 +462,7 @@ def sinsal_for_luck(
     for marker, group, _what in _BRANCH_MARKERS:
         if branch in group:
             add(marker)
-    # 운 지지가 상대 12신살 자리일 때 — 역마·화개는 일지 기준, 도화(년살)는 연지·일지 기준.
+    # 운 지지가 상대 12신살 자리일 때 — 역마·도화(년살)·화개 모두 연지·일지 기준(2026-11-21).
     for display, sinsal in _RELATIVE_TRINE_SINSAL:
         if any(
             branch == branch_of_sinsal(base, sinsal)
@@ -593,7 +593,7 @@ def sinsal_for_luck(
             add("상문")
         if branch == cat.branch_at(yb + cat.JOGAEK_OFFSET):
             add("조객")
-    # 자리별 12신살 9종 — 일지 삼합국 기준(역마·도화·화개는 위에서 이미 판정).
+    # 자리별 12신살 9종 — 연지·일지 삼합국 기준(역마·도화·화개는 위에서 이미 판정).
     for _slot, _label, base in self_sinsal_bases(year_branch, day_branch):
         nm = relative_twelve_sinsal(base, branch)
         if nm in TWELVE_SINSAL_POSITIONAL:

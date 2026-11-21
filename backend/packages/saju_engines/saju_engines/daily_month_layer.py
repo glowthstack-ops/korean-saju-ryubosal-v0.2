@@ -185,9 +185,13 @@ def _ilju_note(
         if not kind and _weak_half_harmony(month_branch, ilju_branch):
             kind = "samhap"
         if kind:
-            return layer["ilju_note"][f"month_{kind}"]
-        seat_group = _GROUP[_branch_sipseong(day_master, ilju_branch)]
-        return simple["ilju_seat"][seat_group][_sipseong(day_master, month_stem)]
+            line = str(layer["ilju_note"][f"month_{kind}"])
+        else:
+            seat_group = _GROUP[_branch_sipseong(day_master, ilju_branch)]
+            line = str(simple["ilju_seat"][seat_group][_sipseong(day_master, month_stem)])
+        # 일지 기준 월운 지지의 12신살 흐름(§37, dict.v1.24) — 문장이 있는 달(辰戌丑未)에만 붙는다.
+        sinsal_note = _simple.luck_sinsal_note(ilju_branch, month_branch, simple, "month")
+        return f"{line} {sinsal_note}" if sinsal_note else line
     if kind:
         parts.append(layer["ilju_note"][f"month_{kind}"])
     elif month_branch in _YEAR_END_BRANCHES:
