@@ -418,11 +418,25 @@ export interface SamjaeInfo {
 
 // 민속 흉방(docs/19 §5) — 그해 지지 기준(개인 사주 무관한 공통 금기, 삼재와 별개).
 // 2026-09-22: 세운 카드 배지는 이사 판정층(MOVE: 삼살·대장군)만 받는다 — 태세·세파는 동토·좌향 참고층.
+// 2026-11-24: 8·24방위 범위(docs/19 §5-6) — 판정 묶음은 4방(direction) 그대로, 표기는 direction8·range_ko.
+export type Direction8 = "북" | "북동" | "동" | "남동" | "남" | "남서" | "서" | "북서";
+export interface FolkSpan8 {
+  direction: Direction8;
+  coverage: "full" | "partial"; // 그 8방위 세 칸을 모두 차지하면 full
+  mountains: string[];
+}
 export interface FolkTabooHit {
   key: string; // samsal | daejanggun | taese | sepa | son
   name_ko: string;
-  direction: "동" | "남" | "서" | "북";
-  branches: string[];
+  direction: "동" | "남" | "서" | "북"; // 판정 묶음용 4방
+  branches: string[]; // 삼살=3지지, 대장군=왕지 1, 태세·세파=1
+  direction8?: Direction8 | null; // 중심 8방위(未 태세 = 남서)
+  center_mountain?: string;
+  mountains?: string[]; // 차지하는 24방위 칸(시계 방향, 한 칸 15°)
+  spans8?: FolkSpan8[];
+  degree_from?: number | null; // 정북 0°·시계 방향
+  degree_to?: number | null;
+  range_ko?: string; // 엔진이 사전 템플릿으로 만든 범위 문구
   reason_ko: string;
   period: "year" | "year3" | "day";
   basis_ko: string;
@@ -477,6 +491,7 @@ export interface LuckPillar {
   samjae?: SamjaeInfo | null; // 세운(period_type=year)에만 채워진다
   pattern_changes?: string[]; // 세운·월운 — 운 적용 구조 상태 줄(F8-P1, 성립≠길흉) — 화면 미표시, 종합 뷰로 대체(2026-10-19)
   folk_taboos?: FolkTabooHit[]; // 세운 전용 — 그해 이사 판정층 흉방(삼살·대장군, 추가 정보, 점수 무관)
+  folk_ground_taboos?: FolkTabooHit[]; // 세운 전용 — 참고층(태세·세파, 동토·좌향 참고 · 배지 미표시)
 }
 
 export interface LuckCycles {

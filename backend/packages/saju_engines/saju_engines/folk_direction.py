@@ -14,6 +14,10 @@
   GROUND(동토·좌향 참고)=태세·세파. 중첩(STRONG)은 MOVE끼리만, 고지 한 줄·택일 근거·세운 배지는
   MOVE만. 좌향 완화 문구(三煞可向不可坐·太歲可坐不可向)와 120보 원거리 고지를 병기한다 —
   '어느 해든 4방 중 3방이 흉방'으로 읽히던 결함의 수정.
+- 8·24방위 범위(2026-11-24 데굴님 승인, docs/19 §5-6): 판정 묶음은 4방 그대로 두고, 각 흉방이
+  실제로 걸치는 구간을 `direction8`·`mountains`·`spans8`·`range_ko` 로 싣는다. 삼살=지지 3구간과
+  사이 칸을 이은 연속 범위(亥~丑), 대장군=정방 한 칸(왕지 중심), 태세·세파=지지 한 칸. 어느 흉방이
+  어느 규칙을 쓰는지는 사전 `extent`, 문구는 사전 `range_templates` 가 정한다(즉석 작문 없음).
 """
 
 from __future__ import annotations
@@ -25,11 +29,21 @@ from pathlib import Path
 
 from saju_manse_core.calendar.lunar_solar_converter import solar_to_lunar
 from saju_manse_core.calendar.sexagenary_cycle import year_ganzi
+from saju_shared_types.compass24 import (
+    adjacent_direction8,
+    arc,
+    degree_range,
+    direction8_of,
+    mountains_of,
+)
 from saju_shared_types.constants import BRANCH_CLASHES, DIRECTIONAL_COMBINATIONS, THREE_HARMONY
 from saju_shared_types.enums import Branch
 from saju_shared_types.folk_direction import (
+    ExtentRule,
     FolkDirectionNote,
+    FolkSpan8,
     FolkTabooDict,
+    FolkTabooEntry,
     FolkTabooHit,
     FolkTabooSummary,
 )
@@ -40,7 +54,7 @@ from .ipchun_boundary import sewoon_year_of_day
 
 _DICTS_DEFAULT = Path(__file__).resolve().parents[3] / "dictionaries"
 _COMPILED_DEFAULT = Path(__file__).resolve().parents[3] / "compiled"
-FOLK_TABOO_VERSION = "1.1.0"
+FOLK_TABOO_VERSION = "1.2.0"
 
 #: 12지지 고정 방위(sinsal_direction.BRANCH_CARDINAL 과 같은 표 — 순환 import 회피용 재선언).
 _BRANCH_CARDINAL: dict[Branch, str] = {
@@ -54,6 +68,8 @@ _CARDINAL_BRANCHES: dict[str, list[str]] = {
     "동": ["寅", "卯", "辰"], "남": ["巳", "午", "未"],
     "서": ["申", "酉", "戌"], "북": ["亥", "子", "丑"],
 }
+#: 4방의 왕지(정방 가운데 칸) — 대장군방 중심 칸.
+_CARDINAL_CENTER: dict[str, str] = {"동": "卯", "남": "午", "서": "酉", "북": "子"}
 
 
 @lru_cache(maxsize=8)
@@ -107,39 +123,106 @@ def _clash_of(branch: Branch) -> Branch:
     raise ValueError(branch)
 
 
+def _spans8(mountains: list[str]) -> list[FolkSpan8]:
+    """시계 방향 구간을 8방위별로 묶는다 — 세 칸을 모두 차지하면 full, 아니면 partial."""
+    spans: list[FolkSpan8] = []
+    for m in mountains:
+        d8 = direction8_of(m)
+        if spans and spans[-1].direction == d8:
+            spans[-1].mountains.append(m)
+        else:
+            spans.append(FolkSpan8(direction=d8, coverage="partial", mountains=[m]))
+    for sp in spans:
+        if len(sp.mountains) == 3:
+            sp.coverage = "full"
+    return spans
+
+
+def range_fields(
+    extent: ExtentRule, direction: str, branches: list[str], dic: FolkTabooDict
+) -> dict[str, object]:
+    """흉방 1건의 8·24방위 범위 필드(`FolkTabooHit` 의 표기 전용 칸) — docs/19 §5-6.
+
+    - branch_arc(삼살): 그 방향 지지 3구간의 첫 칸~끝 칸을 시계 방향으로 이은 연속 범위.
+    - cardinal_palace(대장군): 8방위 정방 한 칸(세 칸), 중심은 왕지.
+    - single_branch(태세·세파): 지지 한 칸 — 정방 가운데 칸이면 '정○', 간방 가장자리 칸이면
+      맞닿은 정방을 함께 적는다.
+    - none(손방): 4방 그대로(24방위 칸 없음).
+    """
+    if extent == "none":
+        return {"direction8": direction}
+    tpl = dic.range_templates
+    if extent == "single_branch":
+        center = branches[0]
+        mountains = [center]
+        center8 = direction8_of(center)
+        adjacent = adjacent_direction8(center)
+        if adjacent is None:
+            text = tpl["single_branch_cardinal"].format(center8=center8, center_m=center)
+        else:
+            text = tpl["single_branch_inter"].format(
+                center8=center8, center_m=center, adjacent8=adjacent
+            )
+    else:
+        center = _CARDINAL_CENTER[direction]
+        center8 = direction8_of(center)
+        full = "·".join(mountains_of(center8))
+        if extent == "branch_arc":
+            mountains = arc(branches[0], branches[-1])
+            text = tpl["branch_arc"].format(
+                center8=center8, full=full,
+                from8=direction8_of(mountains[0]), from_m=mountains[0],
+                to8=direction8_of(mountains[-1]), to_m=mountains[-1],
+            )
+        else:  # cardinal_palace
+            mountains = mountains_of(center8)
+            text = tpl["cardinal_palace"].format(center8=center8, full=full, center_m=center)
+    start, end = degree_range(mountains)
+    return {
+        "direction8": center8, "center_mountain": center, "mountains": mountains,
+        "spans8": _spans8(mountains), "degree_from": start, "degree_to": end, "range_ko": text,
+    }
+
+
+def _hit(
+    entry: FolkTabooEntry, direction: str, branches: list[str], basis: str,
+    dic: FolkTabooDict, span_ko: str = "",
+) -> FolkTabooHit:
+    """사전 항목 + 계산된 4방·지지 → 적중 1건(8·24방위 범위 포함)."""
+    return FolkTabooHit.model_validate({
+        "key": entry.key, "name_ko": entry.name_ko, "reason_ko": entry.reason_ko,
+        "period": entry.period, "basis_ko": basis, "tier": entry.tier,
+        "mitigation_ko": entry.mitigation_ko, "direction": direction, "branches": branches,
+        "span_ko": span_ko, **range_fields(entry.extent, direction, branches, dic),
+    })
+
+
 def annual_folk_taboos(
     year: int, dictionary: FolkTabooDict | None = None
 ) -> list[FolkTabooHit]:
     """달력연도의 연간 흉방 4종(삼살·대장군=MOVE, 태세·세파=GROUND). 연지는 `year_ganzi`(입춘 기준).
 
-    대장군방은 방합 3년 고정이라 `span_ko`('2025~2027')를 함께 채운다.
+    대장군방은 방합 3년 고정이라 `span_ko`('2025~2027')를 함께 채운다. 세부 지지는 삼살=그 방향
+    3지지, 대장군=왕지 한 글자(2026-11-24 — 종전 3지지 표기는 근거가 없어 교정), 태세·세파=한 글자.
     """
     dic = dictionary or load_folk_taboo_dict()
     stem, branch = year_ganzi(year)
     basis = f"{year} {stem}{branch}년"
     hits: list[FolkTabooHit] = []
     for t in dic.taboos:
-        common = {
-            "key": t.key, "name_ko": t.name_ko, "reason_ko": t.reason_ko, "period": t.period,
-            "basis_ko": basis, "tier": t.tier, "mitigation_ko": t.mitigation_ko,
-        }
         if t.basis == "annual_trine":
             d = t.table[_trine_label(branch)]
-            hits.append(FolkTabooHit(direction=d, branches=_CARDINAL_BRANCHES[d], **common))
+            hits.append(_hit(t, d, _CARDINAL_BRANCHES[d], basis, dic))
         elif t.basis == "annual_directional":
             label = _directional_label(branch)
             d = t.table[label]
             y0 = year - label.index(str(branch))  # 방합 첫 지지 해 = 3년 구간 시작
-            hits.append(FolkTabooHit(
-                direction=d, branches=_CARDINAL_BRANCHES[d], span_ko=f"{y0}~{y0 + 2}", **common,
-            ))
+            hits.append(_hit(t, d, [_CARDINAL_CENTER[d]], basis, dic, span_ko=f"{y0}~{y0 + 2}"))
         elif t.basis == "annual_branch":
-            hits.append(FolkTabooHit(
-                direction=_BRANCH_CARDINAL[branch], branches=[str(branch)], **common,
-            ))
+            hits.append(_hit(t, _BRANCH_CARDINAL[branch], [str(branch)], basis, dic))
         elif t.basis == "annual_clash":
             c = _clash_of(branch)
-            hits.append(FolkTabooHit(direction=_BRANCH_CARDINAL[c], branches=[str(c)], **common))
+            hits.append(_hit(t, _BRANCH_CARDINAL[c], [str(c)], basis, dic))
     return hits
 
 
@@ -155,10 +238,7 @@ def son_direction(
     direction = entry.table.get(str(d % 10))
     if direction is None:
         return None, label
-    return FolkTabooHit(
-        key=entry.key, name_ko=entry.name_ko, direction=direction, branches=[],
-        reason_ko=entry.reason_ko, period="day", basis_ko=label, tier=entry.tier,
-    ), label
+    return _hit(entry, direction, [], label, dic), label
 
 
 def folk_taboo_summary(
@@ -226,18 +306,22 @@ def phrase_for_note(
 def ground_phrase_for_note(
     note: FolkDirectionNote, dictionary: FolkTabooDict | None = None
 ) -> str:
-    """참고층(태세·세파) 한 줄 — 이사 판정이 아니라 건축·터파기·집 좌향에서만 꺼린다고 명시."""
+    """참고층(태세·세파) 한 줄 — 이사 판정이 아니라 건축·터파기·집 좌향에서만 꺼린다고 명시.
+
+    자리는 4방 묶음이 아니라 8·24방위 범위 문구로 적는다(未 태세 = '남서쪽 未 구간(남쪽에 붙은 칸)'
+    — 4방 '남쪽'으로 적으면 실제 칸과 어긋난다, 2026-11-24).
+    """
     dic = dictionary or load_folk_taboo_dict()
     if not note.ground_hits:
         return ""
     parts = []
     for h in note.ground_hits:
         entry = dic.taboo(h.key)
-        seg = f"{h.name_ko}({'·'.join(h.branches)}) — {'·'.join(entry.avoid_actions)}에서만 꺼림"
+        seg = f"{h.range_ko} {h.name_ko} — {'·'.join(entry.avoid_actions)}에서만 꺼림"
         if h.mitigation_ko:
             seg += f"; {h.mitigation_ko}"
         parts.append(seg)
-    return f"{note.direction}쪽 {' / '.join(parts)}"
+    return " / ".join(parts)
 
 
 def _actions_ko(note: FolkDirectionNote, dic: FolkTabooDict) -> str:
@@ -260,8 +344,8 @@ def format_folk_taboo_lines(
 ) -> list[str]:
     """[민속 흉방] 프롬프트 줄.
 
-    full=True(이사·이동·공사 질문): MOVE 층 방향별 문구(+좌향 완화) + 참고층(태세·세파) 한 줄 +
-    손방/손 없는 날 + 원거리 고지 + 범위 고지.
+    full=True(이사·이동·공사 질문): MOVE 층 방향별 문구(+좌향 완화·24방위 범위) + 참고층(태세·
+    세파) 한 줄 + 손방/손 없는 날 + 원거리 고지 + 범위 고지.
     full=False(그 외 방향 질문): 고지 한 줄(MOVE 층만 — 태세·세파는 싣지 않는다).
     적중이 없으면 빈 목록(무소음).
     """
@@ -298,11 +382,13 @@ def format_folk_taboo_lines(
         if not n.hits:  # 참고층·손방만 걸린 방향은 아래 줄로만
             continue
         span = " · ".join(f"{h.name_ko} {h.span_ko} 3년 고정" for h in n.hits if h.span_ko)
+        extent = " · ".join(f"{h.name_ko}={h.range_ko}" for h in n.hits if h.range_ko)
         lines.append(
             f"- {n.direction}쪽[{dic.grades[n.grade]}]: {phrase_for_note(n, dic)} "
             f"전통적으로 {_actions_ko(n, dic)} 등에서 특히 꺼립니다."
             + (f" ({span})" if span else "")
             + (" 그날 손방도 이 방향입니다." if n.son_today else "")
+            + (f" 24방위 범위: {extent}." if extent else "")
         )
     ground = [ground_phrase_for_note(n, dic) for n in summary.notes if n.ground_hits]
     if ground:
@@ -335,7 +421,9 @@ FOLK_TABOO_INSTRUCTION = (
     "손방 없음이라고만. ⑦'참고(동토·좌향 참고)' 줄의 태세방·세파방은 이사·이동 판정에 쓰지 말 것 — "
     "건축·터파기·집 좌향을 묻는 경우에만 한 문장. ⑧'다만 …' 좌향 완화 문구와 원거리 고지(120보)를 "
     "그대로 옮겨 강도를 낮출 것. ⑨피하는 방향은 [민속 주의 방향] 줄의 방향만 — 4방 중 3방 이상을 "
-    "'피하라'로 나열하지 말 것."
+    "'피하라'로 나열하지 말 것. ⑩'24방위 범위' 구절은 그 흉방이 실제로 걸치는 구간이다 — "
+    "'북쪽 전체와 북서쪽·북동쪽의 북쪽에 붙은 구간'처럼 그대로 풀어 옮기고, 줄에 없는 구간·각도를 "
+    "새로 계산하거나 간방 한 칸 전체로 넓히지 말 것."
 )
 
 
@@ -358,7 +446,8 @@ def folk_note_for_day(day: date, dictionary: FolkTabooDict | None = None) -> str
 def enrich_folk_taboos(result: ManseV2Result) -> None:
     """세운(yearly_luck + 대운표 sewoon)에 그해 이사 판정층 흉방(삼살·대장군)을 부착한다(점수 불변).
 
-    태세·세파(참고층)는 배지에 싣지 않는다(2026-09-22 데굴님 결정 b).
+    태세·세파(참고층)는 배지에 싣지 않는다(2026-09-22 데굴님 결정 b). 세운 상세의 참고 줄과 나침반
+    그림용으로 `folk_ground_taboos` 에 따로 싣는다(2026-11-24 데굴님 승인).
     """
     lc = result.luck_cycles
     if lc is None:
@@ -371,8 +460,9 @@ def enrich_folk_taboos(result: ManseV2Result) -> None:
             return
         y = int(p.label[:4])
         if y not in cache:
-            cache[y] = [h for h in annual_folk_taboos(y, dic) if h.tier == "MOVE"]
-        p.folk_taboos = list(cache[y])
+            cache[y] = annual_folk_taboos(y, dic)
+        p.folk_taboos = [h for h in cache[y] if h.tier == "MOVE"]
+        p.folk_ground_taboos = [h for h in cache[y] if h.tier == "GROUND"]
 
     for p in lc.yearly_luck:
         _fill(p)

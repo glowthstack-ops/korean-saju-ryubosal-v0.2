@@ -9,6 +9,9 @@
   않는다.
 - 표현 — "민속에서는 ○쪽은 ○○한 이유로 피하는 방향으로 본다"는 추가 정보. 흉사 확정 금지.
 - 서술 전용(inert) — 점수·판정·날짜·간지 파이프라인 불변.
+- 범위 표기(2026-11-24 데굴님 승인, docs/19 §5-6) — 판정 묶음은 4방(`direction`) 그대로 두고,
+  각 흉방이 실제로 걸치는 8방위·24방위 구간을 따로 싣는다(`direction8`·`mountains`·`spans8`·
+  `range_ko`). 4방 한 글자로 뭉개지던 표기의 보완이며 판정·중첩 등급은 불변.
 """
 
 from __future__ import annotations
@@ -16,6 +19,8 @@ from __future__ import annotations
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
+
+from saju_shared_types.compass24 import Direction8
 
 #: 4방 라벨(sinsal_direction.Cardinal4 와 동일 표기).
 Cardinal4 = Literal["동", "남", "서", "북"]
@@ -34,6 +39,18 @@ FolkGrade = Literal["FOLK_TABOO", "STRONG_FOLK_TABOO"]
 #:   한 문장.
 TabooTier = Literal["MOVE", "GROUND"]
 
+#: 24방위 범위 규칙(2026-11-24 데굴님 승인, docs/19 §5-6)
+#: - branch_arc = 그 방향 지지 3구간과 사이 칸을 이은 연속 범위(삼살: 亥~丑 다섯 칸)
+#: - cardinal_palace = 8방위 정방 한 칸(대장군: 甲·卯·乙 세 칸, 왕지 중심)
+#: - single_branch = 지지 한 칸(태세·세파)
+#: - none = 24방위 범위 없음(손방 — 4방 그대로)
+ExtentRule = Literal["branch_arc", "cardinal_palace", "single_branch", "none"]
+
+#: 범위 문구 템플릿 키 — single_branch 는 정방 가운데 칸 / 간방 가장자리 칸 두 문형.
+RANGE_TEMPLATE_KEYS: tuple[str, ...] = (
+    "branch_arc", "cardinal_palace", "single_branch_cardinal", "single_branch_inter",
+)
+
 
 class FolkTabooEntry(BaseModel):
     """흉방 1종의 사전 항목."""
@@ -49,6 +66,7 @@ class FolkTabooEntry(BaseModel):
     avoid_actions: list[str] = Field(min_length=1)
     importance: Literal["very_high", "high", "optional"]
     tier: TabooTier  # MOVE(이사 판정) / GROUND(동토·좌향 참고)
+    extent: ExtentRule  # 24방위 범위 규칙(표기 전용 — 판정 묶음은 4방 그대로)
     # 좌향 완화 문구("三煞可向不可坐"·"太歲可坐不可向") — 답에 그대로 병기해 강도를 낮춘다.
     # 없으면 빈 문자열.
     mitigation_ko: str = ""
@@ -83,6 +101,8 @@ class FolkTabooDict(BaseModel):
     applies_actions: list[str] = Field(min_length=1)
     grades: dict[FolkGrade | str, str]
     tiers: dict[TabooTier | str, str] = Field(default_factory=dict)  # 계층 라벨(표시용)
+    # 24방위 범위 문구 템플릿(2026-11-24) — 키는 RANGE_TEMPLATE_KEYS. 엔진이 치환만 한다.
+    range_templates: dict[str, str]
     taboos: list[FolkTabooEntry] = Field(min_length=5, max_length=5)
     excluded: list[str] = Field(default_factory=list)
     forbidden_framings: list[str] = Field(default_factory=list)
@@ -100,14 +120,30 @@ class FolkTabooDict(BaseModel):
 # ── 계산 결과 ────────────────────────────────────────────────────────────────
 
 
+class FolkSpan8(BaseModel):
+    """흉방 범위가 걸치는 8방위 한 칸 — 전체(세 칸 모두)인지 일부인지와 해당 24방위 칸."""
+
+    direction: Direction8
+    coverage: Literal["full", "partial"]
+    mountains: list[str] = Field(min_length=1, max_length=3)
+
+
 class FolkTabooHit(BaseModel):
-    """흉방 1건의 적중 — 어느 4방(세부 지지)이 왜."""
+    """흉방 1건의 적중 — 어느 4방(세부 지지)이 왜, 8·24방위로는 어디까지."""
 
     key: str
     name_ko: str
-    direction: Cardinal4
-    # 세부 지지(삼살·대장군=3, 태세·세파=1, 손방=0)
+    direction: Cardinal4  # 판정 묶음용 4방(중첩 등급·택일 근거 — 표기는 direction8·range_ko)
+    # 세부 지지(삼살=3, 대장군=1(왕지), 태세·세파=1, 손방=0)
     branches: list[str] = Field(default_factory=list)
+    # ── 8·24방위 범위(표기 전용, docs/19 §5-6) ──
+    direction8: Direction8 | None = None  # 중심 8방위(未 태세 = 남서)
+    center_mountain: str = ""  # 중심 24방위 칸(손방은 빈 문자열)
+    mountains: list[str] = Field(default_factory=list)  # 차지하는 24방위 칸(시계 방향)
+    spans8: list[FolkSpan8] = Field(default_factory=list)  # 걸치는 8방위(전체/일부)
+    degree_from: float | None = None  # 시작 각(정북 0°·시계 방향)
+    degree_to: float | None = None  # 끝 각 — 정북을 넘으면 시작 각보다 작다
+    range_ko: str = ""  # 사전 템플릿으로 만든 범위 문구('북 전체(壬·子·癸)와 북서쪽 亥 구간…')
     reason_ko: str
     period: Literal["year", "year3", "day"]
     basis_ko: str  # '2026 丙午년' / '음력 8월 11일'

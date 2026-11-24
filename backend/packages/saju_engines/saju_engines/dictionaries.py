@@ -40,7 +40,7 @@ from saju_shared_types.event_engine import EventKeyV2, TenGodGroup
 from saju_shared_types.event_engine import TenGod as _TenGodRoman
 from saju_shared_types.event_taxonomy_v2 import LEGACY_EVENT_KEY_MAP
 from saju_shared_types.events import EventKey, EventPolarity, EventType
-from saju_shared_types.folk_direction import FolkTabooDict
+from saju_shared_types.folk_direction import RANGE_TEMPLATE_KEYS, FolkTabooDict
 from saju_shared_types.marriage_timing import MarriageStage
 from saju_shared_types.region_element import RegionGeoFeature
 from saju_shared_types.sinsal_direction import SinsalDirectionDict
@@ -4646,7 +4646,7 @@ def _lint_sinsal_direction(file: SinsalDirectionDict) -> list[str]:
 
 
 def _lint_folk_taboo(file: FolkTabooDict) -> list[str]:
-    """folk_taboo_direction.json — 5종 키 고정·문구 템플릿 치환자·금지 문형·적용 행위 검사."""
+    """folk_taboo_direction.json — 5종 키·문구 템플릿 치환자·금지 문형·적용 행위·범위 규칙 검사."""
     errors: list[str] = []
     rel = "folk_taboo_direction.json"
     keys = [t.key for t in file.taboos]
@@ -4678,6 +4678,29 @@ def _lint_folk_taboo(file: FolkTabooDict) -> list[str]:
             errors.append(f"{rel}: {t.key}(GROUND) avoid_actions 에 이사·이동이 있으면 안 된다")
     if "120보" not in file.distance_note:
         errors.append(f"{rel}: distance_note 는 120보 근거리 규칙을 담아야 한다")
+    # 24방위 범위(2026-11-24, docs/19 §5-6): 흉방별 범위 규칙 고정 + 문구 템플릿 치환자.
+    expected_extent = {
+        "samsal": "branch_arc", "daejanggun": "cardinal_palace", "taese": "single_branch",
+        "sepa": "single_branch", "son": "none",
+    }
+    for t in file.taboos:
+        if expected_extent.get(t.key) != t.extent:
+            errors.append(
+                f"{rel}: {t.key} extent 는 {expected_extent.get(t.key)} 여야 한다 — {t.extent}"
+            )
+    range_placeholders = {
+        "branch_arc": ("{center8}", "{full}", "{from8}", "{from_m}", "{to8}", "{to_m}"),
+        "cardinal_palace": ("{center8}", "{full}", "{center_m}"),
+        "single_branch_cardinal": ("{center8}", "{center_m}"),
+        "single_branch_inter": ("{center8}", "{center_m}", "{adjacent8}"),
+    }
+    if sorted(file.range_templates) != sorted(RANGE_TEMPLATE_KEYS):
+        errors.append(f"{rel}: range_templates 키 불일치 — {sorted(file.range_templates)}")
+    for key, placeholders in range_placeholders.items():
+        template = file.range_templates.get(key, "")
+        for ph in placeholders:
+            if ph not in template:
+                errors.append(f"{rel}: range_templates.{key} 에 {ph} 치환자 없음")
     return errors
 
 

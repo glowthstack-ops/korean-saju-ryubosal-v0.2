@@ -5,6 +5,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Collapsible } from "@/components/layout/Collapsible";
 import { InfoTooltip } from "@/components/layout/InfoTooltip";
 import { ConsensusBadge, GhostOverlay, hourUnknownOf, isHourUnknown } from "./HourUnknown";
+import { FolkCompass, folkDegreeLabel } from "./FolkCompass";
 import { fetchLuckMonths, fetchPatternTimeline } from "@/lib/api";
 import { visibleSinsal } from "@/lib/sinsal-display";
 import { ELEMENT_KO, elementLabel, elementStyle, ganjiKo } from "@/lib/elements";
@@ -984,8 +985,9 @@ function samjaeTitle(s: SamjaeInfo): string {
 
 // 민속 흉방 배지 제목 — '민속에서는 ○쪽은 …라는 이유로 피하는 방향' 추가 정보(개인 12신살·삼재와 별개).
 function folkTitle(hits: FolkTabooHit[]): string {
+  // 범위는 엔진이 만든 8·24방위 문구(range_ko)를 그대로 쓴다 — 4방 한 글자만으로는 걸치는 칸이 안 보인다.
   const lines = hits.map((h) =>
-    `${h.direction}쪽 — ${h.name_ko}${h.branches.length ? `(${h.branches.join("·")})` : ""}: 민속에서는 ${h.reason_ko}는 이유로 피하는 방향으로 봅니다.`,
+    `${h.direction8 ?? h.direction}쪽 — ${h.name_ko}${h.range_ko ? `(${h.range_ko})` : ""}: 민속에서는 ${h.reason_ko}는 이유로 피하는 방향으로 봅니다.`,
   );
   return `민속 흉방(${hits[0]?.basis_ko ?? ""}) — 이사·개업·증축·터파기 등 큰 공간 변동에 한함\n${lines.join("\n")}\n개인 12신살 방향·삼재와 별개 층 · 흉사 확정 아님`;
 }
@@ -1192,6 +1194,8 @@ const FLAG_KO: Record<string, string> = {
 function SelectedYearNote({ pillar, bare = false }: { pillar: LuckPillar; bare?: boolean }) {
   const samjae = pillar.samjae ?? null;
   const folk = pillar.folk_taboos ?? [];
+  // 참고층(태세·세파) — 배지에는 없고 이 상세에만 싣는다(2026-11-24 데굴님 승인, docs/19 §5-6).
+  const ground = pillar.folk_ground_taboos ?? [];
   if (!samjae && folk.length === 0) return null;
   return (
     <div className={bare
@@ -1232,16 +1236,50 @@ function SelectedYearNote({ pillar, bare = false }: { pillar: LuckPillar; bare?:
             </span>
             <span className="text-gray-500">{folk[0]?.basis_ko} · 이사·개업·증축·터파기 등 큰 공간 변동에 한함</span>
           </div>
-          <ul className="ml-3 list-disc space-y-0.5">
-            {folk.map((h) => (
-              <li key={h.key}>
-                <span className="font-medium">{h.direction}쪽 {h.name_ko}</span>
-                {h.branches.length ? `(${h.branches.join("·")}${h.span_ko ? ` · ${h.span_ko} 고정` : ""})` : ""}
-                {" — "}민속에서는 {h.reason_ko}는 이유로 피하는 방향으로 봅니다.
-                {h.mitigation_ko ? ` 다만 ${h.mitigation_ko}` : ""}
-              </li>
-            ))}
-          </ul>
+          <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
+            <div className="min-w-0 flex-1 basis-64">
+              <ul className="ml-3 list-disc space-y-1">
+                {folk.map((h) => (
+                  <li key={h.key}>
+                    <span className="font-medium">{h.direction8 ?? h.direction}쪽 {h.name_ko}</span>
+                    {h.span_ko ? `(${h.span_ko} 고정)` : ""}
+                    {" — "}민속에서는 {h.reason_ko}는 이유로 피하는 방향으로 봅니다.
+                    {h.mitigation_ko ? ` 다만 ${h.mitigation_ko}` : ""}
+                    {h.range_ko && (
+                      <div className="text-gray-600">
+                        <span className="font-medium text-gray-700">범위</span> {h.range_ko}
+                        <span className="text-gray-400"> · {folkDegreeLabel(h)}</span>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {ground.length > 0 && (
+                <div className="mt-1.5">
+                  <div className="text-gray-500">
+                    <span className="mr-1 rounded border border-dashed border-stone-400 px-1 text-[10px] font-medium text-stone-600">
+                      참고
+                    </span>
+                    동토·좌향 참고 자리 — 이사 판정에는 넣지 않고 건축·터파기·집 좌향에서만 꺼립니다.
+                  </div>
+                  <ul className="ml-3 mt-0.5 list-disc space-y-0.5 text-gray-600">
+                    {ground.map((h) => (
+                      <li key={h.key}>
+                        <span className="font-medium text-gray-700">{h.name_ko}</span> {h.range_ko}
+                        <span className="text-gray-400"> · {folkDegreeLabel(h)}</span>
+                        {h.mitigation_ko ? ` — ${h.mitigation_ko}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            {folk.some((h) => (h.mountains ?? []).length > 0) && <FolkCompass move={folk} ground={ground} />}
+          </div>
+          <div className="mt-1 text-[10px] text-gray-400">
+            24방위는 한 칸 15°이고 8방위 한 칸(45°)은 세 칸입니다 — 같은 북서쪽이라도 표시된 칸만 해당합니다.
+            각도는 현재 집을 기준점으로 정북 0°에서 시계 방향입니다.
+          </div>
           <div className="mt-0.5 text-[10px] text-gray-400">
             개인 12신살 방향·삼재와 별개 층 · 흉사 확정 아님 · 바라보기·머리·위치·출입구 배치에는 적용하지 않음
           </div>

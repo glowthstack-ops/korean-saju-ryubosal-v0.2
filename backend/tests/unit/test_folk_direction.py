@@ -8,6 +8,9 @@
 ⑩계층(2026-09-22 데굴님 승인): MOVE(삼살·대장군·손방)만 판정·고지·택일 근거·세운 배지,
 GROUND(태세·세파)는 참고 줄, 중첩은 MOVE끼리만(2022 壬寅 북=삼살+대장군), 좌향 완화 문구·원거리
 고지 병기.
+⑪8·24방위 범위(2026-11-24 데굴님 승인, docs/19 §5-6): 삼살=지지 3구간과 사이 칸을 이은 연속 범위,
+대장군=정방 한 칸(왕지 중심), 태세·세파=지지 한 칸(간방 가장자리 칸은 8방위가 간방) — 판정 묶음
+(4방)·중첩 등급·택일 근거는 불변, 세운 카드 배지는 2종 그대로이고 참고층은 별도 칸.
 """
 
 from __future__ import annotations
@@ -34,6 +37,15 @@ from saju_engines.folk_direction import (
 from saju_engines.query_parser import parse_message
 from saju_engines.relocation import is_son_eomneun_nal
 from saju_shared_types.birth_input import BirthInput
+from saju_shared_types.compass24 import (
+    DIRECTIONS_8,
+    MOUNTAINS_24,
+    adjacent_direction8,
+    arc,
+    degree_range,
+    direction8_of,
+    mountains_of,
+)
 from saju_shared_types.folk_direction import FolkTabooDict
 from saju_shared_types.intent import Domain, IntentJson, QueryType, SubjectKind, SubjectRef
 from saju_shared_types.report import ReportPeriod, ReportSpec
@@ -153,8 +165,11 @@ def test_phrase_uses_template_and_reason_grammar() -> None:
     assert "[민속 흉방 — 2026 丙午년" in full and "손방(그날): 음력 8월 11일 → 동쪽" in full
     assert "그날 손방도 이 방향입니다" in full and "범위:" in full
     assert "(대장군방 2025~2027 3년 고정)" in full
-    assert "- 참고(동토·좌향 참고, 이사 판정 아님): 북쪽 세파방(子)" in full
-    assert "남쪽 태세방(午) — 건축·증축·터파기·땅을 건드리는 행위·집 좌향에서만 꺼림" in full
+    # 참고층 자리는 8·24방위 범위 문구로(2026-11-24 — 종전 4방 접두 '북쪽 세파방(子)').
+    assert "- 참고(동토·좌향 참고, 이사 판정 아님): 정북 子 구간 세파방" in full
+    assert "정남 午 구간 태세방 — 건축·증축·터파기·땅을 건드리는 행위·집 좌향에서만 꺼림" in full
+    assert "24방위 범위: 삼살방=북 전체(壬·子·癸)와 북서쪽 亥 구간·북동쪽 丑 구간." in full
+    assert "24방위 범위: 대장군방=동 한 칸(甲·卯·乙, 卯 중심)." in full
     assert "太歲可坐不可向" in full and "- 원거리 고지: 전통 문헌은 현재 집에서 120보 이내" in full
     assert "남쪽[민속 주의 방향]" not in full  # 태세만 걸린 남쪽은 판정 줄이 없다
     assert "사고" not in full and "무조건" not in full
@@ -163,6 +178,7 @@ def test_phrase_uses_template_and_reason_grammar() -> None:
     assert "북쪽=삼살방 · 동쪽=대장군방(2025~2027 고정)" in brief
     assert "세파" not in brief and "태세" not in brief and "중첩" not in brief
     assert "배치(바라보기·머리·위치·출입구)에는 적용하지 않으며" in brief
+    assert "24방위" not in brief  # 고지 한 줄은 종전 그대로(범위는 전체 블록에만)
 
 
 # ── ④ 채팅 배선 ──────────────────────────────────────────────────────────────
@@ -293,7 +309,7 @@ def test_dictionary_validates_and_lints() -> None:
     parsed = FolkTabooDict.model_validate(_raw())
     assert not _lint_folk_taboo(parsed) and parsed.reviewed is True
     assert [t.key for t in parsed.taboos] == ["samsal", "daejanggun", "taese", "sepa", "son"]
-    assert parsed.version == "1.1.0"
+    assert parsed.version == "1.2.0"
     assert {t.key: t.tier for t in parsed.taboos} == {
         "samsal": "MOVE", "daejanggun": "MOVE", "son": "MOVE", "taese": "GROUND", "sepa": "GROUND",
     }
@@ -310,3 +326,151 @@ def test_dictionary_validates_and_lints() -> None:
     raw["phrase_template"] = "민속에서는 {direction}쪽을 피합니다"
     errs = _lint_folk_taboo(FolkTabooDict.model_validate(raw))
     assert any("{reasons}" in e for e in errs)
+
+
+# ── ⑪ 8·24방위 범위 ──────────────────────────────────────────────────────────
+
+
+def test_compass24_geometry() -> None:
+    """24방위 = 지지 12 + 천간 8 + 사유 4, 한 칸 15°, 8방위 한 칸은 세 칸(북서 = 戌·乾·亥)."""
+    assert len(MOUNTAINS_24) == len(set(MOUNTAINS_24)) == 24
+    assert mountains_of("북") == ["壬", "子", "癸"] and mountains_of("북서") == ["戌", "乾", "亥"]
+    assert mountains_of("남서") == ["未", "坤", "申"] and mountains_of("동") == ["甲", "卯", "乙"]
+    assert [m for d in DIRECTIONS_8 for m in mountains_of(d)] == [
+        MOUNTAINS_24[(i - 1) % 24] for i in range(24)
+    ]  # 8방위 × 3칸이 24칸을 빠짐없이·겹침 없이 덮는다
+    assert all(direction8_of(m) == d for d in DIRECTIONS_8 for m in mountains_of(d))
+    assert arc("亥", "丑") == ["亥", "壬", "子", "癸", "丑"] and arc("卯", "卯") == ["卯"]
+    assert degree_range(["午"]) == (172.5, 187.5)
+    assert degree_range(arc("亥", "丑")) == (322.5, 37.5)  # 정북을 넘는 구간
+    # 간방 가장자리 칸은 맞닿은 정방을, 가운데 칸은 None.
+    assert adjacent_direction8("未") == "남" and adjacent_direction8("申") == "서"
+    assert adjacent_direction8("丑") == "북" and adjacent_direction8("亥") == "북"
+    assert adjacent_direction8("子") is None and adjacent_direction8("坤") is None
+
+
+def test_samsal_range_is_contiguous_branch_arc() -> None:
+    """삼살방 = 그 방향 지지 3구간 + 사이 칸(다섯 칸 75°) — 정방은 전체, 양옆 간방은 한 칸씩만."""
+    h = {x.key: x for x in annual_folk_taboos(2026)}["samsal"]
+    assert h.direction == "북" and h.direction8 == "북" and h.center_mountain == "子"
+    assert h.branches == ["亥", "子", "丑"] and h.mountains == ["亥", "壬", "子", "癸", "丑"]
+    assert [(s.direction, s.coverage, s.mountains) for s in h.spans8] == [
+        ("북서", "partial", ["亥"]),
+        ("북", "full", ["壬", "子", "癸"]),
+        ("북동", "partial", ["丑"]),
+    ]
+    assert (h.degree_from, h.degree_to) == (322.5, 37.5)
+    assert h.range_ko == "북 전체(壬·子·癸)와 북서쪽 亥 구간·북동쪽 丑 구간"
+    # 반례: 북서의 戌·乾, 북동의 艮·寅 은 삼살 범위가 아니다(간방 한 칸 전체로 넓히지 않는다).
+    assert not {"戌", "乾", "艮", "寅"} & set(h.mountains)
+    w = {x.key: x for x in annual_folk_taboos(2027)}["samsal"]
+    assert w.mountains == ["申", "庚", "酉", "辛", "戌"] and w.direction8 == "서"
+    assert w.range_ko == "서 전체(庚·酉·辛)와 남서쪽 申 구간·북서쪽 戌 구간"
+
+
+def test_daejanggun_range_is_cardinal_palace_centered_on_peak_branch() -> None:
+    """대장군방 = 정방 한 칸 45°(왕지 중심) — 종전 3지지(寅·卯·辰) 표기는 쓰지 않는다."""
+    h = {x.key: x for x in annual_folk_taboos(2026)}["daejanggun"]
+    assert h.direction == "동" and h.direction8 == "동"
+    assert h.branches == ["卯"] and h.center_mountain == "卯" and h.mountains == ["甲", "卯", "乙"]
+    assert [(s.direction, s.coverage) for s in h.spans8] == [("동", "full")]
+    assert (h.degree_from, h.degree_to) == (67.5, 112.5)
+    assert h.range_ko == "동 한 칸(甲·卯·乙, 卯 중심)"
+    assert not {"寅", "辰"} & set(h.mountains)  # 반례: 간방 쪽 지지는 범위 밖
+    assert phrase_for_note(
+        next(n for n in folk_taboo_summary(2026).notes if n.direction == "동")
+    ).endswith("(대장군방(卯)).")
+    centers = {y: {x.key: x for x in annual_folk_taboos(y)}["daejanggun"].branches for y in (
+        2022, 2026, 2030, 2032,
+    )}
+    assert centers == {2022: ["子"], 2026: ["卯"], 2030: ["午"], 2032: ["酉"]}
+
+
+@pytest.mark.parametrize("year,taese,sepa", [
+    # (8방위, 칸, 범위 문구) — 판정 묶음 4방은 test_annual_tables_match_material 그대로.
+    (2026, ("남", "午", "정남 午 구간"), ("북", "子", "정북 子 구간")),
+    (
+        2027,
+        ("남서", "未", "남서쪽 未 구간(남쪽에 붙은 칸)"),
+        ("북동", "丑", "북동쪽 丑 구간(북쪽에 붙은 칸)"),
+    ),
+    (
+        2022,
+        ("북동", "寅", "북동쪽 寅 구간(동쪽에 붙은 칸)"),
+        ("남서", "申", "남서쪽 申 구간(서쪽에 붙은 칸)"),
+    ),
+    (
+        2030,
+        ("북서", "戌", "북서쪽 戌 구간(서쪽에 붙은 칸)"),
+        ("남동", "辰", "남동쪽 辰 구간(동쪽에 붙은 칸)"),
+    ),
+])
+def test_taese_sepa_single_branch_uses_eight_directions(year, taese, sepa) -> None:
+    """태세·세파는 지지 한 칸 15° — 寅申巳亥·辰戌丑未 해에는 8방위가 간방이다(4방으로 안 뭉갠다)."""
+    hits = {h.key: h for h in annual_folk_taboos(year)}
+    for key, (d8, mountain, text) in (("taese", taese), ("sepa", sepa)):
+        h = hits[key]
+        assert (h.direction8, h.mountains, h.range_ko) == (d8, [mountain], text)
+        assert h.degree_to is not None and h.degree_from is not None
+        assert (h.degree_to - h.degree_from) % 360 == 15.0
+        assert h.tier == "GROUND"
+
+
+def test_2027_ground_line_names_intercardinal_cell_not_cardinal() -> None:
+    """2027 丁未: 참고 줄이 '남쪽 태세방'이 아니라 '남서쪽 未 구간'으로 나간다(실제 칸과 일치)."""
+    full = "\n".join(format_folk_taboo_lines(folk_taboo_summary(2027), full=True))
+    assert "남서쪽 未 구간(남쪽에 붙은 칸) 태세방 — " in full
+    assert "북동쪽 丑 구간(북쪽에 붙은 칸) 세파방 — " in full
+    assert "남쪽 태세방" not in full and "북쪽 세파방" not in full
+    assert "24방위 범위: 삼살방=서 전체(庚·酉·辛)와 남서쪽 申 구간·북서쪽 戌 구간." in full
+    # 판정 줄은 4방 묶음 그대로(서=삼살·동=대장군) — 태세·세파는 판정 줄을 만들지 않는다.
+    assert "- 서쪽[민속 주의 방향]" in full and "- 동쪽[민속 주의 방향]" in full
+    assert "남서쪽[민속" not in full and "북동쪽[민속" not in full
+
+
+def test_range_does_not_change_grouping_grade_or_son(chart) -> None:
+    """범위는 표기 전용 — 중첩 등급(2022 북 STRONG)·손방·택일 근거 줄은 종전 그대로."""
+    north = next(n for n in folk_taboo_summary(2022).notes if n.direction == "북")
+    assert north.grade == "STRONG_FOLK_TABOO"
+    assert {h.key: h.mountains for h in north.hits} == {
+        "samsal": ["亥", "壬", "子", "癸", "丑"], "daejanggun": ["壬", "子", "癸"],
+    }
+    son, _label = son_direction(date(2026, 9, 21))
+    assert son is not None and son.direction == "동" and son.direction8 == "동"
+    assert son.mountains == [] and son.range_ko == "" and son.degree_from is None
+    assert folk_note_for_day(date(2026, 9, 21)) == (
+        "민속 흉방(추가 정보): 손방 동쪽 · 丙午년 삼살방 북 · 대장군방 동"
+    )
+
+
+def test_luck_pillar_carries_ground_taboos_separately(chart) -> None:
+    """세운 카드: 배지 칸(folk_taboos)은 MOVE 2종 그대로, 참고층은 folk_ground_taboos 로 따로."""
+    years = {p.label: p for p in chart.luck_cycles.yearly_luck}
+    y27 = years["2027"]
+    assert [h.key for h in y27.folk_taboos] == ["samsal", "daejanggun"]
+    assert [h.key for h in y27.folk_ground_taboos] == ["taese", "sepa"]
+    assert y27.folk_ground_taboos[0].direction8 == "남서"
+    assert all(h.tier == "MOVE" and h.range_ko for h in y27.folk_taboos)
+    assert all(m.folk_ground_taboos == [] for m in chart.luck_cycles.monthly_luck)
+    for d in chart.luck_cycles.daewoon_table:
+        for p in d.sewoon:
+            assert len(p.folk_taboos) == 2 and len(p.folk_ground_taboos) == 2
+
+
+def test_lint_guards_extent_rules_and_range_templates() -> None:
+    raw = _raw()
+    next(t for t in raw["taboos"] if t["key"] == "daejanggun")["extent"] = "branch_arc"
+    errs = _lint_folk_taboo(FolkTabooDict.model_validate(raw))
+    assert any("daejanggun extent" in e for e in errs)
+    raw = _raw()
+    raw["range_templates"]["single_branch_inter"] = "{center8}쪽 {center_m} 구간"
+    errs = _lint_folk_taboo(FolkTabooDict.model_validate(raw))
+    assert any("single_branch_inter" in e and "{adjacent8}" in e for e in errs)
+    raw = _raw()
+    raw["range_templates"].pop("cardinal_palace")
+    errs = _lint_folk_taboo(FolkTabooDict.model_validate(raw))
+    assert any("range_templates 키 불일치" in e for e in errs)
+    raw = _raw()
+    raw["taboos"][0].pop("extent")
+    with pytest.raises(ValueError):
+        FolkTabooDict.model_validate(raw)

@@ -61,9 +61,12 @@ class LuckPillar(BaseModel):
     # 삼재 단계(세운 전용, period_type=year) — 연지 삼합 기준 역마/육해/화개 세운(입춘 경계).
     # 흉운 점수가 아니라 3년 흐름 라벨(들/눌/날)이며 luck_score·라벨에 관여하지 않는다(docs/18 §4).
     samjae: SamjaeInfo | None = None
-    # 민속 흉방(세운 전용, docs/19 §5) — 그해 지지 기준 삼살·대장군·태세·세파 4종(개인 사주 무관한
-    # 공통 금기, 삼재와 별개). 카드 배지·추가 정보 전용이며 luck_score·라벨에 관여하지 않는다.
+    # 민속 흉방(세운 전용, docs/19 §5) — 그해 지지 기준 이사 판정층 2종(삼살·대장군, 개인 사주와
+    # 무관한 공통 금기, 삼재와 별개). 카드 배지·추가 정보 전용이며 luck_score·라벨에 무관하다.
     folk_taboos: list[FolkTabooHit] = Field(default_factory=list)
+    # 민속 흉방 참고층(세운 전용, 2026-11-24) — 태세·세파(동토·좌향 참고, 이사 판정 아님).
+    # 세운 상세의 참고 줄·나침반 그림 전용이며 카드 배지에는 싣지 않는다.
+    folk_ground_taboos: list[FolkTabooHit] = Field(default_factory=list)
     # 운 적용 구조 상태 줄(F8-P1, 2026-10-17) — 세운·월운 카드 '구조 변화' 표시용
     # (최대 3줄, 사전 문구).
     # 성립≠길흉, 점수·라벨 불변. 시주 미상이면 빈 목록.
