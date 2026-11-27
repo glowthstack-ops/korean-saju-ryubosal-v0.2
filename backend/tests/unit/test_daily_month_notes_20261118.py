@@ -36,7 +36,7 @@ def _layer(d: dt.date) -> dict:
 
 
 def test_version_boundary() -> None:
-    assert DICT_VERSION == "dict.v1.24" and DICT_VERSION_BEFORE_MONTH_NOTES == "dict.v1.22"
+    assert DICT_VERSION == "dict.v1.25" and DICT_VERSION_BEFORE_MONTH_NOTES == "dict.v1.22"
     assert _FROM == dt.date(2026, 11, 20)
     assert active_dict_version(_FROM) == "dict.v1.23"
     assert active_dict_version(_BEFORE) == "dict.v1.22"

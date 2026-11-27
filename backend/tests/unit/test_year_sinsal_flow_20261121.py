@@ -270,7 +270,7 @@ def _simple(d: dt.date) -> dict:
 
 
 def test_daily_version_boundary() -> None:
-    assert DICT_VERSION == "dict.v1.24" and DICT_VERSION_BEFORE_LUCK_SINSAL == "dict.v1.23"
+    assert DICT_VERSION == "dict.v1.25" and DICT_VERSION_BEFORE_LUCK_SINSAL == "dict.v1.23"
     assert LUCK_SINSAL_EFFECTIVE_FROM == dt.date(2026, 11, 23)
     assert active_dict_version(LUCK_SINSAL_EFFECTIVE_FROM) == "dict.v1.24"
     before = LUCK_SINSAL_EFFECTIVE_FROM - dt.timedelta(days=1)
@@ -369,13 +369,16 @@ def test_daily_decision_unchanged_by_luck_sinsal_layer() -> None:
     """문체 전용 — 같은 날짜를 이전 사전으로 계산한 보드와 사건·점수가 같다."""
     d = dt.date(2027, 1, 10)
     ctx = M.build_day_context(d)
-    new = compute_board_v2(ctx, M.load_daily_dicts_for(d))
+    # 이 층이 들어온 계약(v1.24)과 직전 계약(v1.23)을 견준다 — 그 뒤 계약(v1.25 톤 개정)은 오늘
+    # 조언 앞 문장도 바꿔서, 현재 사전으로 견주면 이 층의 불변을 가려낼 수 없다.
+    new = compute_board_v2(ctx, M.load_daily_dicts_for(LUCK_SINSAL_EFFECTIVE_FROM))
     old = compute_board_v2(
         ctx, M.load_daily_dicts_for(LUCK_SINSAL_EFFECTIVE_FROM - dt.timedelta(days=1)),
     )
     skip = {"month_flow", "year_flow", "content_version"}
     assert new.model_dump(exclude=skip) == old.model_dump(exclude=skip)
-    assert new.content_version.split("|")[1] == "dict.v1.24"
+    # 보드의 버전 문자열은 사전 인자가 아니라 날짜의 활성 계약을 따른다(2027-01-10 = 현재 계약).
+    assert new.content_version.split("|")[1] == active_dict_version(d) == DICT_VERSION
     # 반례: 문장이 붙는 줄은 실제로 달라졌다(비교가 빈 비교가 아님).
     assert new.month_flow != old.month_flow
 

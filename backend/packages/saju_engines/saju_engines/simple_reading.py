@@ -830,6 +830,8 @@ def simple_reference_line(
     past: bool = False,
     year: int | None = None,
     today: date | None = None,
+    axis: str | None = None,
+    span: bool = True,
 ) -> str:
     """채팅·테마사주 참고 문단(§26-3) — 용어 허용 경로. 호출자는 이 문단을 **그대로** 싣는다.
 
@@ -845,8 +847,11 @@ def simple_reference_line(
     끝에 참고 안내 1문장. 일간·간지가 비었거나 사전이 없으면 빈 문자열(호출자는 줄을 생략한다).
 
     Args:
-        year_ganji: 호출 호환용으로 남긴 인자 — 2026-11-09 부터 문단이 세운에 의존하지 않아 쓰지
-            않는다.
+        year_ganji: 그 달을 관할하는 세운 간지(월 지평 전용, §39-3, 2026-11-27). 사전에
+            `month_layer.year_link` 가 있고 그 달이 그 세운의 열두 달에 들면 이름 문장 바로 뒤에
+            세운×월운 연결 한 문장("이 해 …이 이 달에는 …")을 넣는다. 2026-11-09 에 올해 흐름 문장을
+            뺀 이유는 그 문장이 '그 달과 올해의 관계'를 말하지 않아서였다 — 이 문장은 관계 자체를
+            말한다. 연·일 지평과 세운이 맞지 않는 호출은 종전 그대로(문장 없음)다.
         past: 이미 지난 기간(지난달·어제·작년)을 묻는 질문이면 True — 문단을 과거형으로 싣는다
             (`speech_style.to_past`: 서술 '~했을 수 있어요', 간지 사실 '~달이었어요', 권유 문장
             제외. 2026-11-10 데굴님 "과거형 문단" — 지난달 답에 현재형 문단이 끼고, LLM 이
@@ -855,8 +860,12 @@ def simple_reference_line(
         year: 연 지평의 대상 연도(서기) — 여러 해 흐름 문장에 쓴다. 없으면 그 문장을 생략한다.
         today: 연 지평에서 오늘 날짜 — 대상 해가 올해이고 가장 강한 구간이 지났으면 그 문장만
             과거형으로 쓴다. 없으면 현재형.
+        axis: 연 지평에서 테마 영역(`AXES` 중 하나, §39-2) — 주면 쌍 흐름 문장(`year_tone`) 대신
+            그 영역의 세운 천간 십성 장면(지지 십성이 다르면 그 장면도)을 싣는다. 테마 리포트의
+            연도별 상세 페이지용. 사전에 `god_scene` 이 없거나 영역이 아니면 종전 그대로.
+        span: 연 지평의 여러 해 흐름 문장을 실을지 — 연도별 상세 페이지처럼 여러 해가 잇달아
+            나오는 지면은 False 로 두고 종합 섹션에 한 번만 싣는다(`year_span_reference_line`).
     """
-    del year_ganji  # 호환 인자(미사용)
     if not day_master or horizon not in HORIZONS:
         return ""
     if simple is None or (horizon != "year" and month_layer is None):
@@ -876,7 +885,10 @@ def simple_reference_line(
     who = f"{STEM_KO[dm]}({dm.value}) 일간에게"
     parts: list[str] = [f"{prefix} {ganji}{unit}은 {who} {_desc(sr, noun)}{_copula(noun)}."]
     if horizon == "year":
-        if sr.tone:
+        scenes = theme_scenes(dm, stem, branch, simple, axis) if axis in AXES else []
+        if scenes:
+            parts.extend(scenes)
+        elif sr.tone:
             parts.append(sr.tone)
         # 연내 구간·여러 해 흐름(§31) — 채팅은 내년·작년도 물으므로 '올해' 대신 '이 해'.
         passed = (
@@ -886,11 +898,16 @@ def simple_reference_line(
         parts.extend(
             year_phase_lines(dm, stem, simple, scope=CHAT_YEAR_SCOPE, peak_passed=passed)
         )
-        if year is not None:
+        if year is not None and span:
             parts.append(
                 year_span_line(dm, year, simple, scope=CHAT_YEAR_SCOPE, year_branch=branch)
             )
     elif simple.get("god_scene"):
+        # 세운×월운 연결(§39-3) — 그 달이 관할 세운의 열두 달에 들 때만 한 문장.
+        if horizon == "month":
+            link = _month_link_for(dm, year_ganji, stem, branch, month_layer)
+            if link:
+                parts.append(link)
         # 그 달/그 날에 집중 — 천간 십성 장면 + 지지 십성 장면(§27). 올해 결은 싣지 않는다.
         parts.extend((sr.points[0], sr.points[2]))
         # 월: 간여지동 달이면 강조 문장 대신 "이 달은 천간과 지지 모두 ○○로 들어와 …" + 그 달
@@ -913,3 +930,213 @@ def simple_reference_line(
 def ganji_ko(stem: Stem, branch: Branch) -> str:
     """간지 한글 표기(예: 병오)."""
     return f"{STEM_KO[stem]}{BRANCH_KO[branch]}"
+
+
+# ── 세운×월운 단식·테마 영역(docs/17 §39, 2026-11-27 데굴님 승인) ───────────────────────────
+# "단식풀이가 테마사주에서는 활용되지 않는 느낌" → "월별 풀이를 하는 경우 세운과 월운을 함께 보는
+# 단식도 필요". 오늘의 운세의 '올해 흐름 위의 이번 달' 연결 문장(§34, `month_layer.year_link`)과
+# 십성 장면(§27, `god_scene`)을 채팅 월 문단·리포트 월별 지면에 옮긴다. 새 명리 규칙은 없다 —
+# 세운 천간 군 × 월운 천간 군의 생·극 네 방향(§34-2), 연내 가장 강한 구간(§31-1), 간여지동 달
+# (§28-5)은 모두 기존 판정이다. 점수·판정·후보 선별 불관여(서술 전용).
+
+#: 테마(리포트 섹션 도메인·주제) → 십성 장면 영역. 표에 없는 주제(이사·학업·한해풀이)는 그 십성의
+#: 기본 영역(`god_axes` 첫 축 — 채팅 월 문단과 같은 선택)을 쓴다.
+THEME_AXIS: dict[str, str] = {
+    "career": "일", "wealth": "돈", "relationship": "연애", "health": "몸",
+}
+#: 리포트·채팅 지시어 — 사전 문장의 '올해·이번 달'은 오늘의 운세 패널 기준이라, 다른 해·다른 달을
+#: 다루는 지면에서는 '이 해·이 달'로 받는다(`_CHAT_SCOPE` 와 같은 이유).
+_LINK_SCOPE: tuple[tuple[str, str], ...] = (("올해", "이 해"), ("이번 달", "이 달"))
+#: 달 줄의 표지 — 그 세운 흐름이 가장 강한 구간(§31-1) / 천간·지지가 같은 군인 달(§28-5).
+MONTH_TAG_PEAK = "그 해 흐름이 가장 강한 구간"
+MONTH_TAG_SAME = "천간·지지가 같은 성격"
+
+
+def year_stem_of(year: int) -> Stem:
+    """그 해 세운 천간(입춘 뒤 기준) — 서기 4년이 甲子년(`year_branch_of` 와 같은 기준)."""
+    return list(Stem)[(year - 4) % 10]
+
+
+def governing_year(label: str) -> int | None:
+    """월운 라벨('YYYY-MM')을 관할하는 세운 연도 — 丑월(01)은 전년도 세운의 마지막 달이다.
+
+    월운 라벨은 절기월이 대부분 걸치는 양력 달이다(寅=02 … 子=12, 丑=01 — `month_ganji_of_year`
+    와 같은 표기). 형식이 아니면 None.
+    """
+    if len(label) != 7 or label[4] != "-" or not (label[:4] + label[5:]).isdigit():
+        return None
+    year, month = int(label[:4]), int(label[5:])
+    if not 1 <= month <= 12:
+        return None
+    return year - 1 if month == 1 else year
+
+
+def theme_scene(day_master: Stem, stem: Stem, simple: dict[str, Any], axis: str | None) -> str:
+    """운 천간 십성의 장면 한 줄 — 테마 영역이 있으면 그 영역, 없으면 그 십성의 기본 영역.
+
+    사전에 `god_scene` 이 없으면(v1.19 이전) 빈 문자열.
+    """
+    scene = simple.get("god_scene")
+    if not scene:
+        return ""
+    god = ten_god_name(day_master, stem)
+    return str(scene[god][axis if axis in AXES else simple["god_axes"][god][0]])
+
+
+def theme_scenes(
+    day_master: Stem, stem: Stem, branch: Branch, simple: dict[str, Any], axis: str | None,
+) -> list[str]:
+    """테마 영역의 장면 — 운 천간 십성 1줄 + 지지 본기 십성이 다르면 그 장면 1줄(연 지평용)."""
+    scene = simple.get("god_scene")
+    if not scene or axis not in AXES:
+        return []
+    stem_god, branch_god = ten_god_name(day_master, stem), branch_god_name(day_master, branch)
+    out = [str(scene[stem_god][axis])]
+    if branch_god != stem_god:
+        out.append(str(scene[branch_god][axis]))
+    return out
+
+
+def link_scoped(sentence: str) -> str:
+    """연결 문장의 '올해·이번 달'을 '이 해·이 달'로 바꾼다(다른 해·다른 달을 다루는 지면용)."""
+    for panel, scoped in _LINK_SCOPE:
+        sentence = sentence.replace(panel, scoped)
+    return sentence
+
+
+def year_month_link(
+    day_master: Stem, year_stem: Stem, month_stem: Stem, month_branch: Branch,
+    month_layer: dict[str, Any],
+) -> str | None:
+    """세운×월운 연결 한 문장(§34-2 규칙 그대로) — 지시어는 '이 해·이 달'.
+
+    세운 천간 군이 월운 천간·지지 군과 같으면 겹침 문장(`year_overlap`), 아니면 순서쌍 문장
+    (`year_link["{세운 군}>{월운 천간 군}"]`). 그 달이 그 세운의 열두 달(월건법)에 들지 않으면
+    None — 연도와 달이 다른 출처에서 온 호출을 관계로 지어내지 않는다. 사전에 `year_link` 가
+    없으면(v1.21 이전) None.
+    """
+    links = month_layer.get("year_link")
+    if not links:
+        return None
+    if not any(
+        (ms, mb) == (month_stem, month_branch) for ms, mb, _m in month_ganji_of_year(year_stem)
+    ):
+        return None
+    year_group = _GROUP_OF[ten_god_name(day_master, year_stem)]
+    stem_group = _GROUP_OF[ten_god_name(day_master, month_stem)]
+    branch_group = _GROUP_OF[branch_god_name(day_master, month_branch)]
+    if year_group in (stem_group, branch_group):
+        return link_scoped(str(month_layer["year_overlap"]))
+    return link_scoped(str(links[f"{year_group}>{stem_group}"]))
+
+
+def _month_link_for(
+    day_master: Stem, year_ganji: str | None, month_stem: Stem, month_branch: Branch,
+    month_layer: dict[str, Any] | None,
+) -> str | None:
+    """`simple_reference_line` 월 지평용 — 세운 간지 문자열을 받아 연결 문장을 돌려준다."""
+    parsed = _parse_ganji(year_ganji)
+    if parsed is None or month_layer is None:
+        return None
+    return year_month_link(day_master, parsed[0], month_stem, month_branch, month_layer)
+
+
+def _past(text: str) -> str:
+    """지난 달 문장의 과거형(권유 문장은 빠진다) — `speech_style.to_past`."""
+    from saju_engines.speech_style import to_past  # 지연 import — 문체 모듈은 이 경로에서만
+
+    return to_past(text)
+
+
+def year_month_simple_lines(
+    day_master: str,
+    months: list[tuple[str, str]],
+    *,
+    axis: str | None = None,
+    past_before: str | None = None,
+    simple: dict[str, Any] | None = None,
+    month_layer: dict[str, Any] | None = None,
+) -> list[str]:
+    """리포트 월별 지면의 세운×월운 단식 줄(§39-1) — 머리줄·사용 규칙은 호출자가 붙인다.
+
+    구성: ① 관할 세운별 '흐름과 달의 연결' — 같은 연결 문장을 받는 달을 묶어 한 줄(월운 천간 군
+    기준이라 두 달씩 같은 문장이 나온다) ② 달별 장면 — 월운 천간 십성의 테마 영역 문장 + 표지
+    (그 세운 흐름이 가장 강한 구간 / 천간·지지가 같은 군).
+
+    Args:
+        day_master: 일간(한자 한 글자).
+        months: (월운 라벨 'YYYY-MM', 월운 간지) 목록 — 라벨 순으로 정렬해 쓴다.
+        axis: 테마 영역(`THEME_AXIS` 값). None 이면 십성의 기본 영역.
+        past_before: 이 라벨보다 앞선 달은 과거형으로 싣는다(오늘이 속한 절기월 라벨). None 이면
+            전부 현재형.
+        simple / month_layer: 사전 층 — 생략하면 현재 사전.
+
+    Returns:
+        줄 목록. 일간·사전이 없거나, 관계를 판정할 수 있는 달이 하나도 없으면 빈 목록.
+    """
+    if simple is None or month_layer is None:
+        cur_simple, cur_month = _current_layers()
+        simple = simple or cur_simple
+        month_layer = month_layer or cur_month
+    if simple is None or month_layer is None or not simple.get("god_scene"):
+        return []
+    try:
+        dm = Stem(day_master)
+    except ValueError:
+        return []
+    links: dict[tuple[int, str], list[str]] = {}
+    scenes: list[str] = []
+    for label, ganji in sorted(set(months)):
+        parsed, year = _parse_ganji(ganji), governing_year(label)
+        if parsed is None or year is None:
+            continue
+        m_stem, m_branch = parsed
+        y_stem = year_stem_of(year)
+        link = year_month_link(dm, y_stem, m_stem, m_branch, month_layer)
+        if link is None:
+            continue
+        gone = past_before is not None and label < past_before
+        links.setdefault((year, _past(link) if gone else link), []).append(label)
+        tags: list[str] = []
+        phase = year_phase(dm, y_stem)
+        if phase is not None and int(label[5:]) in phase.peak_months:
+            tags.append(MONTH_TAG_PEAK)
+        if _GROUP_OF[ten_god_name(dm, m_stem)] == _GROUP_OF[branch_god_name(dm, m_branch)]:
+            tags.append(MONTH_TAG_SAME)
+        scene = theme_scene(dm, m_stem, simple, axis)
+        mark = f" [{' · '.join(tags)}]" if tags else ""
+        scenes.append(f"- {label} {ganji}{mark}: {_past(scene) if gone else scene}")
+    if not scenes:
+        return []
+    out: list[str] = []
+    for year in sorted({y for y, _s in links}):
+        y_stem, y_branch = year_stem_of(year), year_branch_of(year)
+        rows = [(labels, sentence) for (y, sentence), labels in links.items() if y == year]
+        # 丑월(다음 해 1월)은 이 세운의 마지막 달 — 라벨 연도와 세운 연도가 다른 까닭을 밝힌다.
+        spill = any(lb[:4] != str(year) for labels, _s in rows for lb in labels)
+        note = f"{year}년 세운 — 다음 해 1월까지 관할" if spill else f"{year}년 세운"
+        out.append(f"{y_stem.value}{y_branch.value}년({note}) 흐름과 달의 연결:")
+        out += [f"- {'·'.join(labels)}: {sentence}" for labels, sentence in rows]
+    out.append(f"달별 장면({axis} 영역):" if axis in AXES else "달별 장면:")
+    return [*out, *scenes]
+
+
+def year_span_reference_line(
+    day_master: str, year: int, *, scope: str = PANEL_YEAR_SCOPE,
+    simple: dict[str, Any] | None = None,
+) -> str:
+    """여러 해 흐름 한 문장(§31-2)만 — 테마 리포트 종합 섹션에 한 번 싣는다(§39-1).
+
+    "간단히 봤을 때, 2022년부터 3년은 … 흐름이었고, 올해는 … 흐름의 두 번째 해예요." 사전에
+    `year_span` 이 없거나 일간이 비면 빈 문자열.
+    """
+    if simple is None:
+        simple = _current_layers()[0]
+    if simple is None or not day_master:
+        return ""
+    try:
+        dm = Stem(day_master)
+    except ValueError:
+        return ""
+    line = year_span_line(dm, year, simple, scope=scope)
+    return f"{REFERENCE_PREFIX} {line} {_REFERENCE_SUFFIX}" if line else ""

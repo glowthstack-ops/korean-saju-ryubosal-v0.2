@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from functools import lru_cache
@@ -912,6 +912,32 @@ _PAIR_LUCK_DIRECTIVE = (
     "시기는 '함께 겪을 시기'로, 한쪽만 강한 시기는 그 사람 쪽 변화로 서술하고 상대 쪽 서술을 "
     "생략하거나 본인만 쓰지 말 것. 두 사람의 사건을 한 사람 일처럼 합치지 말 것."
 )
+
+
+#: 연도별 상세 페이지의 단식 방향 기준 보조 줄 — 이 지면은 '[세운:]' 줄 대신 아래 두 줄에 운 역할이
+#: 있다(docs/17 §39-1).
+_SIMPLE_YEAR_PAGE_ROLE_HINT = (
+    "이 페이지에서 이 해 운의 역할은 [이 해 세운] 줄의 운 품질 등급〈…〉과 [원국 구조 × 운에서 온 "
+    "글자]의 세운 줄(용신·희신·기신·구신·한신 표기)에 있다 — 방향은 그 표기로만 정할 것."
+)
+#: 주목할 달 섹션에 세운×월운 단식 줄을 싣는 달 수 상한(docs/17 §39-1) — 섹션 도메인 후보의 달.
+_SIMPLE_FOCUS_MONTHS_MAX = 6
+
+
+def _simple_axis(spec: ReportSpec, domain: str | None) -> str | None:
+    """단식 장면의 테마 영역 — 섹션 도메인이 우선, 없으면 리포트 주제(docs/17 §39-2).
+
+    직업=일·재물=돈·연애/궁합=연애·건강=몸. 이사·학업·한해풀이는 None(십성의 기본 영역).
+    """
+    from saju_engines.simple_reading import THEME_AXIS
+
+    return THEME_AXIS.get(domain or "") or THEME_AXIS.get(spec.topic or "")
+
+
+def _simple_focus_months(data: _ReportData, domain: str | None) -> list[str]:
+    """주목할 달 섹션이 다루는 달 라벨 — 섹션 도메인 후보(없으면 전역 후보)의 월 단위 기간."""
+    cands = data.domain_candidates(domain) if domain else list(data.candidates)
+    return sorted({c.period for c in cands if len(c.period) == 7})[:_SIMPLE_FOCUS_MONTHS_MAX]
 
 
 def _is_pair_luck_section(sid: str) -> bool:
@@ -2847,6 +2873,132 @@ class _ReportData:
             lines.append(f"구성원 이동운이 엇갈리는 달: {', '.join(conflicts)}")
         return lines
 
+    def simple_year_lines(
+        self, year: int, ganji: str, *, axis: str | None = None, span: bool = True,
+        conditions: bool = True, role_hint: str | None = None,
+    ) -> list[str]:
+        """[단식 참고] 연 문단 + 사용 규칙(+ 조건 줄) — 한해 Y-04·테마 연도별 상세 공용.
+
+        채팅 연 총운과 같은 함수·같은 규칙이다(docs/17 §26-3·§31). 대상 연도가 이미 끝난 해면
+        과거형 문단(기간 끝 12/31 < 오늘 — 2026-11-10 점검: 채팅만 고치고 이 입구를 놓쳤다).
+
+        Args:
+            year: 대상 세운 연도.
+            ganji: 그 해 세운 간지.
+            axis: 테마 영역(`simple_reading.THEME_AXIS` 값, docs/17 §39-2) — 테마 연도별 상세
+                페이지는 일반 흐름 문장 대신 그 영역의 십성 장면을 싣는다. 한해 Y-04 는 None.
+            span: 여러 해 흐름 문장 포함 여부 — 연도별 상세는 False(종합 섹션이 한 번 싣는다).
+            conditions: 조건 줄(신강약·과다 오행, 엔진 확인 항목만) 포함 여부.
+            role_hint: 방향 기준 규칙 뒤에 붙일 한 줄 — 그 지면에서 운 역할 표기가 어느 줄에
+                있는지(연도별 상세 페이지에는 '[세운:]' 줄이 없다).
+
+        Returns:
+            줄 목록. 일간·사전이 없으면 빈 목록(줄 생략).
+        """
+        from saju_engines.context_reducer import (
+            SIMPLE_CONDITION_HEADER,
+            SIMPLE_CONDITION_RULE,
+            SIMPLE_READING_DIRECTION_RULE,
+            SIMPLE_READING_HEADER,
+            SIMPLE_READING_USAGE_RULE,
+        )
+        from saju_engines.simple_reading import simple_reference_line
+
+        line = simple_reference_line(
+            self.result.pillars.day_master if self.result.pillars else "",
+            ganji, "year", past=date(year, 12, 31) < self.today,
+            year=year, today=self.today, axis=axis, span=span,
+        )
+        if not line:
+            return []
+        lines = [
+            f"{SIMPLE_READING_HEADER} {line}", SIMPLE_READING_USAGE_RULE,
+            SIMPLE_READING_DIRECTION_RULE,
+        ]
+        if role_hint:
+            lines.append(role_hint)
+        if conditions:
+            from .chat_service import _simple_condition_lines
+
+            cond = _simple_condition_lines(self.result, ganji)
+            if cond:
+                lines.append(SIMPLE_CONDITION_HEADER)
+                lines += [f"- {c}" for c in cond]
+                lines.append(SIMPLE_CONDITION_RULE)
+        return lines
+
+    def year_ganji(self, year: int) -> str:
+        """그 해 세운 간지 — 운 표에 있으면 그 값, 없으면 연도로 계산한 값(입춘 뒤 기준)."""
+        from saju_engines.simple_reading import year_branch_of, year_stem_of
+
+        known = self._ganji_by_label.get(str(year), "")
+        if len(known) == 2:
+            return known
+        return f"{year_stem_of(year).value}{year_branch_of(year).value}"
+
+    def _current_luck_month(self) -> str:
+        """오늘이 속한 절기월 라벨('YYYY-MM') — 지난 달 판정의 기준(양력 today.month 금지)."""
+        tc = self.result.time_correction
+        return luck_month_label(self.today, get_table(), tc.timezone if tc else "Asia/Seoul")
+
+    def simple_year_month_block(
+        self, labels: Iterable[str], axis: str | None, *, partner: bool = False,
+        who: str | None = None,
+    ) -> list[str]:
+        """[단식 참고 — 세운×월운] — 리포트 월별 지면의 달 줄(docs/17 §39-1, 2026-11-27).
+
+        데굴님 "테마사주에서는 한해운세 같이 월별 풀이를 하는 경우 세운과 월운을 함께 보는 단식도
+        필요". 달마다 ① 그 해 흐름과의 연결(세운 천간 군 × 월운 천간 군, 오늘의 운세 §34 와 같은
+        규칙·같은 사전 문장) ② 그 달 장면(월운 천간 십성의 테마 영역) ③ 표지를 싣는다. 丑월(01)은
+        전년도 세운이 관할한다. 지난 달은 과거형. 점수·판정·후보 선별 불변(서술 전용).
+
+        Args:
+            labels: 월운 라벨('YYYY-MM') — 간지는 `_ganji_by_label`(월운 간지는 누구에게나 같다).
+            axis: 테마 영역(없으면 십성의 기본 영역).
+            partner: 궁합 모드의 상대 명식 기준으로 낼지(일간만 다르다).
+            who: 머리줄에 붙일 주체 라벨(궁합 모드에서 본인·상대 구분).
+
+        Returns:
+            머리줄 + 달 줄 + 사용 규칙. 해당 명식·사전·달이 없으면 빈 목록.
+        """
+        from saju_engines.context_reducer import (
+            SIMPLE_YEAR_MONTH_HEADER,
+            SIMPLE_YEAR_MONTH_RULE,
+        )
+        from saju_engines.simple_reading import year_month_simple_lines
+
+        res = self.partner_result if partner else self.result
+        if res is None or res.pillars is None:
+            return []
+        months = [
+            (lb, self._ganji_by_label[lb]) for lb in sorted(set(labels))
+            if len(lb) == 7 and len(self._ganji_by_label.get(lb, "")) == 2
+        ]
+        body = year_month_simple_lines(
+            str(res.pillars.day_master), months, axis=axis,
+            past_before=self._current_luck_month(),
+        )
+        if not body:
+            return []
+        header = (
+            f"{SIMPLE_YEAR_MONTH_HEADER[:-1]} · {who} 기준]" if who else SIMPLE_YEAR_MONTH_HEADER
+        )
+        return [header, *body, SIMPLE_YEAR_MONTH_RULE]
+
+    def simple_span_block(self) -> list[str]:
+        """[단식 참고 — 여러 해 흐름] — 테마 종합 섹션에 한 번(docs/17 §39-1).
+
+        기준 해는 오늘이 속한 세운(절기 기준 — 입춘 전이면 전년도)이다.
+        """
+        from saju_engines.context_reducer import SIMPLE_SPAN_HEADER, SIMPLE_SPAN_RULE
+        from saju_engines.simple_reading import governing_year, year_span_reference_line
+
+        year = governing_year(self._current_luck_month())
+        if year is None or self.result.pillars is None:
+            return []
+        line = year_span_reference_line(str(self.result.pillars.day_master), year)
+        return [f"{SIMPLE_SPAN_HEADER} {line}", SIMPLE_SPAN_RULE] if line else []
+
     def yearly_sewoon_block(self, year: int) -> list[str]:
         """[해당 연 세운 grounding] — 채팅 '해당 연 총운'과 같은 세운 줄 + 월주 상대 관점 환경 블록.
 
@@ -2876,18 +3028,8 @@ class _ReportData:
             _ys = format_year_sinsal_lines(self.result, [year], current_year=self.today.year)
             if _ys:
                 lines += [*_ys[1:], YEAR_SINSAL_INSTRUCTION]
-        # 단식 참고 줄(docs/17 §26-3, 2026-11-08) — 채팅 연 총운과 같은 줄·같은 사용 규칙.
-        from saju_engines.context_reducer import (
-            SIMPLE_READING_DIRECTION_RULE,
-            SIMPLE_READING_HEADER,
-        )
-        from saju_engines.context_reducer import SIMPLE_READING_USAGE_RULE as _simple_rule
-        from saju_engines.simple_reading import simple_reference_line as _simple_ref
-
-        # 대상 연도가 이미 끝난 해(한해풀이 Y-04 의 지난 연도)면 과거형 문단 — 채팅 지난 기간 질문과
-        # 같은 기준(기간 끝 12/31 < 오늘, 2026-11-10 점검: 채팅만 고치고 이 입구를 놓쳤다).
-        # 연 지평 확장(docs/17 §31, 2026-11-11) — 연내 구간·여러 해 흐름이 같은 문단에 붙고,
-        # 조건 줄은 엔진이 확인한 항목만(채팅 연 총운과 같은 함수·같은 규칙).
+        # 단식 참고 줄(docs/17 §26-3, 2026-11-08) — 채팅 연 총운과 같은 줄·같은 사용 규칙
+        # (`simple_year_lines`, 계절 구간 줄 뒤에 붙는다).
         # 계절로 보는 길흉 구간(2026-11-18 데굴님 제공 규칙) — 그 해의 계절 구간 참고 줄.
         if (
             period_v2_config.SEASON_FORTUNE_LINE_ENABLED
@@ -2896,27 +3038,7 @@ class _ReportData:
             from saju_engines.season_fortune import season_fortune_lines
 
             lines += season_fortune_lines(str(self.result.pillars.month.branch), [year])
-        _simple_line = _simple_ref(
-            self.result.pillars.day_master if self.result.pillars else "",
-            str(pillar.ganji), "year", past=date(year, 12, 31) < self.today,
-            year=year, today=self.today,
-        )
-        if _simple_line:
-            lines.append(f"{SIMPLE_READING_HEADER} {_simple_line}")
-            lines.append(_simple_rule)
-            lines.append(SIMPLE_READING_DIRECTION_RULE)
-            from saju_engines.context_reducer import (
-                SIMPLE_CONDITION_HEADER,
-                SIMPLE_CONDITION_RULE,
-            )
-
-            from .chat_service import _simple_condition_lines
-
-            _cond_lines = _simple_condition_lines(self.result, str(pillar.ganji))
-            if _cond_lines:
-                lines.append(SIMPLE_CONDITION_HEADER)
-                lines += [f"- {c}" for c in _cond_lines]
-                lines.append(SIMPLE_CONDITION_RULE)
+        lines += self.simple_year_lines(year, str(pillar.ganji))
         lines += [f"형충회합: {rl}" for rl in g["relation_lines"]]
         lines += list(g["sinsal_lines"])
         if g["gongmang"]:
@@ -4764,6 +4886,21 @@ def build_section_context(
             if _yp_rows:
                 lines += [f"[이 해 세운 — {_yp}년]", *_yp_rows, ""]
         lines += data.month_slice_block(_mp_months, _mp_label, _mp_domain)
+        # 단식(docs/17 §39, 2026-11-27) — 테마 연도별 상세는 그 해 연 단식 문단(테마 영역, 여러 해
+        # 흐름은 종합 섹션이 한 번) + 세운×월운 달 줄, 한해 상·하반기는 달 줄만(연 단식은 Y-04).
+        _sm_axis = _simple_axis(spec, _mp_domain)
+        if _yp is not None:
+            _sm_year = data.simple_year_lines(
+                _yp, data.year_ganji(_yp), axis=_sm_axis, span=False, conditions=False,
+                role_hint=_SIMPLE_YEAR_PAGE_ROLE_HINT,
+            )
+            if _sm_year:
+                lines += ["", *_sm_year]
+        _sm_month = data.simple_year_month_block(
+            _mp_months, _sm_axis, who=f"본인({data.self_label})" if _mp_pair else None,
+        )
+        if _sm_month:
+            lines += ["", *_sm_month]
         # 테마 연도별 상세 — 그 해 구간의 도메인 후보에 운 간지별 강의 문구(2026-10-30 배선).
         if _mp_domain is not None:
             _mp_lec = data.lecture_block(_mp_domain, [
@@ -4784,6 +4921,12 @@ def build_section_context(
                 if _p_rows:
                     lines += [*_p_rows, ""]
             lines += data.partner_month_slice_block(_mp_months, _mp_label, _mp_domain)
+            # 상대 명식 기준 세운×월운 단식(일간만 다르다) — 본인 줄과 같은 달.
+            _sm_partner = data.simple_year_month_block(
+                _mp_months, _sm_axis, partner=True, who=f"상대({data.partner_label})",
+            )
+            if _sm_partner:
+                lines += ["", *_sm_partner]
             lines.append(_PAIR_LUCK_DIRECTIVE)
     elif sid in _SCORE_TABLE_SECTIONS:
         lines.append("")
@@ -4833,6 +4976,10 @@ def build_section_context(
                 lines += ["", *data.partner_year_spectrum_block(
                     section_domain, notable_only=reduction_level >= 2,
                 ), _PAIR_LUCK_DIRECTIVE]
+            # 단식 여러 해 흐름(docs/17 §39-1) — 종합 섹션에 한 번(연도별 상세는 싣지 않는다).
+            _sm_span = data.simple_span_block()
+            if _sm_span:
+                lines += ["", *_sm_span]
             lines.append("")
         if sid in _MONTH_OVERVIEW_SECTIONS:
             if _pair_luck:
@@ -4842,6 +4989,21 @@ def build_section_context(
                 lines += ["", *data.partner_month_overview_block(
                     section_domain, notable_only=reduction_level >= 1,
                 ), _PAIR_LUCK_DIRECTIVE]
+            # 세운×월운 단식(docs/17 §39-1) — 이 섹션이 다루는 후보 달만(여러 해 창이라 전 달을
+            # 실으면 지면을 넘는다). 후보에 달이 없으면 블록 없음.
+            _sm_labels = _simple_focus_months(data, section_domain)
+            _sm_axis = _simple_axis(spec, section_domain)
+            _sm_focus = data.simple_year_month_block(
+                _sm_labels, _sm_axis, who=f"본인({data.self_label})" if _pair_luck else None,
+            )
+            if _sm_focus:
+                lines += ["", *_sm_focus]
+            if _pair_luck:
+                _sm_focus_p = data.simple_year_month_block(
+                    _sm_labels, _sm_axis, partner=True, who=f"상대({data.partner_label})",
+                )
+                if _sm_focus_p:
+                    lines += ["", *_sm_focus_p]
             # 상담 사례 파생(P0) — 주목할 달의 시기 단정 차단('8월에 됩니다' 금지,
             # activation window 표현). 사례 모방 금지 포인트 §6 — 우선 J-06만(데굴님 확정 스코프).
             if sid in _DATE_CERTAINTY_SECTIONS:

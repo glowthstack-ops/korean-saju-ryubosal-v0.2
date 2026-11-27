@@ -41,7 +41,7 @@ def _board(d: dt.date) -> DailyFortuneBoard:
 
 
 def test_version_boundary() -> None:
-    assert DICT_VERSION == "dict.v1.24"  # 11/23 부터(§37) — 이 파일은 v1.22 계약(11/19)
+    assert DICT_VERSION == "dict.v1.25"  # 11/29 부터(§38) — 이 파일은 v1.22 계약(11/19)
     assert DICT_VERSION_BEFORE_YEAR_LINK == "dict.v1.21"
     assert active_dict_version(_FROM) == "dict.v1.22"
     assert active_dict_version(_BEFORE) == "dict.v1.21"

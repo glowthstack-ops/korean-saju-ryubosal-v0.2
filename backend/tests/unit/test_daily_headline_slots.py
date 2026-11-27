@@ -217,7 +217,7 @@ def test_lucky_places_revision_date_gate() -> None:
     assert active_dict_version(STAGE_DIRECTION_EFFECTIVE_FROM) == "dict.v1.18"
     # 11/8 부터 v1.20(단식 결 층 §26 → 십성별 §27), 11/12 부터 v1.21(단식 연 지평 확장 §31),
     # 11/19 부터 v1.22(올해 흐름 × 이번 달 연결 §34), 11/20 부터 v1.23(이번 달 참고 문장 §35).
-    assert DICT_VERSION == "dict.v1.24"
+    assert DICT_VERSION == "dict.v1.25"
     for ver in (
         PREVIOUS_DICT_VERSION, DICT_VERSION_BEFORE_LUCKY_PLACES_REVISION,
         DICT_VERSION_BEFORE_CATALOG_EXPANSION, DICT_VERSION_BEFORE_HEADLINE_CLOSING_REMOVAL,

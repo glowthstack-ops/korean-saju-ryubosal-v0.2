@@ -43,7 +43,7 @@ def test_boundary_selects_direction_dict_and_model() -> None:
     assert not stage_direction_forward(_BEFORE) and stage_direction_forward(_FROM)
     assert active_dict_version(_BEFORE) == "dict.v1.17"
     assert active_dict_version(_FROM) == "dict.v1.18"  # 11/10 부터는 v1.19(단식 결 층 §26)
-    assert DICT_VERSION == "dict.v1.24"  # 11/23 부터(12신살 흐름 문장 §37)
+    assert DICT_VERSION == "dict.v1.25"  # 11/29 부터(단식 문장 톤 개정 §38)
     assert active_model_v2_version(_BEFORE) == MODEL_V2_VERSION_BEFORE_STAGE_DIRECTION
     assert MODEL_V2_VERSION_BEFORE_STAGE_DIRECTION == "model.v2.2"
     # 11/5~11/13 은 model.v2.3, 11/14 부터 v2.4(백호 일주 기준 — docs/17 §32).

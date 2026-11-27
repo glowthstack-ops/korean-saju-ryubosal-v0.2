@@ -34,6 +34,20 @@ def _simple() -> dict:
     return d["simple_layer"]
 
 
+def _ref(day_master: str, ganji: str, horizon: str, *, past: bool = False) -> str:
+    """실답이 쓰인 날(2026-11-10)의 사전 계약으로 만든 엔진 문단.
+
+    아래 LLM 문단은 그날 문장을 풀어 쓴 실답이라, 문장이 바뀐 뒤(dict.v1.25 톤 개정, 2026-11-27)의
+    현재 사전과 견주면 유사도 검증이 뜻을 잃는다 — 감사 로직 검증은 그 실답의 계약에 고정한다.
+    """
+    from saju_engines import daily_ilju_fortune as M
+
+    tpl = M.load_daily_dicts_for(date(2026, 11, 10)).templates
+    return S.simple_reference_line(
+        day_master, ganji, horizon, tpl["simple_layer"], tpl["month_layer"], past=past,
+    )
+
+
 def _payload(line: str, label: str = "2026-10") -> LlmInput:
     pf = PeriodFortune(
         fortune_type="monthly", period_label=label, ganji="戊戌", pillar_line="-",
@@ -47,7 +61,7 @@ def _payload(line: str, label: str = "2026-10") -> LlmInput:
 
 def test_high_similarity_paragraph_wins_over_paragraph_with_more_keys() -> None:
     """실답(己 일간 己亥월): LLM 문단 유사도 0.88·키 0개 vs '일간' 한 번 나온 재물 문단 키 1개."""
-    line = S.simple_reference_line("己", "己亥", "month")
+    line = _ref("己", "己亥", "month")
     llm_simple = (
         "나와 같은 기운인 己(기토) 비견과 재물 기운인 亥(해수)가 함께 들어오는 시기입니다. "
         "己亥(기해)월은 데굴님에게 천간 비견과 지지 정재가 섞인 달입니다. 나와 비슷한 사람이 곁에 "
@@ -84,7 +98,7 @@ def test_ganji_key_matches_hangul_gloss() -> None:
 
 def test_past_paraphrase_paragraph_is_replaced_not_duplicated() -> None:
     """실답(지난달 戊戌월): 과거형으로 풀어 쓴 둘째 문단 — 유사도는 낮아도 표지 3개로 잡힌다."""
-    line = S.simple_reference_line("己", "戊戌", "month", past=True)
+    line = _ref("己", "戊戌", "month", past=True)
     llm = (
         "기(己) 일간인 데굴님에게 2026년 10월 戊戌(무술)월은 비겁의 기운이 가득했던 달이었습니다. "
         "돈이 크게 움직이거나 투자와 승부의 기회가 오기도 했겠지만, 충동적으로 지출한 부분은 다시 "
@@ -102,7 +116,7 @@ def test_past_paraphrase_paragraph_is_replaced_not_duplicated() -> None:
 
 
 def test_first_paragraph_keeps_verdict_and_drops_only_overlap() -> None:
-    line = S.simple_reference_line("己", "戊戌", "month", past=True)
+    line = _ref("己", "戊戌", "month", past=True)
     verdict = (
         "데굴님, 지난 2026년 10월 戊戌(무술)월은 나를 지지하는 기반이 두터워지면서도 누군가와 "
         "경쟁해야 하는 상황이 공존했던 시기였습니다."
@@ -194,8 +208,11 @@ def test_past_reference_line_all_ganji(horizon: str) -> None:
 
 def test_present_reference_line_unchanged_by_default() -> None:
     """반례: past 를 주지 않으면 종전 현재형 문단 그대로."""
-    line = S.simple_reference_line("己", "戊戌", "month")
+    line = _ref("己", "戊戌", "month")
     assert "달이에요" in line and "움직여요" in line and "모아보세요" in line
+    # 현재 사전(dict.v1.25 톤 개정)도 현재형·권유 문장('~하세요')을 그대로 싣는다.
+    now = S.simple_reference_line("己", "戊戌", "month")
+    assert "달이에요" in now and "넘어가기 쉬워요" in now and "힘을 합치세요" in now
 
 
 def test_report_yearly_block_uses_past_form_only_for_finished_year() -> None:
@@ -221,7 +238,7 @@ def test_report_yearly_block_uses_past_form_only_for_finished_year() -> None:
     for year, ganji in ((2026, "丙午"), (2027, "丁未")):
         now = simple_line(year)
         assert f"{ganji}년은" in now and "해예요" in now and "해였어요" not in now
-        assert "보세요" in now
+        assert "세요." in now  # 권유 문장 포함(dict.v1.25 부터 '~하세요')
 
 
 # ── '다음 해 1월' 표기 ───────────────────────────────────────────────────────

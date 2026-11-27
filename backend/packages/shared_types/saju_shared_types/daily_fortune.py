@@ -82,7 +82,15 @@ ENGINE_VERSION = "engine.v1"
 #   흐름을 '이런 명식이라면' 조건 줄에 띠별로 붙인다. 문장이 있는 4종(화개살·월살·천살·반안살 —
 #   辰戌丑未 해·달)에만 붙는다. 첫 노출은 2027년 丑월(1/5~)·未년(입춘~). 판정·사건·점수 불변
 #   (문체 전용), LLM 교정 대상 아님. 경계 LUCK_SINSAL_EFFECTIVE_FROM(11/23).
-DICT_VERSION = "dict.v1.24"
+# v1.25(2026-11-27): 단식 문장 톤 개정(docs/17 §38, 데굴님 "받아들이고 쉬는 해 같은 문장은 보다
+#   냉정하게 '본인의 의사와는 무관한 예상치 못한 단절이나 중단' 같이 임팩트 있게 · 관련된 모든
+#   영역에 전체적인 톤 정리"). `simple_layer` 의 year_tone·같은 군 강조·strong_month·season_tone·
+#   year_phase_turn·god_scene·ilju_seat, `month_layer` 의 year_link·month_action 190문장을 다시 썼다
+#   — 첫 문장은 닥치는 일을 그대로 이름 붙이고, 조언은 '~하세요'로 끊는다. 키·판정·사건·점수 불변
+#   (문체 전용), LLM 교정 대상 아님. 오늘 카드(사건·행동 문장, day_scene)는 §3 콘셉트대로 그대로다.
+#   경계 TONE_REVISION_EFFECTIVE_FROM(11/29 — 11/28 보드는 이미 생성돼 v1.24 유지). 채팅·리포트
+#   참고 줄은 날짜 경계 없이 현재 사전을 쓴다(`simple_reading._current_layers`).
+DICT_VERSION = "dict.v1.25"
 PROMPT_VERSION = "polish.v1"
 #: 서사 family 회전 계약(OA-8b). 값이 바뀌면 새 epoch 이 시작되며 **캐시만** 무효화된다
 #: — 선택 seed 에는 들어가지 않으므로 사건 배정은 흔들리지 않는다(OA-6d1).
@@ -157,6 +165,10 @@ DICT_VERSION_BEFORE_MONTH_NOTES = "dict.v1.22"
 #: v1.23 을 유지하고, 11/23 보드부터 쓴다.
 LUCK_SINSAL_EFFECTIVE_FROM = date(2026, 11, 23)
 DICT_VERSION_BEFORE_LUCK_SINSAL = "dict.v1.23"
+#: 단식 문장 톤 개정(v1.25, docs/17 §38) 적용 시작일. 11/28 보드는 11/27 저녁 선생성으로 이미
+#: 만들어져 v1.24 를 유지하고, 11/29 보드부터 쓴다.
+TONE_REVISION_EFFECTIVE_FROM = date(2026, 11, 29)
+DICT_VERSION_BEFORE_TONE_REVISION = "dict.v1.24"
 
 
 #: 상해 채널의 백호를 일주 기준으로 좁히는 기준일(model.v2.4, docs/17 §32) — 11/13 보드는 11/12
@@ -247,7 +259,7 @@ def active_dict_version(target_date: date) -> str:
         7/30 이전 v1.10 → 9/3 이전 v1.11 → 9/12 이전 v1.12 → 9/20 이전 v1.13 → 11/2 이전
         v1.14 → 11/3 이전 v1.16 → 11/5 이전 v1.17 → 11/8 이전 v1.18 → 11/12 이전 v1.20
         (v1.19 는 11/8 경계에서 당일 대체) → 11/19 이전 v1.21 → 11/20 이전 v1.22 → 11/23 이전
-        v1.23 → 이후 현재 `DICT_VERSION`(v1.24).
+        v1.23 → 11/29 이전 v1.24 → 이후 현재 `DICT_VERSION`(v1.25).
     """
     if target_date < SMALL_FIND_HEADLINE_REVERT_EFFECTIVE_FROM:
         return PREVIOUS_DICT_VERSION
@@ -273,6 +285,8 @@ def active_dict_version(target_date: date) -> str:
         return DICT_VERSION_BEFORE_MONTH_NOTES
     if target_date < LUCK_SINSAL_EFFECTIVE_FROM:
         return DICT_VERSION_BEFORE_LUCK_SINSAL
+    if target_date < TONE_REVISION_EFFECTIVE_FROM:
+        return DICT_VERSION_BEFORE_TONE_REVISION
     return DICT_VERSION
 
 
