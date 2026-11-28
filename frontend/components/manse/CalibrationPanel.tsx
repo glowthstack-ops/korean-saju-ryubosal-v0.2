@@ -16,7 +16,7 @@ import {
 } from "@/lib/calibration";
 import { elementLabel, elementStyle } from "@/lib/elements";
 import type { CalibrationResult, ManseResult, Profile } from "@/lib/types";
-import { ConsensusBadge, GhostOverlay, hourUnknownOf } from "./HourUnknown";
+import { ConsensusBadge, GhostOverlay, hourUnknownOf, isHourUnknown } from "./HourUnknown";
 
 const ALL_ELEMENTS = ["木", "火", "土", "金", "水"];
 
@@ -113,7 +113,7 @@ export function YongsinPanel({
       {ugUnconfirmed ? (
         <GhostOverlay
           label="미확정 · 시주 미상"
-          sub={`출생시각에 따라 용희신이 달라져요 — 후보 ${hu!.useful_gods.values.join(" / ")}. 풀이에서는 길흉·보완 색·방향 판단에 쓰지 않아요.`}
+          sub="출생시각에 따라 용희신이 달라져요. 풀이에서는 길흉·보완 색·방향 판단에 쓰지 않아요."
         >
           {boxes}
         </GhostOverlay>
@@ -172,7 +172,8 @@ export function YongsinPanel({
       {calibration && (
         <div className="mt-3 flex items-center justify-between rounded border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs">
           <span className="font-semibold text-emerald-800">답변 반영 완료</span>
-          {onRedo && (
+          {/* 시주 미상이면 검증 질문을 열지 않으므로 다시 진행 버튼도 내지 않는다. */}
+          {onRedo && !isHourUnknown(result) && (
             <button type="button" onClick={onRedo}
               className="rounded border border-gray-300 bg-white px-2.5 py-1 text-gray-700 hover:bg-gray-50">
               검증 다시 진행
@@ -238,6 +239,22 @@ export function CalibrationPanel({
 
   // 제출 완료 시 문항을 접는다(완료 표시·재시도는 위 '용신 후보' 패널에서 처리).
   if (submitted) return null;
+
+  // 시주 미상 — 검증 질문을 열지 않는다(2026-11-28 데굴님 "불필요한 용신 질문도 노출"). 세 기둥만으로
+  // 만든 후보를 과거 경험으로 가르는 문항이라, 출생시간이 정해지기 전에는 답을 받아도 확정 근거가
+  // 되지 못한다. 이미 등록된 확정 용신은 그대로 두고(표시만), 다시 검증 버튼은 내지 않는다.
+  if (isHourUnknown(result)) {
+    return (
+      <section className="rounded-lg border bg-white p-4">
+        <h2 className="mb-1 text-sm font-semibold">용신 검증 질문</h2>
+        <p className="text-xs leading-relaxed text-gray-500">
+          {registered
+            ? "등록된 용신이 있어요. 출생시간이 없는 동안에는 검증 질문을 다시 열지 않아요."
+            : "출생시간이 없으면 용신 검증 질문을 열지 않아요. 시간에 따라 용신 후보가 달라질 수 있어, 출생시간을 입력한 뒤에 검증할 수 있어요."}
+        </p>
+      </section>
+    );
+  }
 
   // 이미 DB에 등록된 용신이 있으면 질문 대신 '등록 완료'를 보여준다 — 원하면 다시 검증 가능.
   if (registered && !reverify) {

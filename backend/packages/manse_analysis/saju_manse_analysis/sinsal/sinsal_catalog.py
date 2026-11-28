@@ -103,6 +103,9 @@ CATALOG_META: dict[str, dict] = {
     "진신": {"category": "noble_stars", "polarity": "positive", "tags": ["전진", "추진"]},
     "홍란": {"category": "relationship_social", "polarity": "positive", "tags": ["혼인", "경사"]},
     "천희": {"category": "relationship_social", "polarity": "positive", "tags": ["경사"]},
+    # 2026-11-28 추가(데굴님 "대조 후 이번 범위에 포함") — 현대 한국 자료 3곳의 표·대조 자리가 일치.
+    # 보조 상징이며 사건 예측 근거 아님. 근거는 doc/v2_2/EXTERNAL_TEXT_GAP_CHOI_LIVE.md §4.
+    "황은대사": {"category": "noble_stars", "polarity": "positive", "tags": ["구제", "수습"]},
     # 공망은 신살과 별개 레이어(StructureAnalysis.gongmang)로 표시한다.
 }
 
@@ -430,6 +433,14 @@ WOLGONG: dict[B, S] = {
     B.HAE: S.GYEONG, B.MYO: S.GYEONG, B.MI: S.GYEONG,
     B.SA: S.GAP, B.YU: S.GAP, B.CHUK: S.GAP,
 }
+# 황은대사(皇恩大赦) — 월지 → 지지. 원국 일지·시지에 그 글자가 있을 때만 본다(2026-11-28 추가,
+# devcomma 계산기·역학동 조견표·sajuabc 세 곳의 표가 같다). 천사(天赦, 계절×일주)와는 별개.
+HWANGEUN: dict[B, B] = {
+    B.JA: B.SIN, B.CHUK: B.MI, B.IN: B.SUL, B.MYO: B.CHUK, B.JIN: B.IN, B.SA: B.SA,
+    B.O: B.YU, B.MI: B.MYO, B.SIN: B.JA, B.YU: B.O, B.SUL: B.HAE, B.HAE: B.JIN,
+}
+#: 황은대사를 대조하는 원국 자리(일지·시지).
+HWANGEUN_POSITIONS: frozenset[str] = frozenset({"day", "hour"})
 # 육수(六秀) — 일주 6종. 진신(進神) — 일주 4종.
 YUKSU: set[tuple[S, B]] = {
     (S.BYEONG, B.O), (S.JEONG, B.MI), (S.MU, B.JA), (S.MU, B.O), (S.GI, B.CHUK), (S.GI, B.MI),

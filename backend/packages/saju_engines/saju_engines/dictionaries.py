@@ -17,7 +17,7 @@ import hashlib
 import json
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -227,7 +227,23 @@ class IljuItem(_AliasModel):
     reviewed: bool
 
 
-class TenGodTextItem(_AliasModel):
+class _SceneVocabMixin(_AliasModel):
+    """생활 장면 어휘 필드(선택, 2026-11-28 — doc/v2_2/EXTERNAL_TEXT_GAP_CHOI_LIVE.md §7).
+
+    서술 전용이며 점수·판정에 관여하지 않는다. scenes=본인이 자기 일로 확인할 생활 장면,
+    mechanism=성립 조건에서 참인 원리 한 줄(일반 규칙이 서지 않으면 비운다), how_to_treat=주변
+    사람이 대하는 법, tease=놀림 소재 한 줄(판정·조언 아님 — 말투는 페르소나가 입힌다).
+    """
+
+    scenes: list[Annotated[str, Field(min_length=15)]] | None = Field(
+        default=None, min_length=1, max_length=3,
+    )
+    mechanism: str | None = Field(default=None, min_length=15)
+    how_to_treat: str | None = Field(default=None, alias="howToTreat", min_length=15)
+    tease: str | None = Field(default=None, min_length=10)
+
+
+class TenGodTextItem(_SceneVocabMixin):
     """십성 해석 항목 (interpretations/ten_gods_text.json) — 일간 중심·상황 의존."""
 
     ten_god: str = Field(alias="tenGod")
@@ -290,7 +306,7 @@ class SinsalByPosition(_AliasModel):
     personal: str = Field(min_length=10)
 
 
-class SinsalTextItem(_AliasModel):
+class SinsalTextItem(_SceneVocabMixin):
     """신살 해석 항목 (interpretations/sinsal_text.json) — 전 항목 보조 자료 강제.
 
     flip_side 의무(2026-06-12 사용자 확정): 길신의 그림자(예: 천을귀인 과다=나태)와
@@ -318,6 +334,7 @@ class SinsalTextItem(_AliasModel):
         "子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥",
     ], str] | None = Field(default=None, alias="byBranch")
     advice: str | None = None
+    # 장면 어휘 필드(scenes·mechanism·howToTreat·tease)는 `_SceneVocabMixin` 에서 온다.
 
 
 class StemTextItem(_AliasModel):
@@ -1004,7 +1021,7 @@ class RepetitionTextFile(_AliasModel):
     palace: list[RepetitionPalaceItem] = Field(default_factory=list)
 
 
-class TenGodGroupTraitItem(_AliasModel):
+class TenGodGroupTraitItem(_SceneVocabMixin):
     """십성다자 성향 1건 (interpretations/ten_god_group_traits.json, 2026-10-27).
 
     같은 십성군이 많아도 두 갈래(face_a/face_b)로 상반되게 드러날 수 있어 둘을 함께 싣는다.
@@ -1021,6 +1038,16 @@ class TenGodGroupTraitItem(_AliasModel):
     )
     lean_a: str | None = Field(default=None, alias="leanA", min_length=10)
     reviewed: bool
+    # 1.2.0(2026-11-28 생활 장면 어휘 층 P1-2) — 서술 전용 선택 칸. scenes(믹스인)=그 군이 많을 때의
+    # 장면, scenes_absent=그 군이 표면에 없을 때의 장면, study=배우고 익히는 방식과 권하는 방법,
+    # parting=다툼·이별에서 드러나는 방식, tease_absent·advice_absent=부재 쪽 놀림 소재·권하는 행동.
+    scenes_absent: list[Annotated[str, Field(min_length=15)]] | None = Field(
+        default=None, alias="scenesAbsent", min_length=1, max_length=3,
+    )
+    study: str | None = Field(default=None, min_length=15)
+    parting: str | None = Field(default=None, min_length=15)
+    tease_absent: str | None = Field(default=None, alias="teaseAbsent", min_length=10)
+    advice_absent: str | None = Field(default=None, alias="adviceAbsent", min_length=10)
 
 
 class TenGodGroupTraitsFile(_AliasModel):
@@ -3784,6 +3811,55 @@ _YEAR_SINSAL_BANNED = (
 )
 
 
+#: 장면 어휘 필드에 쓰지 않는 단정 어휘(doc/v2_2/EXTERNAL_TEXT_GAP_CHOI_LIVE.md §7).
+_SCENE_ASSERTIVE_WORDS: tuple[str, ...] = ("반드시", "무조건", "틀림없이", "확실히", "100%")
+#: 장면·놀림 칸에 쓰지 않는 진단명(2026-11-28 데굴님 확인) — 건강·신체 소재는 "잠이 보약인 쪽"
+#: 같은 일상어 놀림으로만 쓴다.
+_SCENE_DIAGNOSIS_WORDS: tuple[str, ...] = (
+    "ADHD", "우울증", "조울", "공황", "불면증", "수면장애", "성격장애", "강박증", "증후군",
+    "과잉행동", "회피형", "불안형",
+)
+
+
+def _scene_text_errors(head: str, name: str, fields: list[tuple[str, str | None]]) -> list[str]:
+    """장면 어휘 칸 공용 검사 — 단정 어휘·진단명 금지. fields=(칸 이름, 문장) 목록."""
+    errors: list[str] = []
+    for field, text in fields:
+        if not text:
+            continue
+        for bad in _SCENE_ASSERTIVE_WORDS:
+            if bad in text:
+                errors.append(f"{head}: {name} {field} 에 단정 어휘 '{bad}'")
+        for bad in _SCENE_DIAGNOSIS_WORDS:
+            if bad in text:
+                errors.append(f"{head}: {name} {field} 에 진단명 '{bad}'")
+    return errors
+
+
+def _scene_mixin_fields(item: _SceneVocabMixin) -> list[tuple[str, str | None]]:
+    """믹스인 네 칸을 (칸 이름, 문장) 목록으로 편다."""
+    return [
+        *(("scenes", s) for s in (item.scenes or [])), ("mechanism", item.mechanism),
+        ("howToTreat", item.how_to_treat), ("tease", item.tease),
+    ]
+
+
+def _lint_sinsal_text(file: SinsalTextFile) -> list[str]:
+    """sinsal_text.json — 이름 중복 금지, 장면 어휘 필드(scenes·mechanism·howToTreat·tease)의
+    단정 어휘·진단명 금지·장면 중복 금지."""
+    head = "interpretations/sinsal_text.json"
+    errors: list[str] = []
+    names = [it.name for it in file.items]
+    for name in sorted({n for n in names if names.count(n) > 1}):
+        errors.append(f"{head}: 이름 중복 — {name}")
+    for it in file.items:
+        scenes = it.scenes or []
+        if len(set(scenes)) != len(scenes):
+            errors.append(f"{head}: {it.name} scenes 에 같은 문장이 중복")
+        errors.extend(_scene_text_errors(head, it.name, _scene_mixin_fields(it)))
+    return errors
+
+
 def _lint_year_sinsal_text(file: YearSinsalTextFile) -> list[str]:
     """year_sinsal_text.json — 기준 자리 3종 정확 커버리지, 12신살 이름 유효·중복 금지,
     결과 확정·공포 어휘 금지(서술 전용 층)."""
@@ -4044,6 +4120,20 @@ def _lint_ten_god_group_traits(file: TenGodGroupTraitsFile) -> list[str]:
         for w in _LOVE_TYPE_BANNED:
             if w in text:
                 errors.append(f"{head}: {i.group} 문구에 금지 어휘 '{w}'")
+        # 1.2.0 장면 칸 — 단정 어휘·진단명·낙인 어휘 금지, 있음/부재 장면 중복 금지.
+        scene_fields = [
+            *_scene_mixin_fields(i), *(("scenesAbsent", s) for s in (i.scenes_absent or [])),
+            ("study", i.study), ("parting", i.parting),
+            ("teaseAbsent", i.tease_absent), ("adviceAbsent", i.advice_absent),
+        ]
+        errors.extend(_scene_text_errors(head, i.group, scene_fields))
+        for field, scene in scene_fields:
+            for w in _LOVE_TYPE_BANNED:
+                if scene and w in scene:
+                    errors.append(f"{head}: {i.group} {field} 에 금지 어휘 '{w}'")
+        every = [*(i.scenes or []), *(i.scenes_absent or [])]
+        if len(set(every)) != len(every):
+            errors.append(f"{head}: {i.group} 장면 문장이 중복")
     return errors
 
 
@@ -4141,10 +4231,14 @@ def _lint_ilju_wealth_claims(item: IljuItem) -> list[str]:
 
 def _lint_ten_gods_text(file: TenGodsTextFile) -> list[str]:
     """ten_gods_text.json — 십성 10종 정확 커버리지."""
+    head = "interpretations/ten_gods_text.json"
     got = {item.ten_god for item in file.items}
     if got != set(_TEN_GOD_NAMES):
-        return [f"interpretations/ten_gods_text.json: 십성 커버리지 불일치 — {sorted(got)}"]
-    return []
+        return [f"{head}: 십성 커버리지 불일치 — {sorted(got)}"]
+    errors: list[str] = []
+    for item in file.items:
+        errors.extend(_scene_text_errors(head, item.ten_god, _scene_mixin_fields(item)))
+    return errors
 
 
 def _lint_twelve_stages_text(file: TwelveStagesTextFile) -> list[str]:
@@ -4766,6 +4860,8 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_exam_stage_traits(parsed))
         elif isinstance(parsed, AxisArrivalLensFile):
             errors.extend(_lint_axis_arrival_lens(parsed, _structure_pattern_ids(directory)))
+        elif isinstance(parsed, SinsalTextFile):
+            errors.extend(_lint_sinsal_text(parsed))
         elif isinstance(parsed, YearSinsalTextFile):
             errors.extend(_lint_year_sinsal_text(parsed))
         elif isinstance(parsed, RelationshipTendencyTextFile):

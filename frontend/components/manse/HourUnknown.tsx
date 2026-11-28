@@ -118,8 +118,27 @@ export function ConsensusBadge({
 }
 
 /**
+ * 한 줄 값(강약 등급·격 이름)용 고스트 — 값만 흐리게 두고 안내 문구는 싣지 않는다.
+ *
+ * 한 줄짜리 값 위에 라벨·후보 문구를 덮으면 글자 높이보다 안내가 커서 카드 제목과 아래 줄을 가린다
+ * (2026-11-28 데굴님 화면 지적). 안내와 후보 목록은 바로 옆 `ConsensusBadge` 가 맡는다.
+ */
+export function GhostInline({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <span className="inline-block max-w-full rounded bg-gray-100 px-1" aria-label={label}>
+      <span className="pointer-events-none select-none blur-[3px] opacity-60" aria-hidden>
+        {children}
+      </span>
+    </span>
+  );
+}
+
+/**
  * 반투명 고스트 레이어 — children(흐린 예시 또는 미확정 값)을 blur 처리하고 그 위에 안내 라벨을
  * 덮는다. 영역의 크기와 배치는 그대로 유지되어 "여기에 무엇이 들어오는지" 짐작할 수 있다.
+ *
+ * 두 층을 같은 격자 칸에 겹쳐 쌓는다(2026-11-28). 안내 문구가 흐린 예시보다 길면 영역이 문구 높이만큼
+ * 늘어난다 — 절대 배치였을 때는 좁은 화면에서 문구가 영역 밖으로 넘쳐 위·아래 내용을 가렸다.
  */
 export function GhostOverlay({
   label,
@@ -133,13 +152,16 @@ export function GhostOverlay({
   className?: string;
 }) {
   return (
-    <div className={`relative ${className}`} aria-label={label}>
-      <div className="pointer-events-none select-none blur-[3px] opacity-60" aria-hidden>
+    <div className={`grid ${className}`} aria-label={label}>
+      <div
+        className="pointer-events-none col-start-1 row-start-1 min-w-0 select-none blur-[3px] opacity-60"
+        aria-hidden
+      >
         {children}
       </div>
-      <div className="absolute inset-0 flex flex-col items-center justify-center rounded bg-white/55 px-2 text-center">
+      <div className="z-[1] col-start-1 row-start-1 flex min-w-0 flex-col items-center justify-center rounded bg-white/55 px-2 py-1.5 text-center">
         <span className="rounded bg-gray-800/80 px-2 py-0.5 text-[11px] font-medium text-white">{label}</span>
-        {sub && <span className="mt-1 text-[10px] leading-tight text-gray-600">{sub}</span>}
+        {sub && <span className="mt-1 text-[10px] leading-snug text-gray-600">{sub}</span>}
       </div>
     </div>
   );

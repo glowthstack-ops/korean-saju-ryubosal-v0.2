@@ -264,6 +264,7 @@ def _detect(pillars: FourPillarsResult, gender: str | None = None) -> list[_Dete
             ("협록", "wealth_status", pos, f"정록 {rok} 협({prev_b}{next_b})") for pos in hyeop_pos
         )
     out.extend(_added_20261112(pillars, positions))
+    out.extend(_hwangeun(pillars, positions))
     out.extend(_positional_twelve_sinsal(positions, year_branch, day_branch))
     return out
 
@@ -324,6 +325,24 @@ def _added_20261112(
             if pos != "year" and Branch(p.branch) == target:
                 out.append((name, meta_cat(name), pos, f"년지 {year_branch} 기준 {p.branch}"))
     return out
+
+
+def _hwangeun(
+    pillars: FourPillarsResult, positions: list[tuple[str, Pillar]],
+) -> list[_Detection]:
+    """황은대사(皇恩大赦) — 월지에 대응하는 글자가 원국 일지·시지에 있을 때(2026-11-28 추가).
+
+    현대 한국 자료 3곳의 표와 대조 자리가 같다(doc/v2_2/EXTERNAL_TEXT_GAP_CHOI_LIVE.md §4).
+    연지·월지의 같은 글자는 성립으로 보지 않고, 운에서는 판정하지 않는다.
+    """
+    month_branch = Branch(pillars.month.branch)
+    target = cat.HWANGEUN[month_branch]
+    category = str(cat.CATALOG_META["황은대사"]["category"])
+    return [
+        ("황은대사", category, pos, f"월지 {month_branch} 기준 {p.branch}")
+        for pos, p in positions
+        if pos in cat.HWANGEUN_POSITIONS and Branch(p.branch) == target
+    ]
 
 
 def _positional_twelve_sinsal(

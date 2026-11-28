@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Collapsible } from "@/components/layout/Collapsible";
 import { InfoTooltip } from "@/components/layout/InfoTooltip";
-import { ConsensusBadge, GhostOverlay, hourUnknownOf, isHourUnknown } from "./HourUnknown";
+import { ConsensusBadge, GhostInline, GhostOverlay, hourUnknownOf, isHourUnknown } from "./HourUnknown";
 import { FolkCompass, folkDegreeLabel } from "./FolkCompass";
 import { fetchLuckMonths, fetchPatternTimeline } from "@/lib/api";
 import { visibleSinsal } from "@/lib/sinsal-display";
@@ -211,9 +211,9 @@ export function StrengthPanel({ result }: { result: ManseResult }) {
   const hu = hourUnknownOf(result);
   const unconfirmed = hu?.unconfirmed.includes("strength_band") ?? false;
   const band = unconfirmed ? (
-    <GhostOverlay label="미확정 · 시주 미상" sub={`후보 ${hu!.strength_band.values.join(" / ")}`}>
-      <b className="inline-block min-w-[9rem] px-2">{st.band}</b>
-    </GhostOverlay>
+    <GhostInline label="미확정 · 시주 미상">
+      <b>{st.band}</b>
+    </GhostInline>
   ) : (
     <b>{st.band}</b>
   );
@@ -511,9 +511,9 @@ export function GeokgukPanel({ result }: { result: ManseResult }) {
   const hu = hourUnknownOf(result);
   const geokUnconfirmed = hu?.unconfirmed.includes("geokguk") ?? false;
   const mainName = geokUnconfirmed ? (
-    <GhostOverlay label="미확정 · 시주 미상" sub={`후보 ${hu!.geokguk.values.join(" / ")}`}>
-      <b className="inline-block min-w-[8rem] px-2">{String(g.main_structure)}</b>
-    </GhostOverlay>
+    <GhostInline label="미확정 · 시주 미상">
+      <b>{String(g.main_structure)}</b>
+    </GhostInline>
   ) : (
     <b>{String(g.main_structure)}</b>
   );
@@ -1368,7 +1368,12 @@ export function LuckPanel({
   // 2026-10-17 새로고침 누락 수정: ①캐시가 비워지면(위 효과) 다시 조회되도록 의존성에 캐시를 둔다
   // ②timeOptions 객체 식별자가 렌더마다 바뀌어도 진행 중인 조회를 취소하지 않는다(세대 번호로만 걸러냄)
   // ③동시 중복 조회는 진행 중인 연도 집합으로 막는다.
+  // 2026-11-28 첫 진입 간헐 누락 수정: ④조회 도중 결과가 한 번 더 바뀌면(저장된 검증 결과 도착 등)
+  // 세대가 올라가 그 조회 결과는 버려지는데, 그 순간에는 ③ 때문에 새 조회도 시작되지 못했다. 조회가
+  // 끝난 뒤에는 의존성이 바뀌지 않아 다시 시도할 계기가 없었다 → 버려진 조회가 끝나면 재시도 표지를
+  // 올려 현재 세대로 다시 조회한다.
   const tlInflight = useRef<Set<number>>(new Set());
+  const [tlRetry, setTlRetry] = useState(0);
   const timeOptionsKey = JSON.stringify(timeOptions ?? {});
   useEffect(() => {
     if (selYear == null || !profile || timelineCache[selYear] || tlInflight.current.has(selYear)) return;
@@ -1383,10 +1388,15 @@ export function LuckPanel({
       .catch(() => { /* 무시: 실패 시 영역 미표시 */ })
       .finally(() => {
         tlInflight.current.delete(year);
+        if (tlEpoch.current !== epoch) {
+          // 이 조회는 옛 세대 것이라 버려졌다 — 로딩 표시는 그대로 두고 현재 세대로 다시 조회한다.
+          setTlRetry((n) => n + 1);
+          return;
+        }
         setLoadingTimeline((cur) => (cur === year ? null : cur));
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selYear, profile, timeOptionsKey, timelineCache]);
+  }, [selYear, profile, timeOptionsKey, timelineCache, tlRetry]);
   if (!lc) return null;
 
   const jiao = (lc.trace?.exact_jiao_un_dates as string[] | undefined) ?? [];

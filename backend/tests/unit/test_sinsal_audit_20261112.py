@@ -260,7 +260,8 @@ def test_added_names_have_catalog_meta() -> None:
         "육수", "진신", "홍란", "천희",
     }
     assert added <= set(cat.CATALOG_META)
-    assert added | TWELVE_SINSAL_POSITIONAL == cfg.SINSAL_PAYLOAD_LOW_PRIORITY
+    # 2026-11-28 황은대사 추가분도 같은 뒤 순위(test_scene_vocabulary_20261128 이 따로 검증).
+    assert added | TWELVE_SINSAL_POSITIONAL | {"황은대사"} == cfg.SINSAL_PAYLOAD_LOW_PRIORITY
 
 
 # ── 6. 소비처 — 죽은 참조 해소·LLM 선별 순위 ─────────────────────────────────────
