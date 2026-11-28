@@ -122,6 +122,7 @@ from .month_coverage_audit import best_quality_rows
 from .opportunity_engine import EVENT_DOMAINS, detect_opportunities, format_opportunity_notes
 from .relation_claim_audit import canonical_claim_lines
 from .relationship_hints import is_non_romantic_relation
+from .scene_vocab import SCENE_KIND, SCENE_VOCAB_USE_RULE
 from .sinsal_direction import (
     ASKED_DIRECTION_DIRECTIVE,
     DIRECTION_ANSWER_DIRECTIVE,
@@ -3208,7 +3209,12 @@ def serialize_chart_prefix(summary: BirthChartSummary, ci: ChartInterpretation |
             if ci.ilju_text:
                 lines.append(ci.ilju_text)
                 lines.append(ILJU_WEALTH_USE_RULE)
+            scene_rule_added = False
             for ex in ci.excerpts:
+                # 생활 장면 발췌 앞에는 사용 규칙을 한 번 싣는다(2026-11-28).
+                if ex.kind == SCENE_KIND and not scene_rule_added:
+                    lines.append(SCENE_VOCAB_USE_RULE)
+                    scene_rule_added = True
                 lines.append(f"{ex.key}: {ex.text}")
         _append_operational_summary(lines, ci.yongsin_operational_summary)
     return lines

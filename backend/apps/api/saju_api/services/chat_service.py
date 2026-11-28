@@ -210,6 +210,7 @@ from saju_engines.relationship_hints import (
 )
 from saju_engines.relationship_tendency import relationship_tendency_lines
 from saju_engines.rewriter import QueryAssessment, assess
+from saju_engines.scene_vocab import find_on_off_claims
 from saju_engines.selection_intent import detect_selection_query
 from saju_engines.shadow_scoring import domain_to_expression_key
 from saju_engines.structural_context import (
@@ -225,6 +226,7 @@ from saju_engines.structural_context import (
     EVIDENCE_FIDELITY_DIRECTIVE,
     GONGMANG_ACTIVATION_DIRECTIVE,
     LOVE_MARRIAGE_UNIFIED_DIRECTIVE,
+    LUCK_FELT_CHAIN_DIRECTIVE,
     MANAGE_NOT_OVERCOME_DIRECTIVE,
     MARRIAGE_TWO_AXIS_DIRECTIVE,
     NON_NORMATIVE_REASSURANCE_DIRECTIVE,
@@ -2827,6 +2829,14 @@ def finalize_answer_text(answer: str, thread_id: str | None = None) -> str:
         _logger.warning(
             "impossible_relation_stripped count=%d pairs=%s thread=%s",
             len(_bad_rel), [f"{c.pair}{c.relation}" for c in _bad_rel], thread_id,
+        )
+    # 생활 장면 어휘 층(2026-11-28) — '충·형·공망 때문에 귀인·신살을 못 쓴다'는 문장은 로그로만
+    # 남긴다(답은 고치지 않는다 — 노출 뒤 실답 감수 재료).
+    _on_off = find_on_off_claims(answer)
+    if _on_off:
+        _logger.warning(
+            "scene_on_off_claim count=%d first=%s thread=%s",
+            len(_on_off), _on_off[0][:80], thread_id,
         )
     answer, _changes = rewrite_false_contrast(answer)
     if _changes:
@@ -8478,6 +8488,8 @@ def chat(
         trailing.append(DAEWOON_TRANSITION_SIGNALS_DIRECTIVE)
         # 운 품질 → 의사결정 태도 번역(좋은 시기=직감 실행, 불안정=점검·내실 — 사례 P0-5).
         trailing.append(DECISION_ATTITUDE_DIRECTIVE)
+        # 운의 체감을 원인→결과로(2026-11-28) — 등급은 그대로, 느껴지는 모습만 인과 순서로.
+        trailing.append(LUCK_FELT_CHAIN_DIRECTIVE)
     # 기간×과업 점검(2026-07-22 테스터 요청 형식) — 명시 창 + 과업 명사 + 점검 질문이면
     # 과업별 소제목 구조 강제. 과업은 질문과 사실 원장(planned_task/remaining 인용) 양쪽에서
     # 수집한다(이전 턴에 밝힌 과업도 포함).

@@ -214,6 +214,14 @@ SEASON_FORTUNE_LINE_ENABLED: bool = (
     os.environ.get("SAJU_SEASON_FORTUNE_LINE_ENABLED", "true").strip().lower()
     in ("1", "true", "yes")
 )
+# 생활 장면 어휘 층(2026-11-28 데굴님 승인 — doc/v2_2/EXTERNAL_TEXT_GAP_CHOI_LIVE.md).
+# 명식 해석 자료 끝에 일간·강약·십성군·신살·공망·충의 장면/대하는 법/놀림 소재 발췌와
+# 사용 규칙을 싣는다. 서술 전용(점수·판정·후보 선별 불변). 끄면 발췌가 붙지 않아 종전
+# 프롬프트와 같다.
+SCENE_VOCAB_ENABLED: bool = (
+    os.environ.get("SAJU_SCENE_VOCAB_ENABLED", "true").strip().lower()
+    in ("1", "true", "yes")
+)
 ENTRY_TENURE_NOTE_ENABLED: bool = (
     os.environ.get("SAJU_ENTRY_TENURE_NOTE_ENABLED", "true").strip().lower()
     in ("1", "true", "yes")
@@ -383,6 +391,7 @@ def active_versions() -> dict[str, str | bool]:
         "invest_month_advice_enabled": INVEST_MONTH_ADVICE_ENABLED,
         "compat_element_affinity_enabled": COMPAT_ELEMENT_AFFINITY_ENABLED,
         "season_fortune_line_enabled": SEASON_FORTUNE_LINE_ENABLED,
+        "scene_vocab_enabled": SCENE_VOCAB_ENABLED,
         # LLM 재호출은 설계상 존재하지 않는다(요청당 1회 고정) — 계측 계약으로 못박는다.
         "llm_retry_policy": "none",
     }

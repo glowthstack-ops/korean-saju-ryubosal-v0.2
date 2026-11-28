@@ -188,6 +188,7 @@ from saju_engines.structural_context import (
     EVIDENCE_FIDELITY_DIRECTIVE,
     GONGMANG_ACTIVATION_DIRECTIVE,
     KEYWORD_COMBO_TRANSLATION_DIRECTIVE,
+    LUCK_FELT_CHAIN_DIRECTIVE,
     MANAGE_NOT_OVERCOME_DIRECTIVE,
     MARRIAGE_TWO_AXIS_DIRECTIVE,
     NON_NORMATIVE_REASSURANCE_DIRECTIVE,
@@ -5254,6 +5255,8 @@ def build_section_context(
         lines += ["", _OFF_PEAK_DAEWOON_ADVICE_DIRECTIVE]
         # 상담 사례 파생(P0) — 행동 전략은 '극복 아니라 관리' + 운 품질→의사결정 태도 번역.
         lines += [MANAGE_NOT_OVERCOME_DIRECTIVE, DECISION_ATTITUDE_DIRECTIVE]
+        # 운의 체감을 원인→결과로(2026-11-28).
+        lines.append(LUCK_FELT_CHAIN_DIRECTIVE)
     # 상담 사례 파생(P1·P2) — 활동 키워드·개운 행동 블록 + 키워드 조합 번역 지시(J-07).
     if sid in _ACTIVITY_REMEDY_SECTIONS:
         _ar = data.activity_remedy_block()

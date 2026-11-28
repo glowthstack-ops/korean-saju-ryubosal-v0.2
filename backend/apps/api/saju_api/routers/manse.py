@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+from saju_manse_analysis.sinsal.sinsal_catalog import HIDDEN_NAMES
 
+from saju_engines.scene_vocab import sinsal_glossary_all
 from saju_shared_types.birth_input import BirthInput
 from saju_shared_types.calibration import CalibrationResult, FeedbackAnswer
 from saju_shared_types.luck import LuckPillar
@@ -90,6 +92,27 @@ class HourTraitsRequest(BaseModel):
     """시주 후보 성향 문장 요청 — 시간 미상 명식(대략 시간대가 있으면 그 범위만)."""
 
     birth: BirthInput
+
+
+class SinsalGlossaryEntry(BaseModel):
+    """신살 풀이 1건(화면용) — 해석 사전 `sinsal_text.json` 발췌. 보조 자료이며 길흉 판정 아님."""
+
+    meaning: str
+    manifestation: str
+    flip_side: str
+    scenes: list[str] = Field(default_factory=list)
+    mechanism: str | None = None
+    how_to_treat: str | None = None
+    tease: str | None = None
+
+
+@router.get("/sinsal-glossary", response_model=dict[str, SinsalGlossaryEntry])
+def sinsal_glossary_endpoint() -> dict[str, SinsalGlossaryEntry]:
+    """신살 이름 → 풀이(뜻·발현·양면·장면·원리·대하는 법·한마디). 숨김 신살은 싣지 않는다."""
+    return {
+        name: SinsalGlossaryEntry(**entry)
+        for name, entry in sinsal_glossary_all(HIDDEN_NAMES).items()
+    }
 
 
 @router.post("/hour-traits", response_model=hour_narrowing.HourTraitsResponse)

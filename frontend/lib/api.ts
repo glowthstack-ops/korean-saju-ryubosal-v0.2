@@ -172,6 +172,32 @@ export async function fetchPatternTimeline(
   });
 }
 
+/** 신살 풀이 1건(화면용) — 백엔드 `SinsalGlossaryEntry`. 보조 자료이며 길흉 판정이 아니다. */
+export interface SinsalGlossaryEntry {
+  meaning: string;
+  manifestation: string;
+  flip_side: string;
+  scenes: string[];
+  mechanism: string | null;
+  how_to_treat: string | null;
+  tease: string | null;
+}
+
+let sinsalGlossaryPromise: Promise<Record<string, SinsalGlossaryEntry>> | null = null;
+
+/** 신살 풀이 사전 — 내용이 고정이라 한 번만 받아 둔다. 실패하면 다음 호출에서 다시 받는다. */
+export function fetchSinsalGlossary(): Promise<Record<string, SinsalGlossaryEntry>> {
+  if (!sinsalGlossaryPromise) {
+    sinsalGlossaryPromise = getJSON<Record<string, SinsalGlossaryEntry>>(
+      "/api/v2/manse/sinsal-glossary",
+    ).catch((e) => {
+      sinsalGlossaryPromise = null;
+      throw e;
+    });
+  }
+  return sinsalGlossaryPromise;
+}
+
 export async function fetchLuckDays(
   profile: Profile,
   year: number,

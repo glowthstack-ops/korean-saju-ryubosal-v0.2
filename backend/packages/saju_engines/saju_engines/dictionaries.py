@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Annotated, Literal
@@ -275,7 +276,7 @@ class TwelveStageTextItem(_AliasModel):
     natal_by_palace: dict[str, str]
 
 
-class RelationTextItem(_AliasModel):
+class RelationTextItem(_SceneVocabMixin):
     """관계 해석 항목 (interpretations/relations_text.json) — relations.json id와 1:1.
 
     role=auxiliary는 보조 자료 — 단독으로 결론을 단정할 수 없다(암합·신살,
@@ -337,7 +338,7 @@ class SinsalTextItem(_SceneVocabMixin):
     # 장면 어휘 필드(scenes·mechanism·howToTreat·tease)는 `_SceneVocabMixin` 에서 온다.
 
 
-class StemTextItem(_AliasModel):
+class StemTextItem(_SceneVocabMixin):
     """천간 물상 항목 (interpretations/stems_branches_text.json)."""
 
     char: str = Field(min_length=1, max_length=1)
@@ -349,7 +350,7 @@ class StemTextItem(_AliasModel):
     reviewed: bool
 
 
-class BranchTextItem(_AliasModel):
+class BranchTextItem(_SceneVocabMixin):
     """지지 물상 항목 (interpretations/stems_branches_text.json)."""
 
     char: str = Field(min_length=1, max_length=1)
@@ -445,6 +446,8 @@ class DohwaTextFile(_AliasModel):
     note: str | None = None
     types: list[DohwaTypeText] = Field(min_length=4, max_length=4)
     combos: list[DohwaComboText] = Field(min_length=5, max_length=5)
+    # 1.2.0(2026-11-28) — 도화가 성립하지 않는 명식에 붙이는 한 줄("없다=끄는 힘이 없다"가 아님).
+    absent_note: str | None = Field(default=None, alias="absentNote", min_length=15)
 
 
 class PeerMobilityTextItem(_AliasModel):
@@ -1063,6 +1066,10 @@ class StemsBranchesTextFile(_AliasModel):
     note: str | None = None
     stems: list[StemTextItem] = Field(min_length=10, max_length=10)
     branches: list[BranchTextItem] = Field(min_length=12, max_length=12)
+    # 1.1.0(2026-11-28) — 그 오행이 지나치게 많거나 표면에 없을 때의 놀림 소재(판정·조언 아님).
+    element_teases: dict[Literal["木", "火", "土", "金", "水"], str] | None = Field(
+        default=None, alias="elementTeases",
+    )
 
 
 class FavorabilityTextFile(_AliasModel):
@@ -1324,11 +1331,76 @@ class VoidTenGodItem(_AliasModel):
     evidence_status: str | None = None
 
 
+class StrengthTraitItem(_SceneVocabMixin):
+    """신강·신약 쪽별 성향 서술 1건 (interpretations/strength_traits.json, 2026-11-28).
+
+    bands=그 쪽에 속하는 강약 등급(7단계), contrast=반대쪽과 나란히 놓고 보는 한 줄. 서술 전용이며
+    강약 판정·용신에 관여하지 않는다. 시주 미상으로 등급이 미확정이면 쓰지 않는다(배선 쪽 가드).
+    """
+
+    side: Literal["weak", "balanced", "strong"]
+    bands: list[str] = Field(min_length=1)
+    contrast: str | None = Field(default=None, min_length=15)
+    reviewed: bool
+
+
+class StrengthTraitsFile(_AliasModel):
+    version: str
+    note: str | None = None
+    # 양간·음간에 따른 기울기 한 줄(경향 서술).
+    yin_yang_lean: str | None = Field(default=None, alias="yinYangLean", min_length=15)
+    items: list[StrengthTraitItem] = Field(min_length=3, max_length=3)
+
+
+class ContrastReaction(_AliasModel):
+    """같은 상황에서의 반응 1건 — when 은 엔진 판정 조건(문법은 `_CONTRAST_WHEN_RE`)."""
+
+    when: str
+    label: str = Field(min_length=2)
+    text: str = Field(min_length=10)
+
+
+class ContrastSceneItem(_AliasModel):
+    """같은 상황, 다른 반응 1건 (interpretations/contrast_scenes.json, 2026-11-28)."""
+
+    id: str
+    situation: str = Field(min_length=5)
+    reactions: list[ContrastReaction] = Field(min_length=2)
+    reviewed: bool
+
+
+class ContrastScenesFile(_AliasModel):
+    version: str
+    note: str | None = None
+    items: list[ContrastSceneItem] = Field(min_length=1)
+
+
+class VoidGeneralText(_AliasModel):
+    """원국 공망 총론(2026-11-28 생활 장면 어휘 층 P1-4) — 성향 서술 전용.
+
+    공망의 활성·완화 판정(충발·전실·합)은 기존 의미론 그대로이며 이 문구는 관여하지 않는다.
+    """
+
+    text: str = Field(min_length=15)
+    scenes: list[Annotated[str, Field(min_length=15)]] = Field(min_length=1, max_length=3)
+    advice: str = Field(min_length=10)
+    reviewed: bool
+
+
+class VoidPalaceItem(_SceneVocabMixin):
+    """공망 궁위별 성향 서술 1건(year/month/hour) — 일주는 공망 기준이라 항목이 없다."""
+
+    palace: Literal["year", "month", "hour"]
+    reviewed: bool
+
+
 class VoidTenGodTextFile(_AliasModel):
     version: str
     reviewed: bool
     note: str | None = None
     items: list[VoidTenGodItem] = Field(min_length=10, max_length=10)
+    general: VoidGeneralText | None = None
+    palaces: list[VoidPalaceItem] | None = None
 
 
 class RelationsTextFile(_AliasModel):
@@ -3144,6 +3216,8 @@ SCHEMA_BY_PATH: dict[str, type[BaseModel]] = {
     "interpretations/twelve_stages_text.json": TwelveStagesTextFile,
     "interpretations/relation_palace_pairs_text.json": RelationPalacePairsFile,
     "interpretations/void_ten_god_text.json": VoidTenGodTextFile,
+    "interpretations/strength_traits.json": StrengthTraitsFile,
+    "interpretations/contrast_scenes.json": ContrastScenesFile,
     "interpretations/relations_text.json": RelationsTextFile,
     "interpretations/sinsal_text.json": SinsalTextFile,
     "interpretations/dohwa_text.json": DohwaTextFile,
@@ -4039,6 +4113,7 @@ def _lint_dohwa_text(file: DohwaTextFile) -> list[str]:
             errors.append(f"{head}: {c.group} 라벨은 '{c.group}도화'여야 한다(현재 {c.label})")
         if set(c.ten_gods) != _DOHWA_GROUP_TEN_GODS.get(c.group, set()):
             errors.append(f"{head}: {c.group} 소속 십성 불일치 — {c.ten_gods}")
+    errors.extend(_scene_text_errors(head, "absentNote", [("absentNote", file.absent_note)]))
     return errors
 
 
@@ -4296,6 +4371,73 @@ def _lint_void_ten_god_text(file: VoidTenGodTextFile) -> list[str]:
                     errors.append(f"{head}: {it.ten_god}.{fld} 단정 어휘 '{bad}'")
         if it.evidence_status not in (None, "강의 주장", "비교 가설", "사례 검증"):
             errors.append(f"{head}: {it.ten_god} evidence_status 값 오류 '{it.evidence_status}'")
+    if file.general is not None:
+        errors.extend(_scene_text_errors(head, "general", [
+            ("text", file.general.text), ("advice", file.general.advice),
+            *(("scenes", sc) for sc in file.general.scenes),
+        ]))
+    if file.palaces is not None:
+        if sorted(pl.palace for pl in file.palaces) != ["hour", "month", "year"]:
+            errors.append(f"{head}: palaces 는 year·month·hour 각 1건이어야 한다(일주는 공망 기준)")
+        for pl in file.palaces:
+            errors.extend(_scene_text_errors(head, f"palace:{pl.palace}", _scene_mixin_fields(pl)))
+    return errors
+
+
+#: 강약 등급 7단계 — strength_traits.json 의 bands 가 빠짐없이 한 번씩 덮어야 한다.
+_STRENGTH_BANDS: tuple[str, ...] = (
+    "태신약", "신약", "중화신약", "중화", "중화신강", "신강", "태신강",
+)
+
+
+#: contrast_scenes.json 반응 조건 문법 — 십성군 많음/표면에 없음, 개별 십성.
+_CONTRAST_WHEN_RE = re.compile(
+    r"^(group:(비겁|식상|재성|관성|인성):(excess|absent)"
+    r"|god:(비견|겁재|식신|상관|편재|정재|편관|정관|편인|정인))$"
+)
+
+
+def _lint_contrast_scenes(file: ContrastScenesFile) -> list[str]:
+    """contrast_scenes.json — id 중복 금지, when 문법, 한 상황 안 when 중복 금지,
+    단정 어휘·진단명·낙인 어휘 금지."""
+    head = "interpretations/contrast_scenes.json"
+    errors: list[str] = []
+    ids = [it.id for it in file.items]
+    for dup in sorted({i for i in ids if ids.count(i) > 1}):
+        errors.append(f"{head}: id 중복 — {dup}")
+    for it in file.items:
+        whens = [r.when for r in it.reactions]
+        if len(set(whens)) != len(whens):
+            errors.append(f"{head}: {it.id} 에 같은 when 이 중복")
+        for r in it.reactions:
+            if not _CONTRAST_WHEN_RE.match(r.when):
+                errors.append(f"{head}: {it.id} when 문법 오류 — {r.when}")
+        fields: list[tuple[str, str | None]] = [
+            ("situation", it.situation), *((f"reaction[{r.when}]", r.text) for r in it.reactions),
+        ]
+        errors.extend(_scene_text_errors(head, it.id, fields))
+        for field, text in fields:
+            for w in _LOVE_TYPE_BANNED:
+                if text and w in text:
+                    errors.append(f"{head}: {it.id} {field} 에 금지 어휘 '{w}'")
+    return errors
+
+
+def _lint_strength_traits(file: StrengthTraitsFile) -> list[str]:
+    """strength_traits.json — 세 쪽(weak·balanced·strong) 각 1건, 등급 7단계 정확 커버리지,
+    장면 칸 단정 어휘·진단명 금지."""
+    head = "interpretations/strength_traits.json"
+    errors: list[str] = []
+    if sorted(it.side for it in file.items) != ["balanced", "strong", "weak"]:
+        errors.append(f"{head}: side 는 weak·balanced·strong 각 1건이어야 한다")
+    bands = [b for it in file.items for b in it.bands]
+    if sorted(bands) != sorted(_STRENGTH_BANDS):
+        errors.append(f"{head}: bands 가 강약 등급 7단계를 한 번씩 덮지 않음 — {bands}")
+    for it in file.items:
+        errors.extend(_scene_text_errors(
+            head, it.side, [*_scene_mixin_fields(it), ("contrast", it.contrast)],
+        ))
+    errors.extend(_scene_text_errors(head, "file", [("yinYangLean", file.yin_yang_lean)]))
     return errors
 
 
@@ -4321,6 +4463,17 @@ def _lint_stems_branches_text(file: StemsBranchesTextFile) -> list[str]:
             errors.append(
                 f"interpretations/stems_branches_text.json: {b.char} 띠 {b.zodiac} ≠ {expected}"
             )
+    head = "interpretations/stems_branches_text.json"
+    for stem_item in file.stems:
+        errors.extend(_scene_text_errors(head, stem_item.char, _scene_mixin_fields(stem_item)))
+    for branch_item in file.branches:
+        errors.extend(
+            _scene_text_errors(head, branch_item.char, _scene_mixin_fields(branch_item))
+        )
+    for tease_element, tease in (file.element_teases or {}).items():
+        errors.extend(
+            _scene_text_errors(head, f"elementTeases.{tease_element}", [("tease", tease)])
+        )
     return errors
 
 
@@ -4368,6 +4521,10 @@ def _lint_relations_text(directory: Path, file: RelationsTextFile) -> list[str]:
                 f"interpretations/relations_text.json: {item.id} natalTrait 질환어에 "
                 f"'{_ILLNESS_NOTE}' 표기 필요"
             )
+    for item in file.items:
+        errors.extend(_scene_text_errors(
+            "interpretations/relations_text.json", item.id, _scene_mixin_fields(item),
+        ))
     return errors
 
 
@@ -4862,6 +5019,10 @@ def lint_dictionaries(directory: Path) -> list[str]:
             errors.extend(_lint_axis_arrival_lens(parsed, _structure_pattern_ids(directory)))
         elif isinstance(parsed, SinsalTextFile):
             errors.extend(_lint_sinsal_text(parsed))
+        elif isinstance(parsed, StrengthTraitsFile):
+            errors.extend(_lint_strength_traits(parsed))
+        elif isinstance(parsed, ContrastScenesFile):
+            errors.extend(_lint_contrast_scenes(parsed))
         elif isinstance(parsed, YearSinsalTextFile):
             errors.extend(_lint_year_sinsal_text(parsed))
         elif isinstance(parsed, RelationshipTendencyTextFile):

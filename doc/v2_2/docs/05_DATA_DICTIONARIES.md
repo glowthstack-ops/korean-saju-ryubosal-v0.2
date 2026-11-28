@@ -26,6 +26,8 @@ src/dictionaries/
     yearly_environment.json # 세운 환경(월주 상대 관점) — 십성 10 양방향·12운성 12 상태·관계·통근 어휘, 세운 전용 서술층(2026-10-25)
     sinsal_text.json        # 신살 — 의미/발현 영역/주의점 (공포 조장 금지 톤)
     love_types.json         # 연애 유형 5종(십성군) — 심리·중시·공략·주의·부재 결, 분류기 love_type.py 서술 재료(2026-10-25), 사랑에 빠졌을 때·미련(2026-10-27)
+    strength_traits.json      # 신강·신약 쪽별 장면·대하는 법·놀림 소재·대비 한 줄(강약 등급 7단계 → weak/balanced/strong, 2026-11-28 생활 장면 어휘 층)
+    contrast_scenes.json      # 같은 상황, 다른 반응 — 상황별 십성군·십성 반응(when 문법 group:/god:, 2026-11-28)
     ten_god_group_traits.json # 십성다자 5군 — 두 갈래 발현(faceA/faceB)·참기 어려운 상황·갈래 기울기 조건(1.1.0 leanAWhenAbsent/leanA, 2026-11-03), 원국 해석 발췌 서술 재료(2026-10-27)
     repetition_text.json    # 반복 구조 — 십성 10(1.2.0, 1차 결)·천간 반복 10(기본 방향·과할 때)·지지 반복 12·자형 4(辰午酉亥: 중심·살아나면·지나치면)·사용 원칙 6·궁위별 가능성 영역(1.1.0: 亥×연월일시, 2026-10-28)
     stems_branches_text.json# 천간 10·지지 12 물상 — 모든 비유의 원천 재료

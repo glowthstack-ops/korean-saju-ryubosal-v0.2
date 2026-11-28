@@ -6,7 +6,7 @@ import { Collapsible } from "@/components/layout/Collapsible";
 import { InfoTooltip } from "@/components/layout/InfoTooltip";
 import { ConsensusBadge, GhostInline, GhostOverlay, hourUnknownOf, isHourUnknown } from "./HourUnknown";
 import { FolkCompass, folkDegreeLabel } from "./FolkCompass";
-import { fetchLuckMonths, fetchPatternTimeline } from "@/lib/api";
+import { fetchLuckMonths, fetchPatternTimeline, fetchSinsalGlossary, type SinsalGlossaryEntry } from "@/lib/api";
 import { visibleSinsal } from "@/lib/sinsal-display";
 import { ELEMENT_KO, elementLabel, elementStyle, ganjiKo } from "@/lib/elements";
 import { applyCalibrationToLuckCycles, applyCalibrationToLuckPillars } from "@/lib/luck-calibration";
@@ -895,6 +895,18 @@ export function SinsalPanel({ result }: { result: ManseResult }) {
   const cols: [("hour" | "day" | "month" | "year"), string][] = [
     ["hour", "시주"], ["day", "일주"], ["month", "월주"], ["year", "연주"],
   ];
+  // 신살 풀이(2026-11-28) — 이름을 누르면 아래에 뜻·장면이 열린다. 사전은 고정 내용이라 한 번만 받는다.
+  const [selected, setSelected] = useState<{ name: string; position: string; basis: string } | null>(null);
+  const [glossary, setGlossary] = useState<Record<string, SinsalGlossaryEntry> | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetchSinsalGlossary()
+      .then((g) => { if (alive) setGlossary(g); })
+      .catch(() => { if (alive) setGlossary({}); });
+    return () => { alive = false; };
+  }, []);
+  // 결과가 바뀌면(시간 옵션 변경 등) 고른 신살이 사라졌을 수 있어 선택을 푼다.
+  useEffect(() => { setSelected(null); }, [result]);
   return (
     <section>
       {/* 사주 원국과 동일하게 외곽 박스 없이 제목 + 자리별 컬럼. */}
@@ -925,17 +937,72 @@ export function SinsalPanel({ result }: { result: ManseResult }) {
               <div className="mb-1 text-center text-xs font-semibold text-gray-500">{ko}</div>
               <div className="flex flex-1 flex-wrap content-start justify-center gap-1">
                 {items.length === 0 && <span className="text-[11px] text-gray-300">-</span>}
-                {items.map((s, i) => (
-                  <span key={i} className="rounded border px-1.5 py-0.5 text-[11px]" title={s.basis}>
-                    {s.name}
-                  </span>
-                ))}
+                {items.map((s, i) => {
+                  const on = selected?.name === s.name && selected.position === pos;
+                  return (
+                    <button
+                      type="button"
+                      key={i}
+                      title={s.basis}
+                      aria-pressed={on}
+                      onClick={() => setSelected(on ? null : { name: s.name, position: pos, basis: s.basis })}
+                      className={`rounded border px-1.5 py-0.5 text-[11px] ${on ? "border-gray-800 bg-gray-800 text-white" : "hover:bg-gray-50"}`}
+                    >
+                      {s.name}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           );
         })}
       </div>
+      {sinsal.length > 0 && !selected && (
+        <p className="mt-1.5 text-[11px] text-gray-400">이름을 누르면 풀이가 열려요.</p>
+      )}
+      {selected && <SinsalDetail picked={selected} entry={glossary?.[selected.name] ?? null} loaded={glossary !== null} />}
     </section>
+  );
+}
+
+/** 신살 한 개의 풀이 카드 — 뜻·나타나는 모습·양면 + 저작된 항목은 장면·원리·대하는 법·한마디. */
+function SinsalDetail({
+  picked,
+  entry,
+  loaded,
+}: {
+  picked: { name: string; position: string; basis: string };
+  entry: SinsalGlossaryEntry | null;
+  loaded: boolean;
+}) {
+  return (
+    <div className="mt-2 rounded-lg border border-gray-300 bg-white p-3 text-xs leading-relaxed text-gray-700" role="region" aria-label={`${picked.name} 풀이`}>
+      <div className="mb-1 flex flex-wrap items-baseline gap-x-2">
+        <b className="text-sm text-gray-900">{picked.name}</b>
+        <span className="text-[11px] text-gray-400">{picked.basis}</span>
+      </div>
+      {!entry ? (
+        <p className="text-gray-500">{loaded ? "이 신살은 풀이 문구를 준비하고 있어요." : "풀이를 불러오는 중…"}</p>
+      ) : (
+        <div className="space-y-1.5">
+          <p>{entry.meaning}</p>
+          {entry.scenes.length > 0 && (
+            <div>
+              <div className="font-semibold text-gray-800">이런 모습으로 나타나기 쉬워요</div>
+              <ul className="ml-4 list-disc space-y-0.5">
+                {entry.scenes.map((sc) => <li key={sc}>{sc}</li>)}
+              </ul>
+            </div>
+          )}
+          {entry.scenes.length === 0 && <p>{entry.manifestation}</p>}
+          {entry.mechanism && <p><span className="font-semibold text-gray-800">왜 그런가요 · </span>{entry.mechanism}</p>}
+          <p><span className="font-semibold text-gray-800">함께 볼 면 · </span>{entry.flip_side}</p>
+          {entry.how_to_treat && <p><span className="font-semibold text-gray-800">곁에서는 이렇게 · </span>{entry.how_to_treat}</p>}
+          {entry.tease && <p className="rounded bg-amber-50 px-2 py-1 text-amber-900">한마디 · {entry.tease}</p>}
+          <p className="text-[11px] text-gray-400">신살은 풀이의 색을 더하는 보조 정보예요. 이것만으로 길흉을 정하지 않아요.</p>
+        </div>
+      )}
+    </div>
   );
 }
 

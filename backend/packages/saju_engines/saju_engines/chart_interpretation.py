@@ -805,6 +805,9 @@ def build_chart_interpretation(result: ManseV2Result) -> ChartInterpretation | N
     excerpts += _sinsal_excerpts(result)
     excerpts += _favorability_excerpts(result)
     excerpts += _spouse_palace_excerpts(pillars.day.branch)
+    # 생활 장면 발췌(2026-11-28)는 맨 뒤 — 토큰 가드가 발췌를 줄일 때 가장 먼저 빠진다.
+    from .scene_vocab import scene_excerpts  # 지역 import — 순환 의존 회피
+    excerpts += scene_excerpts(result)
     ilju_entry = _ilju_by_ganji().get(pillars.day.ganji)
     return ChartInterpretation(
         pillar_details=details,

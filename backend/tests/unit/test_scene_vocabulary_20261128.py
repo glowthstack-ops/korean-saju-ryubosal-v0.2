@@ -22,7 +22,8 @@ _DICT = (
     Path(__file__).resolve().parents[2] / "dictionaries" / "interpretations" / "sinsal_text.json"
 )
 _NAME = "황은대사"
-#: 장면 필드를 저작한 항목 — 귀인 4종 + 황은대사(P1-1), 현침(P1-2 보강).
+#: 장면 필드 전체(장면·대하는 법·놀림)를 저작한 항목 — 귀인 4종 + 황은대사(P1-1), 현침(P1-2 보강).
+#: 사고지·이동지·도화(P1-3)는 장면·놀림만 있어 test_clash_scenes_… 가 따로 본다.
 _SCENE_ITEMS = ("태극귀인", "암록", "문창귀인", "월덕귀인", _NAME, "현침")
 
 
@@ -155,8 +156,8 @@ def test_lint_rejects_assertive_or_duplicated_scenes() -> None:
     assert _lint_sinsal_text(SinsalTextFile.model_validate(data2)) == []
 
 
-def test_scene_fields_are_not_wired_into_excerpts_yet() -> None:
-    """P2 배선 전 — 신살 발췌(LLM 고정 prefix)는 종전 뜻·발현·양면 문구만 싣는다."""
+def test_legacy_sinsal_excerpt_text_is_unchanged_by_scene_fields() -> None:
+    """종전 신살 발췌(kind=sinsal)는 뜻·발현·양면 문구 그대로다 — 장면은 kind=scene 발췌로 간다."""
     from saju_api.services.manse_service import calculate
     from saju_engines.chart_interpretation import build_chart_interpretation
     from saju_shared_types.birth_input import BirthInput
@@ -257,10 +258,209 @@ def test_lint_rejects_diagnosis_names_and_stigma_in_scene_fields() -> None:
     assert any("진단명 '공황'" in e for e in _lint_sinsal_text(SinsalTextFile.model_validate(data)))
 
 
-def test_group_trait_excerpt_is_unchanged_before_wiring() -> None:
-    """P2 배선 전 — 십성다자 발췌는 종전 두 얼굴·촉발 조건만 싣는다."""
+def test_group_trait_excerpt_keeps_two_faces_only() -> None:
+    """십성다자 발췌(kind=ten_god_group)는 종전 두 얼굴·촉발 조건만 싣는다(장면은 scene_vocab)."""
     from saju_engines import chart_interpretation as ci
 
     source = Path(ci.__file__).read_text("utf-8")
     for key in ("scenesAbsent", "scenes_absent", "teaseAbsent", "adviceAbsent", '"parting"'):
         assert key not in source, key
+
+
+# ── 4. P1-3 일간·지지·신강/신약, P1-4 공망 궁위(2026-11-28 3차) ─────────────────
+
+
+def test_stem_scenes_cover_all_ten_and_branches_only_where_authored() -> None:
+    data = json.loads((_INTERP / "stems_branches_text.json").read_text("utf-8"))
+    for stem in data["stems"]:
+        assert 2 <= len(stem["scenes"]) <= 3 and stem["howToTreat"] and stem["tease"], stem["char"]
+        assert stem["imagery"] and stem["narrative"]  # 물상 칸은 그대로
+    authored = {b["char"] for b in data["branches"] if "scenes" in b}
+    assert authored == {"酉", "辰", "未"}
+    # 반례: 외모 단정 소재는 놀림으로도 싣지 않는다(己 — 눈 크기).
+    gi = next(s for s in data["stems"] if s["char"] == "己")
+    assert "눈이 작" not in json.dumps(gi, ensure_ascii=False)
+    assert set(data["elementTeases"]) == {"水"}
+
+
+def test_strength_traits_cover_seven_bands_once() -> None:
+    from saju_engines.dictionaries import StrengthTraitsFile, _lint_strength_traits
+
+    raw = json.loads((_INTERP / "strength_traits.json").read_text("utf-8"))
+    assert _lint_strength_traits(StrengthTraitsFile.model_validate(raw)) == []
+    bands = [b for it in raw["items"] for b in it["bands"]]
+    assert sorted(bands) == sorted(
+        ["태신약", "신약", "중화신약", "중화", "중화신강", "신강", "태신강"]
+    )
+    by = {it["side"]: it for it in raw["items"]}
+    assert by["weak"]["contrast"] and by["strong"]["contrast"]
+    # 반례: 등급이 빠지거나 겹치면 lint 가 잡는다. 분류어(애착 유형)는 쓰지 못한다.
+    by["weak"]["bands"].remove("태신약")
+    assert any("7단계" in e for e in _lint_strength_traits(StrengthTraitsFile.model_validate(raw)))
+    by["weak"]["bands"].append("태신약")
+    by["weak"]["scenes"][0] = "막히면 피하는 회피형에 가까운 편이라 돌아가는 길을 찾는다."
+    errors = _lint_strength_traits(StrengthTraitsFile.model_validate(raw))
+    assert any("진단명 '회피형'" in e for e in errors)
+
+
+def test_void_general_and_palaces_exclude_day_pillar() -> None:
+    from saju_engines.dictionaries import VoidTenGodTextFile, _lint_void_ten_god_text
+
+    raw = json.loads((_INTERP / "void_ten_god_text.json").read_text("utf-8"))
+    assert _lint_void_ten_god_text(VoidTenGodTextFile.model_validate(raw)) == []
+    assert raw["general"]["text"] and raw["general"]["advice"]
+    assert sorted(p["palace"] for p in raw["palaces"]) == ["hour", "month", "year"]
+    assert len(raw["items"]) == 10  # 십성별 문구는 그대로
+    # 측정 없는 통계 주장은 싣지 않는다.
+    blob = json.dumps(raw["palaces"], ensure_ascii=False)
+    for bad in ("연예인", "대표가 많", "정치인", "CEO"):
+        assert bad not in blob, bad
+    # 반례: 궁위가 빠지면 lint 가 잡는다.
+    raw["palaces"] = raw["palaces"][:2]
+    assert any(
+        "year·month·hour" in e
+        for e in _lint_void_ten_god_text(VoidTenGodTextFile.model_validate(raw))
+    )
+
+
+def test_clash_scenes_dohwa_absent_note_and_marker_scenes() -> None:
+    rel = json.loads((_INTERP / "relations_text.json").read_text("utf-8"))
+    by = {it["name"]: it for it in rel["items"]}
+    for name in ("자오충", "묘유충", "진술충"):
+        assert len(by[name]["scenes"]) == 1 and by[name]["natalTrait"], name
+    assert "scenes" not in by["인신충"]  # 반례: 저작하지 않은 쌍
+    dohwa = json.loads((_INTERP / "dohwa_text.json").read_text("utf-8"))
+    assert "끄는 힘이 없다는 뜻이 아니다" in dohwa["absentNote"]
+    assert len(dohwa["types"]) == 4 and len(dohwa["combos"]) == 5
+    sinsal = _items()
+    for name in ("사고지", "이동지", "도화"):
+        assert sinsal[name]["scenes"] and sinsal[name]["tease"], name
+
+
+# ── 5. P2 배선·P3 계약(2026-11-28 4차) ───────────────────────────────────────────
+
+
+def _result(birth_date: str, birth_time: str | None):  # type: ignore[no-untyped-def]
+    from saju_api.services.manse_service import calculate
+    from saju_shared_types.birth_input import BirthInput
+
+    return calculate(BirthInput(
+        birth_date=birth_date, birth_time=birth_time, birth_place_name="서울", gender="female",
+        reference_date="2026-11-28",
+    ))
+
+
+def _scene_keys(result: object) -> list[str]:
+    from saju_engines.chart_interpretation import build_chart_interpretation
+    from saju_engines.scene_vocab import SCENE_KIND
+
+    interp = build_chart_interpretation(result)  # type: ignore[arg-type]
+    assert interp is not None
+    return [e.key for e in interp.excerpts if e.kind == SCENE_KIND]
+
+
+def test_scene_excerpts_follow_engine_judgments() -> None:
+    from saju_engines.chart_interpretation import build_chart_interpretation
+    from saju_engines.love_type import group_visible_counts
+    from saju_engines.scene_vocab import MAX_SCENE_EXCERPTS, SCENE_KIND
+
+    r = _result("1990-06-15", "18:10")  # 庚午 壬午 辛亥 丁酉 — 신약, 관성 3글자, 재성·인성 표면 0
+    counts = group_visible_counts(r)
+    keys = _scene_keys(r)
+    assert keys[0] == f"일간 {r.pillars.day.stem} 장면"
+    assert any(k.startswith("신약 쪽") for k in keys)
+    assert f"관성 많음({counts['관성']}글자) 장면" in keys
+    for group, n in counts.items():
+        # 반례: 3글자 미만인 군은 '많음' 장면이 없고, 1글자 이상이면 '표면에 없음' 장면이 없다.
+        assert (f"{group} 많음({n}글자) 장면" in keys) == (n >= 3 and group == "관성"), group
+        if n > 0:
+            assert not any(k.startswith(f"{group} 표면에 없음") for k in keys), group
+    assert any(k.startswith("나란히 보기 — ") for k in keys)
+    assert len(keys) <= MAX_SCENE_EXCERPTS
+    # 장면 발췌는 명식 해석 자료의 맨 뒤다(토큰 가드가 먼저 덜어 낸다).
+    interp = build_chart_interpretation(r)
+    kinds = [e.kind for e in interp.excerpts]
+    first = kinds.index(SCENE_KIND)
+    assert all(k == SCENE_KIND for k in kinds[first:])
+
+
+def test_scene_excerpts_respect_hour_unknown() -> None:
+    r = _result("1973-05-20", None)  # 시주 미상 — 강약 등급 미확정
+    assert "strength_band" in r.hour_unknown.unconfirmed
+    keys = _scene_keys(r)
+    assert keys and keys[0].startswith("일간 ")
+    assert not any("신강 쪽" in k or "신약 쪽" in k or k.startswith("중화") for k in keys)
+    assert not any("표면에 없음" in k for k in keys)  # 미상≠없음
+    assert not any(k.startswith("공망 시주") for k in keys)
+
+
+def test_scene_flag_off_restores_previous_prompt(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from saju_engines import period_v2_config
+    from saju_engines.chart_interpretation import build_chart_interpretation
+    from saju_engines.context_reducer import build_birth_summary, serialize_chart_prefix
+    from saju_engines.scene_vocab import SCENE_VOCAB_USE_RULE
+
+    r = _result("1990-06-15", "18:10")
+    _scene_keys_on = _scene_keys(r)
+    summary = build_birth_summary(r)
+    on = serialize_chart_prefix(summary, build_chart_interpretation(r))
+    assert on.count(SCENE_VOCAB_USE_RULE) == 1  # 사용 규칙은 장면 줄 앞에 한 번
+    first_scene = next(
+        i for i, line in enumerate(on) if line.startswith("일간 ") and " 장면: " in line
+    )
+    assert on.index(SCENE_VOCAB_USE_RULE) == first_scene - 1
+    monkeypatch.setattr(period_v2_config, "SCENE_VOCAB_ENABLED", False)
+    off = serialize_chart_prefix(summary, build_chart_interpretation(r))
+    assert SCENE_VOCAB_USE_RULE not in off and not any(" 장면: " in line for line in off)
+    # 플래그를 끄면 장면 줄과 사용 규칙만 빠지고 나머지 줄은 그대로다.
+    added = [line for line in on if line not in off]
+    assert added[0] == SCENE_VOCAB_USE_RULE and len(added) == 1 + len(_scene_keys_on)
+    assert [line for line in off if line not in on] == []
+
+
+def test_contrast_scene_grammar_and_lint() -> None:
+    from saju_engines.dictionaries import ContrastScenesFile, _lint_contrast_scenes
+
+    raw = json.loads((_INTERP / "contrast_scenes.json").read_text("utf-8"))
+    assert _lint_contrast_scenes(ContrastScenesFile.model_validate(raw)) == []
+    raw["items"][0]["reactions"][0]["when"] = "group:관성:many"
+    raw["items"][1]["reactions"][1]["when"] = raw["items"][1]["reactions"][0]["when"]
+    errors = _lint_contrast_scenes(ContrastScenesFile.model_validate(raw))
+    assert any("when 문법 오류 — group:관성:many" in e for e in errors)
+    assert any("같은 when 이 중복" in e for e in errors)
+
+
+def test_on_off_audit_flags_only_negated_sentences() -> None:
+    from saju_engines.scene_vocab import find_on_off_claims
+
+    text = (
+        "문창귀인이 있지만 충을 맞아 쓸 수 없어요. 월덕귀인은 공망이라 힘을 잃어요.\n"
+        "귀인은 충이 있어도 두 기질이 번갈아 나와요. 올해는 이직이 거론될 수 있어요. "
+        "쓸 수 없는 물건은 버리는 편이 좋아요."
+    )
+    hits = find_on_off_claims(text)
+    assert hits == ["문창귀인이 있지만 충을 맞아 쓸 수 없어요.", "월덕귀인은 공망이라 힘을 잃어요."]
+    assert find_on_off_claims("") == []
+
+
+def test_felt_chain_directive_keeps_grade_and_orders_cause_effect() -> None:
+    from saju_engines.structural_context import LUCK_FELT_CHAIN_DIRECTIVE as d
+
+    # 기신 쪽: 방향이 안 보임 → 편함 → 유입 없음 → 축적분으로 버팀 → 부담 순서.
+    steps = ("당장은 몸이", "새로 들어오는 것이 없다", "쌓아 둔 것으로", "부담이 된다")
+    order = [d.index(w) for w in steps]
+    assert order == sorted(order)
+    assert "엔진 판정만 따른다" in d and "뒤집어 판정하지 말 것" in d
+
+
+def test_sinsal_glossary_endpoint_hides_hidden_names() -> None:
+    from fastapi.testclient import TestClient
+
+    from saju_api.main import app
+
+    res = TestClient(app).get("/api/v2/manse/sinsal-glossary")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["암록"]["scenes"] and data["암록"]["tease"] and data["암록"]["mechanism"]
+    assert data["천을귀인"]["scenes"] == [] and data["천을귀인"]["meaning"]  # 장면 미저작 항목
+    assert not set(data) & cat.HIDDEN_NAMES  # 반례: 숨김 신살은 싣지 않는다
