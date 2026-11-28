@@ -388,6 +388,23 @@ def build_risk_payload(
     return payload
 
 
+def ended_on_provider_failure(flow_result: dict) -> bool:
+    """위험 흐름이 provider 장애·소진 때문에 안전 문구로 끝났는가(2026-11-28).
+
+    감사에 걸려 안전 문구가 된 경우와 구분한다 — provider 장애면 호출처가 위험 요소 없는
+    본문으로 일반 생성(폴백 공급자·중단 처리 포함)을 쓰고, 감사 실패면 안전 문구를 그대로 낸다.
+    """
+    if flow_result.get("outcome") != "DELIVER_SAFE_FALLBACK":
+        return False
+    from . import llm_client as _llm
+
+    attempts = flow_result.get("attempts") or []
+    return (
+        any("PROVIDER_CALL_FAILED" in (a.get("audit_issues") or []) for a in attempts)
+        or not _llm.direct_primary_call_ready()
+    )
+
+
 def run_exposed_reading(
     *,
     baseline_prompt: str,
@@ -398,8 +415,18 @@ def run_exposed_reading(
     call_type: str,
     request_context_id: str,
     renderer,
+    owner_id: str | None = None,
+    ref_id: str | None = None,
+    surface: str = "chat",
+    product_code: str = "CHAT",
 ) -> dict:
     """INJECTED 실호출 실행(감수 60·61차 — run_injected_risk_flow 소비).
+
+    owner_id·ref_id·surface·product_code(2026-11-28): provider 호출 1건마다 사용량을
+    적재한다(`llm_usage` — 지금까지 이 경로만 기록이 없었다). 호출은 메인
+    프로필의 생성 옵션(thinkingConfig)을 싣고, 명시 소진 신호는 공급자
+    쿨다운으로 기록한다. 메인 공급자가 막히면 남은 attempt 는 네트워크에
+    닿지 않고 실패한다(호출처가 위험 요소 없는 일반 경로로 넘긴다).
 
     chat_service EXPOSE 분기 전용: 실행 context 1회 조립 → 실 Gemini
     구조화 호출(계수와 동일 body) → envelope/claim 감사 → REVISE/
@@ -410,10 +437,13 @@ def run_exposed_reading(
     """
     import json as _json
 
+    import httpx as _httpx
+
     from saju_engines.risk_exposure import (
         build_guidance_reference_context,
     )
 
+    from . import llm_client as _llm
     from .gemini_token_adapter import generate_structured
     from .llm_client import reading_model
     from .risk_exposure_service import _load_manifest_snapshot
@@ -462,10 +492,26 @@ def run_exposed_reading(
     provider_reports: list[dict] = []
 
     def _llm_call(request: ProviderRequest) -> dict:
-        out = generate_structured(
-            request, model_id,
-            max_output_tokens=max(256, inputs["response_reserve"]))
+        if not _llm.direct_primary_call_ready():
+            # 중단·메인 공급자 쿨다운 — 실패할 호출을 내지 않는다.
+            raise RuntimeError("RISK_PRIMARY_PROVIDER_UNAVAILABLE")
+        try:
+            out = generate_structured(
+                request, model_id,
+                max_output_tokens=max(256, inputs["response_reserve"]),
+                generation_extras=_llm.primary_generation_extras())
+        except _httpx.HTTPStatusError as exc:
+            _llm.note_direct_primary_error(
+                exc, surface=surface, owner_id=owner_id, ref_id=ref_id)
+            raise
         provider_reports.append(out)
+        # 사용량 적재 — 감사에서 버려지는 응답도 과금된 호출이라 기록한다.
+        _llm.record_direct_primary_call(
+            call_type=call_type, input_tokens=int(out["prompt_tokens"]),
+            output_tokens=int(out["output_tokens"]),
+            cached_tokens=int(out["cached_tokens"]),
+            owner_id=owner_id, surface=surface, ref_id=ref_id,
+            product_code=product_code)
         # modelVersion 대조(감수 62차 P0⑧) — 불일치·누락 응답은 감사·
         # 재작성 단계로 넘기지 않고 즉시 폐기(DISCARDED), validation
         # state=UNVALIDATED + lease 무효화 → 이후 요청 BYPASS.
@@ -516,4 +562,6 @@ def run_exposed_reading(
         reviewed_shape_digests=inputs["reviewed_shape_digests"],
         drift_observer=_drift_observer)
     result["provider_reports"] = len(provider_reports)  # 관측 보조
+    result["thoughts_tokens"] = sum(
+        int(r.get("thoughts_tokens") or 0) for r in provider_reports)
     return result

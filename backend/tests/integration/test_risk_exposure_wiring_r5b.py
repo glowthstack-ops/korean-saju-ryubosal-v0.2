@@ -2686,3 +2686,109 @@ def test_provider_outage_never_raises_to_caller(monkeypatch,
     kinds = [(a["kind"], a.get("audit_issues")) for a in result["attempts"]]
     assert ("INITIAL", ["PROVIDER_CALL_FAILED"]) in kinds
     assert any(k == "REGENERATE_WITHOUT_RISK" for k, _ in kinds)
+
+
+def _force_injected(monkeypatch) -> list[dict]:
+    """게이트를 INJECTED 로 고정하고 위험 흐름 실호출을 기록용 대역으로 바꾼다.
+
+    게이트 판정 자체(manifest·lease·adapter)는 위 테스트들이 맡는다 — 여기서는
+    'INJECTED 가 된 뒤 LLM 을 몇 번 부르는가'만 본다. 생성 단계의 분기(공급자 장애·후처리
+    순서 등)는 test_chat_risk_generation_20261128.py 가 맡는다.
+    """
+    from saju_api.services import risk_exposure_bootstrap as _reb
+    from saju_api.services import risk_exposure_service as _svc
+
+    calls: list[dict] = []
+
+    def fake_flow(**kwargs) -> dict:
+        calls.append(kwargs)
+        return {"outcome": "DELIVER_GENERATED", "final_text": "감사 통과 답변",
+                "attempts": [{"kind": "INITIAL"}], "final_audit_issues": [],
+                "provider_reports": 1}
+
+    monkeypatch.setattr(risk_engine_config, "RISK_ENGINE_MODE", "expose")
+    monkeypatch.setattr(_reb, "build_risk_payload",
+                        lambda *a, **k: {"presentationRecords": [],
+                                         "llmRiskEpisodes": [{"k": "v"}]})
+    monkeypatch.setattr(_reb, "exposure_runtime_inputs",
+                        lambda call_type: {
+                            "counter": lambda t: max(1, len(t) // 4),
+                            "counter_model_id": "m1", "resolved_model_id": "m1",
+                            "context_limit": 100_000, "response_reserve": 2_000,
+                            "reviewed_shape_digests": frozenset()})
+    monkeypatch.setattr(_svc, "risk_reserve_active", lambda *a, **k: False)
+    monkeypatch.setattr(
+        _svc, "apply_risk_exposure",
+        lambda prompt, system, **k: (prompt + "\n[위험 블록 대역]", system,
+                                     {"disposition": "INJECTED"}))
+    monkeypatch.setattr(_reb, "run_exposed_reading", fake_flow)
+    monkeypatch.setattr(chat_service.llm_client, "direct_primary_call_ready",
+                        lambda: True)
+    return calls
+
+
+def test_dry_run_prepare_does_not_call_llm_when_injected(monkeypatch) -> None:
+    """준비 단계(dry_run)는 위험 블록이 실려도 LLM 을 부르지 않는다(2026-11-28 데굴님 지적).
+
+    라우터는 모든 채팅을 dry_run=True 로 준비한 뒤 따로 생성한다. 준비 단계가 위험 흐름을
+    실호출하면 그 답은 버려지고 같은 입력으로 한 번 더 호출된다 — 실로그에서 위험 블록이 실린
+    턴마다 사용량 기록에 없는 호출이 한 번씩 더 나갔다. API 키가 있어도 같다. 준비 단계는
+    생성 단계가 한 번 실행할 계획(`risk_plan`)만 실어 보낸다.
+    """
+    calls = _force_injected(monkeypatch)
+    monkeypatch.setattr(chat_service.llm_client, "is_available", lambda: True)
+    res = chat_service.chat(_BIRTH, _QUESTION, _TODAY, dry_run=True)
+    assert res.status == "dry_run", res.answer
+    assert calls == []  # 준비 단계 LLM 호출 0회
+    assert res.prompt_preview is not None and "[위험 블록 대역]" in res.prompt_preview
+    plan = res.postprocess.risk_plan
+    assert plan is not None
+    assert plan.injected_prompt == res.prompt_preview
+    assert "[위험 블록 대역]" not in plan.baseline_prompt  # 위험 요소 없는 원문을 따로 든다
+    # 문단 구분 요구는 위험 지시·블록 앞에 온다(블록이 본문 끝 — 검증된 요청 형태 유지).
+    fmt = chat_service._RISK_ANSWER_FORMAT_LINE
+    assert plan.injected_prompt == (
+        plan.baseline_prompt + "\n" + fmt + "\n[위험 블록 대역]")
+    assert fmt not in plan.baseline_prompt  # 일반 경로 본문에는 구조화 출력 표기가 없다
+    assert plan.request_context_id == "oneshot:0"
+
+
+def test_prepared_plan_then_generation_calls_flow_exactly_once(monkeypatch) -> None:
+    """라우터 순서 그대로 — 준비(dry_run) 뒤 생성 단계에서 위험 흐름 1회, 일반 생성 0회."""
+    calls = _force_injected(monkeypatch)
+    monkeypatch.setattr(chat_service.llm_client, "is_available", lambda: True)
+
+    def _no_plain_call(*a, **k):
+        raise AssertionError("위험 흐름이 답을 냈는데 일반 생성이 또 호출됨")
+
+    monkeypatch.setattr(chat_service.llm_client, "generate_reading", _no_plain_call)
+    prep = chat_service.chat(_BIRTH, _QUESTION, _TODAY, dry_run=True)
+    assert calls == []
+    answer, outcome = chat_service.generate_chat_answer(
+        prep.prompt_preview or "", call_type=prep.call_type or "chat_single",
+        system=prep.system_prompt, postprocess=prep.postprocess,
+        owner_id=None, thread_id=None)
+    assert len(calls) == 1
+    assert (answer, outcome) == ("감사 통과 답변", "DELIVER_GENERATED")
+
+
+def test_real_generation_runs_risk_flow_exactly_once(monkeypatch) -> None:
+    """반례 — dry_run 이 아니면 위험 흐름이 한 번 돌고 그 답이 그대로 전달된다."""
+    calls = _force_injected(monkeypatch)
+    monkeypatch.setattr(chat_service.llm_client, "is_available", lambda: True)
+
+    def _no_plain_call(*a, **k):
+        raise AssertionError("위험 흐름이 답을 냈는데 일반 생성이 또 호출됨")
+
+    monkeypatch.setattr(chat_service.llm_client, "generate_reading", _no_plain_call)
+    res = chat_service.chat(_BIRTH, _QUESTION, _TODAY, dry_run=False)
+    assert len(calls) == 1
+    assert res.status == "answered" and res.answer == "감사 통과 답변"
+
+
+def test_llm_unavailable_does_not_run_risk_flow(monkeypatch) -> None:
+    """API 키가 없으면 dry_run 이 아니어도 위험 흐름을 돌리지 않는다(결과가 버려지는 호출)."""
+    calls = _force_injected(monkeypatch)
+    monkeypatch.setattr(chat_service.llm_client, "is_available", lambda: False)
+    res = chat_service.chat(_BIRTH, _QUESTION, _TODAY, dry_run=False)
+    assert res.status == "dry_run" and calls == []

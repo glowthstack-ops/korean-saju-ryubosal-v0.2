@@ -131,3 +131,23 @@ counted vs reported drift(undercount=자동 전역 차단) / cached_input
   BEGIN/END_RISK_BLOCK wrapper 실적용. corpus 재검증
   f7f33358df78d576…e3f38914(39표본 delta 0)로 승격 — 구 corpus는 실요청과
   shape 불일치(측정 자체는 동등).
+
+## 9. 생성 단계 이전 + 구조화 호출 보강 (2026-11-28)
+
+- **발견:** 채팅 라우터는 모든 질문을 `chat(dry_run=True)` 로 준비한 뒤 따로 생성한다.
+  INJECTED 실호출이 준비 단계 안에 있어 구조화 호출 결과가 매번 버려졌고(같은 입력으로
+  일반 호출 한 번 더), 감사된 답은 운영에서 전달된 적이 없었다. 그 호출은 사용량 기록·
+  thinking 설정·소진 신호 처리에서도 빠져 있었다.
+- **변경:** 준비 단계는 `RiskGenerationPlan` 만 만들고, 생성 단계 단일 진입점
+  `chat_service.generate_chat_answer` 가 위험 흐름을 한 번 실행한다(라우터 백그라운드·
+  비로그인 동기·직접 생성 공용). 3-3 의 renderer 는 `_normalize_ganji_gloss` 에서
+  **출력 정리 → `finalize_answer_full`(후처리 전체)** 로 바뀌었다 — 최종 사용자 문자열
+  감사는 그대로 renderer 뒤다. 고정 안전 문구에는 후처리를 붙이지 않는다.
+- **구조화 호출:** provider 호출 1건마다 `llm_usage` 적재 · 메인 프로필 생성 옵션
+  (thinkingConfig LOW)을 maxOutputTokens 와 같은 자리에 실음(ProviderRequest·shape
+  digest 불변, undercount 검사가 사후 보호) · 명시 소진은 공급자 쿨다운 기록 · 중단·
+  쿨다운이면 호출하지 않음. 리포트 위험 섹션도 같은 함수를 쓰므로 함께 적용된다.
+- **공급자 장애:** 구조화 호출은 폴백 공급자가 없으므로, provider 장애·소진으로 안전
+  문구만 남으면 위험 요소 없는 본문(원문+억제 가드)으로 일반 생성한다. 감사 실패로 끝난
+  안전 문구·BLOCK 처리는 종전과 같다.
+- 상세·실호출 확인 수치: `doc/WORKLOG.md` 2026-11-28 (4)·(5).

@@ -1092,6 +1092,40 @@ class ThreadAccessDenied(PermissionError):
     """다른 소유자의 대화 스레드 접근(보안 점검 S2) — 라우터가 404 로 변환한다."""
 
 
+# 위험 흐름의 초안은 JSON 구조화 출력(main_answer 문자열)이라 모델이 문단 구분 없이 한 덩어리로
+# 쓰는 일이 있다(2026-11-28 실답 — 1,117자 한 문단). 일반 생성과 같은 문단 구분을 본문에서 요구한다.
+# 위험 지시·블록 **앞**에 넣어 블록이 본문 끝에 오는 검증된 요청 형태를 유지한다(서식 전용).
+_RISK_ANSWER_FORMAT_LINE = (
+    "[출력 형식] 답 본문(main_answer)은 문단 사이에 빈 줄을 넣어 나눈다 — "
+    "한 덩어리로 붙여 쓰지 않는다."
+)
+
+
+class RiskGenerationPlan(BaseModel):
+    """위험 블록이 실린(INJECTED) 턴의 생성 계획 — 준비 단계가 만들고 생성 단계가 한 번 실행한다.
+
+    준비 단계(dry_run)는 LLM 을 부르지 않으므로 위험 흐름(구조화 생성→주장 감사→REVISE/
+    REGENERATE→최종 감사)에 필요한 입력만 여기 담아 넘긴다(2026-11-28). 프로세스 내부 전달
+    전용 — `ChatPostprocessContext` 에 실려 가며 클라이언트 응답에는 직렬화되지 않는다.
+    """
+
+    # 위험 요소가 없는 원문 — REGENERATE·일반 경로 폴백·커리어 재생성이 쓴다.
+    baseline_prompt: str
+    # 위험 지시·블록이 주입된 본문(INITIAL 요청).
+    injected_prompt: str
+    system: str
+    observability: dict
+    payload: dict
+    call_type: str = "chat_single"
+    request_context_id: str = "oneshot:0"
+    # 감사 통과 답이 전달됐을 때만 스레드에 등록할 위험 episode 참조(최대 3건).
+    followups: list[ResultSummaryRef] = Field(default_factory=list)
+
+
+class RiskAnswerBlocked(RuntimeError):
+    """위험 흐름이 BLOCK 으로 끝났다(전달 금지) — 호출처는 일반 실패 문구로 마감한다."""
+
+
 class ChatPostprocessContext(BaseModel):
     """답변 후처리에 필요한 생성 시점 맥락(2026-10-01) — 비동기·비로그인 경로가 동기 경로와 같은
     감사(커리어 출력 감사·관계 주장 패치·월 커버리지 보정)를 거치도록 prep(dry-run) 응답에 실어
@@ -1129,6 +1163,9 @@ class ChatPostprocessContext(BaseModel):
     # 페르소나 말투(2026-11-08) — 코드가 직접 삽입·교체하는 문장(단식 참고 문단)의 종결어미 변환용.
     # 해요체가 기본. 데굴님 실답: 합쇼체 답 한가운데 해요체 문단이 박혔다.
     speech_style: str = "haeyo"
+    # 위험 블록이 실린 턴의 생성 계획(2026-11-28) — 있으면 생성 단계가 일반 호출 대신 위험
+    # 흐름을 한 번 돌린다(`generate_chat_answer`). 없으면 None.
+    risk_plan: RiskGenerationPlan | None = None
 
 
 class ChatResponse(BaseModel):
@@ -2620,6 +2657,142 @@ def finalize_answer_full(
     return finalize_answer_text(answer, thread_id)
 
 
+def _risk_followups(risk_payload: dict) -> list[ResultSummaryRef]:
+    """위험 payload 의 노출 episode → 후속 질문 해소용 참조(최대 3건, 감수 62차).
+
+    등록은 **감사 통과 답이 전달된 턴(DELIVER_GENERATED)에만** 한다 — 호출처가 판단한다.
+    """
+    out: list[ResultSummaryRef] = []
+    for rec in risk_payload.get("presentationRecords") or []:
+        diag = rec.get("diagnostics") or {}
+        key = diag.get("episodeKey")
+        if not key or rec.get("presentationLevel") == "none":
+            continue
+        dom = (rec.get("domains") or [""])[0]
+        period = str(diag.get("startPeriod", ""))[:4]
+        out.append(ResultSummaryRef(
+            kind="risk_episode", label=f"{key}|{dom}|{period}",
+            detail="위험 episode 참조(후속 질문 해소용)",
+        ))
+    return out[:3]
+
+
+def _generate_with_risk_flow(
+    plan: RiskGenerationPlan, ctx: ChatPostprocessContext,
+    owner_id: str | None, thread_id: str | None,
+) -> tuple[str, str] | None:
+    """위험 흐름을 한 번 실행한다 — (전달할 답, outcome) 또는 None(일반 경로로 넘길 것).
+
+    None 인 경우: 메인 공급자 사용 불가(중단·소진 쿨다운), 흐름 인프라 장애, provider 장애로
+    안전 문구만 남은 경우. 이때 호출처는 위험 요소가 없는 본문으로 `generate_reading` 을 쓴다
+    (폴백 공급자·중단 처리 포함) — 위험 요소가 감사 없이 나가지 않는다는 계약은 그대로다.
+
+    renderer 는 후처리 전체(`finalize_answer_full`)다. 흐름의 최종 감사(내부 키·참조 누출)는
+    renderer 뒤에 돌므로, 사용자에게 가는 최종 문장이 감사 대상이 된다(2026-11-28 데굴님 승인 —
+    지금까지 설계는 감사된 답에 후처리를 하지 않아 단식 문단 교체·관계 주장 교정이 빠졌다).
+
+    Raises:
+        TokenBudgetExceeded: 주입 본문이 입력 한도 초과(일반 경로의 호출 직전 검사와 같은 기준).
+        RiskAnswerBlocked: 흐름이 BLOCK 으로 종결.
+    """
+    if not llm_client.direct_primary_call_ready():
+        _logger.info("risk_flow_not_run reason=primary_unavailable thread=%s", thread_id)
+        return None
+    llm_client.check_input_budget(plan.injected_prompt, plan.system, plan.call_type)
+
+    from saju_engines.risk_exposure import RISK_SAFE_FALLBACK_TEMPLATE
+
+    from . import risk_exposure_bootstrap as _reb
+
+    # 커리어 출력 감사가 재생성할 때 위험 블록이 실린 본문을 쓰지 않게 원문을 넘긴다.
+    render_ctx = ctx.model_copy(update={"prompt_text": plan.baseline_prompt, "risk_plan": None})
+
+    def _render(text: str) -> str:
+        if text == RISK_SAFE_FALLBACK_TEMPLATE:
+            return _normalize_ganji_gloss(text)  # 고정 문구에는 명식 후처리를 붙이지 않는다
+        # 일반 생성(`generate_reading`)이 하는 출력 정리와 같은 순서 — 정리 → 후처리 전체.
+        return finalize_answer_full(llm_client._sanitize_output(text), render_ctx, thread_id)
+
+    try:
+        result = _reb.run_exposed_reading(
+            baseline_prompt=plan.baseline_prompt,
+            injected_prompt=plan.injected_prompt,
+            system=plan.system,
+            observability=plan.observability, payload=plan.payload,
+            call_type=plan.call_type,
+            request_context_id=plan.request_context_id,
+            renderer=_render,
+            owner_id=owner_id, ref_id=thread_id, surface="chat",
+        )
+    except Exception:  # noqa: BLE001 — flow 인프라 장애 방어
+        # 위험 요소(instruction·block·schema)가 감사 없이 나가는 경로 차단: 일반 경로 폴백.
+        _logger.exception("risk_flow 실패 — baseline+guard 폴백 thread=%s", thread_id)
+        return None
+    outcome = str(result.get("outcome"))
+    attempts = result.get("attempts") or []
+    # 호출 횟수 관측 — 초안이 감사에 걸리면 REVISION·REGENERATE 로 호출이 더 나간다.
+    _logger.info(
+        "risk_flow_result outcome=%s attempts=%s provider_calls=%s thoughts_tokens=%s thread=%s",
+        outcome,
+        [
+            (a.get("kind"), a.get("audit_issues") or a.get("preflight_issues") or a.get("reason"))
+            for a in attempts
+        ],
+        result.get("provider_reports"), result.get("thoughts_tokens"), thread_id,
+    )
+    if outcome == "DELIVER_GENERATED":
+        return str(result["final_text"]), outcome
+    if outcome == "DELIVER_SAFE_FALLBACK":
+        if _reb.ended_on_provider_failure(result):
+            # provider 장애·소진으로 안전 문구만 남았다 — 폴백 공급자가 있는 일반 경로로.
+            return None
+        return str(result["final_text"]), outcome
+    raise RiskAnswerBlocked(outcome)
+
+
+def generate_chat_answer(
+    prompt_text: str,
+    *,
+    call_type: str,
+    system: str | None,
+    postprocess: ChatPostprocessContext | None,
+    owner_id: str | None,
+    thread_id: str | None,
+) -> tuple[str, str | None]:
+    """채팅 답변 생성 단계의 단일 진입점 — 준비(dry_run) 결과로 답을 한 번 만든다(2026-11-28).
+
+    라우터의 백그라운드·비로그인 동기 생성과 `chat()` 의 직접 생성이 모두 이 함수를 쓴다.
+    위험 블록이 실린 턴(`postprocess.risk_plan`)은 일반 호출 대신 위험 흐름을 돌려 감사된 답을
+    전달하고, 그 밖의 턴은 `generate_reading` → `finalize_answer_full` 이다. 어느 쪽이든 정상
+    경로의 LLM 호출은 한 번이다.
+
+    Returns:
+        (후처리까지 끝난 답, 위험 흐름 outcome). 위험 흐름을 타지 않았으면 outcome 은 None.
+        'DELIVER_GENERATED' 일 때만 호출처가 `risk_plan.followups` 를 스레드에 등록한다.
+
+    Raises:
+        TokenBudgetExceeded: 입력 한도 초과. LLMServiceSuspended: 비용 소진 중단.
+        RiskAnswerBlocked: 위험 흐름 BLOCK(전달 금지).
+    """
+    if postprocess is not None and postprocess.risk_plan is not None:
+        plan = postprocess.risk_plan
+        delivered = _generate_with_risk_flow(plan, postprocess, owner_id, thread_id)
+        if delivered is not None:
+            return delivered
+        # 위험 요소 없는 본문 + 억제 가드로 일반 경로(기존 폴백과 같은 본문).
+        prompt_text = (
+            plan.baseline_prompt + "\n" + risk_exposure_service.RISK_EXPOSURE_SUPPRESSED_GUARD
+        )
+        postprocess = postprocess.model_copy(
+            update={"prompt_text": prompt_text, "risk_plan": None},
+        )
+    answer = llm_client.generate_reading(
+        prompt_text, call_type=call_type, system=system,
+        owner_id=owner_id, surface="chat", ref_id=thread_id,
+    )
+    return finalize_answer_full(answer, postprocess, thread_id), None
+
+
 def _audit_layer_labels_answer(answer: str, payload: LlmInput, thread_id: str | None) -> str:
     """층위 라벨 정합 감사(2026-10-25) — 운 스택은 기간 총운 블록, 없으면 현재 대운만."""
     stack: dict[str, str] = {}
@@ -3756,6 +3929,7 @@ def update_thread_offer(
     answer: str,
     store: ConversationStore | None = None,
     engine_slots: dict | None = None,
+    system_results: list[ResultSummaryRef] | None = None,
 ) -> None:
     """백그라운드 생성 완료 후 스레드 last_offer 갱신 — 비동기 경로 offer-slot 링킹 소생.
 
@@ -3769,6 +3943,8 @@ def update_thread_offer(
     Args:
         engine_slots: 이번 턴 두 칸 엔진 배정(prep 의 postprocess.entry_slots_engine) — 승계
             저장 1차 원천(2026-10-24).
+        system_results: 답변 전달 뒤에 등록할 시스템 결과 참조 — 감사 통과 위험 답이 전달된
+            턴의 위험 episode 참조(2026-11-28, 동기 경로와 같은 계약).
     """
     try:
         store = store or ConversationStore()
@@ -3776,6 +3952,8 @@ def update_thread_offer(
         if state is None:
             return
         state.last_offer = _extract_offer(answer)
+        if system_results:
+            state = ConversationEngine.register_system_results(state, system_results)
         # 시스템 발언 원장 갱신 + shadow 감사 — 비동기 경로도 동기 경로와 같은 계약(2026-10-01).
         _record_answer_commitments(state, answer, thread_id, engine_slots=engine_slots)
         store.save(state)
@@ -8858,7 +9036,7 @@ def chat(
     # (회귀 fixture). 현 단계는 expose_pipeline.reviewed=false + tokenizer
     # adapter 부재라 게이트가 전부 비주입하고 suppressed guard만 부착된다 —
     # 질문 매핑·adapter·canary allowlist는 canary 개시 차수에서 감수 후 공급.
-    _risk_flow_result: dict | None = None
+    _risk_plan: RiskGenerationPlan | None = None
     if risk_exposure_service.exposure_mode_active():
         # 실값 공급(감수 61차 §13-①): 매핑·payload·adapter는 직렬화 전
         # 사전 계산분(reserve 판정과 동일 값)을 재사용한다 — 어느 하나라도
@@ -8887,27 +9065,29 @@ def chat(
         from .risk_exposure_monitor import observe_disposition
         observe_disposition(_risk_obs, surface="chat")
         if _risk_obs.get("disposition") == "INJECTED" and _risk_payload:
-            # INJECTED 실호출(감수 60·61차): 구조화 생성→감사→REVISE/
-            # REGENERATE→renderer 후 최종 감사. BYPASS/SUPPRESSED는 아래
-            # 기존 generate_reading 경로 그대로(byte-equivalent 계약).
-            try:
-                _risk_flow_result = _reb.run_exposed_reading(
-                    baseline_prompt=_baseline_prompt,
-                    injected_prompt=prompt_text,
-                    system=system or llm_client._SYSTEM_PROMPT,
-                    observability=_risk_obs, payload=_risk_payload,
-                    call_type=call_type,
-                    request_context_id=f"{thread_id or 'oneshot'}:"
-                                       f"{state.turn_no if state else 0}",
-                    renderer=_normalize_ganji_gloss)
-            except Exception:  # noqa: BLE001 — flow 인프라 장애 방어
-                # 위험 요소(instruction·block·schema)가 감사 없이 나가는
-                # 경로 차단: baseline+guard로 복원해 기존 경로 폴백.
-                _logger.exception("risk_flow 실패 — baseline+guard 폴백")
-                _risk_flow_result = None
-                prompt_text = (_baseline_prompt + "\n"
-                               + risk_exposure_service
-                               .RISK_EXPOSURE_SUPPRESSED_GUARD)
+            # INJECTED(감수 60·61차): 구조화 생성→감사→REVISE/REGENERATE→renderer 후 최종
+            # 감사. **여기서는 계획만 만든다** — 실행은 생성 단계(`generate_chat_answer`)에서
+            # 한 번이다. 라우터는 모든 채팅을 dry_run=True 로 준비한 뒤 따로 생성하므로, 이
+            # 자리에서 실호출을 하면 결과가 dry_run 반환에서 버려지고 같은 입력으로 한 번 더
+            # 호출된다(2026-11-28 데굴님 지적 — 위험 블록이 실린 턴마다 사용량 기록에 없는
+            # 호출이 한 번씩 더 나갔고, 감사된 답은 한 번도 전달되지 않았다).
+            # BYPASS/SUPPRESSED 는 기존 generate_reading 경로 그대로(byte-equivalent 계약).
+            if prompt_text.startswith(_baseline_prompt):
+                prompt_text = (
+                    _baseline_prompt + "\n" + _RISK_ANSWER_FORMAT_LINE
+                    + prompt_text[len(_baseline_prompt):]
+                )
+            _risk_plan = RiskGenerationPlan(
+                baseline_prompt=_baseline_prompt,
+                injected_prompt=prompt_text,
+                system=system or llm_client._SYSTEM_PROMPT,
+                observability=_risk_obs, payload=_risk_payload,
+                call_type=call_type,
+                request_context_id=(
+                    f"{thread_id or 'oneshot'}:{state.turn_no if state else 0}"
+                ),
+                followups=_risk_followups(_risk_payload),
+            )
 
     if state is not None:
         # T4.5 — 시스템이 제시한 상위 이벤트를 claim/event 엔티티로 등록(이의 재검산 대비).
@@ -8920,6 +9100,18 @@ def chat(
             for c in payload.event_candidates[:3]
         ]
         state = ConversationEngine.register_system_results(state, summaries)
+
+    # 후처리 맥락 — 준비(dry_run) 응답이 실어 보내고, 직접 생성 경로도 같은 것을 쓴다.
+    _post_ctx = ChatPostprocessContext(
+        payload=payload, career_prep=_career_prep, prompt_text=prompt_text,
+        call_type=call_type, system=system, owner_id=owner_id, question=question,
+        entry_window=_entry_window_on, followup=_followup_meta,
+        entry_slots_engine=_entry_slots_engine,
+        partner_appearance=bool(_spouse_image_directive),
+        speech_style=(persona.speech.style if persona is not None else "haeyo"),
+        risk_plan=_risk_plan,
+        **_week_label_ctx(intent),
+    )
 
     if dry_run or not llm_client.is_available():
         _save_thread(store, state, owner_id)
@@ -8935,85 +9127,38 @@ def chat(
             repeated=repeated,
             system_prompt=system,
             call_type=call_type,
-            postprocess=ChatPostprocessContext(
-                payload=payload, career_prep=_career_prep, prompt_text=prompt_text,
-                call_type=call_type, system=system, owner_id=owner_id, question=question,
-                entry_window=_entry_window_on, followup=_followup_meta,
-                entry_slots_engine=_entry_slots_engine,
-                partner_appearance=bool(_spouse_image_directive),
-                speech_style=(persona.speech.style if persona is not None else "haeyo"),
-                **_week_label_ctx(intent),
-            ),
+            postprocess=_post_ctx,
         )
 
-    if _risk_flow_result is not None:
-        # INJECTED 경로(감수 60차 §8): DELIVER_*만 전달 — renderer·최종
-        # 감사는 flow 내부에서 이미 완료(재가공 금지). BLOCK=전달 금지 →
-        # 위험 무관 일반 실패 문구(내부 상태 설명 금지).
-        if _risk_flow_result["outcome"] in ("DELIVER_GENERATED",
-                                            "DELIVER_SAFE_FALLBACK"):
-            answer = _risk_flow_result["final_text"]
-            # episode_followup 저장(감수 62차): **DELIVER_GENERATED만**
-            # (SAFE_FALLBACK/BLOCK/BYPASS 등록 금지 — 전달된 위험 서술이
-            # 있는 경우에만 후속 해소 대상). thread 내 최대 3건, 동일
-            # turn 재시도는 register가 id로 멱등 처리.
-            if (_risk_flow_result["outcome"] == "DELIVER_GENERATED"
-                    and state is not None and _risk_payload):
-                _summ: list[ResultSummaryRef] = []
-                for _rec in (_risk_payload.get("presentationRecords")
-                             or []):
-                    _diag = _rec.get("diagnostics") or {}
-                    _key = _diag.get("episodeKey")
-                    if not _key or _rec.get("presentationLevel") == "none":
-                        continue
-                    _dom = (_rec.get("domains") or [""])[0]
-                    _period = str(_diag.get("startPeriod", ""))[:4]
-                    _summ.append(ResultSummaryRef(
-                        kind="risk_episode",
-                        label=f"{_key}|{_dom}|{_period}",
-                        detail="위험 episode 참조(후속 질문 해소용)"))
-                if _summ:
-                    state = ConversationEngine.register_system_results(
-                        state, _summ[:3])
-        else:
-            _save_thread(store, state, owner_id)
-            return ChatResponse(
-                status="error",
-                answer="답변 생성에 문제가 있었어요. 잠시 후 다시"
-                       " 시도해 주세요.",
-                intents=parsed.intents, thread_id=thread_id,
-                turn_no=state.turn_no if state else None)
-    else:
-        try:
-            answer = llm_client.generate_reading(
-                prompt_text,
-                call_type=call_type,
-                system=system,
-                owner_id=owner_id,
-                surface="chat",
-                ref_id=thread_id,
-            )
-        except TokenBudgetExceeded as exc:
-            # 호출 직전 최종 검사 초과(위험 주입 등 직렬화 후 가산분) — 일반 오류 대신 안내.
-            _logger.warning("chat token budget exceeded at call: %s", exc)
-            return ChatResponse(
-                status="too_broad", answer=TOKEN_BUDGET_ANSWER, intents=parsed.intents,
-                thread_id=thread_id, turn_no=state.turn_no if state else None,
-            )
-        # 후처리 전체(커리어 출력 감사 → 관계 주장 패치 → 월 커버리지 → 텍스트 후처리) —
-        # 비동기·비로그인 경로(router)와 같은 함수를 쓴다(2026-10-01 경로 통일).
-        answer = finalize_answer_full(
-            answer,
-            ChatPostprocessContext(
-                payload=payload, career_prep=_career_prep, prompt_text=prompt_text,
-                call_type=call_type, system=system, owner_id=owner_id, question=question,
-                entry_window=_entry_window_on, entry_slots_engine=_entry_slots_engine,
-                partner_appearance=bool(_spouse_image_directive),
-                speech_style=(persona.speech.style if persona is not None else "haeyo"),
-                **_week_label_ctx(intent),
-            ),
-            thread_id,
+    # 생성 — 라우터(백그라운드·비로그인)와 같은 단일 진입점. 위험 블록이 실린 턴은 위험 흐름을
+    # 한 번 돌려 감사된 답을, 그 밖은 일반 생성 + 후처리 전체(커리어 출력 감사 → 관계 주장
+    # 패치 → 월 커버리지 → 텍스트 후처리)를 거친 답을 받는다.
+    try:
+        answer, _risk_outcome = generate_chat_answer(
+            prompt_text, call_type=call_type, system=system, postprocess=_post_ctx,
+            owner_id=owner_id, thread_id=thread_id,
         )
+    except TokenBudgetExceeded as exc:
+        # 호출 직전 최종 검사 초과(위험 주입 등 직렬화 후 가산분) — 일반 오류 대신 안내.
+        _logger.warning("chat token budget exceeded at call: %s", exc)
+        return ChatResponse(
+            status="too_broad", answer=TOKEN_BUDGET_ANSWER, intents=parsed.intents,
+            thread_id=thread_id, turn_no=state.turn_no if state else None,
+        )
+    except RiskAnswerBlocked:
+        # BLOCK=전달 금지 → 위험 무관 일반 실패 문구(내부 상태 설명 금지, 감수 60차 §8).
+        _save_thread(store, state, owner_id)
+        return ChatResponse(
+            status="error",
+            answer="답변 생성에 문제가 있었어요. 잠시 후 다시 시도해 주세요.",
+            intents=parsed.intents, thread_id=thread_id,
+            turn_no=state.turn_no if state else None)
+    # episode_followup 저장(감수 62차): **DELIVER_GENERATED만**(SAFE_FALLBACK/BLOCK/BYPASS
+    # 등록 금지 — 전달된 위험 서술이 있는 경우에만 후속 해소 대상). thread 내 최대 3건,
+    # 동일 turn 재시도는 register가 id로 멱등 처리.
+    if (_risk_outcome == "DELIVER_GENERATED" and state is not None
+            and _risk_plan is not None and _risk_plan.followups):
+        state = ConversationEngine.register_system_results(state, _risk_plan.followups)
     # P1-b 유보 어미 밀도 계측(관측 전용 — 재생성 기본화 금지 확정(2026-07-27) 준수):
     # '수 있' 문장 비율이 계약 ②항(최대 두 문장)을 크게 넘으면 로그로 남겨,
     # 계약 문구 강화의 효과를 실측한다(감사 기준선: 2026-08-21 문장의 11.4%).

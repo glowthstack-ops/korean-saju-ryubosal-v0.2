@@ -5586,8 +5586,13 @@ def _try_risk_exposed_section(
     subject_id: str | None,
     section_id: str = "C-06",
     available_section_ids: frozenset[str] = frozenset({"C-06"}),
+    owner_id: str | None = None,
 ) -> tuple[str | None, str]:
     """위험 노출 섹션 시도(감수 62차 확대) — (완성 본문 | None, 유효 prompt).
+
+    owner_id(2026-11-28): 구조화 호출의 사용량 적재용 — 이 경로의 호출은 지금까지
+    `llm_usage` 에 남지 않았다. 중단·메인 공급자 쿨다운이거나 provider 장애로 안전 문구만
+    남으면 위험 본문 없이 기존 생성 경로(폴백 공급자·중단 처리 포함)로 넘긴다.
 
     리포트는 기간이 상품 파라미터로 명시적이므로 파서 매핑 없이 섹션별
     질문 유형·도메인을 직접 전달한다(시간 재해석 없음 — allowed_years가
@@ -5681,6 +5686,11 @@ def _try_risk_exposed_section(
         if obs.get("disposition") != "INJECTED" or not payload:
             # SUPPRESSED=guard 부착 prompt·BYPASS=원본 — 기존 경로로.
             return None, prompt
+        if not llm_client.direct_primary_call_ready():
+            # 구조화 호출은 폴백 공급자가 없다 — 실패할 호출을 내지 않고 기존 경로로.
+            _logger.info("report_risk_flow_not_run section=%s reason=primary_unavailable",
+                         section_id)
+            return None, body_prompt
         flow = _reb.run_exposed_reading(
             baseline_prompt=body_prompt,
             injected_prompt=prompt,
@@ -5691,7 +5701,17 @@ def _try_risk_exposed_section(
             request_context_id=(
                 f"report:{subject_id or 'anon'}:{spec.product_code}:"
                 f"{section_id}"),
-            renderer=_tighten)
+            renderer=_tighten,
+            owner_id=owner_id, ref_id=subject_id, surface="report",
+            product_code=f"{spec.product_code}:{section_id}")
+        _logger.info(
+            "report_risk_flow_result section=%s outcome=%s attempts=%s provider_calls=%s",
+            section_id, flow.get("outcome"),
+            [a.get("kind") for a in flow.get("attempts") or []],
+            flow.get("provider_reports"))
+        if _reb.ended_on_provider_failure(flow):
+            # provider 장애·소진 — 안전 문구를 섹션 본문으로 싣지 않고 기존 생성으로.
+            return None, body_prompt
         if flow["outcome"] in ("DELIVER_GENERATED",
                                "DELIVER_SAFE_FALLBACK"):
             if flow["outcome"] == "DELIVER_GENERATED":
@@ -5855,7 +5875,8 @@ def generate_report(
                 data, spec, context.body_prompt, system, call_type,
                 subject_id or owner_id,
                 section_id=plan.section_id,
-                available_section_ids=_available_risk_sections)
+                available_section_ids=_available_risk_sections,
+                owner_id=owner_id)
             if risk_text is not None:
                 risk_text = _apply_style_audits(plan.section_id, risk_text, data, spec)
                 data.record_opening(risk_text)

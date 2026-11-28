@@ -60,9 +60,21 @@ def test_finalize_full_with_real_context_runs_all_audits() -> None:
 
 
 def test_router_paths_call_full_postprocess() -> None:
-    """라우터의 백그라운드·비로그인 경로가 모두 finalize_answer_full 을 호출한다(회귀 가드)."""
+    """라우터의 백그라운드·비로그인 경로가 모두 후처리 전체를 거친다(회귀 가드).
+
+    2026-11-28: 두 경로가 생성 단계 단일 진입점 `generate_chat_answer` 를 쓰고, 그 함수가
+    일반 생성 답과 위험 흐름 답(renderer) 양쪽에 `finalize_answer_full` 을 적용한다. 라우터가
+    `generate_reading` 을 직접 부르면 위험 흐름·후처리를 건너뛰므로 그것도 막는다.
+    """
     bg = inspect.getsource(chat_router._run_chat_answer)
-    assert "finalize_answer_full(answer, postprocess, thread_id)" in bg
+    assert "chat_service.generate_chat_answer(" in bg and "postprocess=postprocess" in bg
+    assert "generate_reading(" not in bg
     sync = inspect.getsource(chat_router.chat)
-    assert "finalize_answer_full(answer, prep.postprocess, req.thread_id)" in sync
+    assert "chat_service.generate_chat_answer(" in sync
+    assert "postprocess=prep.postprocess" in sync
+    assert "generate_reading(" not in sync
     assert "prep.postprocess," in sync  # 백그라운드 태스크 인자로 전달
+    entry = inspect.getsource(chat_service.generate_chat_answer)
+    assert "finalize_answer_full(answer, postprocess, thread_id)" in entry  # 일반 생성 답
+    risk = inspect.getsource(chat_service._generate_with_risk_flow)
+    assert "finalize_answer_full(" in risk and "renderer=_render" in risk  # 위험 흐름 답

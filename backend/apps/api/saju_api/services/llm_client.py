@@ -624,6 +624,104 @@ _FALLBACK_STYLE_DIRECTIVE = (
 )
 
 
+def _record_provider_quota(
+    exc: ProviderQuotaExhausted, *, cooldown: float, surface: str,
+    owner_id: str | None, ref_id: str | None,
+) -> None:
+    """공급자 소진 기록 + 새로 막힌 경우 경고 1건 — 일반 생성·직접 호출 공용."""
+    if _svc.mark_provider_exhausted(
+        exc.provider, exc.model, exc.detail, kind="quota", cooldown_seconds=cooldown,
+    ):
+        _emit_error(
+            exc, kind=_svc.PROVIDER_EXHAUSTED_KIND, severity="warning",
+            message=f"공급자 비용 소진(쿨다운 {int(cooldown)}s): {exc.provider} {exc.model}",
+            detail=exc.detail[:1000], surface=surface,
+            provider=exc.provider, model=exc.model, owner_id=owner_id, ref_id=ref_id,
+        )
+
+
+# ── 메인 공급자 직접 호출 보조(2026-11-28) ─────────────────────────
+# 위험 INJECTED 구조화 호출(`gemini_token_adapter.generate_structured`)은 계수와 같은 요청
+# 본문을 써야 해서 `generate_reading` 을 거치지 않는다. 그 호출이 사용량 기록·입력 한도·소진
+# 신호 처리에서 빠져 있었다(사용량 기록에 없는 비용 — 데굴님 지적). 아래 네 함수로 맞춘다.
+
+
+def primary_generation_extras() -> dict[str, Any]:
+    """메인 프로필의 생성 옵션(thinkingConfig 등) — 직접 호출도 같은 추론 수준을 쓴다."""
+    return dict(load_config()["primary"].get("generation_extras") or {})
+
+
+def direct_primary_call_ready() -> bool:
+    """메인 공급자 직접 호출(폴백 없음)을 지금 낼 수 있는가.
+
+    서비스 중단이거나 메인 공급자가 소진 쿨다운이면 False — 호출처는 위험 요소 없는 본문으로
+    `generate_reading`(폴백·중단 처리 포함)을 쓴다.
+    """
+    cfg = load_config()
+    state = _svc.current()
+    return (
+        bool(_api_key(cfg["primary"]))
+        and not state.is_suspended
+        and not state.provider_blocked(str(cfg["primary"]["provider"]))
+    )
+
+
+def check_input_budget(prompt_text: str, system: str | None, call_type: str) -> None:
+    """호출 직전 입력 한도 검사(docs/09 8장 한도표) — 초과면 `TokenBudgetExceeded`.
+
+    `generate_reading` 이 호출 직전에 하는 검사와 같은 본문·같은 가드다.
+    """
+    LLMCallGuard(call_type).check_input(
+        normalize_range_tilde(prompt_text) + normalize_range_tilde(system or _SYSTEM_PROMPT)
+    )
+
+
+def record_direct_primary_call(
+    *, call_type: str, input_tokens: int, output_tokens: int, cached_tokens: int,
+    owner_id: str | None, surface: str, ref_id: str | None, product_code: str = "CHAT",
+) -> None:
+    """메인 공급자 직접 호출 1건을 원가 원장·사용량 로그에 적재한다(일반 생성과 같은 칸)."""
+    primary = load_config()["primary"]
+    LLMCallGuard(call_type, ledger=COST_LEDGER).record(
+        input_tokens=input_tokens, output_tokens=output_tokens,
+        cached_input_tokens=cached_tokens,
+        product_code=f"{product_code}:{primary['provider']}",
+    )
+    _emit_usage(
+        surface=surface, model=primary["model"], provider=primary["provider"],
+        is_fallback=False, input_tokens=input_tokens, output_tokens=output_tokens,
+        cached_tokens=cached_tokens, owner_id=owner_id, product_code=product_code,
+        call_type=call_type, ref_id=ref_id,
+    )
+
+
+def note_direct_primary_error(
+    exc: httpx.HTTPStatusError, *, surface: str, owner_id: str | None, ref_id: str | None,
+) -> bool:
+    """직접 호출의 HTTP 오류를 분류한다 — 명시 소진 신호면 공급자 쿨다운을 기록하고 True.
+
+    일시 오류(분당 한도·5xx)는 False. 분류 기준은 `classify_provider_error` 그대로다.
+    """
+    cfg = load_config()
+    primary = cfg["primary"]
+    provider = str(primary["provider"])
+    try:
+        body: Any = exc.response.json()
+    except ValueError:
+        body = None
+    if classify_provider_error(provider, exc.response.status_code, body) != "quota":
+        return False
+    detail = ""
+    if isinstance(body, dict) and isinstance(body.get("error"), dict):
+        detail = str(body["error"].get("message") or body["error"])
+    cooldown = float(cfg.get("options", {}).get("provider_cooldown_seconds", 900))
+    _record_provider_quota(
+        ProviderQuotaExhausted(provider, str(primary.get("model")), detail or str(exc)[:300]),
+        cooldown=cooldown, surface=surface, owner_id=owner_id, ref_id=ref_id,
+    )
+    return True
+
+
 def generate_reading(
     prompt_text: str,
     call_type: str = "chat_single",
@@ -671,15 +769,9 @@ def generate_reading(
 
     def _on_quota(exc: ProviderQuotaExhausted) -> None:
         """공급자 소진 기록 + 새로 막힌 경우 경고 1건(비치명 — 다른 공급자로 계속)."""
-        if _svc.mark_provider_exhausted(
-            exc.provider, exc.model, exc.detail, kind="quota", cooldown_seconds=cooldown,
-        ):
-            _emit_error(
-                exc, kind=_svc.PROVIDER_EXHAUSTED_KIND, severity="warning",
-                message=f"공급자 비용 소진(쿨다운 {int(cooldown)}s): {exc.provider} {exc.model}",
-                detail=exc.detail[:1000], surface=surface,
-                provider=exc.provider, model=exc.model, owner_id=owner_id, ref_id=ref_id,
-            )
+        _record_provider_quota(
+            exc, cooldown=cooldown, surface=surface, owner_id=owner_id, ref_id=ref_id,
+        )
 
     primary_provider = str(cfg["primary"]["provider"])
     primary_skipped = state.provider_blocked(primary_provider)

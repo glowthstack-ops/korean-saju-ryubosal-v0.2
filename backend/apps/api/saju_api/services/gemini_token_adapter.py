@@ -144,18 +144,30 @@ class GeminiTokenCounterAdapter(TokenCounterAdapter):
 
 def generate_structured(request: ProviderRequest, model_id: str, *,
                         max_output_tokens: int,
-                        timeout: float = 90.0) -> dict:
+                        timeout: float = 90.0,
+                        generation_extras: dict[str, Any] | None = None,
+                        ) -> dict:
     """계수와 **동일한 body**(build_gemini_request_body)로 generateContent
     호출(감수 61차 §8 — countTokens와 같은 ProviderRequest 사용 계약).
 
     위험 INJECTED 전용 — 폴백 없음(실패=예외 전파 → flow가 REGENERATE/
     fallback 처리). 반환: {"text", "prompt_tokens"(전체 input — cached
-    포함), "cached_tokens", "output_tokens", "model_version"(응답 최상위
-    modelVersion — lease 대조용, 감수 62차 P0⑧), "finish_reason"}.
+    포함), "cached_tokens", "output_tokens", "thoughts_tokens"(추론 토큰
+    — 관측용), "model_version"(응답 최상위 modelVersion — lease 대조용,
+    감수 62차 P0⑧), "finish_reason"}.
+
+    generation_extras(2026-11-28): 메인 프로필의 출력 쪽 옵션(thinkingConfig
+    등)을 maxOutputTokens 와 같은 자리에 싣는다. 지금까지 이 호출만
+    thinkingConfig 없이 나가 모델 기본 추론 수준으로 돌았다(절대원칙 9 —
+    thinking 은 low 이하). 계수 대상(ProviderRequest: system·contents·
+    schema)과 request shape digest 는 바뀌지 않는다 — 검증 스크립트도
+    maxOutputTokens 를 같은 방식으로 본문 밖에서 싣는다. 입력 토큰이
+    달라지면 호출 뒤 undercount 검사가 그 응답을 폐기한다(fail-closed).
     """
     import time as _time
     body = build_gemini_request_body(request)
     cfg = dict(body.get("generationConfig") or {})
+    cfg.update(generation_extras or {})
     cfg["maxOutputTokens"] = max_output_tokens
     body["generationConfig"] = cfg
     res = None
@@ -186,6 +198,7 @@ def generate_structured(request: ProviderRequest, model_id: str, *,
         "prompt_tokens": int(usage.get("promptTokenCount", 0)),
         "cached_tokens": int(usage.get("cachedContentTokenCount", 0)),
         "output_tokens": int(usage.get("candidatesTokenCount", 0)),
+        "thoughts_tokens": int(usage.get("thoughtsTokenCount", 0)),
         # 응답 최상위 modelVersion(usageMetadata 아님) — lease의
         # reported_model_version과 대조(불일치=응답 폐기+UNVALIDATED).
         "model_version": str(data.get("modelVersion", "")),

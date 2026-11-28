@@ -235,13 +235,14 @@ def _run_chat_answer(
     생성된 Gemini 결과를 버리지 않으며(비용 낭비 방지), 실패 시 status='error'로 안내문 저장.
     """
     try:
-        answer = chat_service.llm_client.generate_reading(
-            prompt, call_type=call_type, system=system,
-            owner_id=owner_id, surface="chat", ref_id=thread_id,
+        # 생성 + 후처리 전체(커리어 출력 감사·관계 주장 패치·월 커버리지·텍스트 후처리) —
+        # 동기 경로와 같은 단일 진입점(2026-10-01 경로 통일). 위험 블록이 실린 턴은 여기서
+        # 위험 흐름을 한 번 돌려 감사된 답을 받는다(2026-11-28 — 준비 단계에서 돌고 버려지던
+        # 호출을 이 자리로 옮겼다).
+        answer, risk_outcome = chat_service.generate_chat_answer(
+            prompt, call_type=call_type, system=system, postprocess=postprocess,
+            owner_id=owner_id, thread_id=thread_id,
         )
-        # 후처리 전체(커리어 출력 감사·관계 주장 패치·월 커버리지·텍스트 후처리) — 동기 경로와
-        # 동일 계약. 이 경로는 chat_service 의 후처리를 전혀 지나지 않았다(2026-10-01 경로 통일).
-        answer = chat_service.finalize_answer_full(answer, postprocess, thread_id)
         history.complete_turn(message_id, answer, status="done")
         # 답변 끝 제안(offer)을 스레드 상태에 반영 — 다음 턴 offer-slot 링킹의 근거.
         # 동기 경로 전용이던 갱신이 비동기 경로에서 누락돼 후속이 too_broad로 끊기던
@@ -249,6 +250,7 @@ def _run_chat_answer(
         chat_service.update_thread_offer(
             thread_id, answer,
             engine_slots=(postprocess.entry_slots_engine if postprocess is not None else None),
+            system_results=_risk_followups_for(postprocess, risk_outcome),
         )
     except TokenBudgetExceeded as exc:
         # 입력 상한 초과(2026-09-11 실로그 #650~654: 일반 오류문으로 3회 연속 종료) —
@@ -274,6 +276,16 @@ def _run_chat_answer(
             meta={"error": str(exc)[:300]},
         )
         chat_service.update_thread_offer(thread_id, "")  # 이전 턴 offer 잔존 만료
+
+
+def _risk_followups_for(
+    postprocess: chat_service.ChatPostprocessContext | None, risk_outcome: str | None,
+) -> list | None:
+    """감사 통과 위험 답이 전달된 턴(DELIVER_GENERATED)에만 등록할 위험 episode 참조."""
+    if risk_outcome != "DELIVER_GENERATED" or postprocess is None:
+        return None
+    plan = postprocess.risk_plan
+    return list(plan.followups) if plan is not None and plan.followups else None
 
 
 @router.post("", response_model=chat_service.ChatResponse)
@@ -388,10 +400,10 @@ def chat(
     # 비로그인/스레드 없음 — prep을 재사용해 동기 생성(영속화 불가).
     if is_llm_path and llm_ready:
         try:
-            answer = chat_service.llm_client.generate_reading(
+            answer, risk_outcome = chat_service.generate_chat_answer(
                 prep.prompt_preview or "", call_type=prep.call_type or "chat_single",
-                system=prep.system_prompt, owner_id=owner_id, surface="chat",
-                ref_id=req.thread_id,
+                system=prep.system_prompt, postprocess=prep.postprocess,
+                owner_id=owner_id, thread_id=req.thread_id,
             )
         except LLMServiceSuspended:
             # 이 호출로 중단이 전이된 경우(직전 검사는 active 였다) — 같은 안내로 마감.
@@ -401,7 +413,15 @@ def chat(
                 }),
                 req, owner_id, history,
             )
-        answer = chat_service.finalize_answer_full(answer, prep.postprocess, req.thread_id)
+        except chat_service.RiskAnswerBlocked:
+            # 위험 흐름 BLOCK — 전달 금지, 위험과 무관한 일반 실패 문구(내부 상태 설명 금지).
+            return _finish_immediate(
+                prep.model_copy(update={
+                    "status": "error",
+                    "answer": "답변 생성에 문제가 있었어요. 잠시 후 다시 시도해 주세요.",
+                }),
+                req, owner_id, history,
+            )
         prep = prep.model_copy(update={"status": "answered", "answer": answer})
         # 이 경로는 라우터가 답변을 직접 생성하므로 chat_service 의 offer 저장
         # 지점을 지나지 않는다 — 스레드가 있으면 여기서 갱신해야 다음 턴의
@@ -413,6 +433,7 @@ def chat(
                 engine_slots=(
                     prep.postprocess.entry_slots_engine if prep.postprocess is not None else None
                 ),
+                system_results=_risk_followups_for(prep.postprocess, risk_outcome),
             )
 
     # 정책/범위/need_subject(즉시 응답) — 로그인+스레드+DB면 동기 영속화.
